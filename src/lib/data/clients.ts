@@ -10,6 +10,13 @@ export function likePattern(value: string) {
   return `%${value.replace(/[\\%_]/g, (m) => `\\${m}`)}%`;
 }
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** Ids from the URL are checked first, so a malformed id becomes a 404, not a database error. */
+export function isUuid(value: unknown): value is string {
+  return typeof value === "string" && UUID_RE.test(value);
+}
+
 export function isClientStatus(value: unknown): value is ClientStatus {
   return clientStatuses.some((s) => s.value === value);
 }
@@ -60,6 +67,7 @@ export async function listClients({
 
 export async function getClient(id: string) {
   await requireStaff();
+  if (!isUuid(id)) return null;
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("clients")

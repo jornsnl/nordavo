@@ -4,7 +4,7 @@ import type { ApplicationStage, Seniority, VacancyStatus } from "@/lib/database.
 import { createClient } from "@/lib/supabase/server";
 import { applicationStages, vacancyStatuses } from "@/lib/labels";
 import { daysBetween } from "@/lib/format";
-import { likePattern } from "@/lib/data/clients";
+import { isUuid, likePattern } from "@/lib/data/clients";
 
 /** Our promise: 3 candidates within 3 weeks. */
 export const PRESENTED_TARGET = 3;
@@ -54,7 +54,7 @@ export async function listVacancies({
 
   if (q) query = query.ilike("title", likePattern(q));
   if (statuses && statuses.length > 0) query = query.in("status", statuses);
-  if (clientId) query = query.eq("client_id", clientId);
+  if (clientId && isUuid(clientId)) query = query.eq("client_id", clientId);
 
   const { data, error } = await query;
   if (error) throw new Error(`Vacatures laden mislukt: ${error.message}`);
@@ -74,6 +74,7 @@ export async function listVacancies({
 
 export async function getVacancy(id: string) {
   await requireStaff();
+  if (!isUuid(id)) return null;
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("vacancies")
