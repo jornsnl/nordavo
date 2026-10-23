@@ -94,7 +94,7 @@ async function ClientDetail({ params }: { params: Params }) {
                 items={[
                   {
                     label: "Website",
-                    value: client.website ? (
+                    value: client.website && /^https?:\/\//i.test(client.website) ? (
                       <a
                         href={client.website}
                         target="_blank"
@@ -105,7 +105,9 @@ async function ClientDetail({ params }: { params: Params }) {
                         <ExternalLink className="size-3.5" aria-hidden="true" />
                         <span className="sr-only">(opent in een nieuw tabblad)</span>
                       </a>
-                    ) : null,
+                    ) : (
+                      client.website
+                    ),
                   },
                   { label: "Branche", value: client.industry },
                   { label: "Plaats", value: client.city },

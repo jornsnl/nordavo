@@ -95,9 +95,9 @@ export async function getPlacementFormOptions() {
   if (error) throw new Error(`Formuliergegevens laden mislukt: ${error.message}`);
 
   return {
-    clients: clients.data,
-    candidates: candidates.data,
-    vacancies: vacancies.data,
+    clients: clients.data ?? [],
+    candidates: candidates.data ?? [],
+    vacancies: vacancies.data ?? [],
   };
 }
 

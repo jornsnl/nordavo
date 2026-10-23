@@ -143,8 +143,8 @@ function ContactForm({
   const [state, formAction, pending] = useActionState(
     async (prev: ActionState, formData: FormData) => {
       const result = await saveAction(prev, formData);
-      if (result.ok) onDone();
-      return result;
+      if (result?.ok) onDone();
+      return result ?? prev;
     },
     initialActionState,
   );

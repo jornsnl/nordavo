@@ -29,8 +29,8 @@ export function ConfirmDeleteButton({
   const [open, setOpen] = useState(false);
   const [state, formAction] = useActionState(async (prev: ActionState, formData: FormData) => {
     const result = await action(prev, formData);
-    if (result.ok) setOpen(false);
-    return result;
+    if (result?.ok) setOpen(false);
+    return result ?? prev;
   }, initialActionState);
 
   return (
