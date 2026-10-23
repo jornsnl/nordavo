@@ -88,7 +88,7 @@ export async function setTaskDone(taskId: string, done: boolean): Promise<Action
 const moveSchema = z.object({
   id: z.uuid(),
   status: statusSchema,
-  position: z.number().finite(),
+  position: z.number(),
   /** Set when positions in the column ran out of room: renumber in this order. */
   reorder: z.array(z.uuid()).max(500).optional(),
 });

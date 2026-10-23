@@ -1,19 +1,20 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import Link from "next/link";
-import { ArrowRight, Briefcase, Building2, Handshake, Users } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { getCurrentUser } from "@/lib/auth";
+import { RecentActivity } from "@/components/entity/recent-activity";
+import { AttentionVacancies } from "@/components/overview/attention-vacancies";
+import { PipelineFunnel } from "@/components/overview/pipeline-funnel";
+import { StatCards, StatCardsSkeleton } from "@/components/overview/stat-cards";
+import { UpcomingMoments } from "@/components/overview/upcoming-moments";
+import { MyTasksWidget } from "@/components/tasks/my-tasks-widget";
+import { Card, CardHeader } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export const metadata: Metadata = {
   title: "Overzicht",
 };
-
-const stats = [
-  { label: "Actieve klanten", icon: Building2, href: "/dashboard/klanten" },
-  { label: "Open vacatures", icon: Briefcase, href: "/dashboard/vacatures" },
-  { label: "Kandidaten in selectie", icon: Users, href: "/dashboard/kandidaten" },
-  { label: "Lopende plaatsingen", icon: Handshake, href: "/dashboard/plaatsingen" },
-];
 
 const process = [
   {
@@ -45,32 +46,64 @@ export default function DashboardPage() {
         <Greeting />
       </Suspense>
 
-      <section aria-labelledby="stats-heading" className="mb-10">
-        <h2 id="stats-heading" className="sr-only">
-          Kerncijfers
-        </h2>
-        <ul className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          {stats.map(({ label, icon: Icon, href }) => (
-            <li key={label}>
-              <Link
-                href={href}
-                className="group flex h-full flex-col rounded-2xl border border-border bg-card p-5 shadow-xs transition hover:border-brand-200 hover:shadow-md"
-              >
-                <span className="mb-4 flex size-10 items-center justify-center rounded-xl bg-brand-50 text-brand-600 transition group-hover:bg-brand-100">
-                  <Icon className="size-5" aria-hidden="true" />
-                </span>
-                <span className="text-sm text-muted">{label}</span>
-                <span className="mt-1 font-display text-3xl font-bold text-brand-900">
-                  —
-                </span>
-                <span className="mt-auto pt-3 text-xs text-muted/80">
-                  Nog niet gekoppeld
-                </span>
-              </Link>
-            </li>
-          ))}
-        </ul>
-      </section>
+      <Suspense fallback={<StatCardsSkeleton />}>
+        <StatCards />
+      </Suspense>
+
+      <div className="mb-10 grid gap-6 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+        <div className="min-w-0 space-y-6">
+          <Card>
+            <CardHeader
+              title="Vacatures die aandacht nodig hebben"
+              description="Binnen 3 weken 3 kandidaten voorstellen. Langst open staat bovenaan."
+              actions={
+                <Link
+                  href="/dashboard/vacatures"
+                  className="text-sm font-semibold text-brand-600 hover:text-brand-800"
+                >
+                  Alle vacatures
+                </Link>
+              }
+            />
+            <Suspense fallback={<PanelSkeleton />}>
+              <AttentionVacancies />
+            </Suspense>
+          </Card>
+
+          <Card>
+            <CardHeader title="Mijn taken" description="Openstaande taken die aan jou zijn toegewezen." />
+            <Suspense fallback={<PanelSkeleton />}>
+              <MyTasksWidget />
+            </Suspense>
+          </Card>
+
+          <Card>
+            <CardHeader title="Recente activiteit" description="Wat er de laatste tijd is veranderd." />
+            <Suspense fallback={<PanelSkeleton />}>
+              <RecentActivity />
+            </Suspense>
+          </Card>
+        </div>
+
+        <div className="min-w-0 space-y-6">
+          <Card>
+            <CardHeader
+              title="Komende momenten"
+              description="Check-ins, einde garantie en laatste werkdagen."
+            />
+            <Suspense fallback={<PanelSkeleton />}>
+              <UpcomingMoments />
+            </Suspense>
+          </Card>
+
+          <Card>
+            <CardHeader title="Pipeline" description="Kandidaten per fase, bij open vacatures." />
+            <Suspense fallback={<PanelSkeleton />}>
+              <PipelineFunnel />
+            </Suspense>
+          </Card>
+        </div>
+      </div>
 
       <section
         aria-labelledby="process-heading"
@@ -137,10 +170,20 @@ async function Greeting() {
         {greeting}, {firstName}
       </h1>
       <p className="mt-2 text-muted">
-        Hier zie je straks in één oogopslag hoe het ervoor staat met klanten,
-        vacatures en kandidaten.
+        In één oogopslag hoe het ervoor staat met klanten, vacatures,
+        kandidaten en plaatsingen.
       </p>
     </header>
+  );
+}
+
+function PanelSkeleton() {
+  return (
+    <div className="space-y-2 p-5" aria-busy="true" aria-label="Laden">
+      <Skeleton className="h-10 w-full" />
+      <Skeleton className="h-10 w-full" />
+      <Skeleton className="h-10 w-full" />
+    </div>
   );
 }
 

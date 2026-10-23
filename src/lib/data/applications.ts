@@ -1,12 +1,8 @@
 import "server-only";
 import { requireStaff } from "@/lib/auth";
-import type { ApplicationStage } from "@/lib/database.types";
 import { daysBetween } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 import { isUuid } from "@/lib/data/candidates";
-
-/** Stages that count as "presented to the client" for the 3 candidates promise. */
-export const PRESENTED_STAGES: ApplicationStage[] = ["presented", "final_interview", "placed"];
 
 /** Every application of one candidate, across vacancies. */
 export async function listCandidateApplications(candidateId: string) {

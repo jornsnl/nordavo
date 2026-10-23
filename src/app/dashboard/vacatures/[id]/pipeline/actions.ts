@@ -133,3 +133,40 @@ export async function removeApplication(applicationId: string): Promise<ActionSt
   if (data) revalidateBoard(data.vacancy_id, data.candidate_id);
   return { ok: true, message: "Kandidaat uit de pipeline gehaald." };
 }
+
+const reorderSchema = z.object({
+  vacancyId: z.string().refine(isUuid),
+  stage: z.enum(stageValues),
+  orderedIds: z.array(z.string().refine(isUuid)).min(1).max(500),
+});
+
+/**
+ * Renumber a whole column (1024, 2048, ...) when fractional positions have
+ * run out of room between two neighbours.
+ */
+export async function reorderStage(
+  vacancyId: string,
+  stage: ApplicationStage,
+  orderedIds: string[],
+): Promise<ActionState> {
+  await requireStaff();
+
+  const parsed = reorderSchema.safeParse({ vacancyId, stage, orderedIds });
+  if (!parsed.success) return { error: "Deze volgorde klopt niet. Ververs de pagina." };
+
+  const supabase = await createClient();
+  const results = await Promise.all(
+    parsed.data.orderedIds.map((id, index) =>
+      supabase
+        .from("applications")
+        .update({ position: (index + 1) * 1024 })
+        .eq("id", id)
+        .eq("vacancy_id", parsed.data.vacancyId)
+        .eq("stage", parsed.data.stage),
+    ),
+  );
+  if (results.some((r) => r.error)) return { error: "Volgorde opslaan is niet gelukt." };
+
+  revalidatePath(`/dashboard/vacatures/${parsed.data.vacancyId}/pipeline`);
+  return { ok: true };
+}

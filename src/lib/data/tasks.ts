@@ -160,5 +160,10 @@ export async function listMyOpenTasks(limit: number) {
     .order("created_at")
     .limit(limit);
   if (error) throw new Error(`Taken laden mislukt: ${error.message}`);
-  return { tasks: await toTaskItems(data), total: count ?? data.length };
+  const rank = { high: 0, normal: 1, low: 2 } as const;
+  const tasks = (await toTaskItems(data)).sort(
+    (a, b) =>
+      (a.dueDate ?? "9999").localeCompare(b.dueDate ?? "9999") || rank[a.priority] - rank[b.priority],
+  );
+  return { tasks, total: count ?? data.length };
 }

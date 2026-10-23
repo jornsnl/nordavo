@@ -149,8 +149,8 @@ export async function getPipelineFunnel() {
 
   const { data, error } = await supabase
     .from("applications")
-    .select("stage, vacancy:vacancies!inner(status)")
-    .eq("vacancy.status", "open");
+    .select("stage, vacancies!inner(status)")
+    .eq("vacancies.status", "open");
 
   if (error) throw new Error(`Pipeline laden mislukt: ${error.message}`);
 

@@ -31,22 +31,22 @@ export async function listCandidates({ q, status, skill }: CandidateFilter) {
     .order("full_name");
 
   if (status) query = query.eq("status", status);
-  if (skill) query = query.contains("skills", [skill]);
 
   const { data, error } = await query;
   if (error) throw new Error(`Kandidaten laden mislukt: ${error.message}`);
 
-  // Search runs here so it is case-insensitive and partial on skills too,
-  // which PostgREST cannot do on a text[] column.
+  // Search and skill filter run here so they are case-insensitive (and partial
+  // for search) on skills too, which PostgREST cannot do on a text[] column.
   const term = q?.trim().toLowerCase();
-  const rows = term
-    ? data.filter(
-        (c) =>
-          c.full_name.toLowerCase().includes(term) ||
-          (c.current_title ?? "").toLowerCase().includes(term) ||
-          c.skills.some((s) => s.toLowerCase().includes(term)),
-      )
-    : data;
+  const skillKey = skill?.trim().toLowerCase();
+  const rows = data.filter(
+    (c) =>
+      (!skillKey || c.skills.some((s) => s.toLowerCase() === skillKey)) &&
+      (!term ||
+        c.full_name.toLowerCase().includes(term) ||
+        (c.current_title ?? "").toLowerCase().includes(term) ||
+        c.skills.some((s) => s.toLowerCase().includes(term))),
+  );
 
   return rows.map(({ applications, ...candidate }) => ({
     ...candidate,

@@ -11,11 +11,8 @@ import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
 import { Card, CardBody, CardHeader, DetailList } from "@/components/ui/card";
 import { ListSkeleton, Skeleton } from "@/components/ui/skeleton";
-import {
-  PRESENTED_STAGES,
-  listCandidateApplications,
-  listOpenVacancyOptions,
-} from "@/lib/data/applications";
+import { PRESENTED_STAGES } from "@/components/pipeline/stages";
+import { listCandidateApplications, listOpenVacancyOptions } from "@/lib/data/applications";
 import { getCandidate } from "@/lib/data/candidates";
 import { formatDate } from "@/lib/format";
 import {
