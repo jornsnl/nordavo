@@ -1,0 +1,65 @@
+@import "tailwindcss";
+
+/*
+ * Nordavo design tokens. Every brand color and font lives here,
+ * so the house style can be tuned in one place.
+ */
+:root {
+  /* Noordelijk nachtblauw: primary brand color */
+  --brand-950: #06111f;
+  --brand-900: #0a1a2f;
+  --brand-800: #10284a;
+  --brand-700: #173a66;
+  --brand-600: #1f4e8c;
+  --brand-500: #2b66b3;
+  --brand-200: #c4d5ee;
+  --brand-100: #e3ecf8;
+  --brand-50: #f2f6fc;
+
+  /* Saffraan: warm accent, the Bangalore side of the bridge */
+  --accent-600: #d9871a;
+  --accent-500: #f2a33a;
+  --accent-100: #fdf0dc;
+
+  --surface: #f6f8fb;
+  --card: #ffffff;
+  --border: #e3e8ef;
+  --ink: #0f1b2d;
+  --muted: #5b6779;
+  --danger: #c2410c;
+  --danger-bg: #fff4ed;
+}
+
+@theme inline {
+  --color-brand-950: var(--brand-950);
+  --color-brand-900: var(--brand-900);
+  --color-brand-800: var(--brand-800);
+  --color-brand-700: var(--brand-700);
+  --color-brand-600: var(--brand-600);
+  --color-brand-500: var(--brand-500);
+  --color-brand-200: var(--brand-200);
+  --color-brand-100: var(--brand-100);
+  --color-brand-50: var(--brand-50);
+  --color-accent-600: var(--accent-600);
+  --color-accent-500: var(--accent-500);
+  --color-accent-100: var(--accent-100);
+  --color-surface: var(--surface);
+  --color-card: var(--card);
+  --color-border: var(--border);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-danger: var(--danger);
+  --color-danger-bg: var(--danger-bg);
+  --font-sans: var(--font-inter);
+  --font-display: var(--font-jakarta);
+}
+
+body {
+  background: var(--surface);
+  color: var(--ink);
+}
+
+::selection {
+  background: var(--accent-100);
+  color: var(--brand-900);
+}
