@@ -51,7 +51,11 @@ export async function updateSession(request: NextRequest) {
     return redirectWithCookies(request, response, "/login", pathname);
   }
 
-  if (isSignedIn && (pathname === "/login" || pathname === "/")) {
+  // Signed-in users skip the login screen, unless it is showing an error
+  // (for example a client account that is not linked to a company yet).
+  const showsLoginError =
+    pathname === "/login" && request.nextUrl.searchParams.has("error");
+  if (isSignedIn && !showsLoginError && (pathname === "/login" || pathname === "/")) {
     return redirectWithCookies(request, response, "/dashboard");
   }
 

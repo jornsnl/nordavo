@@ -21,7 +21,9 @@ export function LoginForm() {
     state.error ??
     (linkError === "link"
       ? "Deze link is verlopen of al gebruikt. Vraag een nieuwe uitnodiging aan."
-      : undefined);
+      : linkError === "account"
+        ? "Je account is nog niet gekoppeld aan een bedrijf. Neem contact op met Nordavo."
+        : undefined);
 
   return (
     <form action={formAction} className="space-y-5" noValidate>

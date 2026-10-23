@@ -1,6 +1,7 @@
 import {
   Briefcase,
   Building2,
+  CheckSquare,
   Handshake,
   LayoutDashboard,
   Settings,
@@ -22,7 +23,10 @@ export type NavSection = {
 // Add a page to the portal by adding it here and creating its route.
 export const navSections: NavSection[] = [
   {
-    items: [{ label: "Overzicht", href: "/dashboard", icon: LayoutDashboard }],
+    items: [
+      { label: "Overzicht", href: "/dashboard", icon: LayoutDashboard },
+      { label: "Taken", href: "/dashboard/taken", icon: CheckSquare },
+    ],
   },
   {
     label: "Werving",

@@ -1,13 +1,16 @@
 import "server-only";
 import { cache } from "react";
 import { redirect } from "next/navigation";
+import type { ProfileRole } from "@/lib/database.types";
 import { createClient } from "@/lib/supabase/server";
 
 export type CurrentUser = {
   id: string;
   email: string;
   name: string;
-  role: "admin" | "member";
+  role: ProfileRole;
+  /** Only set for client portal users. */
+  clientId: string | null;
 };
 
 /**
@@ -27,14 +30,50 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser> => {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("full_name, role")
+    .select("full_name, role, client_id")
     .eq("id", userId)
     .maybeSingle();
+
+  const role: ProfileRole =
+    profile?.role === "admin" || profile?.role === "client"
+      ? profile.role
+      : "member";
 
   return {
     id: userId,
     email,
     name: profile?.full_name || email.split("@")[0] || "Nordavo",
-    role: profile?.role === "admin" ? "admin" : "member",
+    role,
+    clientId: role === "client" ? (profile?.client_id ?? null) : null,
   };
 });
+
+export function isStaff(user: CurrentUser) {
+  return user.role === "admin" || user.role === "member";
+}
+
+/** The landing page for a user, based on their role. */
+export function homePathFor(user: CurrentUser) {
+  return isStaff(user) ? "/dashboard" : "/portaal";
+}
+
+/** Nordavo team only. Client users are sent to their portal. */
+export async function requireStaff(): Promise<CurrentUser> {
+  const user = await getCurrentUser();
+  if (!isStaff(user)) redirect("/portaal");
+  return user;
+}
+
+export async function requireAdmin(): Promise<CurrentUser> {
+  const user = await requireStaff();
+  if (user.role !== "admin") redirect("/dashboard");
+  return user;
+}
+
+/** Client portal users only, always linked to a client company. */
+export async function requireClient(): Promise<CurrentUser & { clientId: string }> {
+  const user = await getCurrentUser();
+  if (isStaff(user)) redirect("/dashboard");
+  if (!user.clientId) redirect("/login?error=account");
+  return { ...user, clientId: user.clientId };
+}

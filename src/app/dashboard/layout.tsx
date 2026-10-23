@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { requireStaff } from "@/lib/auth";
 import { AppShell } from "@/components/dashboard/app-shell";
 import { UserMenu, UserMenuSkeleton } from "@/components/dashboard/user-menu";
 
@@ -13,7 +14,16 @@ export default function DashboardLayout({
         </Suspense>
       }
     >
+      <Suspense fallback={null}>
+        <StaffGate />
+      </Suspense>
       {children}
     </AppShell>
   );
+}
+
+/** Sends client portal users to /portaal. Page data is protected by RLS as well. */
+async function StaffGate() {
+  await requireStaff();
+  return null;
 }
