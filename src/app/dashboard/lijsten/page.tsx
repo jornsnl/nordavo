@@ -11,6 +11,9 @@ import { ListSkeleton, Skeleton } from "@/components/ui/skeleton";
 import { getListPreview } from "@/lib/data/lists";
 import { isListType, listDefinitions, parseListFilter, PREVIEW_ROWS } from "@/lib/gtm/lists";
 
+// Claude calls (matching, opening lines) run inside server actions on this page.
+export const maxDuration = 300;
+
 export const metadata: Metadata = {
   title: "Lijsten",
 };

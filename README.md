@@ -17,6 +17,8 @@ Het interne portaal van [Nordavo](https://nordavo.nl): de brug tussen Nederlands
 | Klantportaal | `/portaal` | Voor klanten: eigen vacatures, voorgestelde kandidaten met cv, akkoord of afwijzen met feedback, plaatsingen |
 | Zoeken | Ctrl+K / Cmd+K | Klanten, vacatures, kandidaten en plaatsingen |
 
+Daarnaast draait het **GTM systeem** (leads, signalen, kwalificatie met Claude, bellijsten, mailcampagnes, OnePageCRM, weekrapport en talentmatching). Werking, inrichting en planning staan in [docs/gtm.md](docs/gtm.md); de oorspronkelijke briefing in [docs/gtm-briefing.md](docs/gtm-briefing.md).
+
 Op elke detailpagina staan taken, notities, bijlagen en een activiteitenlog. Het activiteitenlog wordt door database-triggers gevuld, dus elke wijziging komt erin.
 
 ## Stack
@@ -62,6 +64,8 @@ Op elke detailpagina staan taken, notities, bijlagen en een activiteitenlog. Het
 | `npm run start` | Productiebuild draaien |
 | `npm run lint` | ESLint |
 | `npm run typecheck` | Route types genereren en TypeScript controleren |
+| `npm test` | Unit tests (Node test runner) |
+| `npm run job -- <naam>` | Een GTM job of reeks draaien, `--help` toont ze allemaal |
 
 ## Structuur
 

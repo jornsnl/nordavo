@@ -24,6 +24,9 @@ import { formatCurrency, formatDate } from "@/lib/format";
 import { optionFor, seniorities, talentStages, vacancyStatuses } from "@/lib/labels";
 import { deleteVacancyAction } from "../actions";
 
+// Claude calls (matching, opening lines) run inside server actions on this page.
+export const maxDuration = 300;
+
 export const metadata: Metadata = {
   title: "Vacature",
 };

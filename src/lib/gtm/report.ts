@@ -97,7 +97,9 @@ export function summarizeActivities(rows: ActivityFact[]): ActivitySummary {
     if (row.outcome === "notitie") continue;
     const isOutbound = outboundChannels.includes(row.channel) && row.outcome !== "bounce" && row.outcome !== "afgemeld";
     if (isOutbound && row.contact_id) approached.add(row.contact_id);
-    if (row.channel === "bellen") {
+    // "verstuurd" on the phone channel means "put on a Web Partners call
+    // list" (it starts the 30-day rule); only real call outcomes count as called.
+    if (row.channel === "bellen" && row.outcome !== "verstuurd") {
       summary.called += 1;
       if (reachedOnPhone.includes(row.outcome)) {
         summary.reached += 1;
