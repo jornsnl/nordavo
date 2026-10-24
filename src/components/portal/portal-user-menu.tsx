@@ -15,7 +15,8 @@ export async function PortalUserMenu() {
       </div>
       <Link
         href="/portaal/beveiliging"
-        className="flex size-9 items-center justify-center rounded-lg text-muted transition hover:bg-brand-50 hover:text-brand-900 focus-visible:outline-2 focus-visible:outline-brand-500"
+        // On phones Beveiliging is a tab in the bottom bar.
+        className="flex size-9 items-center max-md:hidden justify-center rounded-lg text-muted transition hover:bg-brand-50 hover:text-brand-900 focus-visible:outline-2 focus-visible:outline-brand-500"
         aria-label="Beveiliging"
         title="Beveiliging"
       >
@@ -24,7 +25,7 @@ export async function PortalUserMenu() {
       <form action="/auth/signout" method="post">
         <button
           type="submit"
-          className="flex size-9 items-center justify-center rounded-lg text-muted transition hover:bg-brand-50 hover:text-brand-900 focus-visible:outline-2 focus-visible:outline-brand-500"
+          className="flex size-9 items-center justify-center rounded-lg text-muted transition hover:bg-brand-50 hover:text-brand-900 active:bg-brand-50 pointer-coarse:size-11 focus-visible:outline-2 focus-visible:outline-brand-500"
           aria-label="Uitloggen"
           title="Uitloggen"
         >

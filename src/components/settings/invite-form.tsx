@@ -45,7 +45,12 @@ export function InviteForm({
             id="invite_email"
             name="email"
             type="email"
+            inputMode="email"
             autoComplete="off"
+            autoCapitalize="none"
+            autoCorrect="off"
+            spellCheck={false}
+            enterKeyHint="next"
             required
             disabled={!enabled}
             placeholder="naam@bedrijf.nl"
@@ -58,6 +63,8 @@ export function InviteForm({
             id="invite_full_name"
             name="full_name"
             autoComplete="off"
+            autoCapitalize="words"
+            enterKeyHint="next"
             required
             disabled={!enabled}
             aria-invalid={Boolean(errors.full_name)}
@@ -105,7 +112,7 @@ export function InviteForm({
           </Field>
         )}
       </div>
-      <div className="flex justify-end">
+      <div className="flex justify-end max-sm:*:w-full">
         <PendingSubmit pending={pending} disabled={!enabled} pendingLabel="Bezig met versturen">
           <Send aria-hidden="true" />
           Uitnodiging versturen

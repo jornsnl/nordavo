@@ -18,7 +18,7 @@ export function CardHeader({
   actions?: ReactNode;
 }) {
   return (
-    <header className="flex items-start justify-between gap-4 border-b border-border px-5 py-4">
+    <header className="flex items-start justify-between gap-3 border-b border-border px-4 py-3.5 sm:gap-4 sm:px-5 sm:py-4">
       <div className="min-w-0">
         <h2 className="font-display text-base font-semibold text-brand-900">{title}</h2>
         {description && <p className="mt-0.5 text-sm text-muted">{description}</p>}
@@ -29,7 +29,8 @@ export function CardHeader({
 }
 
 export function CardBody({ className = "", children }: { className?: string; children: ReactNode }) {
-  return <div className={`px-5 py-4 ${className}`}>{children}</div>;
+  // A little tighter on phones; a py-* in className still wins on every screen.
+  return <div className={`px-4 py-4 sm:px-5 ${className}`}>{children}</div>;
 }
 
 /** Label/value pairs for detail pages. */

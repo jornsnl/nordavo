@@ -21,7 +21,7 @@ export function MfaEnroll({ hasFactors }: { hasFactors: boolean }) {
 
   if (!open) {
     return (
-      <div className="flex justify-end">
+      <div className="flex justify-end max-sm:*:w-full">
         <Button
           variant={hasFactors ? "secondary" : "primary"}
           onClick={() => {
@@ -63,7 +63,7 @@ function EnrollFlow({ defaultName, onClose }: { defaultName: string; onClose: ()
     return (
       <div className="space-y-4 rounded-xl border border-border p-4">
         <FormMessage success={verifyState.message} />
-        <div className="flex justify-end">
+        <div className="flex justify-end max-sm:*:w-full">
           <Button variant="secondary" onClick={onClose}>
             Klaar
           </Button>
@@ -93,6 +93,7 @@ function EnrollFlow({ defaultName, onClose }: { defaultName: string; onClose: ()
             id="mfa_friendly_name"
             name="friendly_name"
             autoComplete="off"
+            enterKeyHint="next"
             required
             maxLength={60}
             defaultValue={defaultName}
@@ -131,7 +132,7 @@ function EnrollFlow({ defaultName, onClose }: { defaultName: string; onClose: ()
           alt={`QR-code voor ${enrollState.friendlyName ?? "je authenticator app"}`}
           width={176}
           height={176}
-          className="size-44 shrink-0 rounded-xl border border-border bg-white p-2"
+          className="size-44 shrink-0 rounded-xl border border-border bg-white p-2 max-sm:size-48"
         />
         <div className="min-w-0 space-y-1.5">
           <p className="text-sm font-medium text-ink">Sleutel voor handmatig invoeren</p>
@@ -152,6 +153,8 @@ function EnrollFlow({ defaultName, onClose }: { defaultName: string; onClose: ()
           type="text"
           inputMode="numeric"
           autoComplete="one-time-code"
+          autoCorrect="off"
+          enterKeyHint="done"
           pattern="[0-9]{6}"
           maxLength={6}
           required

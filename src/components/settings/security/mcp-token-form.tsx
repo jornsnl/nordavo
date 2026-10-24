@@ -45,6 +45,7 @@ export function McpTokenForm({
               name="name"
               maxLength={80}
               autoComplete="off"
+              enterKeyHint="done"
               placeholder="MacBook werk"
               required
               disabled={!enabled}
@@ -73,7 +74,7 @@ export function McpTokenForm({
             </Select>
           </Field>
         </div>
-        <div className="flex justify-end">
+        <div className="flex justify-end max-sm:*:w-full">
           <PendingSubmit pending={pending} disabled={!enabled} pendingLabel="Bezig met aanmaken">
             <KeyRound aria-hidden="true" />
             Token aanmaken

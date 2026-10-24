@@ -25,7 +25,7 @@ export async function UserMenu() {
       <form action="/auth/signout" method="post">
         <button
           type="submit"
-          className="flex size-9 items-center justify-center rounded-lg text-brand-200/70 transition hover:bg-white/10 hover:text-white focus-visible:outline-2 focus-visible:outline-accent-500"
+          className="flex size-9 items-center justify-center rounded-lg text-brand-200/70 transition hover:bg-white/10 hover:text-white active:bg-white/10 pointer-coarse:size-11 focus-visible:outline-2 focus-visible:outline-accent-500"
           aria-label="Uitloggen"
           title="Uitloggen"
         >

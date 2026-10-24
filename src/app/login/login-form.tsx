@@ -46,7 +46,12 @@ export function LoginForm() {
           id="email"
           name="email"
           type="email"
-          autoComplete="email"
+          inputMode="email"
+          autoComplete="username"
+          autoCapitalize="none"
+          autoCorrect="off"
+          spellCheck={false}
+          enterKeyHint="next"
           required
           defaultValue={state.email}
           placeholder="naam@bedrijf.nl"
@@ -64,6 +69,8 @@ export function LoginForm() {
             name="password"
             type={showPassword ? "text" : "password"}
             autoComplete="current-password"
+            autoCapitalize="none"
+            enterKeyHint="go"
             required
             placeholder="••••••••"
             className={`${inputClass} pr-12`}
@@ -71,7 +78,7 @@ export function LoginForm() {
           <button
             type="button"
             onClick={() => setShowPassword((v) => !v)}
-            className="absolute inset-y-0 right-0 flex w-12 items-center justify-center rounded-r-xl text-muted transition hover:text-ink focus-visible:outline-2 focus-visible:outline-brand-500"
+            className="absolute inset-y-0 right-0 flex w-12 items-center justify-center rounded-r-xl text-muted transition hover:text-ink active:text-ink focus-visible:outline-2 focus-visible:outline-brand-500"
             aria-label={showPassword ? "Verberg wachtwoord" : "Toon wachtwoord"}
             aria-pressed={showPassword}
           >
@@ -87,7 +94,7 @@ export function LoginForm() {
       <button
         type="submit"
         disabled={pending}
-        className="group flex w-full items-center justify-center gap-2 rounded-xl bg-brand-700 px-4 py-3 text-[15px] font-semibold text-white shadow-sm transition hover:bg-brand-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500 disabled:cursor-not-allowed disabled:opacity-70"
+        className="group flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-brand-700 px-4 py-3 text-[15px] font-semibold text-white shadow-sm transition hover:bg-brand-800 active:scale-[0.98] active:bg-brand-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500 disabled:cursor-not-allowed disabled:opacity-70"
       >
         {pending ? (
           <>

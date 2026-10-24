@@ -57,7 +57,12 @@ export function ReviewForm({
         )}
         <FormMessage success={state.ok ? state.message : undefined} />
         {canChange && (
-          <Button variant="secondary" size="sm" onClick={() => setEditing(true)}>
+          <Button
+            variant="secondary"
+            size="sm"
+            className="max-sm:min-h-11! max-sm:w-full"
+            onClick={() => setEditing(true)}
+          >
             <Pencil aria-hidden="true" />
             Reactie wijzigen
           </Button>
@@ -86,7 +91,8 @@ export function ReviewForm({
         />
       </Field>
       <FormMessage error={state.error} />
-      <div className="flex flex-wrap gap-2">
+      {/* On phones the choices share the full width, like an action sheet. */}
+      <div className="flex flex-wrap gap-2 max-sm:*:flex-1">
         <SubmitButton name="decision" value="approved">
           <Check aria-hidden="true" />
           Akkoord

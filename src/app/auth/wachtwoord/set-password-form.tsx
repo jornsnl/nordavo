@@ -37,6 +37,8 @@ export function SetPasswordForm({
             name="password"
             type={showPassword ? "text" : "password"}
             autoComplete="new-password"
+            autoCapitalize="none"
+            enterKeyHint="next"
             required
             minLength={8}
             aria-invalid={Boolean(errors.password)}
@@ -46,7 +48,7 @@ export function SetPasswordForm({
           <button
             type="button"
             onClick={() => setShowPassword((v) => !v)}
-            className="absolute inset-y-0 right-0 flex w-12 items-center justify-center rounded-r-xl text-muted transition hover:text-ink focus-visible:outline-2 focus-visible:outline-brand-500"
+            className="absolute inset-y-0 right-0 flex w-12 items-center justify-center rounded-r-xl text-muted transition hover:text-ink active:text-ink focus-visible:outline-2 focus-visible:outline-brand-500"
             aria-label={showPassword ? "Verberg wachtwoord" : "Toon wachtwoord"}
             aria-pressed={showPassword}
           >
@@ -77,6 +79,8 @@ export function SetPasswordForm({
           name="confirm"
           type={showPassword ? "text" : "password"}
           autoComplete="new-password"
+          autoCapitalize="none"
+          enterKeyHint="done"
           required
           aria-invalid={Boolean(errors.confirm)}
           aria-describedby={errors.confirm ? "confirm-error" : undefined}
@@ -92,7 +96,7 @@ export function SetPasswordForm({
       <button
         type="submit"
         disabled={pending}
-        className="group flex w-full items-center justify-center gap-2 rounded-xl bg-brand-700 px-4 py-3 text-[15px] font-semibold text-white shadow-sm transition hover:bg-brand-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500 disabled:cursor-not-allowed disabled:opacity-70"
+        className="group flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-brand-700 px-4 py-3 text-[15px] font-semibold text-white shadow-sm transition hover:bg-brand-800 active:scale-[0.98] active:bg-brand-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500 disabled:cursor-not-allowed disabled:opacity-70"
       >
         {pending ? (
           <>

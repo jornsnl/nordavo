@@ -3,6 +3,7 @@ import { Suspense } from "react";
 import { KeyRound, ShieldCheck } from "lucide-react";
 import { getCurrentUser } from "@/lib/auth";
 import { Logo } from "@/components/brand/logo";
+import { authPanelClass } from "@/app/login/auth-panel";
 import { setPassword } from "./actions";
 import { SetPasswordForm } from "./set-password-form";
 
@@ -54,19 +55,21 @@ export default function SetPasswordPage() {
       </section>
 
       {/* Form panel */}
-      <section className="flex flex-col justify-center px-6 py-12 sm:px-12">
-        <div className="mx-auto w-full max-w-sm">
-          <Logo className="mb-12 lg:hidden" />
+      <section className={authPanelClass}>
+        <div className="mx-auto flex w-full max-w-sm flex-1 flex-col sm:flex-none">
+          <div className="max-sm:my-auto">
+            <Logo className="mb-8 sm:mb-12 lg:hidden" />
 
-          <h2 className="font-display text-3xl font-bold tracking-tight text-brand-900">
-            Wachtwoord instellen
-          </h2>
+            <h2 className="font-display text-[1.75rem] leading-tight font-bold tracking-tight text-brand-900 sm:text-3xl">
+              Wachtwoord instellen
+            </h2>
 
-          <Suspense fallback={<FormSkeleton />}>
-            <SetPassword />
-          </Suspense>
+            <Suspense fallback={<FormSkeleton />}>
+              <SetPassword />
+            </Suspense>
+          </div>
 
-          <p className="mt-8 text-sm text-muted">
+          <p className="mt-8 text-sm text-muted max-sm:pt-2 max-sm:text-center">
             Lukt het niet? Mail naar{" "}
             <a
               href="mailto:info@nordavo.nl"

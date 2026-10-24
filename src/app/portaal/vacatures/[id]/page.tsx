@@ -19,7 +19,7 @@ export default function PortalVacancyPage({ params }: PageProps<"/portaal/vacatu
     <>
       <Link
         href="/portaal"
-        className="mb-6 inline-flex items-center gap-1.5 text-sm font-medium text-muted hover:text-brand-900"
+        className="mb-6 inline-flex items-center gap-1.5 text-sm font-medium text-muted hover:text-brand-900 active:text-brand-900 max-sm:-my-2 max-sm:mb-4 max-sm:min-h-11"
       >
         <ArrowLeft className="size-4" aria-hidden="true" />
         Terug naar overzicht
@@ -46,11 +46,16 @@ async function VacancyDetail({ params }: { params: Promise<{ id: string }> }) {
         eyebrow="Vacature"
         title={vacancy.title}
         description={presentedLabel(vacancy.candidates.length)}
-        actions={<Badge tone={status.tone}>{status.label}</Badge>}
+        // The wrapper takes the full width on phones, the badge keeps its size.
+        actions={
+          <div>
+            <Badge tone={status.tone}>{status.label}</Badge>
+          </div>
+        }
       />
 
-      <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
-        <section aria-labelledby="candidates-heading" className="space-y-6 lg:col-span-2">
+      <div className="grid grid-cols-1 gap-6 sm:gap-8 lg:grid-cols-3">
+        <section aria-labelledby="candidates-heading" className="min-w-0 space-y-6 lg:col-span-2">
           <div>
             <h2 id="candidates-heading" className="font-display text-lg font-semibold text-brand-900">
               Voorgestelde kandidaten
@@ -68,7 +73,7 @@ async function VacancyDetail({ params }: { params: Promise<{ id: string }> }) {
               description="Iedere kandidaat doet eerst een technische test en een interview in het Engels. Binnen 2 tot 3 weken na de start stellen we drie kandidaten aan je voor. Je ziet ze dan hier."
             />
           ) : (
-            <ul className="space-y-6">
+            <ul className="space-y-4 sm:space-y-6">
               {vacancy.candidates.map((item) => (
                 <li key={item.applicationId}>
                   <CandidateCard item={item} />
@@ -78,7 +83,7 @@ async function VacancyDetail({ params }: { params: Promise<{ id: string }> }) {
           )}
         </section>
 
-        <aside className="space-y-6">
+        <aside className="min-w-0 space-y-6">
           <Card>
             <CardHeader title="Over de vacature" />
             <CardBody className="space-y-5">

@@ -92,12 +92,17 @@ summary,
 
 /*
  * iOS zooms into any focused field under 16px. Keep form controls at 16px
- * on touch screens; desktop keeps the compact text-sm size.
+ * on touch screens; desktop keeps the compact text-sm size. Fields that ask
+ * for a larger size themselves (the verification code) keep it.
  */
 @media (pointer: coarse) {
-  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
-  select,
-  textarea {
+  :is(input:not([type="checkbox"], [type="radio"], [type="range"]), select, textarea):not(
+      [class*="text-lg"],
+      [class*="text-xl"],
+      [class*="text-2xl"],
+      [class*="text-3xl"],
+      [class*="text-4xl"]
+    ) {
     font-size: 16px;
   }
 }

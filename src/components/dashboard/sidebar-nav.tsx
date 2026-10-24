@@ -47,7 +47,8 @@ function NavList({ onNavigate, pathname }: Props & { pathname: string | null }) 
                     href={href}
                     onClick={onNavigate}
                     aria-current={active ? "page" : undefined}
-                    className={`group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition ${
+                    // Taller rows in the phone drawer, so every item is easy to tap.
+                    className={`group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition active:bg-white/10 max-lg:min-h-11 max-lg:text-[15px] ${
                       active
                         ? "bg-white/10 text-white"
                         : "text-brand-100/70 hover:bg-white/5 hover:text-white"

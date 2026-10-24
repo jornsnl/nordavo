@@ -67,13 +67,22 @@ export function VerifyForm({
           type="text"
           inputMode="numeric"
           autoComplete="one-time-code"
+          autoCorrect="off"
+          enterKeyHint="done"
           pattern="[0-9]{6}"
           maxLength={6}
           required
           autoFocus
+          onChange={(event) => {
+            // Digits only, and send as soon as the sixth one is in: an
+            // autofilled code from the keyboard signs in with one tap.
+            const input = event.currentTarget;
+            input.value = input.value.replace(/\D/g, "").slice(0, 6);
+            if (input.value.length === 6 && !pending) input.form?.requestSubmit();
+          }}
           placeholder="123456"
           aria-describedby="code-hint"
-          className={`${inputClass} font-mono text-lg tracking-[0.4em]`}
+          className={`${inputClass} font-mono text-lg tracking-[0.4em] max-sm:py-3.5 max-sm:text-center`}
         />
         <p id="code-hint" className="text-xs text-muted">
           6 cijfers. De code verandert elke 30 seconden.
@@ -83,7 +92,7 @@ export function VerifyForm({
       <button
         type="submit"
         disabled={pending}
-        className="group flex w-full items-center justify-center gap-2 rounded-xl bg-brand-700 px-4 py-3 text-[15px] font-semibold text-white shadow-sm transition hover:bg-brand-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500 disabled:cursor-not-allowed disabled:opacity-70"
+        className="group flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-brand-700 px-4 py-3 text-[15px] font-semibold text-white shadow-sm transition hover:bg-brand-800 active:scale-[0.98] active:bg-brand-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500 disabled:cursor-not-allowed disabled:opacity-70"
       >
         {pending ? (
           <>
