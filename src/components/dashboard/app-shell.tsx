@@ -2,17 +2,27 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
-import { Menu, X } from "lucide-react";
+import { Briefcase, CheckSquare, LayoutDashboard, Menu, Radar, X } from "lucide-react";
 import { Logo } from "@/components/brand/logo";
 import {
   CommandPalette,
   MobileSearchButton,
   SidebarSearchButton,
 } from "@/components/search/command-palette";
+import { TabBar, TabButton, type TabItem } from "@/components/ui/tab-bar";
 import { SidebarNav } from "./sidebar-nav";
 
+// The most used modules as tabs on phones; everything else sits under "Meer".
+const tabs: TabItem[] = [
+  { label: "Overzicht", href: "/dashboard", icon: LayoutDashboard, match: (path) => path === "/dashboard" },
+  { label: "Taken", href: "/dashboard/taken", icon: CheckSquare },
+  { label: "Leads", href: "/dashboard/leads", icon: Radar },
+  { label: "Vacatures", href: "/dashboard/vacatures", icon: Briefcase },
+];
+
 /**
- * Dashboard chrome: a fixed sidebar on desktop and a slide-in drawer on mobile.
+ * Dashboard chrome: a fixed sidebar on desktop; on phones a top bar, a bottom
+ * tab bar and a slide-in drawer with the full menu behind "Meer".
  * The user menu is rendered on the server and passed in as a slot.
  */
 export function AppShell({
@@ -35,7 +45,7 @@ export function AppShell({
   }, [open]);
 
   const sidebar = (
-    <div className="flex h-full flex-col bg-brand-900 px-4 py-5">
+    <div className="flex h-full flex-col bg-brand-900 px-4 py-5 max-lg:pt-[calc(1.25rem+env(safe-area-inset-top))] max-lg:pb-[calc(1.25rem+env(safe-area-inset-bottom))]">
       <Link
         href="/dashboard"
         className="mb-5 flex items-center rounded-lg px-2 focus-visible:outline-2 focus-visible:outline-accent-500"
@@ -48,7 +58,7 @@ export function AppShell({
           setSearchOpen(true);
         }}
       />
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto overscroll-contain">
         <SidebarNav onNavigate={() => setOpen(false)} />
       </div>
       <div className="mt-6 border-t border-white/10 pt-4">{userMenu}</div>
@@ -63,24 +73,29 @@ export function AppShell({
       </aside>
 
       {/* Mobile top bar */}
-      <header className="sticky top-0 z-20 flex h-16 items-center justify-between border-b border-border bg-white/90 px-4 backdrop-blur lg:hidden">
-        <Link href="/dashboard">
-          <Logo />
-        </Link>
-        <div className="flex items-center gap-1">
+      <header className="sticky top-0 z-20 border-b border-border bg-white/90 pt-safe backdrop-blur-lg lg:hidden">
+        <div className="flex h-14 items-center justify-between px-4 pl-safe pr-safe">
+          <Link href="/dashboard" className="rounded-lg focus-visible:outline-2 focus-visible:outline-brand-500">
+            <Logo />
+          </Link>
           <MobileSearchButton onClick={() => setSearchOpen(true)} />
-          <button
-            type="button"
-            onClick={() => setOpen(true)}
-            className="flex size-10 items-center justify-center rounded-lg text-brand-900 hover:bg-brand-50"
-            aria-label="Menu openen"
-            aria-expanded={open}
-            aria-controls="mobile-sidebar"
-          >
-            <Menu className="size-6" aria-hidden="true" />
-          </button>
         </div>
       </header>
+
+      <TabBar
+        label="Snelmenu"
+        items={tabs}
+        extra={
+          <TabButton
+            label="Meer"
+            icon={Menu}
+            onClick={() => setOpen(true)}
+            active={open}
+            aria-expanded={open}
+            aria-controls="mobile-sidebar"
+          />
+        }
+      />
 
       {/* Mobile drawer */}
       <div
@@ -107,7 +122,7 @@ export function AppShell({
           <button
             type="button"
             onClick={() => setOpen(false)}
-            className="absolute top-5 right-3 flex size-9 items-center justify-center rounded-lg text-brand-100 hover:bg-white/10"
+            className="absolute top-[calc(1.25rem+env(safe-area-inset-top))] right-3 flex size-10 items-center justify-center rounded-lg text-brand-100 hover:bg-white/10"
             aria-label="Menu sluiten"
           >
             <X className="size-5" aria-hidden="true" />
@@ -118,7 +133,7 @@ export function AppShell({
       <CommandPalette open={searchOpen} onOpenChange={setSearchOpen} />
 
       <div className="lg:pl-64">
-        <main className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 lg:px-10 lg:py-10">
+        <main className="mx-auto w-full max-w-6xl pt-6 pb-tabbar pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] sm:pt-8 sm:pl-[max(1.5rem,env(safe-area-inset-left))] sm:pr-[max(1.5rem,env(safe-area-inset-right))] lg:px-10 lg:py-10">
           {children}
         </main>
       </div>

@@ -1,9 +1,12 @@
 import type { ComponentProps, ReactNode } from "react";
 
-/** Horizontally scrollable table inside a card. */
-export function Table({ children }: { children: ReactNode }) {
+/**
+ * Horizontally scrollable table inside a card. On phones, pair it with a
+ * <MobileList> and pass className="hidden md:block" here.
+ */
+export function Table({ children, className = "" }: { children: ReactNode; className?: string }) {
   return (
-    <div className="relative overflow-x-auto rounded-2xl border border-border bg-card shadow-xs">
+    <div className={`relative overflow-x-auto overscroll-x-contain rounded-2xl border border-border bg-card shadow-xs ${className}`}>
       <table className="w-full min-w-[640px] text-left text-sm">{children}</table>
     </div>
   );
