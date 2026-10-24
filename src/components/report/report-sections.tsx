@@ -3,6 +3,7 @@ import { AlertTriangle, BarChart3, Building2, CalendarCheck, Mail, MessageSquare
 import { Badge } from "@/components/ui/badge";
 import { Card, CardHeader } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { MobileList, MobileListItem } from "@/components/ui/mobile-list";
 import { Table, TBody, TD, TH, THead, TR } from "@/components/ui/table";
 import { formatDate } from "@/lib/format";
 import type { CountRow, LeadTimeRow, WeeklyReport } from "@/lib/gtm/report";
@@ -45,8 +46,11 @@ export function ReportStatCards({ report }: { report: WeeklyReport }) {
       </h2>
       <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-7">
         {cards.map(({ label, value, icon: Icon }) => (
-          <li key={label} className="flex flex-col rounded-2xl border border-border bg-card p-4 shadow-xs">
-            <span className="mb-3 flex size-9 items-center justify-center rounded-xl bg-brand-50 text-brand-600">
+          <li
+            key={label}
+            className="flex flex-col rounded-2xl border border-border bg-card p-4 shadow-xs max-sm:p-3 max-sm:last:col-span-2"
+          >
+            <span className="mb-3 flex size-9 items-center justify-center rounded-xl bg-brand-50 text-brand-600 max-sm:hidden">
               <Icon className="size-4" aria-hidden="true" />
             </span>
             <span className="text-sm text-muted">{label}</span>
@@ -193,54 +197,76 @@ export function LeadTimeTable({ rows }: { rows: LeadTimeRow[] }) {
           Er staan nu geen open vacatures.
         </p>
       ) : (
-        <Table>
-          <THead>
-            <tr>
-              <TH>Vacature</TH>
-              <TH>Fase</TH>
-              <TH className="text-right">Dagen</TH>
-              <TH>Intake</TH>
-              <TH>Profielen</TH>
-              <TH>Eerste gesprek</TH>
-              <TH>Start</TH>
-            </tr>
-          </THead>
-          <TBody>
+        <>
+          <MobileList label="Open vacatures" className="md:hidden">
             {rows.map((row) => (
-              <TR key={row.vacancyId}>
-                <TD>
-                  <Link
-                    href={`/dashboard/vacatures/${row.vacancyId}`}
-                    className="font-medium text-brand-900 hover:text-brand-600 hover:underline"
-                  >
-                    {row.title}
-                  </Link>
-                  {row.company && <span className="block text-xs text-muted">{row.company}</span>}
-                </TD>
-                <TD>{row.stageLabel}</TD>
-                <TD className="text-right">
-                  <span className="flex flex-col items-end gap-1">
-                    <span className="font-semibold tabular-nums">{row.days}</span>
-                    {!row.profilesSentAt && <Badge tone={levelBadge[row.level].tone}>{levelBadge[row.level].label}</Badge>}
-                  </span>
-                </TD>
-                <TD className="whitespace-nowrap">{formatDate(row.startedAt)}</TD>
-                <TD className="whitespace-nowrap">
-                  <Milestone value={row.profilesSentAt} />
-                  {row.daysToProfiles !== null && (
-                    <span className="block text-xs text-muted">na {row.daysToProfiles} dagen</span>
-                  )}
-                </TD>
-                <TD className="whitespace-nowrap">
-                  <Milestone value={row.firstInterviewAt} />
-                </TD>
-                <TD className="whitespace-nowrap">
-                  <Milestone value={row.startAt} />
-                </TD>
-              </TR>
+              <MobileListItem
+                key={row.vacancyId}
+                href={`/dashboard/vacatures/${row.vacancyId}`}
+                title={row.title}
+                subtitle={[row.company, row.stageLabel].filter(Boolean).join(", ")}
+                meta={
+                  row.profilesSentAt
+                    ? `Profielen op ${formatDate(row.profilesSentAt)}${row.daysToProfiles !== null ? `, na ${row.daysToProfiles} dagen` : ""}`
+                    : `Intake ${formatDate(row.startedAt)}, nog geen profielen`
+                }
+              >
+                <span className="flex flex-wrap items-center gap-2">
+                  <span className="text-sm font-semibold text-ink tabular-nums">{row.days} dagen</span>
+                  {!row.profilesSentAt && <Badge tone={levelBadge[row.level].tone}>{levelBadge[row.level].label}</Badge>}
+                </span>
+              </MobileListItem>
             ))}
-          </TBody>
-        </Table>
+          </MobileList>
+          <Table className="hidden md:block">
+            <THead>
+              <tr>
+                <TH>Vacature</TH>
+                <TH>Fase</TH>
+                <TH className="text-right">Dagen</TH>
+                <TH>Intake</TH>
+                <TH>Profielen</TH>
+                <TH>Eerste gesprek</TH>
+                <TH>Start</TH>
+              </tr>
+            </THead>
+            <TBody>
+              {rows.map((row) => (
+                <TR key={row.vacancyId}>
+                  <TD>
+                    <Link
+                      href={`/dashboard/vacatures/${row.vacancyId}`}
+                      className="font-medium text-brand-900 hover:text-brand-600 hover:underline"
+                    >
+                      {row.title}
+                    </Link>
+                    {row.company && <span className="block text-xs text-muted">{row.company}</span>}
+                  </TD>
+                  <TD>{row.stageLabel}</TD>
+                  <TD className="text-right">
+                    <span className="flex flex-col items-end gap-1">
+                      <span className="font-semibold tabular-nums">{row.days}</span>
+                      {!row.profilesSentAt && <Badge tone={levelBadge[row.level].tone}>{levelBadge[row.level].label}</Badge>}
+                    </span>
+                  </TD>
+                  <TD className="whitespace-nowrap">{formatDate(row.startedAt)}</TD>
+                  <TD className="whitespace-nowrap">
+                    <Milestone value={row.profilesSentAt} />
+                    {row.daysToProfiles !== null && (
+                      <span className="block text-xs text-muted">na {row.daysToProfiles} dagen</span>
+                    )}
+                  </TD>
+                  <TD className="whitespace-nowrap">
+                    <Milestone value={row.firstInterviewAt} />
+                  </TD>
+                  <TD className="whitespace-nowrap">
+                    <Milestone value={row.startAt} />
+                  </TD>
+                </TR>
+              ))}
+            </TBody>
+          </Table>
+        </>
       )}
     </section>
   );

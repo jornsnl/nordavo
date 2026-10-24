@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { Field, FormMessage, Input } from "@/components/ui/field";
+import { telHref } from "@/components/entity/quick-actions";
 import { Modal } from "@/components/ui/modal";
 import { initialActionState, type ActionState } from "@/lib/action-state";
 import { ConfirmDeleteButton } from "./confirm-delete-button";
@@ -73,7 +74,7 @@ export function ContactsCard({
                   {contact.email && (
                     <a
                       href={`mailto:${contact.email}`}
-                      className="inline-flex min-w-0 items-center gap-1.5 break-all text-brand-700 hover:underline"
+                      className="inline-flex min-w-0 items-center gap-1.5 break-all text-brand-700 hover:underline active:text-brand-900 pointer-coarse:min-h-10"
                     >
                       <Mail className="size-3.5 shrink-0" aria-hidden="true" />
                       {contact.email}
@@ -81,8 +82,8 @@ export function ContactsCard({
                   )}
                   {contact.phone && (
                     <a
-                      href={`tel:${contact.phone.replace(/\s+/g, "")}`}
-                      className="inline-flex items-center gap-1.5 text-brand-700 hover:underline"
+                      href={telHref(contact.phone)}
+                      className="inline-flex items-center gap-1.5 text-brand-700 hover:underline active:text-brand-900 pointer-coarse:min-h-10"
                     >
                       <Phone className="size-3.5 shrink-0" aria-hidden="true" />
                       {contact.phone}
@@ -170,6 +171,7 @@ function ContactForm({
           name="full_name"
           required
           autoComplete="name"
+          enterKeyHint="next"
           defaultValue={contact?.full_name}
           {...invalid("full_name")}
         />
@@ -179,6 +181,8 @@ function ContactForm({
           id="contact-job_title"
           name="job_title"
           placeholder="Bijvoorbeeld CTO"
+          autoComplete="organization-title"
+          enterKeyHint="next"
           defaultValue={contact?.job_title ?? ""}
           {...invalid("job_title")}
         />
@@ -190,6 +194,9 @@ function ContactForm({
             name="email"
             type="email"
             autoComplete="email"
+            autoCapitalize="none"
+            spellCheck={false}
+            enterKeyHint="next"
             defaultValue={contact?.email ?? ""}
             {...invalid("email")}
           />
@@ -200,12 +207,13 @@ function ContactForm({
             name="phone"
             type="tel"
             autoComplete="tel"
+            enterKeyHint="done"
             defaultValue={contact?.phone ?? ""}
             {...invalid("phone")}
           />
         </Field>
       </div>
-      <label className="flex items-start gap-3 text-sm text-ink">
+      <label className="flex cursor-pointer items-start gap-3 text-sm text-ink pointer-coarse:py-1">
         <input
           type="checkbox"
           name="is_primary"
@@ -219,7 +227,7 @@ function ContactForm({
           </span>
         </span>
       </label>
-      <div className="flex flex-col-reverse gap-2 border-t border-border pt-5 sm:flex-row sm:justify-end">
+      <div className="flex gap-2 border-t border-border pt-5 max-sm:*:flex-1 sm:justify-end">
         <Button variant="secondary" onClick={onDone}>
           Annuleren
         </Button>

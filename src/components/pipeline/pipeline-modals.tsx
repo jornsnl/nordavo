@@ -62,7 +62,7 @@ function ApplicationDetails({ card, onClose }: { card: BoardCard; onClose: () =>
         </span>
         <Link
           href={`/dashboard/kandidaten/${card.candidate.id}`}
-          className="ml-auto inline-flex items-center gap-1.5 rounded text-sm font-medium text-brand-700 hover:underline focus-visible:outline-2 focus-visible:outline-brand-500"
+          className="ml-auto inline-flex items-center gap-1.5 rounded text-sm font-medium text-brand-700 hover:underline pointer-coarse:min-h-10 focus-visible:outline-2 focus-visible:outline-brand-500"
         >
           <UserRound className="size-4" aria-hidden="true" />
           Naar kandidaat
@@ -72,7 +72,7 @@ function ApplicationDetails({ card, onClose }: { card: BoardCard; onClose: () =>
       <form onSubmit={onSubmit} noValidate className="space-y-4">
         <input type="hidden" name="id" value={card.id} />
         <FormMessage error={state.error} success={state.ok ? state.message : undefined} />
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid grid-cols-2 gap-3 sm:gap-4">
           <Field label="Technische score" htmlFor="technical_score" hint="0 tot 100" error={errors.technical_score}>
             <Input
               id="technical_score"
@@ -81,6 +81,7 @@ function ApplicationDetails({ card, onClose }: { card: BoardCard; onClose: () =>
               inputMode="numeric"
               min={0}
               max={100}
+              enterKeyHint="next"
               defaultValue={card.technical_score ?? ""}
               aria-invalid={!!errors.technical_score}
               aria-describedby={errors.technical_score ? "technical_score-error" : undefined}
@@ -94,6 +95,7 @@ function ApplicationDetails({ card, onClose }: { card: BoardCard; onClose: () =>
               inputMode="numeric"
               min={0}
               max={100}
+              enterKeyHint="next"
               defaultValue={card.english_score ?? ""}
               aria-invalid={!!errors.english_score}
               aria-describedby={errors.english_score ? "english_score-error" : undefined}
@@ -122,7 +124,7 @@ function ApplicationDetails({ card, onClose }: { card: BoardCard; onClose: () =>
             defaultValue={card.rejection_reason ?? ""}
           />
         </Field>
-        <div className="flex justify-end">
+        <div className="flex justify-end max-sm:*:flex-1">
           <Button type="submit" disabled={pending} aria-busy={pending}>
             {pending && <LoaderCircle className="animate-spin" aria-hidden="true" />}
             Opslaan
@@ -219,7 +221,7 @@ function RejectForm({ onConfirm, onCancel }: { onConfirm: (reason: string) => vo
           autoFocus
         />
       </Field>
-      <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+      <div className="flex gap-3 max-sm:*:flex-1 sm:justify-end">
         <Button variant="secondary" onClick={onCancel}>
           Annuleren
         </Button>
@@ -314,6 +316,8 @@ function AddCandidateList({
         <Input
           id="add-candidate-search"
           type="search"
+          enterKeyHint="search"
+          autoComplete="off"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Zoek op naam, functie of skill"

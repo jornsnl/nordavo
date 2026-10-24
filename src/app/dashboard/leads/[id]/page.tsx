@@ -49,7 +49,7 @@ export default function Page({ params }: PageProps<"/dashboard/leads/[id]">) {
     <>
       <Link
         href="/dashboard/leads"
-        className="mb-4 inline-flex items-center gap-1.5 text-sm font-medium text-muted hover:text-brand-700"
+        className="mb-4 inline-flex items-center gap-1.5 text-sm font-medium text-muted hover:text-brand-700 max-md:-mt-2 max-md:mb-2 max-md:min-h-11 max-md:active:text-brand-700"
       >
         <ArrowLeft className="size-4" aria-hidden="true" />
         Alle leads
@@ -112,7 +112,7 @@ async function LeadDetail({ params }: { params: Params }) {
           </span>
         }
         actions={
-          <div className="flex flex-wrap gap-2">
+          <>
             <EditCompanyButton
               company={{
                 name: company.name,
@@ -131,12 +131,13 @@ async function LeadDetail({ params }: { params: Params }) {
               <Briefcase aria-hidden="true" />
               Vacature toevoegen
             </ButtonLink>
-          </div>
+          </>
         }
       />
 
+      {/* Below lg both columns dissolve into one list, so the contacts (to call or mail) come right after the verdict. */}
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_400px]">
-        <div className="min-w-0 space-y-6">
+        <div className="min-w-0 space-y-6 max-lg:contents max-lg:space-y-0">
           <Card>
             <CardHeader
               title="ICP oordeel"
@@ -220,22 +221,28 @@ async function LeadDetail({ params }: { params: Params }) {
             </CardBody>
           </Card>
 
-          <SignalsCard signals={signals} />
+          <div className="min-w-0 max-lg:order-2">
+            <SignalsCard signals={signals} />
+          </div>
 
-          <ActivitiesCard
+          <div className="min-w-0 max-lg:order-3">
+            <ActivitiesCard
             activities={activities}
-            actions={<LogActivityButton contacts={contactOptions} action={logActivityAction.bind(null, company.id)} />}
-          />
+              actions={<LogActivityButton contacts={contactOptions} action={logActivityAction.bind(null, company.id)} />}
+            />
+          </div>
         </div>
 
-        <div className="min-w-0 space-y-6">
-          <ContactsPanel
-            contacts={contacts}
-            crmActionFor={(contactId) => pushToCrmAction.bind(null, company.id, contactId)}
-            crmBlockedReason={crmBlockedReason}
-          />
+        <div className="min-w-0 space-y-6 max-lg:contents max-lg:space-y-0">
+          <div className="min-w-0 max-lg:order-1">
+            <ContactsPanel
+              contacts={contacts}
+              crmActionFor={(contactId) => pushToCrmAction.bind(null, company.id, contactId)}
+              crmBlockedReason={crmBlockedReason}
+            />
+          </div>
 
-          <Card>
+          <Card className="max-lg:order-4">
             <CardHeader
               title="Klant"
               description={company.client ? undefined : "Is dit bedrijf klant geworden? Koppel het aan een klantrecord."}
@@ -259,15 +266,19 @@ async function LeadDetail({ params }: { params: Params }) {
             </CardBody>
           </Card>
 
-          <SuppressionCard
-            suppressions={suppressions}
-            contacts={contacts}
-            actions={<SuppressButton contacts={contactOptions} action={suppressAction.bind(null, company.id)} />}
-          />
+          <div className="min-w-0 max-lg:order-5">
+            <SuppressionCard
+              suppressions={suppressions}
+              contacts={contacts}
+              actions={<SuppressButton contacts={contactOptions} action={suppressAction.bind(null, company.id)} />}
+            />
+          </div>
 
-          <Suspense fallback={<Skeleton className="h-64 w-full" />}>
-            <EntityExtras entityType="company" entityId={company.id} />
-          </Suspense>
+          <div className="min-w-0 max-lg:order-6">
+            <Suspense fallback={<Skeleton className="h-64 w-full" />}>
+              <EntityExtras entityType="company" entityId={company.id} />
+            </Suspense>
+          </div>
         </div>
       </div>
     </>
@@ -389,7 +400,7 @@ function SuppressionCard({
             return (
               <li key={s.id} className="space-y-1 px-5 py-3 text-sm">
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="font-medium text-ink">{nameFor(s)}</span>
+                  <span className="min-w-0 font-medium break-all text-ink">{nameFor(s)}</span>
                   <Badge tone={reason.tone}>{reason.label}</Badge>
                   <Badge tone={scope.tone}>{scope.label}</Badge>
                 </div>

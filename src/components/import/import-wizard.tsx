@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { Field, FormMessage, Input, Select } from "@/components/ui/field";
+import { MobileList, MobileListItem } from "@/components/ui/mobile-list";
 import { Table, TBody, TD, TH, THead, TR } from "@/components/ui/table";
 import type { LeadImportMapping, LeadImportResult } from "@/lib/gtm/import";
 import {
@@ -223,7 +224,7 @@ export function ImportWizard() {
         <CardBody className="space-y-4">
           <label
             htmlFor={fileId}
-            className="flex cursor-pointer flex-col items-center gap-2 rounded-2xl border border-dashed border-brand-200 bg-surface/50 px-6 py-8 text-center text-sm text-muted hover:border-brand-400 focus-within:outline-2 focus-within:outline-brand-500"
+            className="flex cursor-pointer flex-col items-center gap-2 rounded-2xl border border-dashed border-brand-200 bg-surface/50 px-6 py-8 text-center text-sm text-muted transition hover:border-brand-400 focus-within:outline-2 focus-within:outline-brand-500 active:bg-brand-50"
           >
             <Upload className="size-6 text-brand-600" aria-hidden="true" />
             <span className="font-medium text-ink">{parsed ? parsed.fileName : "Kies een CSV bestand"}</span>
@@ -282,6 +283,7 @@ export function ImportWizard() {
                 onChange={(e) => setSource(e.target.value)}
                 disabled={running}
                 maxLength={200}
+                enterKeyHint="done"
               />
             </Field>
             {GROUPS.map((group) => (
@@ -333,7 +335,26 @@ export function ImportWizard() {
               telefoon en LinkedIn genormaliseerd.
             </p>
           </div>
-          <Table>
+          <MobileList label="Voorbeeld van de import" className="md:hidden">
+            {preview.map((p, i) => (
+              <MobileListItem
+                key={i}
+                title={p.domain ?? <Badge tone="danger">Geen domein, wordt overgeslagen</Badge>}
+                subtitle={[p.company, p.contact, p.title].filter(Boolean).join(", ") || "Geen bedrijf of contact"}
+                meta={
+                  [p.email, p.phone ? `${p.phone}${p.phoneType ? ` (${p.phoneType})` : ""}` : null].filter(Boolean).join(", ") ||
+                  "Geen mail of telefoon"
+                }
+              >
+                {(p.linkedin || p.lastContacted) && (
+                  <p className="text-xs break-all text-muted">
+                    {[p.linkedin, p.lastContacted ? `laatst benaderd ${p.lastContacted}` : null].filter(Boolean).join(", ")}
+                  </p>
+                )}
+              </MobileListItem>
+            ))}
+          </MobileList>
+          <Table className="hidden md:block">
             <THead>
               <tr>
                 <TH>Domein</TH>
@@ -471,10 +492,10 @@ export function ImportWizard() {
             title={`Overgeslagen rijen (${run.skipped.length})`}
             description="Deze rijen zijn niet geïmporteerd. Het rijnummer is zoals in de Sheet, met de kopregel als rij 1. Pas ze aan en importeer opnieuw; dubbelingen worden aangevuld."
           />
-          <ul className="max-h-96 divide-y divide-border overflow-y-auto">
+          <ul className="max-h-96 divide-y divide-border overflow-y-auto overscroll-contain">
             {run.skipped.slice(0, 1000).map((s, i) => (
               <li key={`${s.row}-${i}`} className="flex gap-3 px-5 py-2 text-sm">
-                <span className="w-20 shrink-0 text-muted tabular-nums">Rij {s.row}</span>
+                <span className="w-20 shrink-0 text-muted tabular-nums max-sm:w-16">Rij {s.row}</span>
                 <span className="text-ink">{s.reason}</span>
               </li>
             ))}

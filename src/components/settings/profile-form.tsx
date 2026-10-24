@@ -26,6 +26,8 @@ export function ProfileForm({
             id="full_name"
             name="full_name"
             autoComplete="name"
+            autoCapitalize="words"
+            enterKeyHint="done"
             required
             // Remount with the saved value after a successful save.
             key={fullName}
@@ -42,7 +44,8 @@ export function ProfileForm({
           <Input id="profile_email" type="email" value={email} readOnly disabled />
         </Field>
       </div>
-      <div className="flex justify-end">
+      {/* Full width on phones, within thumb reach. */}
+      <div className="flex justify-end max-sm:*:w-full">
         <SubmitButton pendingLabel="Bezig met opslaan">Naam opslaan</SubmitButton>
       </div>
     </form>

@@ -33,19 +33,20 @@ export function PlacementActions({
   const close = () => setDialog(null);
 
   return (
-    <div className="flex flex-wrap gap-2">
-      <ButtonLink href={`/dashboard/plaatsingen/${placementId}/bewerken`} variant="secondary">
+    // Phones: Bewerken on its own row, the status changes share the next one.
+    <div className="flex flex-wrap gap-2 max-sm:w-full">
+      <ButtonLink href={`/dashboard/plaatsingen/${placementId}/bewerken`} variant="secondary" className="max-sm:basis-full">
         <Pencil aria-hidden="true" />
         Bewerken
       </ButtonLink>
       {status === "active" && (
-        <Button variant="secondary" onClick={() => setDialog("notice")}>
+        <Button variant="secondary" onClick={() => setDialog("notice")} className="max-sm:flex-1">
           <LogOut aria-hidden="true" />
           Opzeggen
         </Button>
       )}
       {status !== "ended" && (
-        <Button variant="secondary" onClick={() => setDialog("end")}>
+        <Button variant="secondary" onClick={() => setDialog("end")} className="max-sm:flex-1">
           <CircleStop aria-hidden="true" />
           Beëindigen
         </Button>
@@ -129,7 +130,7 @@ function NoticeForm({ action, onDone }: { action: FormAction; onDone: () => void
           }}
         />
       </Field>
-      <div className="flex justify-end gap-2">
+      <div className="flex justify-end gap-2 max-sm:*:flex-1">
         <Button variant="secondary" onClick={onDone}>
           Annuleren
         </Button>
@@ -160,7 +161,7 @@ function EndForm({
       <Field label="Einddatum" htmlFor="end_end_date" required error={errors.end_date}>
         <Input id="end_end_date" name="end_date" type="date" required defaultValue={defaultEnd} />
       </Field>
-      <div className="flex justify-end gap-2">
+      <div className="flex justify-end gap-2 max-sm:*:flex-1">
         <Button variant="secondary" onClick={onDone}>
           Annuleren
         </Button>
@@ -189,7 +190,7 @@ function DeleteConfirm({
         Je verwijdert de plaatsing, alle check-ins en de gekoppelde taken. Dit kun je niet
         terugdraaien. Is de samenwerking gestopt? Kies dan liever voor beëindigen.
       </p>
-      <div className="flex justify-end gap-2">
+      <div className="flex justify-end gap-2 max-sm:*:flex-1">
         <Button variant="secondary" onClick={onCancel}>
           Annuleren
         </Button>

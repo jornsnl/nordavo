@@ -160,7 +160,8 @@ function groupByDue(tasks: TaskItem[], today: string): TaskGroup[] {
 function FilterBar({ filters }: { filters: Filters }) {
   return (
     <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
-      <div className="flex flex-wrap items-center gap-3">
+      {/* On phones the filters form one strip that scrolls sideways. */}
+      <div className="-mx-4 flex scrollbar-none items-center gap-3 overflow-x-auto overscroll-x-contain px-4 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0">
         <Segmented
           label="Wiens taken"
           options={[
@@ -182,6 +183,7 @@ function FilterBar({ filters }: { filters: Filters }) {
       </div>
       <Segmented
         label="Weergave"
+        className="max-sm:w-full max-sm:*:flex-1 max-sm:*:justify-center"
         options={[
           {
             label: "Lijst",
@@ -204,20 +206,25 @@ function FilterBar({ filters }: { filters: Filters }) {
 function Segmented({
   label,
   options,
+  className = "",
 }: {
   label: string;
   options: { label: string; href: string; active: boolean; icon?: ReactNode }[];
+  className?: string;
 }) {
   return (
-    <nav aria-label={label} className="relative inline-flex w-fit max-w-full overflow-x-auto rounded-xl border border-border bg-white p-1 shadow-xs">
+    <nav
+      aria-label={label}
+      className={`relative inline-flex w-fit max-w-full shrink-0 overflow-x-auto rounded-xl border border-border bg-white p-1 shadow-xs ${className}`}
+    >
       {options.map((option) => (
         <Link
           key={option.label}
           href={option.href}
           scroll={false}
           aria-current={option.active ? "page" : undefined}
-          className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium whitespace-nowrap transition focus-visible:outline-2 focus-visible:outline-brand-500 ${
-            option.active ? "bg-brand-700 text-white" : "text-muted hover:bg-brand-50 hover:text-brand-900"
+          className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium whitespace-nowrap transition pointer-coarse:min-h-9 focus-visible:outline-2 focus-visible:outline-brand-500 ${
+            option.active ? "bg-brand-700 text-white" : "text-muted hover:bg-brand-50 hover:text-brand-900 active:bg-brand-50"
           }`}
         >
           {option.icon}

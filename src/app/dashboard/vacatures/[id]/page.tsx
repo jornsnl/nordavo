@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, Building2, Pencil } from "lucide-react";
+import { ArrowLeft, Building2, KanbanSquare, Pencil } from "lucide-react";
 import { EntityExtras } from "@/components/entity/entity-extras";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { ConfirmDeleteButton } from "@/components/clients/confirm-delete-button";
@@ -38,7 +38,7 @@ export default function Page({ params }: PageProps<"/dashboard/vacatures/[id]">)
     <>
       <Link
         href="/dashboard/vacatures"
-        className="mb-4 inline-flex items-center gap-1.5 text-sm font-medium text-muted hover:text-brand-700"
+        className="mb-4 inline-flex items-center gap-1.5 text-sm font-medium text-muted hover:text-brand-700 active:text-brand-700 pointer-coarse:mb-2 pointer-coarse:min-h-11"
       >
         <ArrowLeft className="size-4" aria-hidden="true" />
         Alle vacatures
@@ -102,6 +102,11 @@ async function VacancyDetail({ params }: { params: Params }) {
         }
         actions={
           <>
+            {/* Phones: the board is the main job here, so it leads; desktop has it in the pipeline card. */}
+            <ButtonLink href={`/dashboard/vacatures/${vacancy.id}/pipeline`} className="basis-full! sm:hidden">
+              <KanbanSquare aria-hidden="true" />
+              Pipeline openen
+            </ButtonLink>
             <ButtonLink href={`/dashboard/vacatures/${vacancy.id}/bewerken`} variant="secondary">
               <Pencil aria-hidden="true" />
               Bewerken
@@ -115,8 +120,8 @@ async function VacancyDetail({ params }: { params: Params }) {
         }
       />
 
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
-        <div className="min-w-0 space-y-6">
+      <div className="grid grid-cols-1 gap-4 sm:gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
+        <div className="min-w-0 space-y-4 sm:space-y-6">
           <TimelineCard vacancy={vacancy} leadTime={vacancy.leadTime} />
           <RequirementsCard vacancy={vacancy} />
           <Suspense fallback={<ListSkeleton rows={4} />}>
@@ -185,7 +190,7 @@ async function VacancyDetail({ params }: { params: Params }) {
           </Card>
         </div>
 
-        <div className="min-w-0 space-y-6">
+        <div className="min-w-0 space-y-4 sm:space-y-6">
           <Suspense fallback={<ListSkeleton rows={3} />}>
             <EntityExtras entityType="vacancy" entityId={vacancy.id} />
           </Suspense>

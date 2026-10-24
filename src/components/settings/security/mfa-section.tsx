@@ -34,7 +34,10 @@ export async function MfaSection() {
             {factors.map((factor, index) => {
               const name = factor.friendly_name || `Authenticator app ${index + 1}`;
               return (
-                <li key={factor.id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
+                <li
+                  key={factor.id}
+                  className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 pointer-coarse:[&_button]:min-h-11"
+                >
                   <div className="flex min-w-0 items-center gap-3">
                     <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-brand-50 text-brand-700">
                       <Smartphone className="size-[18px]" aria-hidden="true" />

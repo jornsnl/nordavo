@@ -9,6 +9,7 @@ import { formatCurrency, formatDate, todayIso } from "@/lib/format";
 import { EmptyState } from "@/components/dashboard/empty-state";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { ButtonLink } from "@/components/ui/button";
+import { MobileList, MobileListItem } from "@/components/ui/mobile-list";
 import { ListSkeleton, Skeleton } from "@/components/ui/skeleton";
 import { TBody, TD, TH, THead, TR, Table } from "@/components/ui/table";
 import { monthsBetween } from "@/components/placements/dates";
@@ -96,62 +97,95 @@ async function Placements({ searchParams }: { searchParams: SearchParams }) {
           />
         )
       ) : (
-        <Table>
-          <THead>
-            <tr>
-              <TH>Kandidaat</TH>
-              <TH>Klant</TH>
-              <TH>Vacature</TH>
-              <TH>Start</TH>
-              <TH>Looptijd</TH>
-              <TH className="text-right">Maandtarief</TH>
-              <TH>Status</TH>
-              <TH>Volgende check-in</TH>
-            </tr>
-          </THead>
-          <TBody>
+        <>
+          <MobileList label="Plaatsingen" className="md:hidden">
             {placements.map((p) => {
               const runningUntil = p.status === "ended" && p.end_date ? p.end_date : today;
               const started = p.start_date <= today;
               const months = monthsBetween(p.start_date, runningUntil);
               return (
-                <TR key={p.id}>
-                  <TD>
-                    <Link
-                      href={`/dashboard/plaatsingen/${p.id}`}
-                      className="font-semibold text-brand-800 hover:text-brand-600 hover:underline"
-                    >
-                      {p.candidate?.full_name ?? "Onbekende kandidaat"}
-                    </Link>
-                  </TD>
-                  <TD>{p.client?.name ?? "Onbekend"}</TD>
-                  <TD className="text-muted">{p.vacancy?.title ?? "Geen vacature"}</TD>
-                  <TD className="whitespace-nowrap">{formatDate(p.start_date)}</TD>
-                  <TD className="whitespace-nowrap">
-                    {started ? `${months} ${months === 1 ? "maand" : "maanden"}` : "Nog niet gestart"}
-                  </TD>
-                  <TD className="text-right whitespace-nowrap tabular-nums">
-                    {formatCurrency(p.monthly_rate, "Niet ingevuld")}
-                  </TD>
-                  <TD>
-                    <div className="flex flex-wrap gap-1.5">
-                      <PlacementStatusBadge status={p.status} />
-                      <GuaranteeBadge
-                        startDate={p.start_date}
-                        guaranteeUntil={p.guarantee_until}
-                        status={p.status}
-                        today={today}
-                      />
-                    </div>
-                  </TD>
-                  <TD className="whitespace-nowrap">
-                    <CheckinDate date={p.next_checkin_at} status={p.status} today={today} />
-                  </TD>
-                </TR>
+                <MobileListItem
+                  key={p.id}
+                  href={`/dashboard/plaatsingen/${p.id}`}
+                  title={p.candidate?.full_name ?? "Onbekende kandidaat"}
+                  subtitle={[p.client?.name ?? "Onbekend", p.vacancy?.title].filter(Boolean).join(" · ")}
+                  meta={`${started ? `${months} ${months === 1 ? "maand" : "maanden"}` : `Start ${formatDate(p.start_date)}`} · ${formatCurrency(p.monthly_rate, "Tarief niet ingevuld")}`}
+                >
+                  <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1.5 text-xs">
+                    <PlacementStatusBadge status={p.status} />
+                    <GuaranteeBadge
+                      startDate={p.start_date}
+                      guaranteeUntil={p.guarantee_until}
+                      status={p.status}
+                      today={today}
+                    />
+                    {p.status !== "ended" && (
+                      <span className="ml-1.5 text-muted">
+                        Check-in <CheckinDate date={p.next_checkin_at} status={p.status} today={today} />
+                      </span>
+                    )}
+                  </div>
+                </MobileListItem>
               );
             })}
-          </TBody>
-        </Table>
+          </MobileList>
+          <Table className="hidden md:block">
+            <THead>
+              <tr>
+                <TH>Kandidaat</TH>
+                <TH>Klant</TH>
+                <TH>Vacature</TH>
+                <TH>Start</TH>
+                <TH>Looptijd</TH>
+                <TH className="text-right">Maandtarief</TH>
+                <TH>Status</TH>
+                <TH>Volgende check-in</TH>
+              </tr>
+            </THead>
+            <TBody>
+              {placements.map((p) => {
+                const runningUntil = p.status === "ended" && p.end_date ? p.end_date : today;
+                const started = p.start_date <= today;
+                const months = monthsBetween(p.start_date, runningUntil);
+                return (
+                  <TR key={p.id}>
+                    <TD>
+                      <Link
+                        href={`/dashboard/plaatsingen/${p.id}`}
+                        className="font-semibold text-brand-800 hover:text-brand-600 hover:underline"
+                      >
+                        {p.candidate?.full_name ?? "Onbekende kandidaat"}
+                      </Link>
+                    </TD>
+                    <TD>{p.client?.name ?? "Onbekend"}</TD>
+                    <TD className="text-muted">{p.vacancy?.title ?? "Geen vacature"}</TD>
+                    <TD className="whitespace-nowrap">{formatDate(p.start_date)}</TD>
+                    <TD className="whitespace-nowrap">
+                      {started ? `${months} ${months === 1 ? "maand" : "maanden"}` : "Nog niet gestart"}
+                    </TD>
+                    <TD className="text-right whitespace-nowrap tabular-nums">
+                      {formatCurrency(p.monthly_rate, "Niet ingevuld")}
+                    </TD>
+                    <TD>
+                      <div className="flex flex-wrap gap-1.5">
+                        <PlacementStatusBadge status={p.status} />
+                        <GuaranteeBadge
+                          startDate={p.start_date}
+                          guaranteeUntil={p.guarantee_until}
+                          status={p.status}
+                          today={today}
+                        />
+                      </div>
+                    </TD>
+                    <TD className="whitespace-nowrap">
+                      <CheckinDate date={p.next_checkin_at} status={p.status} today={today} />
+                    </TD>
+                  </TR>
+                );
+              })}
+            </TBody>
+          </Table>
+        </>
       )}
     </>
   );

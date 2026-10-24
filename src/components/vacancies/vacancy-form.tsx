@@ -4,6 +4,7 @@ import { startTransition, useActionState, useState } from "react";
 import { LoaderCircle } from "lucide-react";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { Field, FormMessage, Input, Select, Textarea } from "@/components/ui/field";
+import { FormActions } from "@/components/entity/form-actions";
 import { initialActionState, type ActionState } from "@/lib/action-state";
 import type { Seniority, TalentStage, VacancySource, VacancyStatus } from "@/lib/database.types";
 import { seniorities, talentStages, vacancyStatuses } from "@/lib/labels";
@@ -82,7 +83,7 @@ export function VacancyForm({
             Voor wie is deze vacature<span className="ml-0.5 text-danger" aria-hidden="true">*</span>
           </legend>
           <div className="flex flex-wrap gap-4 text-sm">
-            <label className="inline-flex items-center gap-2">
+            <label className="inline-flex cursor-pointer items-center gap-2 pointer-coarse:min-h-11">
               <input
                 type="radio"
                 name="owner_type"
@@ -93,7 +94,7 @@ export function VacancyForm({
               />
               Bestaande klant
             </label>
-            <label className="inline-flex items-center gap-2">
+            <label className="inline-flex cursor-pointer items-center gap-2 pointer-coarse:min-h-11">
               <input
                 type="radio"
                 name="owner_type"
@@ -145,6 +146,8 @@ export function VacancyForm({
             name="title"
             required
             placeholder="Bijvoorbeeld Senior Data Engineer"
+            autoComplete="off"
+            enterKeyHint="next"
             defaultValue={defaults?.title}
             {...invalid("title")}
           />
@@ -165,7 +168,7 @@ export function VacancyForm({
           hint="Scheid met komma's, bijvoorbeeld Python, dbt, Snowflake"
           className="sm:col-span-2"
         >
-          <Input id="stack" name="stack" defaultValue={defaults?.stack?.join(", ") ?? ""} {...invalid("stack")} />
+          <Input id="stack" name="stack" autoComplete="off" spellCheck={false} enterKeyHint="next" defaultValue={defaults?.stack?.join(", ") ?? ""} {...invalid("stack")} />
         </Field>
         <Field label="Senioriteit" htmlFor="seniority" required error={errors.seniority}>
           <Select id="seniority" name="seniority" defaultValue={defaults?.seniority ?? "senior"} {...invalid("seniority")}>
@@ -196,6 +199,7 @@ export function VacancyForm({
             id="monthly_budget"
             name="monthly_budget"
             inputMode="decimal"
+            enterKeyHint="next"
             placeholder="4500"
             defaultValue={defaults?.monthly_budget ?? ""}
             {...invalid("monthly_budget")}
@@ -235,7 +239,16 @@ export function VacancyForm({
           error={errors.onepage_deal_id}
           hint="De deal-id, zodat verstuurde profielen bij de deal komen."
         >
-          <Input id="onepage_deal_id" name="onepage_deal_id" defaultValue={defaults?.onepage_deal_id ?? ""} {...invalid("onepage_deal_id")} />
+          <Input
+            id="onepage_deal_id"
+            name="onepage_deal_id"
+            autoComplete="off"
+            autoCapitalize="none"
+            spellCheck={false}
+            enterKeyHint="next"
+            defaultValue={defaults?.onepage_deal_id ?? ""}
+            {...invalid("onepage_deal_id")}
+          />
         </Field>
         <Field label="Eigenaar" htmlFor="owner_id" error={errors.owner_id} hint="Wie bij Nordavo deze vacature trekt">
           <Select id="owner_id" name="owner_id" defaultValue={defaults?.owner_id ?? ""} {...invalid("owner_id")}>
@@ -256,7 +269,7 @@ export function VacancyForm({
           <p className="mt-0.5 text-sm text-muted">Vul je liever niet zelf in? Lees de vacature uit op de detailpagina.</p>
         </div>
         <Field label="Uren per week" htmlFor="hours" error={errors.hours}>
-          <Input id="hours" name="hours" inputMode="numeric" placeholder="40" defaultValue={defaults?.hours ?? ""} {...invalid("hours")} />
+          <Input id="hours" name="hours" inputMode="numeric" enterKeyHint="next" placeholder="40" defaultValue={defaults?.hours ?? ""} {...invalid("hours")} />
         </Field>
         <Field label="Overlap tijdzone" htmlFor="timezone_overlap" error={errors.timezone_overlap}>
           <Input
@@ -268,10 +281,10 @@ export function VacancyForm({
           />
         </Field>
         <Field label="Budget minimaal per maand (EUR)" htmlFor="budget_min" error={errors.budget_min}>
-          <Input id="budget_min" name="budget_min" inputMode="decimal" defaultValue={defaults?.budget_min ?? ""} {...invalid("budget_min")} />
+          <Input id="budget_min" name="budget_min" inputMode="decimal" enterKeyHint="next" defaultValue={defaults?.budget_min ?? ""} {...invalid("budget_min")} />
         </Field>
         <Field label="Budget maximaal per maand (EUR)" htmlFor="budget_max" error={errors.budget_max}>
-          <Input id="budget_max" name="budget_max" inputMode="decimal" defaultValue={defaults?.budget_max ?? ""} {...invalid("budget_max")} />
+          <Input id="budget_max" name="budget_max" inputMode="decimal" enterKeyHint="next" defaultValue={defaults?.budget_max ?? ""} {...invalid("budget_max")} />
         </Field>
         <Field
           label="Direct contact met klanten van de klant"
@@ -303,7 +316,7 @@ export function VacancyForm({
         </Field>
       </fieldset>
 
-      <div className="flex flex-col-reverse gap-2 border-t border-border pt-5 sm:flex-row sm:justify-end">
+      <FormActions>
         <ButtonLink href={cancelHref} variant="secondary">
           Annuleren
         </ButtonLink>
@@ -311,7 +324,7 @@ export function VacancyForm({
           {pending && <LoaderCircle className="animate-spin" aria-hidden="true" />}
           {pending ? "Bezig met opslaan" : submitLabel}
         </Button>
-      </div>
+      </FormActions>
     </form>
   );
 }

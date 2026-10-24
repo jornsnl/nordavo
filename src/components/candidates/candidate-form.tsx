@@ -10,6 +10,7 @@ import { candidateStatuses } from "@/lib/labels";
 import { Button, buttonClasses } from "@/components/ui/button";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { Field, FormMessage, Input, Select, Textarea } from "@/components/ui/field";
+import { FormActions } from "@/components/entity/form-actions";
 
 type CandidateFormValues = Pick<
   Candidate,
@@ -80,6 +81,8 @@ export function CandidateForm({
               name="full_name"
               required
               autoComplete="off"
+              autoCapitalize="words"
+              enterKeyHint="next"
               defaultValue={candidate?.full_name}
               aria-invalid={!!errors.full_name}
               aria-describedby={describedBy("full_name")}
@@ -90,6 +93,7 @@ export function CandidateForm({
               id="current_title"
               name="current_title"
               placeholder="Senior backend developer"
+              enterKeyHint="next"
               defaultValue={candidate?.current_title ?? ""}
               aria-invalid={!!errors.current_title}
               aria-describedby={describedBy("current_title")}
@@ -103,6 +107,7 @@ export function CandidateForm({
               inputMode="numeric"
               min={0}
               max={60}
+              enterKeyHint="next"
               defaultValue={candidate?.years_experience ?? ""}
               aria-invalid={!!errors.years_experience}
               aria-describedby={describedBy("years_experience")}
@@ -118,6 +123,9 @@ export function CandidateForm({
             <Input
               id="skills"
               name="skills"
+              autoComplete="off"
+              spellCheck={false}
+              enterKeyHint="next"
               defaultValue={candidate?.skills.join(", ") ?? ""}
               aria-invalid={!!errors.skills}
               aria-describedby={describedBy("skills")}
@@ -146,6 +154,9 @@ export function CandidateForm({
               name="email"
               type="email"
               autoComplete="off"
+              autoCapitalize="none"
+              spellCheck={false}
+              enterKeyHint="next"
               defaultValue={candidate?.email ?? ""}
               aria-invalid={!!errors.email}
               aria-describedby={describedBy("email")}
@@ -157,6 +168,7 @@ export function CandidateForm({
               name="phone"
               type="tel"
               autoComplete="off"
+              enterKeyHint="next"
               placeholder="+91 ..."
               defaultValue={candidate?.phone ?? ""}
               aria-invalid={!!errors.phone}
@@ -167,6 +179,7 @@ export function CandidateForm({
             <Input
               id="location"
               name="location"
+              enterKeyHint="next"
               defaultValue={candidate?.location ?? "Bangalore"}
               aria-invalid={!!errors.location}
               aria-describedby={describedBy("location")}
@@ -177,6 +190,9 @@ export function CandidateForm({
               id="linkedin_url"
               name="linkedin_url"
               type="url"
+              autoCapitalize="none"
+              spellCheck={false}
+              enterKeyHint="next"
               placeholder="https://www.linkedin.com/in/..."
               defaultValue={candidate?.linkedin_url ?? ""}
               aria-invalid={!!errors.linkedin_url}
@@ -194,6 +210,9 @@ export function CandidateForm({
               id="video_url"
               name="video_url"
               type="url"
+              autoCapitalize="none"
+              spellCheck={false}
+              enterKeyHint="next"
               placeholder="https://"
               defaultValue={candidate?.video_url ?? ""}
               aria-invalid={!!errors.video_url}
@@ -229,7 +248,7 @@ export function CandidateForm({
               aria-describedby={describedBy("cv")}
             />
             {candidate?.cv_path && (
-              <label className="mt-2 flex items-center gap-2 text-sm text-ink">
+              <label className="mt-2 flex cursor-pointer items-center gap-2 text-sm text-ink pointer-coarse:min-h-11">
                 <input type="checkbox" name="remove_cv" className="size-4 rounded border-border accent-brand-700" />
                 Huidig cv verwijderen
               </label>
@@ -257,7 +276,8 @@ export function CandidateForm({
         </CardBody>
       </Card>
 
-      <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+      {/* The form has no card around it, so on phones the bar spans the screen. */}
+      <FormActions divider={false}>
         <Link href={cancelHref} className={buttonClasses({ variant: "secondary" })}>
           Annuleren
         </Link>
@@ -265,7 +285,7 @@ export function CandidateForm({
           {pending && <LoaderCircle className="animate-spin" aria-hidden="true" />}
           {pending ? "Opslaan..." : candidate ? "Wijzigingen opslaan" : "Kandidaat toevoegen"}
         </Button>
-      </div>
+      </FormActions>
     </form>
   );
 }

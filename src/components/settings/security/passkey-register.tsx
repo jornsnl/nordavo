@@ -81,6 +81,7 @@ export function PasskeyRegister({
             id="passkey_name"
             name="name"
             autoComplete="off"
+            enterKeyHint="go"
             required
             maxLength={80}
             disabled={pending}
@@ -89,7 +90,7 @@ export function PasskeyRegister({
           />
         </Field>
       </div>
-      <div className="flex justify-end">
+      <div className="flex justify-end max-sm:*:w-full">
         <PendingSubmit pending={pending} pendingLabel="Wacht op je apparaat">
           <Plus aria-hidden="true" />
           Passkey toevoegen

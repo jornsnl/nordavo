@@ -11,6 +11,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { ListSkeleton, Skeleton } from "@/components/ui/skeleton";
+import { MobileList, MobileListItem } from "@/components/ui/mobile-list";
 import { TBody, TD, TH, THead, TR, Table } from "@/components/ui/table";
 import { ConfirmButton } from "@/components/candidates/confirm-button";
 import { InviteForm } from "@/components/settings/invite-form";
@@ -114,7 +115,53 @@ async function UsersSection() {
             kandidaten in het klantportaal.
           </p>
         </div>
-        <Table>
+        <MobileList label="Gebruikers" className="md:hidden">
+          {profiles.map((profile) => {
+            const name = profile.full_name || profile.email || "Naamloos";
+            const role = optionFor(profileRoles, profile.role);
+            const isSelf = profile.id === user.id;
+            const mfaOn = mfaByUser.get(profile.id);
+            return (
+              <MobileListItem
+                key={profile.id}
+                leading={<Avatar name={name} />}
+                title={
+                  <>
+                    {name}
+                    {isSelf && <span className="ml-1.5 text-xs font-normal text-muted">(jij)</span>}
+                  </>
+                }
+                subtitle={profile.email ?? "Geen e-mailadres"}
+                meta={
+                  <>
+                    {profile.role === "client" ? (profile.client?.name ?? "Niet gekoppeld") : "Nordavo"}
+                    {" · 2FA "}
+                    {mfaOn === undefined ? "onbekend" : mfaOn ? "aan" : "uit"}
+                  </>
+                }
+                // Others get the role picker below, so the badge would only repeat it.
+                trailing={isSelf ? <Badge tone={role.tone}>{role.label}</Badge> : undefined}
+              >
+                {!isSelf && (
+                  <div className="space-y-2 pointer-coarse:[&_button]:min-h-11">
+                    <RoleEditor
+                      action={updateUserRole}
+                      userId={profile.id}
+                      userName={name}
+                      role={profile.role}
+                      clientId={profile.client_id}
+                      clients={clients}
+                      layout="stacked"
+                    />
+                    {mfaOn && <ResetMfaButton userId={profile.id} name={name} />}
+                  </div>
+                )}
+              </MobileListItem>
+            );
+          })}
+        </MobileList>
+
+        <Table className="hidden md:block">
           <THead>
             <tr>
               <TH>Naam</TH>
@@ -164,18 +211,7 @@ async function UsersSection() {
                     ) : (
                       <div className="flex flex-wrap items-center gap-2">
                         <Badge tone={mfaOn ? "success" : "neutral"}>{mfaOn ? "Aan" : "Uit"}</Badge>
-                        {mfaOn && !isSelf && (
-                          <ConfirmButton
-                            size="sm"
-                            variant="ghost"
-                            title="Tweestapsverificatie resetten?"
-                            description={`Alle authenticator apps van ${name} worden verwijderd. ${name} logt daarna in met alleen een wachtwoord en kan in het profiel een nieuwe app toevoegen. Doe dit alleen als je zeker weet dat het verzoek van ${name} zelf komt.`}
-                            confirmLabel="2FA resetten"
-                            action={resetUserMfa.bind(null, profile.id)}
-                          >
-                            2FA resetten
-                          </ConfirmButton>
-                        )}
+                        {mfaOn && !isSelf && <ResetMfaButton userId={profile.id} name={name} />}
                       </div>
                     )}
                   </TD>
@@ -212,6 +248,21 @@ async function UsersSection() {
         </CardBody>
       </Card>
     </>
+  );
+}
+
+function ResetMfaButton({ userId, name }: { userId: string; name: string }) {
+  return (
+    <ConfirmButton
+      size="sm"
+      variant="ghost"
+      title="Tweestapsverificatie resetten?"
+      description={`Alle authenticator apps van ${name} worden verwijderd. ${name} logt daarna in met alleen een wachtwoord en kan in het profiel een nieuwe app toevoegen. Doe dit alleen als je zeker weet dat het verzoek van ${name} zelf komt.`}
+      confirmLabel="2FA resetten"
+      action={resetUserMfa.bind(null, userId)}
+    >
+      2FA resetten
+    </ConfirmButton>
   );
 }
 

@@ -5,11 +5,14 @@ import Form from "next/form";
 import { Briefcase, Plus, Search } from "lucide-react";
 import { EmptyState } from "@/components/dashboard/empty-state";
 import { PageHeader } from "@/components/dashboard/page-header";
+import { AutoSubmitSelects } from "@/components/entity/auto-submit";
+import { FilterChips, filterHref } from "@/components/entity/filter-chips";
 import { LeadTimeSignal } from "@/components/talent/lead-time-signal";
 import { DaysOpen } from "@/components/vacancies/days-open";
 import { Badge } from "@/components/ui/badge";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { Input, Select } from "@/components/ui/field";
+import { MobileList, MobileListItem } from "@/components/ui/mobile-list";
 import { ListSkeleton, Skeleton } from "@/components/ui/skeleton";
 import { Table, TBody, TD, TH, THead, TR } from "@/components/ui/table";
 import type { TalentStage, VacancyStatus } from "@/lib/database.types";
@@ -64,12 +67,18 @@ export default function Page({ searchParams }: { searchParams: SearchParams }) {
 async function Filters({ searchParams }: { searchParams: SearchParams }) {
   const [params, clients] = await Promise.all([searchParams, listClientOptions()]);
   const { q, status, client, stage } = readFilters(params);
+  const current = { q: q || undefined, status: status || undefined, client: client || undefined, stage: stage || undefined };
+  const statusChip = (label: string, value: string) => ({
+    label,
+    href: filterHref("/dashboard/vacatures", current, { status: value || undefined }),
+    active: status === value,
+  });
 
   return (
     <Form
       action="/dashboard/vacatures"
       role="search"
-      className="mb-6 grid gap-3 sm:grid-cols-2 lg:flex lg:items-center"
+      className="mb-6 grid grid-cols-[minmax(0,1fr)] gap-3 sm:grid-cols-2 lg:flex lg:items-center"
     >
       <div className="relative sm:col-span-2 lg:flex-1">
         <Search
@@ -79,43 +88,66 @@ async function Filters({ searchParams }: { searchParams: SearchParams }) {
         <label htmlFor="vacancy-q" className="sr-only">
           Zoek op functietitel
         </label>
-        <Input id="vacancy-q" name="q" type="search" defaultValue={q} placeholder="Zoek op functietitel" className="pl-10" />
+        <Input
+          id="vacancy-q"
+          name="q"
+          type="search"
+          enterKeyHint="search"
+          autoComplete="off"
+          defaultValue={q}
+          placeholder="Zoek op functietitel"
+          className="pl-10"
+        />
       </div>
-      <label htmlFor="vacancy-status" className="sr-only">
-        Status
-      </label>
-      <Select id="vacancy-status" name="status" defaultValue={status} className="lg:w-48">
-        <option value="">Open en on hold</option>
-        <option value="all">Alle statussen</option>
-        {vacancyStatuses.map((s) => (
-          <option key={s.value} value={s.value}>
-            {s.label}
-          </option>
-        ))}
-      </Select>
-      <label htmlFor="vacancy-client" className="sr-only">
-        Klant
-      </label>
-      <Select id="vacancy-client" name="client" defaultValue={client} className="lg:w-56">
-        <option value="">Alle klanten</option>
-        {clients.map((c) => (
-          <option key={c.id} value={c.id}>
-            {c.label}
-          </option>
-        ))}
-      </Select>
-      <label htmlFor="vacancy-stage" className="sr-only">
-        Fase talent
-      </label>
-      <Select id="vacancy-stage" name="stage" defaultValue={stage} className="lg:w-48">
-        <option value="">Alle fases</option>
-        {talentStages.map((s) => (
-          <option key={s.value} value={s.value}>
-            {s.label}
-          </option>
-        ))}
-      </Select>
-      <Button type="submit" variant="secondary" className="sm:col-span-2 lg:col-span-1">
+      {/* Phones: status as chips, klant and fase apply as soon as they change. */}
+      <FilterChips
+        label="Status"
+        className="sm:hidden"
+        chips={[
+          statusChip("Open en on hold", ""),
+          ...vacancyStatuses.map((s) => statusChip(s.label, s.value)),
+          statusChip("Alle", "all"),
+        ]}
+      />
+      <div className="max-sm:hidden lg:w-48">
+        <label htmlFor="vacancy-status" className="sr-only">
+          Status
+        </label>
+        <Select id="vacancy-status" name="status" defaultValue={status}>
+          <option value="">Open en on hold</option>
+          <option value="all">Alle statussen</option>
+          {vacancyStatuses.map((s) => (
+            <option key={s.value} value={s.value}>
+              {s.label}
+            </option>
+          ))}
+        </Select>
+      </div>
+      <AutoSubmitSelects className="grid grid-cols-2 gap-3 *:min-w-0 sm:contents">
+        <label htmlFor="vacancy-client" className="sr-only">
+          Klant
+        </label>
+        <Select id="vacancy-client" name="client" defaultValue={client} className="lg:w-56">
+          <option value="">Alle klanten</option>
+          {clients.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.label}
+            </option>
+          ))}
+        </Select>
+        <label htmlFor="vacancy-stage" className="sr-only">
+          Fase talent
+        </label>
+        <Select id="vacancy-stage" name="stage" defaultValue={stage} className="lg:w-48">
+          <option value="">Alle fases</option>
+          {talentStages.map((s) => (
+            <option key={s.value} value={s.value}>
+              {s.label}
+            </option>
+          ))}
+        </Select>
+      </AutoSubmitSelects>
+      <Button type="submit" variant="secondary" className="max-sm:hidden sm:col-span-2 lg:col-span-1">
         Filteren
       </Button>
     </Form>
@@ -148,7 +180,31 @@ async function VacancyTable({ searchParams }: { searchParams: SearchParams }) {
 
   return (
     <>
-      <Table>
+      <MobileList label="Vacatures" className="md:hidden">
+        {vacancies.map((v) => {
+          const statusOption = optionFor(vacancyStatuses, v.status);
+          const stageOption = optionFor(talentStages, v.talentStage);
+          const owner = v.clientName ?? (v.companyName ? `${v.companyName} (prospect)` : "Onbekend");
+          return (
+            <MobileListItem
+              key={v.id}
+              href={`/dashboard/vacatures/${v.id}`}
+              title={v.title}
+              subtitle={owner}
+              meta={`${optionFor(seniorities, v.seniority).label} · ${v.inPipeline} in pipeline`}
+            >
+              {/* Badges under the text, so long titles keep the full width. */}
+              <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1.5 text-xs">
+                <Badge tone={statusOption.tone}>{statusOption.label}</Badge>
+                <Badge tone={stageOption.tone}>{stageOption.label}</Badge>
+                <span className="w-1" aria-hidden="true" />
+                <DaysOpen days={v.daysOpen} status={v.status} />
+              </div>
+            </MobileListItem>
+          );
+        })}
+      </MobileList>
+      <Table className="hidden md:block">
         <THead>
           <tr>
             <TH>Functie</TH>

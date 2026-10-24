@@ -4,6 +4,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { LifeBuoy, Smartphone } from "lucide-react";
 import { Logo } from "@/components/brand/logo";
+import { authPanelClass } from "@/app/login/auth-panel";
 import { checkSecondStep, verifiedTotpFactors } from "@/lib/security/mfa";
 import { createClient } from "@/lib/supabase/server";
 import { pathAfterSignIn } from "./redirect";
@@ -59,33 +60,35 @@ export default function VerificationPage({ searchParams }: { searchParams: Searc
       </section>
 
       {/* Form panel */}
-      <section className="flex flex-col justify-center px-6 py-12 sm:px-12">
-        <div className="mx-auto w-full max-w-sm">
-          <Logo className="mb-12 lg:hidden" />
+      <section className={authPanelClass}>
+        <div className="mx-auto flex w-full max-w-sm flex-1 flex-col sm:flex-none">
+          <div className="max-sm:my-auto">
+            <Logo className="mb-8 sm:mb-12 lg:hidden" />
 
-          <h2 className="font-display text-3xl font-bold tracking-tight text-brand-900">
-            Code invullen
-          </h2>
-          <p className="mt-2 text-muted">
-            Vul de code van 6 cijfers in uit je authenticator app.
-          </p>
+            <h2 className="font-display text-[1.75rem] leading-tight font-bold tracking-tight text-brand-900 sm:text-3xl">
+              Code invullen
+            </h2>
+            <p className="mt-2 text-muted">
+              Vul de code van 6 cijfers in uit je authenticator app.
+            </p>
 
-          <div className="mt-8">
-            <Suspense fallback={<FormSkeleton />}>
-              <Verification searchParams={searchParams} />
-            </Suspense>
+            <div className="mt-8">
+              <Suspense fallback={<FormSkeleton />}>
+                <Verification searchParams={searchParams} />
+              </Suspense>
+            </div>
+
+            <form action="/auth/signout" method="post" className="mt-6">
+              <button
+                type="submit"
+                className="text-sm font-medium text-brand-600 underline-offset-4 hover:underline active:text-brand-800 max-sm:flex max-sm:min-h-11 max-sm:w-full max-sm:items-center max-sm:justify-center focus-visible:outline-2 focus-visible:outline-brand-500"
+              >
+                Uitloggen
+              </button>
+            </form>
           </div>
 
-          <form action="/auth/signout" method="post" className="mt-6">
-            <button
-              type="submit"
-              className="text-sm font-medium text-brand-600 underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-brand-500"
-            >
-              Uitloggen
-            </button>
-          </form>
-
-          <p className="mt-8 text-sm text-muted">
+          <p className="mt-8 text-sm text-muted max-sm:pt-2 max-sm:text-center">
             Telefoon kwijt of lukt het niet? Mail naar{" "}
             <a
               href="mailto:info@nordavo.nl"

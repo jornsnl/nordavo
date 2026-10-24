@@ -3,7 +3,7 @@ import Link from "next/link";
 /** "Alle leads" and "Review" tabs above the leads pages. */
 export function LeadTabs({ active, reviewCount }: { active: "all" | "review"; reviewCount: number | null }) {
   const tab = (isActive: boolean) =>
-    `inline-flex items-center gap-2 border-b-2 px-1 pb-3 text-sm font-semibold transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500 ${
+    `inline-flex items-center gap-2 border-b-2 px-1 pb-3 text-sm max-md:min-h-11 max-md:pt-1 font-semibold transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500 ${
       isActive ? "border-brand-700 text-brand-900" : "border-transparent text-muted hover:text-brand-800"
     }`;
   return (

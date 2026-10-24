@@ -56,7 +56,7 @@ export function ConfirmDeleteButton({
         <form action={formAction} className="space-y-5">
           <p className="text-sm leading-relaxed text-muted">{description}</p>
           <FormMessage error={state.error} />
-          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+          <div className="flex gap-2 max-sm:*:flex-1 sm:justify-end">
             <Button variant="secondary" onClick={() => setOpen(false)}>
               Annuleren
             </Button>

@@ -24,14 +24,14 @@ export default function PortalOverviewPage() {
         <Greeting />
       </Suspense>
 
-      <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
-        <div className="min-w-0 space-y-8 lg:col-span-2">
+      <div className="grid grid-cols-1 gap-6 sm:gap-8 lg:grid-cols-3">
+        <div className="min-w-0 space-y-6 sm:space-y-8 lg:col-span-2">
           <Suspense fallback={<ListSkeleton rows={2} />}>
             <PendingReviews />
           </Suspense>
 
           <section aria-labelledby="vacancies-heading">
-            <h2 id="vacancies-heading" className="mb-4 font-display text-lg font-semibold text-brand-900">
+            <h2 id="vacancies-heading" className="mb-3 font-display sm:mb-4 text-lg font-semibold text-brand-900">
               Jouw vacatures
             </h2>
             <Suspense fallback={<VacancyGridSkeleton />}>
@@ -62,7 +62,7 @@ async function Greeting() {
   const greeting = hour < 12 ? "Goedemorgen" : hour < 18 ? "Goedemiddag" : "Goedenavond";
 
   return (
-    <header className="mb-8">
+    <header className="mb-6 sm:mb-8">
       {company && (
         <p className="mb-1.5 text-xs font-semibold tracking-wider text-accent-600 uppercase">{company.name}</p>
       )}
@@ -78,7 +78,7 @@ async function Greeting() {
 
 function GreetingSkeleton() {
   return (
-    <div className="mb-8 space-y-3" aria-hidden="true">
+    <div className="mb-6 space-y-3 sm:mb-8" aria-hidden="true">
       <Skeleton className="h-3 w-24" />
       <Skeleton className="h-8 w-64" />
       <Skeleton className="h-4 w-96 max-w-full" />
@@ -91,7 +91,7 @@ async function PendingReviews() {
   if (!pending.length) return null;
 
   return (
-    <section aria-labelledby="pending-heading" className="rounded-2xl border border-accent-500/40 bg-accent-100/50 p-5 shadow-xs">
+    <section aria-labelledby="pending-heading" className="rounded-2xl border border-accent-500/40 bg-accent-100/50 p-4 shadow-xs sm:p-5">
       <h2 id="pending-heading" className="font-display text-lg font-semibold text-brand-900">
         Wacht op jouw reactie
       </h2>
@@ -107,7 +107,7 @@ async function PendingReviews() {
             <li key={item.applicationId}>
               <Link
                 href={`/portaal/vacatures/${item.vacancyId}#kandidaat-${item.applicationId}`}
-                className="flex items-center gap-3 px-4 py-3 transition hover:bg-brand-50/60 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-brand-500"
+                className="flex min-h-14 items-center gap-3 px-4 py-3 transition hover:bg-brand-50/60 active:bg-brand-50 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-brand-500"
               >
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-medium text-brand-900">{item.candidateName}</p>
@@ -144,7 +144,7 @@ async function VacancyGrid() {
   }
 
   return (
-    <ul className="grid gap-4 sm:grid-cols-2">
+    <ul className="grid gap-3 sm:grid-cols-2 sm:gap-4">
       {vacancies.map((vacancy) => (
         <li key={vacancy.id}>
           <VacancyCard vacancy={vacancy} />
@@ -205,7 +205,7 @@ async function PlacementsSummary() {
         {placements.length > 0 && (
           <Link
             href="/portaal/plaatsingen"
-            className="mt-4 inline-flex items-center gap-1.5 text-sm font-semibold text-brand-600 hover:text-brand-800"
+            className="mt-4 inline-flex items-center gap-1.5 text-sm font-semibold text-brand-600 hover:text-brand-800 active:text-brand-800 max-sm:-mb-2 max-sm:min-h-11"
           >
             Alle plaatsingen
             <ArrowRight className="size-4" aria-hidden="true" />

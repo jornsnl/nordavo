@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import { Clock, Handshake, Users } from "lucide-react";
 import { Logo } from "@/components/brand/logo";
+import { authPanelClass } from "./auth-panel";
 import { LoginForm } from "./login-form";
 import { PasskeySignIn } from "./passkey-sign-in";
 
@@ -66,28 +67,31 @@ export default function LoginPage() {
         </ul>
       </section>
 
-      {/* Form panel */}
-      <section className="flex flex-col justify-center px-6 py-12 sm:px-12">
-        <div className="mx-auto w-full max-w-sm">
-          <Logo className="mb-12 lg:hidden" />
+      {/* Form panel. On phones a full screen sign in: form centred, help at the bottom. */}
+      <section className={authPanelClass}>
+        <div className="mx-auto flex w-full max-w-sm flex-1 flex-col sm:flex-none">
+          <div className="max-sm:my-auto">
+            <Logo className="mb-8 sm:mb-12 lg:hidden" />
 
-          <h2 className="font-display text-3xl font-bold tracking-tight text-brand-900">
-            Welkom terug
-          </h2>
-          <p className="mt-2 text-muted">
-            Log in om verder te gaan in het Nordavo portaal.
-          </p>
+            <h2 className="font-display text-[1.75rem] leading-tight font-bold tracking-tight text-brand-900 sm:text-3xl">
+              Welkom terug
+            </h2>
+            <p className="mt-2 text-muted">
+              Log in om verder te gaan in het Nordavo portaal.
+            </p>
 
-          <div className="mt-8">
-            <Suspense>
-              <LoginForm />
-            </Suspense>
-            <Suspense>
-              <PasskeySignIn />
-            </Suspense>
+            {/* Passkey first on phones: one tap, no keyboard. */}
+            <div className="mt-8 flex flex-col max-sm:mt-6">
+              <Suspense>
+                <LoginForm />
+              </Suspense>
+              <div className="max-sm:order-first">
+                <PasskeySignIn />
+              </div>
+            </div>
           </div>
 
-          <p className="mt-8 text-sm text-muted">
+          <p className="mt-8 text-sm text-muted max-sm:pt-2 max-sm:text-center">
             Nog geen account of wachtwoord kwijt? Mail naar{" "}
             <a
               href="mailto:info@nordavo.nl"

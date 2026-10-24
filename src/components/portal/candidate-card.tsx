@@ -19,10 +19,10 @@ export function CandidateCard({ item }: { item: PortalCandidate }) {
   return (
     <Card className="overflow-hidden">
       <article id={`kandidaat-${item.applicationId}`} aria-labelledby={headingId} className="scroll-mt-32">
-        <header className="flex flex-wrap items-start gap-3 border-b border-border px-5 py-4">
+        <header className="flex items-start gap-3 border-b border-border px-4 py-4 sm:px-5">
           <Avatar name={candidate.fullName} />
           <div className="min-w-0 flex-1">
-            <h3 id={headingId} className="font-display text-lg font-semibold text-brand-900">
+            <h3 id={headingId} className="font-display text-lg leading-snug font-semibold break-words text-brand-900">
               {candidate.fullName}
             </h3>
             <p className="mt-0.5 flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted">
@@ -42,11 +42,21 @@ export function CandidateCard({ item }: { item: PortalCandidate }) {
                 </span>
               )}
             </p>
+            {/* Under the name on phones, so the name keeps the full width. */}
+            {stage && (
+              <p className="mt-2 sm:hidden">
+                <Badge tone={stage.tone}>{stage.label}</Badge>
+              </p>
+            )}
           </div>
-          {stage && <Badge tone={stage.tone}>{stage.label}</Badge>}
+          {stage && (
+            <span className="shrink-0 max-sm:hidden">
+              <Badge tone={stage.tone}>{stage.label}</Badge>
+            </span>
+          )}
         </header>
 
-        <div className="grid grid-cols-1 gap-6 px-5 py-5 lg:grid-cols-[minmax(0,1fr)_280px]">
+        <div className="grid grid-cols-1 gap-5 px-4 py-4 sm:gap-6 sm:px-5 sm:py-5 lg:grid-cols-[minmax(0,1fr)_280px]">
           <div className="min-w-0 space-y-4">
             {candidate.summary ? (
               <p className="text-sm leading-relaxed whitespace-pre-line text-ink">{candidate.summary}</p>
@@ -64,13 +74,14 @@ export function CandidateCard({ item }: { item: PortalCandidate }) {
               </ul>
             )}
 
-            <div className="flex flex-wrap gap-2">
+            {/* Full width, 44px tap targets on phones. */}
+            <div className="flex flex-wrap gap-2 max-sm:flex-col">
               {candidate.videoUrl && (
                 <a
                   href={candidate.videoUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className={buttonClasses({ variant: "secondary", size: "sm" })}
+                  className={buttonClasses({ variant: "secondary", size: "sm", className: "max-sm:min-h-11!" })}
                 >
                   <PlayCircle aria-hidden="true" />
                   Video intro bekijken
@@ -82,7 +93,7 @@ export function CandidateCard({ item }: { item: PortalCandidate }) {
                   href={`/portaal/cv/${item.applicationId}`}
                   target="_blank"
                   rel="noopener"
-                  className={buttonClasses({ variant: "secondary", size: "sm" })}
+                  className={buttonClasses({ variant: "secondary", size: "sm", className: "max-sm:min-h-11!" })}
                 >
                   <Download aria-hidden="true" />
                   CV downloaden
@@ -102,7 +113,7 @@ export function CandidateCard({ item }: { item: PortalCandidate }) {
           </div>
         </div>
 
-        <div className="border-t border-border bg-white px-5 py-4">
+        <div className="border-t border-border bg-white px-4 py-4 sm:px-5">
           <ReviewForm
             applicationId={item.applicationId}
             candidateName={candidate.fullName}

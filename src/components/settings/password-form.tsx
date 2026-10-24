@@ -29,6 +29,8 @@ export function PasswordForm({
             name="password"
             type="password"
             autoComplete="new-password"
+            autoCapitalize="none"
+            enterKeyHint="next"
             required
             minLength={8}
             aria-invalid={Boolean(errors.password)}
@@ -41,13 +43,15 @@ export function PasswordForm({
             name="confirm"
             type="password"
             autoComplete="new-password"
+            autoCapitalize="none"
+            enterKeyHint="done"
             required
             aria-invalid={Boolean(errors.confirm)}
             aria-describedby={errors.confirm ? "confirm_password-error" : undefined}
           />
         </Field>
       </div>
-      <div className="flex justify-end">
+      <div className="flex justify-end max-sm:*:w-full">
         <SubmitButton pendingLabel="Bezig met wijzigen">Wachtwoord wijzigen</SubmitButton>
       </div>
     </form>

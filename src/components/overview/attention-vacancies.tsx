@@ -39,7 +39,7 @@ export async function AttentionVacancies() {
             <li key={vacancy.id}>
               <Link
                 href={`/dashboard/vacatures/${vacancy.id}`}
-                className="flex flex-col gap-2 px-5 py-3.5 transition hover:bg-brand-50/40 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-brand-500 sm:flex-row sm:items-center sm:gap-4"
+                className="flex flex-col gap-2 px-5 py-3.5 transition hover:bg-brand-50/40 active:bg-brand-50 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-brand-500 sm:flex-row sm:items-center sm:gap-4"
               >
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-semibold text-ink">{vacancy.title}</p>
@@ -48,9 +48,9 @@ export async function AttentionVacancies() {
                     {vacancy.daysOpen === 1 ? "dag" : "dagen"} open
                   </p>
                 </div>
-                <div className="flex items-center gap-3">
-                  <div className="w-24">
-                    <p className="mb-1 text-xs text-muted tabular-nums">
+                <div className="flex items-center justify-between gap-3 sm:justify-start">
+                  <div className="w-36 sm:w-24">
+                    <p className="mb-1 text-xs text-muted tabular-nums max-sm:whitespace-nowrap">
                       {vacancy.presented} van {PROMISED_CANDIDATES} voorgesteld
                     </p>
                     <div className="h-1.5 overflow-hidden rounded-full bg-brand-100" aria-hidden="true">

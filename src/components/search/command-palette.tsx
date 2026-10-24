@@ -29,7 +29,8 @@ export function useShortcutLabel() {
 
 /**
  * Global search over clients, vacancies, candidates and placements.
- * Opens with Ctrl/Cmd + K or through `open`.
+ * Opens with Ctrl/Cmd + K or through `open`. On phones it is a full screen
+ * search sheet with a large field, a "Annuleren" button and big result rows.
  */
 export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
   const id = useId();
@@ -110,11 +111,11 @@ export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenCh
       onClick={(event) => {
         if (event.target === dialog.current) onOpenChange(false);
       }}
-      className="mx-auto mt-[12dvh] mb-auto w-[calc(100%-2rem)] max-w-xl rounded-2xl border border-border bg-card p-0 text-ink shadow-2xl backdrop:bg-brand-950/50"
+      className="sheet-up mx-auto mt-[12dvh] mb-auto w-[calc(100%-2rem)] max-w-xl rounded-2xl border border-border bg-card p-0 text-ink shadow-2xl backdrop:bg-brand-950/50 max-sm:m-0 max-sm:h-dvh max-sm:max-h-none max-sm:w-full max-sm:max-w-none max-sm:rounded-none max-sm:border-0 max-sm:shadow-none"
     >
       {open && (
-        <div>
-          <div className="flex items-center gap-3 border-b border-border px-4">
+        <div className="max-sm:flex max-sm:h-full max-sm:flex-col">
+          <div className="flex items-center gap-3 border-b border-border px-4 max-sm:shrink-0 max-sm:gap-2 max-sm:pt-safe max-sm:pl-[max(1rem,env(safe-area-inset-left))] max-sm:pr-[max(0.5rem,env(safe-area-inset-right))]">
             {loading ? (
               <LoaderCircle className="size-5 shrink-0 animate-spin text-muted" aria-hidden="true" />
             ) : (
@@ -126,11 +127,14 @@ export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenCh
             <input
               ref={inputRef}
               id={`${id}-input`}
-              type="text"
+              type="search"
+              enterKeyHint="search"
               autoComplete="off"
+              autoCapitalize="none"
+              autoCorrect="off"
               spellCheck={false}
               placeholder="Zoek op klant, vacature of kandidaat"
-              className="h-14 min-w-0 flex-1 bg-transparent text-base text-ink outline-none placeholder:text-muted/70"
+              className="h-14 min-w-0 flex-1 appearance-none bg-transparent text-base text-ink outline-none placeholder:text-muted/70 [&::-webkit-search-cancel-button]:hidden max-sm:h-16"
               role="combobox"
               aria-expanded={flat.length > 0}
               aria-controls={`${id}-list`}
@@ -157,9 +161,21 @@ export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenCh
             <kbd className="hidden rounded-md border border-border px-1.5 py-0.5 font-sans text-[11px] text-muted sm:inline">
               Esc
             </kbd>
+            <button
+              type="button"
+              onClick={() => onOpenChange(false)}
+              className="min-h-11 shrink-0 rounded-lg px-2 text-[15px] font-semibold text-brand-700 active:bg-brand-50 focus-visible:outline-2 focus-visible:outline-brand-500 sm:hidden"
+            >
+              Annuleren
+            </button>
           </div>
 
-          <div id={`${id}-list`} role="listbox" aria-label="Zoekresultaten" className="max-h-[60dvh] overflow-y-auto p-2">
+          <div
+            id={`${id}-list`}
+            role="listbox"
+            aria-label="Zoekresultaten"
+            className="max-h-[60dvh] overflow-y-auto overscroll-contain p-2 max-sm:max-h-none max-sm:flex-1 max-sm:pb-[calc(0.5rem+env(safe-area-inset-bottom))]"
+          >
             {groups.map((group, groupIndex) => {
               const hits = results[group.key];
               if (hits.length === 0) return null;
@@ -184,15 +200,15 @@ export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenCh
                         onMouseDown={(event) => event.preventDefault()}
                         onMouseMove={() => setActive(current)}
                         onClick={() => go(hit)}
-                        className={`flex cursor-pointer items-center gap-3 rounded-xl px-3 py-2.5 ${
+                        className={`flex cursor-pointer items-center gap-3 rounded-xl px-3 py-2.5 active:bg-brand-100 max-sm:min-h-14 max-sm:py-3 ${
                           selected ? "bg-brand-50 text-brand-900" : "text-ink"
                         }`}
                       >
-                        <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-brand-50 text-brand-600">
-                          <Icon className="size-4" aria-hidden="true" />
+                        <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-brand-50 text-brand-600 max-sm:size-10">
+                          <Icon className="size-4 max-sm:size-5" aria-hidden="true" />
                         </span>
                         <span className="min-w-0 flex-1">
-                          <span className="block truncate text-sm font-medium">{hit.label}</span>
+                          <span className="block truncate text-sm font-medium max-sm:text-[15px]">{hit.label}</span>
                           {hit.sublabel && <span className="block truncate text-xs text-muted">{hit.sublabel}</span>}
                         </span>
                       </div>
@@ -207,7 +223,8 @@ export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenCh
             )}
             {searched === "" && !loading && (
               <p className="px-3 py-8 text-center text-sm text-muted">
-                Typ minstens 2 letters. Gebruik de pijltjes om te kiezen en Enter om te openen.
+                Typ minstens 2 letters.
+                <span className="pointer-coarse:hidden"> Gebruik de pijltjes om te kiezen en Enter om te openen.</span>
               </p>
             )}
           </div>
@@ -225,11 +242,11 @@ export function SidebarSearchButton({ onClick }: { onClick: () => void }) {
       type="button"
       onClick={onClick}
       aria-keyshortcuts="Control+K Meta+K"
-      className="mb-6 flex w-full items-center gap-3 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-brand-100/70 transition hover:bg-white/10 hover:text-white focus-visible:outline-2 focus-visible:outline-accent-500"
+      className="mb-6 flex w-full items-center gap-3 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-brand-100/70 transition hover:bg-white/10 hover:text-white active:bg-white/10 max-lg:py-2.5 focus-visible:outline-2 focus-visible:outline-accent-500"
     >
       <Search className="size-[18px] text-brand-200/60" aria-hidden="true" />
       <span className="flex-1 text-left">Zoeken</span>
-      <kbd className="rounded-md border border-white/15 px-1.5 py-0.5 font-sans text-[11px] text-brand-200/70">
+      <kbd className="rounded-md border border-white/15 px-1.5 py-0.5 font-sans text-[11px] text-brand-200/70 pointer-coarse:hidden">
         {shortcut}
       </kbd>
     </button>
@@ -242,7 +259,7 @@ export function MobileSearchButton({ onClick }: { onClick: () => void }) {
     <button
       type="button"
       onClick={onClick}
-      className="flex size-10 items-center justify-center rounded-lg text-brand-900 hover:bg-brand-50 focus-visible:outline-2 focus-visible:outline-brand-500"
+      className="flex size-11 items-center justify-center rounded-lg text-brand-900 hover:bg-brand-50 active:bg-brand-50 focus-visible:outline-2 focus-visible:outline-brand-500"
       aria-label="Zoeken"
     >
       <Search className="size-5" aria-hidden="true" />

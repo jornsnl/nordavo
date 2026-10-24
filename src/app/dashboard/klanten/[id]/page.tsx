@@ -2,8 +2,9 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, ExternalLink, Pencil, Plus } from "lucide-react";
+import { ArrowLeft, ExternalLink, Globe, Mail, Pencil, Phone, Plus } from "lucide-react";
 import { EntityExtras } from "@/components/entity/entity-extras";
+import { QuickActions, telHref, type QuickAction } from "@/components/entity/quick-actions";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { ConfirmDeleteButton } from "@/components/clients/confirm-delete-button";
 import { ContactsCard } from "@/components/clients/contacts-card";
@@ -35,7 +36,7 @@ export default function Page({ params }: PageProps<"/dashboard/klanten/[id]">) {
     <>
       <Link
         href="/dashboard/klanten"
-        className="mb-4 inline-flex items-center gap-1.5 text-sm font-medium text-muted hover:text-brand-700"
+        className="mb-4 inline-flex items-center gap-1.5 text-sm font-medium text-muted hover:text-brand-700 active:text-brand-700 pointer-coarse:mb-2 pointer-coarse:min-h-11"
       >
         <ArrowLeft className="size-4" aria-hidden="true" />
         Alle klanten
@@ -58,6 +59,18 @@ async function ClientDetail({ params }: { params: Params }) {
     getClientPlacements(client.id),
   ]);
   const status = optionFor(clientStatuses, client.status);
+  const websiteUrl = client.website && /^https?:\/\//i.test(client.website) ? client.website : null;
+
+  // Phones: call or mail the first contact straight from the top of the page.
+  const primary = contacts[0];
+  const quickActions: QuickAction[] = [];
+  if (primary?.phone) {
+    quickActions.push({ label: "Bellen", href: telHref(primary.phone), icon: Phone, ariaLabel: `Bel ${primary.full_name}` });
+  }
+  if (primary?.email) {
+    quickActions.push({ label: "Mailen", href: `mailto:${primary.email}`, icon: Mail, ariaLabel: `Mail ${primary.full_name}` });
+  }
+  if (websiteUrl) quickActions.push({ label: "Website", href: websiteUrl, icon: Globe, external: true });
 
   return (
     <>
@@ -85,8 +98,10 @@ async function ClientDetail({ params }: { params: Params }) {
         }
       />
 
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
-        <div className="min-w-0 space-y-6">
+      <QuickActions label={`Snel contact met ${client.name}`} actions={quickActions} />
+
+      <div className="grid grid-cols-1 gap-4 sm:gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
+        <div className="min-w-0 space-y-4 sm:space-y-6">
           <Card>
             <CardHeader title="Gegevens" />
             <CardBody>
@@ -94,14 +109,14 @@ async function ClientDetail({ params }: { params: Params }) {
                 items={[
                   {
                     label: "Website",
-                    value: client.website && /^https?:\/\//i.test(client.website) ? (
+                    value: websiteUrl ? (
                       <a
-                        href={client.website}
+                        href={websiteUrl}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="inline-flex items-center gap-1 text-brand-700 hover:underline"
                       >
-                        {client.website.replace(/^https?:\/\//, "").replace(/\/$/, "")}
+                        {websiteUrl.replace(/^https?:\/\//, "").replace(/\/$/, "")}
                         <ExternalLink className="size-3.5" aria-hidden="true" />
                         <span className="sr-only">(opent in een nieuw tabblad)</span>
                       </a>
@@ -131,7 +146,7 @@ async function ClientDetail({ params }: { params: Params }) {
           <PlacementsCard placements={placements} />
         </div>
 
-        <div className="min-w-0 space-y-6">
+        <div className="min-w-0 space-y-4 sm:space-y-6">
           <ContactsCard
             contacts={contacts}
             saveAction={saveContactAction.bind(null, client.id)}
@@ -168,11 +183,15 @@ function VacanciesCard({ clientId, vacancies }: { clientId: string; vacancies: C
           {vacancies.map((v) => {
             const status = optionFor(vacancyStatuses, v.status);
             return (
-              <li key={v.id} className="flex flex-col gap-2 px-5 py-3 sm:flex-row sm:items-center sm:justify-between">
+              <li
+                key={v.id}
+                className="relative flex flex-col gap-2 px-5 py-3 transition active:bg-brand-50 sm:flex-row sm:items-center sm:justify-between"
+              >
                 <div className="min-w-0">
+                  {/* The link covers the row, so the whole row is a tap target. */}
                   <Link
                     href={`/dashboard/vacatures/${v.id}`}
-                    className="font-medium text-brand-800 hover:underline"
+                    className="font-medium text-brand-800 after:absolute after:inset-0 hover:underline"
                   >
                     {v.title}
                   </Link>
@@ -204,11 +223,14 @@ function PlacementsCard({ placements }: { placements: ClientPlacementItem[] }) {
           {placements.map((p) => {
             const status = optionFor(placementStatuses, p.status);
             return (
-              <li key={p.id} className="flex flex-col gap-2 px-5 py-3 sm:flex-row sm:items-center sm:justify-between">
+              <li
+                key={p.id}
+                className="relative flex flex-col items-start gap-2 px-5 py-3 transition active:bg-brand-50 sm:flex-row sm:items-center sm:justify-between"
+              >
                 <div className="min-w-0">
                   <Link
                     href={`/dashboard/plaatsingen/${p.id}`}
-                    className="font-medium text-brand-800 hover:underline"
+                    className="font-medium text-brand-800 after:absolute after:inset-0 hover:underline"
                   >
                     {p.candidateName}
                   </Link>

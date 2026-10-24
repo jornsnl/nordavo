@@ -88,8 +88,10 @@ function ReviewForm({
   }, initialActionState);
 
   // Start every company at the top, so keyboard and screen reader users know a new one is shown.
+  // On phones the decision bar sits at the bottom, so scroll the next company into view as well.
   useEffect(() => {
     headingRef.current?.focus({ preventScroll: true });
+    if (window.matchMedia("(max-width: 1023px)").matches) window.scrollTo({ top: 0 });
   }, []);
 
   useEffect(() => {
@@ -248,13 +250,13 @@ function ReviewForm({
               </Select>
             </Field>
             <div className="flex items-end">
-              <label className="flex items-start gap-3 text-sm text-ink">
+              <label className="flex items-start gap-3 text-sm text-ink max-sm:py-1">
                 <input
                   type="checkbox"
                   name="client_contact_risk"
                   checked={risk}
                   onChange={(e) => setRisk(e.target.checked)}
-                  className="mt-0.5 size-4 rounded border-border accent-brand-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500"
+                  className="mt-0.5 size-4 rounded border-border accent-brand-700 pointer-coarse:size-5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500"
                 />
                 <span>
                   Risico op klantcontact
@@ -279,19 +281,20 @@ function ReviewForm({
             </p>
           )}
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-xs text-muted">
+            <p className="text-xs text-muted max-lg:hidden">
               Sneltoetsen: <kbd className="font-semibold">G</kbd> voor GO, <kbd className="font-semibold">N</kbd> voor
               No go, <kbd className="font-semibold">S</kbd> om over te slaan.
             </p>
-            <div className="flex flex-col-reverse gap-2 sm:flex-row">
+            {/* Phones and tablets: a bar above the tab bar, so you can decide with one thumb. */}
+            <div className="flex gap-2 max-lg:fixed max-lg:inset-x-0 max-lg:bottom-[calc(4.5rem+env(safe-area-inset-bottom))] max-lg:z-20 max-lg:border-t max-lg:border-border max-lg:bg-white/95 max-lg:py-3 max-lg:pr-[max(1rem,env(safe-area-inset-right))] max-lg:pl-[max(1rem,env(safe-area-inset-left))] max-lg:shadow-[0_-4px_16px_rgb(10_26_47/0.06)] max-lg:backdrop-blur-lg">
               {nextId && (
                 <Link
                   href={nextHref}
                   scroll={false}
-                  className="inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold text-brand-700 hover:bg-brand-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500"
+                  className="inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold text-brand-700 transition hover:bg-brand-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500 active:bg-brand-50 max-lg:min-h-12 max-lg:px-3"
                 >
                   <SkipForward className="size-[18px]" aria-hidden="true" />
-                  Overslaan
+                  <span className="max-sm:sr-only">Overslaan</span>
                 </Link>
               )}
               <Button
@@ -302,6 +305,7 @@ function ReviewForm({
                 variant="secondary"
                 disabled={pending}
                 aria-keyshortcuts="N"
+                className="max-lg:min-h-12 max-lg:flex-1 max-lg:text-base max-lg:text-danger"
               >
                 <X aria-hidden="true" />
                 No go
@@ -313,6 +317,7 @@ function ReviewForm({
                 value="GO"
                 disabled={pending || risk}
                 aria-keyshortcuts="G"
+                className="max-lg:min-h-12 max-lg:flex-1 max-lg:text-base"
               >
                 <Check aria-hidden="true" />
                 GO

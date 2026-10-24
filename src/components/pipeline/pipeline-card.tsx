@@ -44,7 +44,8 @@ export function SortableCard(props: CardProps) {
       ref={setNodeRef}
       style={style}
       {...(pointerListeners as HTMLAttributes<HTMLLIElement>)}
-      className={`touch-manipulation ${isDragging ? "opacity-40" : ""}`}
+      // No text selection or iOS callout on the long press that starts a drag.
+      className={`touch-manipulation select-none [-webkit-touch-callout:none] md:select-auto ${isDragging ? "opacity-40" : ""}`}
     >
       <CardBody
         {...props}
@@ -55,7 +56,7 @@ export function SortableCard(props: CardProps) {
             {...attributes}
             onKeyDown={onKeyDown as HTMLAttributes<HTMLButtonElement>["onKeyDown"]}
             aria-label={`Verplaats ${card.candidate.full_name}`}
-            className="-m-1 flex size-8 shrink-0 cursor-grab items-center justify-center rounded-lg text-muted hover:bg-brand-50 hover:text-brand-700 focus-visible:outline-2 focus-visible:outline-brand-500 active:cursor-grabbing"
+            className="-m-1 flex size-8 shrink-0 cursor-grab items-center justify-center rounded-lg text-muted hover:bg-brand-50 hover:text-brand-700 active:bg-brand-50 focus-visible:outline-2 focus-visible:outline-brand-500 active:cursor-grabbing"
           >
             <GripVertical className="size-4" aria-hidden="true" />
           </button>
@@ -106,7 +107,7 @@ function CardBody({
           <button
             type="button"
             onClick={() => onOpen?.(card.id)}
-            className="block max-w-full truncate rounded text-left font-semibold text-brand-900 hover:text-brand-700 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500"
+            className="block max-w-full truncate rounded text-left font-semibold text-brand-900 hover:text-brand-700 hover:underline active:text-brand-700 pointer-coarse:py-1 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500"
           >
             {candidate.full_name}
           </button>
@@ -149,7 +150,7 @@ function CardBody({
       {card.stage === "placed" && !lifted && (
         <Link
           href={`/dashboard/plaatsingen/nieuw?application=${card.id}`}
-          className="mt-2 inline-flex items-center gap-1.5 rounded text-xs font-semibold text-emerald-700 hover:underline focus-visible:outline-2 focus-visible:outline-brand-500"
+          className="mt-2 inline-flex items-center gap-1.5 rounded text-xs font-semibold text-emerald-700 hover:underline pointer-coarse:min-h-9 focus-visible:outline-2 focus-visible:outline-brand-500"
         >
           <Handshake className="size-3.5" aria-hidden="true" />
           Plaatsing vastleggen
@@ -172,7 +173,7 @@ function CardBody({
               const stage = e.target.value as ApplicationStage;
               if (stage) onMoveTo(card.id, stage);
             }}
-            className="w-full rounded-lg border border-transparent bg-surface px-2 py-1 text-xs text-muted hover:border-border focus:border-brand-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-100"
+            className="w-full rounded-lg border border-transparent bg-surface px-2 py-1 text-xs text-muted pointer-coarse:min-h-10 hover:border-border focus:border-brand-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-100"
           >
             <option value="">Verplaats naar...</option>
             {applicationStages

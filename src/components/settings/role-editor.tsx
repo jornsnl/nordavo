@@ -7,7 +7,11 @@ import { profileRoles } from "@/lib/labels";
 import { Select } from "@/components/ui/field";
 import { SubmitButton } from "@/components/ui/submit-button";
 
-/** Inline role and client link editor for one row of the users table. */
+/**
+ * Inline role and client link editor for one row of the users table.
+ * "stacked" is the phone version in the users list: full width controls,
+ * and its own ids, because the table version is in the page as well.
+ */
 export function RoleEditor({
   action,
   userId,
@@ -15,6 +19,7 @@ export function RoleEditor({
   role,
   clientId,
   clients,
+  layout = "row",
 }: {
   action: (state: ActionState, formData: FormData) => Promise<ActionState>;
   userId: string;
@@ -22,25 +27,28 @@ export function RoleEditor({
   role: ProfileRole;
   clientId: string | null;
   clients: { id: string; name: string }[];
+  layout?: "row" | "stacked";
 }) {
   const [state, formAction] = useActionState(action, initialActionState);
   const [nextRole, setNextRole] = useState<ProfileRole>(role);
   const [nextClient, setNextClient] = useState(clientId ?? "");
   const changed = nextRole !== role || (nextRole === "client" && nextClient !== (clientId ?? ""));
   const error = state.fieldErrors?.client_id ?? state.error;
+  const stacked = layout === "stacked";
+  const idFor = (field: string) => `${field}-${stacked ? "m-" : ""}${userId}`;
 
   return (
-    <form action={formAction} className="flex flex-wrap items-center gap-2">
+    <form action={formAction} className={stacked ? "grid gap-2" : "flex flex-wrap items-center gap-2"}>
       <input type="hidden" name="user_id" value={userId} />
-      <label htmlFor={`role-${userId}`} className="sr-only">
+      <label htmlFor={idFor("role")} className="sr-only">
         Rol van {userName}
       </label>
       <Select
-        id={`role-${userId}`}
+        id={idFor("role")}
         name="role"
         value={nextRole}
         onChange={(e) => setNextRole(e.target.value as ProfileRole)}
-        className="w-36 py-1.5"
+        className={stacked ? "w-full" : "w-36 py-1.5"}
       >
         {profileRoles.map((option) => (
           <option key={option.value} value={option.value}>
@@ -50,15 +58,15 @@ export function RoleEditor({
       </Select>
       {nextRole === "client" && (
         <>
-          <label htmlFor={`client-${userId}`} className="sr-only">
+          <label htmlFor={idFor("client")} className="sr-only">
             Klant van {userName}
           </label>
           <Select
-            id={`client-${userId}`}
+            id={idFor("client")}
             name="client_id"
             value={nextClient}
             onChange={(e) => setNextClient(e.target.value)}
-            className="w-44 py-1.5"
+            className={stacked ? "w-full" : "w-44 py-1.5"}
             aria-invalid={Boolean(state.fieldErrors?.client_id)}
           >
             <option value="">Kies een klant</option>
@@ -70,7 +78,7 @@ export function RoleEditor({
           </Select>
         </>
       )}
-      <SubmitButton size="sm" variant="secondary" disabled={!changed} pendingLabel="Bezig">
+      <SubmitButton size={stacked ? "md" : "sm"} variant="secondary" disabled={!changed} pendingLabel="Bezig">
         Opslaan
       </SubmitButton>
       {error && (

@@ -66,12 +66,20 @@ export function RunJobForm({
               max={5000}
               inputMode="numeric"
               placeholder="Limiet, optioneel"
+              enterKeyHint="go"
               className="sm:w-40"
               disabled={pending}
             />
           </>
         )}
-        <Button type="submit" size="sm" disabled={disabled} aria-busy={pending} title={disabledReason ?? undefined}>
+        <Button
+          type="submit"
+          size="sm"
+          disabled={disabled}
+          aria-busy={pending}
+          title={disabledReason ?? undefined}
+          className="pointer-coarse:min-h-11"
+        >
           {pending ? <LoaderCircle className="animate-spin" aria-hidden="true" /> : <Play aria-hidden="true" />}
           {pending ? "Draait" : label}
         </Button>

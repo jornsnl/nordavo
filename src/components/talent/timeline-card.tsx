@@ -51,7 +51,7 @@ export function TimelineCard({ vacancy, leadTime }: { vacancy: Vacancy; leadTime
               : "Deze vacature loopt richting de 3 weken zonder verstuurde profielen. Tijd om op te schalen."}
           </p>
         )}
-        <ol className="grid gap-3 sm:grid-cols-4">
+        <ol className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           {steps.map((step, i) => {
             const days = i === 0 ? null : sinceIntake(step.date);
             return (

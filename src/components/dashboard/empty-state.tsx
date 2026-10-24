@@ -10,7 +10,7 @@ export function EmptyState({
   description: string;
 }) {
   return (
-    <div className="flex flex-col items-center rounded-2xl border border-dashed border-brand-200 bg-card px-6 py-16 text-center">
+    <div className="flex flex-col items-center rounded-2xl border border-dashed border-brand-200 bg-card px-5 py-10 text-center sm:px-6 sm:py-16">
       <span className="mb-4 flex size-12 items-center justify-center rounded-xl bg-brand-50 text-brand-600">
         <Icon className="size-6" aria-hidden="true" />
       </span>

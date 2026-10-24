@@ -49,7 +49,7 @@ function ExportResult({ state }: { state: ExportActionState }) {
           href={state.url}
           target="_blank"
           rel="noreferrer"
-          className="inline-flex items-center gap-1.5 text-sm font-semibold text-brand-700 hover:underline"
+          className="inline-flex items-center gap-1.5 text-sm font-semibold text-brand-700 hover:underline max-md:min-h-11"
         >
           Open de Google Sheet
           <ExternalLink className="size-4" aria-hidden="true" />
@@ -59,7 +59,7 @@ function ExportResult({ state }: { state: ExportActionState }) {
         <button
           type="button"
           onClick={() => downloadCsv(state.csv!, state.filename!)}
-          className="inline-flex items-center gap-1.5 text-sm font-semibold text-brand-700 hover:underline"
+          className="inline-flex items-center gap-1.5 text-sm font-semibold text-brand-700 hover:underline max-md:min-h-11"
         >
           Download opnieuw
           <Download className="size-4" aria-hidden="true" />
@@ -77,12 +77,12 @@ export function CallListExportForm({ filter, sheetsEnabled, disabled }: { filter
       <FilterFields filter={filter} />
       <div className="flex flex-wrap gap-2">
         {sheetsEnabled && (
-          <SubmitButton name="deliver" value="sheet" size="sm" disabled={disabled} pendingLabel="Bezig">
+          <SubmitButton name="deliver" value="sheet" size="sm" className="max-sm:w-full pointer-coarse:min-h-11" disabled={disabled} pendingLabel="Bezig">
             <FileSpreadsheet aria-hidden="true" />
             Google Sheet voor Web Partners
           </SubmitButton>
         )}
-        <SubmitButton name="deliver" value="csv" size="sm" variant={sheetsEnabled ? "secondary" : "primary"} disabled={disabled}>
+        <SubmitButton name="deliver" value="csv" size="sm" className="max-sm:w-full pointer-coarse:min-h-11" variant={sheetsEnabled ? "secondary" : "primary"} disabled={disabled}>
           <Download aria-hidden="true" />
           Download CSV
         </SubmitButton>
@@ -99,7 +99,7 @@ export function MaxExportForm({ filter, disabled }: { filter: ListFilter; disabl
   return (
     <form action={formAction} className="space-y-3">
       <FilterFields filter={filter} omit={["signal"]} />
-      <SubmitButton size="sm" disabled={disabled} pendingLabel="Bezig">
+      <SubmitButton size="sm" className="max-sm:w-full pointer-coarse:min-h-11" disabled={disabled} pendingLabel="Bezig">
         <Download aria-hidden="true" />
         CSV voor Max
       </SubmitButton>
@@ -135,10 +135,10 @@ export function MailPushForm({
           </Select>
         </Field>
         <Field label="Aantal contacten" htmlFor="mail-limit" hint="Per keer maximaal 200.">
-          <Input id="mail-limit" name="limit" type="number" min={1} max={200} defaultValue={Math.min(filter.limit, 50)} disabled={!instantlyEnabled} />
+          <Input id="mail-limit" name="limit" type="number" min={1} max={200} inputMode="numeric" enterKeyHint="done" defaultValue={Math.min(filter.limit, 50)} disabled={!instantlyEnabled} />
         </Field>
       </div>
-      <SubmitButton size="sm" disabled={disabled || !instantlyEnabled} pendingLabel="Bezig met openingszinnen en Instantly">
+      <SubmitButton size="sm" className="max-sm:w-full pointer-coarse:min-h-11" disabled={disabled || !instantlyEnabled} pendingLabel="Bezig met openingszinnen en Instantly">
         <Send aria-hidden="true" />
         Naar Instantly
       </SubmitButton>

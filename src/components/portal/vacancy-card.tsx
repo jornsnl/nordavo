@@ -26,10 +26,10 @@ export function VacancyCard({ vacancy }: { vacancy: PortalVacancySummary }) {
   return (
     <Link
       href={`/portaal/vacatures/${vacancy.id}`}
-      className="group flex h-full flex-col rounded-2xl border border-border bg-card p-5 shadow-xs transition hover:border-brand-200 hover:shadow-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500"
+      className="group flex h-full flex-col rounded-2xl border border-border bg-card p-4 shadow-xs transition hover:border-brand-200 hover:shadow-md active:scale-[0.99] active:bg-brand-50/50 focus-visible sm:p-5:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500"
     >
       <div className="flex items-start justify-between gap-3">
-        <h3 className="font-display font-semibold text-brand-900 group-hover:text-brand-700">{vacancy.title}</h3>
+        <h3 className="min-w-0 font-display font-semibold break-words text-brand-900 group-hover:text-brand-700">{vacancy.title}</h3>
         <Badge tone={status.tone}>{status.label}</Badge>
       </div>
       <p className="mt-2 flex items-center gap-1.5 text-xs text-muted">

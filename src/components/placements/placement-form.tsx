@@ -7,6 +7,7 @@ import { candidateStatuses, optionFor, vacancyStatuses } from "@/lib/labels";
 import type { CandidateStatus, VacancyStatus } from "@/lib/database.types";
 import { ButtonLink } from "@/components/ui/button";
 import { Field, FormMessage, Input, Select, Textarea } from "@/components/ui/field";
+import { FormActions } from "@/components/entity/form-actions";
 import { addDays } from "./dates";
 import { PendingSubmit, submitWithoutReset } from "./form-utils";
 
@@ -175,6 +176,7 @@ export function PlacementForm({
             id="monthly_rate"
             name="monthly_rate"
             inputMode="decimal"
+            enterKeyHint="next"
             placeholder="4500"
             defaultValue={defaults.monthly_rate ?? ""}
             aria-invalid={Boolean(errors.monthly_rate)}
@@ -231,14 +233,14 @@ export function PlacementForm({
         </Field>
       </div>
 
-      <div className="flex flex-col-reverse gap-3 border-t border-border pt-5 sm:flex-row sm:justify-end">
+      <FormActions>
         <ButtonLink href={cancelHref} variant="secondary">
           Annuleren
         </ButtonLink>
         <PendingSubmit pending={pending} pendingLabel="Bezig met opslaan">
           {mode === "create" ? "Plaatsing aanmaken" : "Wijzigingen opslaan"}
         </PendingSubmit>
-      </div>
+      </FormActions>
     </form>
   );
 }

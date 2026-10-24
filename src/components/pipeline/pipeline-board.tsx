@@ -180,6 +180,8 @@ export function PipelineBoard({
     if (!stage) return;
     setActiveId(String(active.id));
     setError(undefined);
+    // A short buzz on phones that support it, like a native long press.
+    navigator.vibrate?.(10);
     dragStart.current = {
       stage,
       index: columns[stage].findIndex((c) => c.id === active.id),
@@ -274,11 +276,11 @@ export function PipelineBoard({
         <PresentedCounter count={presentedCount} />
         <div className="flex items-center gap-3">
           {saving && (
-            <span className="text-sm text-muted" role="status">
+            <span className="text-sm text-muted max-sm:order-last" role="status">
               Opslaan...
             </span>
           )}
-          <Button onClick={() => setAdding(true)}>
+          <Button onClick={() => setAdding(true)} className="max-sm:flex-1">
             <Plus aria-hidden="true" />
             Kandidaat toevoegen
           </Button>
@@ -294,7 +296,7 @@ export function PipelineBoard({
             type="button"
             onClick={() => setError(undefined)}
             aria-label="Melding sluiten"
-            className="flex size-9 items-center justify-center rounded-lg text-muted hover:bg-brand-50"
+            className="flex size-9 items-center justify-center rounded-lg text-muted hover:bg-brand-50 active:bg-brand-50 pointer-coarse:size-11"
           >
             <X className="size-4" aria-hidden="true" />
           </button>
@@ -311,7 +313,7 @@ export function PipelineBoard({
             <strong>{placed.candidate.full_name}</strong> is geplaatst. Leg nu de plaatsing vast, dan starten
             contract, payroll en de garantieperiode.
           </p>
-          <div className="flex gap-2">
+          <div className="flex gap-2 max-sm:*:flex-1">
             <ButtonLink href={`/dashboard/plaatsingen/nieuw?application=${placed.id}`} size="sm">
               Plaatsing vastleggen
             </ButtonLink>
@@ -327,6 +329,33 @@ export function PipelineBoard({
           Nog niemand op dit bord. Voeg een kandidaat toe om de selectie te starten.
         </p>
       )}
+
+      {/* Until lg the board scrolls sideways: jump straight to a stage. */}
+      <nav aria-label="Naar fase" className="-mx-4 sm:-mx-6 lg:hidden">
+        <ul className="flex snap-strip scrollbar-none gap-2 px-4 py-0.5 sm:px-6">
+          {applicationStages.map((s) => (
+            <li key={s.value} className="shrink-0 snap-start scroll-ml-4">
+              <button
+                type="button"
+                onClick={() => {
+                  if (s.value === "rejected") setRejectedOpen(true);
+                  document
+                    .getElementById(`column-${s.value}`)
+                    ?.closest("section")
+                    ?.scrollIntoView({ behavior: "smooth", inline: "start", block: "nearest" });
+                }}
+                className="inline-flex min-h-9 items-center gap-1.5 rounded-full border border-border bg-white px-3 text-sm font-medium whitespace-nowrap text-ink transition active:scale-95 active:bg-brand-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500 pointer-coarse:min-h-10"
+              >
+                {s.label}
+                <span className="text-xs text-muted tabular-nums">{columns[s.value].length}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      </nav>
+      <p className="text-xs text-muted sm:hidden">
+        Houd een kaart ingedrukt om hem naar een andere fase te slepen, of kies Verplaats naar.
+      </p>
 
       <DndContext
         id={`pipeline-${vacancyId}`}
@@ -345,7 +374,7 @@ export function PipelineBoard({
         }}
       >
         <div
-          className="relative -mx-4 flex snap-x snap-mandatory items-stretch gap-3 overflow-x-auto px-4 pb-4 sm:-mx-6 sm:px-6 lg:mx-0 lg:snap-none lg:px-0"
+          className="relative -mx-4 flex snap-x snap-mandatory scroll-px-4 items-stretch gap-3 overflow-x-auto overscroll-x-contain px-4 pb-4 max-sm:scrollbar-none sm:-mx-6 sm:scroll-px-6 sm:px-6 lg:mx-0 lg:snap-none lg:scroll-px-0 lg:px-0"
           aria-label="Pipeline"
           role="region"
         >

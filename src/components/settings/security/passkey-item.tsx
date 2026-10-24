@@ -56,7 +56,7 @@ export function PasskeyItem({
             maxLength={80}
             required
             autoFocus
-            className="w-56 py-1.5"
+            className="w-56 py-1.5 max-sm:w-full"
             aria-invalid={Boolean(error)}
             aria-describedby={error ? `passkey-name-${id}-error` : undefined}
           />
@@ -85,7 +85,8 @@ export function PasskeyItem({
               Toegevoegd {createdAt} · {lastUsedAt ? `laatst gebruikt ${lastUsedAt}` : "nog niet gebruikt"}
             </p>
           </div>
-          <div className="flex items-center gap-2">
+          {/* 44px tap targets on touch screens, also for the confirm dialog. */}
+          <div className="flex items-center gap-2 pointer-coarse:[&_button]:min-h-11 max-sm:w-full max-sm:*:flex-1">
             <Button size="sm" variant="ghost" onClick={() => setOpenedWith(state)} aria-label={`${name} hernoemen`}>
               <Pencil aria-hidden="true" />
               Hernoemen

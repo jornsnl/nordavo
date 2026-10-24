@@ -91,7 +91,7 @@ export function ProfilePanel({ vacancyId, match }: { vacancyId: string; match: M
 
       {content && (
         <div className="space-y-3 rounded-xl border border-border bg-card p-4 text-sm">
-          <dl className="grid gap-3 sm:grid-cols-4">
+          <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             {[
               ["Niveau", content.seniority],
               ["Ervaring", content.years_experience === null ? "Onbekend" : `${content.years_experience} jaar`],

@@ -2,9 +2,11 @@ import { Suspense } from "react";
 import { Handshake, ShieldCheck } from "lucide-react";
 import { EmptyState } from "@/components/dashboard/empty-state";
 import { PageHeader } from "@/components/dashboard/page-header";
+import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardBody } from "@/components/ui/card";
 import { ListSkeleton } from "@/components/ui/skeleton";
+import { MobileList, MobileListItem } from "@/components/ui/mobile-list";
 import { Table, TBody, TD, TH, THead, TR } from "@/components/ui/table";
 import { getPortalPlacements, type PortalPlacement } from "@/lib/data/portal";
 import { formatCurrency, formatDate, todayIso } from "@/lib/format";
@@ -22,7 +24,7 @@ export default function PortalPlacementsPage() {
         <PlacementsTable />
       </Suspense>
 
-      <Card className="mt-8">
+      <Card className="mt-6 sm:mt-8">
         <CardBody className="flex items-start gap-3 text-sm">
           <ShieldCheck className="mt-0.5 size-5 shrink-0 text-brand-600" aria-hidden="true" />
           <div className="space-y-1 text-muted">
@@ -57,39 +59,67 @@ async function PlacementsTable() {
   }
 
   return (
-    <Table>
-      <THead>
-        <tr>
-          <TH>Developer</TH>
-          <TH>Start</TH>
-          <TH>Status</TH>
-          <TH>Garantie</TH>
-          <TH className="text-right">Tarief per maand</TH>
-        </tr>
-      </THead>
-      <TBody>
+    <>
+      <MobileList label="Plaatsingen" className="md:hidden">
         {placements.map((p) => {
           const status = optionFor(placementStatuses, p.status);
           return (
-            <TR key={p.id}>
-              <TD>
-                <p className="font-medium text-brand-900">{p.candidateName ?? "Developer"}</p>
-                <p className="text-xs text-muted">{[p.candidateTitle, p.vacancyTitle].filter(Boolean).join(", ")}</p>
-              </TD>
-              <TD className="whitespace-nowrap">{formatDate(p.startDate)}</TD>
-              <TD>
-                <Badge tone={status.tone}>{status.label}</Badge>
+            <MobileListItem
+              key={p.id}
+              leading={<Avatar name={p.candidateName ?? "Developer"} />}
+              title={p.candidateName ?? "Developer"}
+              subtitle={[p.candidateTitle, p.vacancyTitle].filter(Boolean).join(", ") || undefined}
+              meta={`Gestart op ${formatDate(p.startDate)}`}
+              trailing={<Badge tone={status.tone}>{status.label}</Badge>}
+            >
+              <div className="space-y-1 text-xs">
+                <p className="text-ink">
+                  {p.monthlyRate === null ? "Tarief volgens offerte" : `${formatCurrency(p.monthlyRate)} per maand`}
+                </p>
                 <NoticeInfo placement={p} />
-              </TD>
-              <TD className="text-sm">
-                <GuaranteeInfo guaranteeUntil={p.guaranteeUntil} today={today} ended={p.status === "ended"} />
-              </TD>
-              <TD className="text-right whitespace-nowrap">{formatCurrency(p.monthlyRate, "Volgens offerte")}</TD>
-            </TR>
+                <p>
+                  <GuaranteeInfo guaranteeUntil={p.guaranteeUntil} today={today} ended={p.status === "ended"} />
+                </p>
+              </div>
+            </MobileListItem>
           );
         })}
-      </TBody>
-    </Table>
+      </MobileList>
+
+      <Table className="hidden md:block">
+        <THead>
+          <tr>
+            <TH>Developer</TH>
+            <TH>Start</TH>
+            <TH>Status</TH>
+            <TH>Garantie</TH>
+            <TH className="text-right">Tarief per maand</TH>
+          </tr>
+        </THead>
+        <TBody>
+          {placements.map((p) => {
+            const status = optionFor(placementStatuses, p.status);
+            return (
+              <TR key={p.id}>
+                <TD>
+                  <p className="font-medium text-brand-900">{p.candidateName ?? "Developer"}</p>
+                  <p className="text-xs text-muted">{[p.candidateTitle, p.vacancyTitle].filter(Boolean).join(", ")}</p>
+                </TD>
+                <TD className="whitespace-nowrap">{formatDate(p.startDate)}</TD>
+                <TD>
+                  <Badge tone={status.tone}>{status.label}</Badge>
+                  <NoticeInfo placement={p} />
+                </TD>
+                <TD className="text-sm">
+                  <GuaranteeInfo guaranteeUntil={p.guaranteeUntil} today={today} ended={p.status === "ended"} />
+                </TD>
+                <TD className="text-right whitespace-nowrap">{formatCurrency(p.monthlyRate, "Volgens offerte")}</TD>
+              </TR>
+            );
+          })}
+        </TBody>
+      </Table>
+    </>
   );
 }
 

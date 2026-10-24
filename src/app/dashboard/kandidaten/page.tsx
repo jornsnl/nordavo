@@ -6,10 +6,13 @@ import { redirect } from "next/navigation";
 import { Plus, Search, SearchX, Users } from "lucide-react";
 import { EmptyState } from "@/components/dashboard/empty-state";
 import { PageHeader } from "@/components/dashboard/page-header";
+import { AutoSubmitSelects } from "@/components/entity/auto-submit";
+import { FilterChips, filterHref } from "@/components/entity/filter-chips";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { Input, Select } from "@/components/ui/field";
+import { MobileList, MobileListItem } from "@/components/ui/mobile-list";
 import { ListSkeleton } from "@/components/ui/skeleton";
 import { TBody, TD, TH, THead, TR, Table } from "@/components/ui/table";
 import { getApplicationVacancyId } from "@/lib/data/applications";
@@ -72,6 +75,7 @@ async function CandidateList({ searchParams }: { searchParams: SearchParams }) {
     listCandidateSkills(),
   ]);
   const filtered = !!(q || status || skill);
+  const current = { q, status, skill };
 
   return (
     <div className="space-y-4">
@@ -79,7 +83,7 @@ async function CandidateList({ searchParams }: { searchParams: SearchParams }) {
         action="/dashboard/kandidaten"
         role="search"
         aria-label="Kandidaten zoeken"
-        className="grid gap-3 rounded-2xl border border-border bg-card p-3 shadow-xs sm:grid-cols-[1fr_auto_auto_auto]"
+        className="grid grid-cols-[minmax(0,1fr)] gap-3 sm:grid-cols-[1fr_auto_auto_auto] sm:rounded-2xl sm:border sm:border-border sm:bg-card sm:p-3 sm:shadow-xs"
       >
         <div className="relative">
           <Search
@@ -93,12 +97,27 @@ async function CandidateList({ searchParams }: { searchParams: SearchParams }) {
             id="candidate-q"
             name="q"
             type="search"
+            enterKeyHint="search"
+            autoComplete="off"
             defaultValue={q}
             placeholder="Zoek op naam, functie of skill"
             className="pl-10"
           />
         </div>
-        <div>
+        {/* Phones: status as chips, the skill applies as soon as it changes. */}
+        <FilterChips
+          label="Status"
+          className="sm:hidden"
+          chips={[
+            { label: "Alle", href: filterHref("/dashboard/kandidaten", current, { status: undefined }), active: !status },
+            ...candidateStatuses.map((s) => ({
+              label: s.label,
+              href: filterHref("/dashboard/kandidaten", current, { status: s.value }),
+              active: status === s.value,
+            })),
+          ]}
+        />
+        <div className="max-sm:hidden">
           <label htmlFor="candidate-status" className="sr-only">
             Status
           </label>
@@ -111,11 +130,11 @@ async function CandidateList({ searchParams }: { searchParams: SearchParams }) {
             ))}
           </Select>
         </div>
-        <div>
+        <AutoSubmitSelects className="flex gap-2 sm:block">
           <label htmlFor="candidate-skill" className="sr-only">
             Skill
           </label>
-          <Select id="candidate-skill" name="skill" defaultValue={skill ?? ""}>
+          <Select id="candidate-skill" name="skill" defaultValue={skill ?? ""} className="max-sm:w-full">
             <option value="">Alle skills</option>
             {skill && !skills.includes(skill) && <option value={skill}>{skill}</option>}
             {skills.map((s) => (
@@ -124,8 +143,13 @@ async function CandidateList({ searchParams }: { searchParams: SearchParams }) {
               </option>
             ))}
           </Select>
-        </div>
-        <div className="flex gap-2">
+          {filtered && (
+            <ButtonLink href="/dashboard/kandidaten" variant="ghost" className="shrink-0 sm:hidden">
+              Wissen
+            </ButtonLink>
+          )}
+        </AutoSubmitSelects>
+        <div className="flex gap-2 max-sm:hidden">
           <Button type="submit" variant="secondary" className="flex-1">
             Filteren
           </Button>
@@ -156,7 +180,33 @@ async function CandidateList({ searchParams }: { searchParams: SearchParams }) {
           <p className="text-sm text-muted" aria-live="polite">
             {candidates.length === 1 ? "1 kandidaat" : `${candidates.length} kandidaten`}
           </p>
-          <Table>
+          <MobileList label="Kandidaten" className="md:hidden">
+            {candidates.map((c) => {
+              const statusOption = optionFor(candidateStatuses, c.status);
+              return (
+                <MobileListItem
+                  key={c.id}
+                  href={`/dashboard/kandidaten/${c.id}`}
+                  leading={<Avatar name={c.full_name} />}
+                  title={c.full_name}
+                  subtitle={[c.current_title, c.years_experience !== null ? `${c.years_experience} jr` : null]
+                    .filter(Boolean)
+                    .join(" · ") || "Functie onbekend"}
+                  meta={`${c.location}${c.activeApplications > 0 ? ` · ${c.activeApplications} actief` : ""}`}
+                >
+                  {/* Status sits with the skills, so the name gets the full width. */}
+                  <div className="flex flex-wrap gap-1">
+                    <Badge tone={statusOption.tone}>{statusOption.label}</Badge>
+                    {c.skills.slice(0, 3).map((s) => (
+                      <Badge key={s}>{s}</Badge>
+                    ))}
+                    {c.skills.length > 3 && <Badge tone="brand">+{c.skills.length - 3}</Badge>}
+                  </div>
+                </MobileListItem>
+              );
+            })}
+          </MobileList>
+          <Table className="hidden md:block">
             <THead>
               <tr>
                 <TH>Naam</TH>
