@@ -42,7 +42,7 @@ export default function Page({ searchParams }: { searchParams: SearchParams }) {
         <Cards searchParams={searchParams} />
       </Suspense>
 
-      <section id="voorbeeld" className="mb-10 scroll-mt-6">
+      <section id="voorbeeld" className="mb-10 scroll-mt-6 max-lg:scroll-mt-20">
         <Suspense fallback={<ListSkeleton rows={6} />}>
           <Preview searchParams={searchParams} />
         </Suspense>

@@ -48,7 +48,7 @@ export async function ListCards({ filter, selected }: { filter: ListFilter; sele
                 <Link
                   href={`/dashboard/lijsten?${filterQuery(filter, { lijst: type })}#voorbeeld`}
                   aria-current={active ? "true" : undefined}
-                  className="text-sm font-semibold text-brand-600 hover:text-brand-800"
+                  className="text-sm font-semibold text-brand-600 hover:text-brand-800 max-md:inline-flex max-md:min-h-11 max-md:items-center max-md:active:text-brand-800"
                 >
                   {active ? "Voorbeeld hieronder" : "Bekijk voorbeeld"}
                 </Link>

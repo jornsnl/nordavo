@@ -3,6 +3,7 @@ import { Suspense } from "react";
 import Form from "next/form";
 import { Search } from "lucide-react";
 import { PageHeader } from "@/components/dashboard/page-header";
+import { FilterSheet } from "@/components/leads/filter-sheet";
 import { AddSuppressionButton } from "@/components/suppression/add-suppression-button";
 import { SuppressionTable } from "@/components/suppression/suppression-table";
 import { Button } from "@/components/ui/button";
@@ -46,39 +47,52 @@ export default function Page({ searchParams }: { searchParams: SearchParams }) {
 async function Filters({ searchParams }: { searchParams: SearchParams }) {
   const { q, reason, scope } = readFilters(await searchParams);
   return (
-    <Form action="/dashboard/uitsluitingen" role="search" className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center">
-      <div className="relative flex-1">
+    <Form action="/dashboard/uitsluitingen" role="search" className="mb-6 flex flex-wrap items-center gap-2 sm:gap-3">
+      <div className="relative min-w-0 flex-1">
         <Search className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-muted" aria-hidden="true" />
         <label htmlFor="sup-q" className="sr-only">
           Zoek op naam, bedrijf of mailadres
         </label>
-        <Input id="sup-q" name="q" type="search" defaultValue={q} placeholder="Zoek op naam, bedrijf of mailadres" className="pl-10" />
+        <Input
+          id="sup-q"
+          name="q"
+          type="search"
+          enterKeyHint="search"
+          autoComplete="off"
+          defaultValue={q}
+          placeholder="Zoek op naam, bedrijf of mailadres"
+          className="pl-10"
+        />
       </div>
-      <label htmlFor="sup-reden" className="sr-only">
-        Reden
-      </label>
-      <Select id="sup-reden" name="reden" defaultValue={reason ?? ""} className="sm:w-44">
-        <option value="">Alle redenen</option>
-        {suppressionReasons.map((r) => (
-          <option key={r.value} value={r.value}>
-            {r.label}
-          </option>
-        ))}
-      </Select>
-      <label htmlFor="sup-kanalen" className="sr-only">
-        Kanalen
-      </label>
-      <Select id="sup-kanalen" name="kanalen" defaultValue={scope ?? ""} className="sm:w-44">
-        <option value="">Alle kanalen</option>
-        {suppressionScopes.map((s) => (
-          <option key={s.value} value={s.value}>
-            {s.label}
-          </option>
-        ))}
-      </Select>
-      <Button type="submit" variant="secondary">
-        Filteren
-      </Button>
+      <FilterSheet activeCount={[reason, scope].filter(Boolean).length} resetHref="/dashboard/uitsluitingen" title="Uitsluitingen filteren">
+        <div className="flex flex-col gap-3 md:flex-row md:items-center">
+          <label htmlFor="sup-reden" className="sr-only max-md:not-sr-only max-md:text-sm max-md:font-medium max-md:text-ink">
+            Reden
+          </label>
+          <Select id="sup-reden" name="reden" defaultValue={reason ?? ""} className="md:w-44">
+            <option value="">Alle redenen</option>
+            {suppressionReasons.map((r) => (
+              <option key={r.value} value={r.value}>
+                {r.label}
+              </option>
+            ))}
+          </Select>
+          <label htmlFor="sup-kanalen" className="sr-only max-md:not-sr-only max-md:text-sm max-md:font-medium max-md:text-ink">
+            Kanalen
+          </label>
+          <Select id="sup-kanalen" name="kanalen" defaultValue={scope ?? ""} className="md:w-44">
+            <option value="">Alle kanalen</option>
+            {suppressionScopes.map((s) => (
+              <option key={s.value} value={s.value}>
+                {s.label}
+              </option>
+            ))}
+          </Select>
+          <Button type="submit" variant="secondary" className="max-md:hidden">
+            Filteren
+          </Button>
+        </div>
+      </FilterSheet>
     </Form>
   );
 }

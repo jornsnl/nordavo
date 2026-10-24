@@ -23,7 +23,7 @@ export default function Page({ searchParams }: PageProps<"/dashboard/leads/revie
     <>
       <Link
         href="/dashboard/leads"
-        className="mb-4 inline-flex items-center gap-1.5 text-sm font-medium text-muted hover:text-brand-700"
+        className="mb-4 inline-flex items-center gap-1.5 text-sm font-medium text-muted hover:text-brand-700 max-md:-mt-2 max-md:mb-2 max-md:min-h-11 max-md:active:text-brand-700"
       >
         <ArrowLeft className="size-4" aria-hidden="true" />
         Alle leads
@@ -94,7 +94,7 @@ async function ReviewQueue({ searchParams }: { searchParams: SearchParams }) {
                   href={`/dashboard/leads/review?id=${c.id}`}
                   scroll={false}
                   aria-current={i === index ? "true" : undefined}
-                  className={`flex items-center justify-between gap-3 px-5 py-3 text-sm hover:bg-brand-50/60 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-brand-500 ${
+                  className={`flex items-center justify-between gap-3 px-5 py-3 text-sm hover:bg-brand-50/60 active:bg-brand-50 max-md:min-h-12 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-brand-500 ${
                     i === index ? "bg-brand-50 font-semibold text-brand-900" : "text-ink"
                   }`}
                 >
@@ -106,6 +106,8 @@ async function ReviewQueue({ searchParams }: { searchParams: SearchParams }) {
           </ol>
         </Card>
       </div>
+      {/* Room for the fixed decision bar on phones and tablets. */}
+      <div aria-hidden="true" className="h-20 lg:hidden" />
     </>
   );
 }

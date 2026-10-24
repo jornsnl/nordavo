@@ -66,6 +66,12 @@ export function AddSuppressionButton() {
               name="value"
               required
               placeholder={current.placeholder}
+              type={kind === "email" ? "email" : "text"}
+              inputMode={kind === "email" ? "email" : kind === "bedrijf" ? "url" : "text"}
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
+              enterKeyHint="next"
               aria-invalid={Boolean(errors.value)}
               aria-describedby={errors.value ? "sup-value-error" : undefined}
             />

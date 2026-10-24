@@ -4,11 +4,13 @@ import Form from "next/form";
 import { History, KeyRound, TriangleAlert, Workflow } from "lucide-react";
 import { EmptyState } from "@/components/dashboard/empty-state";
 import { PageHeader } from "@/components/dashboard/page-header";
+import { FilterSheet } from "@/components/leads/filter-sheet";
 import { RunJobForm } from "@/components/jobs/run-job-form";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader } from "@/components/ui/card";
 import { Select } from "@/components/ui/field";
+import { MobileList, MobileListItem } from "@/components/ui/mobile-list";
 import { ListSkeleton } from "@/components/ui/skeleton";
 import { Table, TBody, TD, TH, THead, TR } from "@/components/ui/table";
 import {
@@ -48,6 +50,25 @@ function StatusBadge({ run }: { run: JobRunItem | undefined }) {
   if (!run) return <Badge tone="neutral">Nog nooit gedraaid</Badge>;
   const option = optionFor(jobStatuses, run.status);
   return <Badge tone={option.tone}>{option.label}</Badge>;
+}
+
+function triggerLabel(triggeredBy: string) {
+  return triggeredBy.startsWith("user:") ? "Handmatig" : triggeredBy === "schedule" ? "Schema" : triggeredBy;
+}
+
+/** Log of one run, folded away. */
+function RunLog({ run }: { run: JobRunItem }) {
+  return (
+    <details className="group">
+      <summary className="cursor-pointer text-sm font-medium text-brand-700 hover:underline focus-visible:outline-2 focus-visible:outline-brand-500 max-md:flex max-md:min-h-11 max-md:items-center">
+        Log bekijken ({run.log.length} regels)
+      </summary>
+      <pre className="mt-2 max-h-80 overflow-auto overscroll-contain rounded-xl bg-brand-950 p-3 text-xs leading-relaxed whitespace-pre-wrap text-brand-50">
+        {run.log.join("\n")}
+        {run.error ? `${run.log.length > 0 ? "\n\n" : ""}${run.error}` : ""}
+      </pre>
+    </details>
+  );
 }
 
 export default function Page({ searchParams }: PageProps<"/dashboard/jobs">) {
@@ -206,32 +227,39 @@ async function RunHistory({ searchParams }: { searchParams: SearchParams }) {
           </h2>
           <p className="text-sm text-muted">De laatste 100 runs, nieuwste eerst.</p>
         </div>
-        <Form action="/dashboard/jobs" className="flex flex-col gap-2 sm:flex-row sm:items-center">
-          <label htmlFor="history-job" className="sr-only">
-            Job
-          </label>
-          <Select id="history-job" name="job" defaultValue={jobName ?? ""} className="sm:w-56">
-            <option value="">Alle jobs</option>
-            {Object.keys(jobs).map((n) => (
-              <option key={n} value={n}>
-                {n}
-              </option>
-            ))}
-          </Select>
-          <label htmlFor="history-status" className="sr-only">
-            Status
-          </label>
-          <Select id="history-status" name="status" defaultValue={status ?? ""} className="sm:w-40">
-            <option value="">Elke status</option>
-            {jobStatuses.map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
-              </option>
-            ))}
-          </Select>
-          <Button type="submit" variant="secondary">
-            Filteren
-          </Button>
+        <Form action="/dashboard/jobs" className="flex items-center gap-2 max-md:justify-between">
+          <p className="text-sm text-muted md:hidden">
+            {[jobName, status ? optionFor(jobStatuses, status).label : null].filter(Boolean).join(", ") || "Alle runs"}
+          </p>
+          <FilterSheet activeCount={[jobName, status].filter(Boolean).length} resetHref="/dashboard/jobs" title="Runs filteren">
+            <div className="flex flex-col gap-2 md:flex-row md:items-center">
+              <label htmlFor="history-job" className="sr-only max-md:not-sr-only max-md:text-sm max-md:font-medium max-md:text-ink">
+                Job
+              </label>
+              <Select id="history-job" name="job" defaultValue={jobName ?? ""} className="md:w-56">
+                <option value="">Alle jobs</option>
+                {Object.keys(jobs).map((n) => (
+                  <option key={n} value={n}>
+                    {n}
+                  </option>
+                ))}
+              </Select>
+              <label htmlFor="history-status" className="sr-only max-md:not-sr-only max-md:mt-2 max-md:text-sm max-md:font-medium max-md:text-ink">
+                Status
+              </label>
+              <Select id="history-status" name="status" defaultValue={status ?? ""} className="md:w-40">
+                <option value="">Elke status</option>
+                {jobStatuses.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </Select>
+              <Button type="submit" variant="secondary" className="max-md:hidden">
+                Filteren
+              </Button>
+            </div>
+          </FilterSheet>
         </Form>
       </div>
 
@@ -246,57 +274,68 @@ async function RunHistory({ searchParams }: { searchParams: SearchParams }) {
           }
         />
       ) : (
-        <Table>
-          <THead>
-            <tr>
-              <TH>Job</TH>
-              <TH>Status</TH>
-              <TH>Gestart</TH>
-              <TH>Duur</TH>
-              <TH className="text-right">In</TH>
-              <TH className="text-right">Uit</TH>
-              <TH>Details</TH>
-            </tr>
-          </THead>
-          <TBody>
+        <>
+          <MobileList label="Runs" className="md:hidden">
             {runs.map((run) => {
               const option = optionFor(jobStatuses, run.status);
               return (
-                <TR key={run.id} className="align-top">
-                  <TD>
-                    <span className="font-mono text-xs font-semibold">{run.jobName}</span>
-                    <p className="text-xs text-muted">
-                      {run.triggeredBy.startsWith("user:") ? "Handmatig" : run.triggeredBy === "schedule" ? "Schema" : run.triggeredBy}
-                    </p>
-                  </TD>
-                  <TD>
-                    <Badge tone={option.tone}>{option.label}</Badge>
-                  </TD>
-                  <TD className="whitespace-nowrap text-muted">{formatDateTime(run.startedAt)}</TD>
-                  <TD className="whitespace-nowrap text-muted">{formatDuration(run.durationMs)}</TD>
-                  <TD className="text-right tabular-nums">{run.recordsIn}</TD>
-                  <TD className="text-right tabular-nums">{run.recordsOut}</TD>
-                  <TD className="max-w-md">
-                    {run.errorFirstLine && <p className="mb-1 text-sm text-danger">{run.errorFirstLine}</p>}
-                    {run.log.length > 0 || run.error ? (
-                      <details className="group">
-                        <summary className="cursor-pointer text-sm font-medium text-brand-700 hover:underline focus-visible:outline-2 focus-visible:outline-brand-500">
-                          Log bekijken ({run.log.length} regels)
-                        </summary>
-                        <pre className="mt-2 max-h-80 overflow-auto rounded-xl bg-brand-950 p-3 text-xs leading-relaxed whitespace-pre-wrap text-brand-50">
-                          {run.log.join("\n")}
-                          {run.error ? `${run.log.length > 0 ? "\n\n" : ""}${run.error}` : ""}
-                        </pre>
-                      </details>
-                    ) : (
-                      !run.errorFirstLine && <span className="text-sm text-muted">Geen log</span>
-                    )}
-                  </TD>
-                </TR>
+                <MobileListItem
+                  key={run.id}
+                  title={<span className="font-mono text-sm">{run.jobName}</span>}
+                  subtitle={`${formatDateTime(run.startedAt)}, ${formatDuration(run.durationMs)}`}
+                  meta={`${triggerLabel(run.triggeredBy)}, ${run.recordsIn} in, ${run.recordsOut} uit`}
+                  trailing={<Badge tone={option.tone}>{option.label}</Badge>}
+                >
+                  {run.errorFirstLine && <p className="mb-1 text-sm break-words text-danger">{run.errorFirstLine}</p>}
+                  {(run.log.length > 0 || run.error) && <RunLog run={run} />}
+                </MobileListItem>
               );
             })}
-          </TBody>
-        </Table>
+          </MobileList>
+          <Table className="hidden md:block">
+            <THead>
+              <tr>
+                <TH>Job</TH>
+                <TH>Status</TH>
+                <TH>Gestart</TH>
+                <TH>Duur</TH>
+                <TH className="text-right">In</TH>
+                <TH className="text-right">Uit</TH>
+                <TH>Details</TH>
+              </tr>
+            </THead>
+            <TBody>
+              {runs.map((run) => {
+                const option = optionFor(jobStatuses, run.status);
+                return (
+                  <TR key={run.id} className="align-top">
+                    <TD>
+                      <span className="font-mono text-xs font-semibold">{run.jobName}</span>
+                      <p className="text-xs text-muted">
+                        {triggerLabel(run.triggeredBy)}
+                      </p>
+                    </TD>
+                    <TD>
+                      <Badge tone={option.tone}>{option.label}</Badge>
+                    </TD>
+                    <TD className="whitespace-nowrap text-muted">{formatDateTime(run.startedAt)}</TD>
+                    <TD className="whitespace-nowrap text-muted">{formatDuration(run.durationMs)}</TD>
+                    <TD className="text-right tabular-nums">{run.recordsIn}</TD>
+                    <TD className="text-right tabular-nums">{run.recordsOut}</TD>
+                    <TD className="max-w-md">
+                      {run.errorFirstLine && <p className="mb-1 text-sm text-danger">{run.errorFirstLine}</p>}
+                      {run.log.length > 0 || run.error ? (
+                        <RunLog run={run} />
+                      ) : (
+                        !run.errorFirstLine && <span className="text-sm text-muted">Geen log</span>
+                      )}
+                    </TD>
+                  </TR>
+                );
+              })}
+            </TBody>
+          </Table>
+        </>
       )}
     </section>
   );

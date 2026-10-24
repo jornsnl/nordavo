@@ -28,7 +28,7 @@ export function MaxImportForm() {
           aria-describedby={state.fieldErrors?.file ? "max-file-error" : undefined}
         />
       </Field>
-      <SubmitButton size="sm" pendingLabel="Bezig met importeren">
+      <SubmitButton size="sm" className="max-sm:w-full pointer-coarse:min-h-11" pendingLabel="Bezig met importeren">
         <Upload aria-hidden="true" />
         Importeren
       </SubmitButton>

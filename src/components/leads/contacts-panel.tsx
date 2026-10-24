@@ -1,4 +1,5 @@
 import { CircleCheck, CircleX, ExternalLink, Link2, Mail, Phone } from "lucide-react";
+import { buttonClasses } from "@/components/ui/button";
 import { ContactStatusBadge, EmailStatusBadge, TierBadge } from "@/components/leads/badges";
 import { PushToCrmButton } from "@/components/leads/lead-forms";
 import type { FormAction } from "@/components/leads/action-modal";
@@ -135,6 +136,32 @@ export function ContactsPanel({
                   </dd>
                 </div>
               </dl>
+
+              {/* Phones: call or mail straight from the list, with big buttons. */}
+              {(c.phone || c.email) && (
+                <div className="flex gap-2 md:hidden">
+                  {c.phone && (
+                    <a
+                      href={`tel:${c.phone.replace(/[^\d+]/g, "")}`}
+                      className={buttonClasses({ variant: c.bellen.ok ? "primary" : "secondary", className: "flex-1" })}
+                      aria-label={`${c.name} bellen`}
+                    >
+                      <Phone aria-hidden="true" />
+                      Bellen
+                    </a>
+                  )}
+                  {c.email && (
+                    <a
+                      href={`mailto:${c.email}`}
+                      className={buttonClasses({ variant: "secondary", className: "flex-1" })}
+                      aria-label={`${c.name} mailen`}
+                    >
+                      <Mail aria-hidden="true" />
+                      Mailen
+                    </a>
+                  )}
+                </div>
+              )}
 
               <ul className="space-y-1 rounded-xl bg-surface/70 px-3 py-2 text-xs text-muted" aria-label="Nu benaderbaar">
                 <ChannelState label="Bellen" state={c.bellen} />
