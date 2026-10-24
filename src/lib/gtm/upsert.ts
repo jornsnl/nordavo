@@ -106,6 +106,8 @@ export async function upsertCompany(db: Db, input: CompanyInput, source: string)
 }
 
 export type ContactInput = {
+  /** Enrich this exact contact (for example S4 adding an email to a known person). */
+  id?: string;
   company_id: string;
   first_name?: string | null;
   last_name?: string | null;
@@ -129,7 +131,8 @@ export async function upsertContact(db: Db, input: ContactInput, source: string)
     .from("contacts")
     .select("id, first_name, last_name, title, tier, linkedin_url, email, email_status, phone, phone_type, sources")
     .limit(1);
-  if (linkedin) query = query.eq("linkedin_url", linkedin);
+  if (input.id) query = query.eq("id", input.id);
+  else if (linkedin) query = query.eq("linkedin_url", linkedin);
   else if (email) query = query.eq("company_id", input.company_id).eq("email", email);
   else query = query.eq("company_id", input.company_id).eq("first_name", input.first_name ?? "").eq("last_name", input.last_name ?? "");
   const { data: found, error: findError } = await query.maybeSingle();
