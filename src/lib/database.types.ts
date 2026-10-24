@@ -29,6 +29,11 @@ export type PlacementStatus = "active" | "notice" | "ended";
 export type TaskStatus = "todo" | "in_progress" | "done";
 export type TaskPriority = "low" | "normal" | "high";
 export type EntityType = "client" | "vacancy" | "candidate" | "application" | "placement" | "company";
+// Account security
+export type PasskeyDeviceType = "singleDevice" | "multiDevice";
+export type WebauthnChallengeKind = "registration" | "authentication";
+export type McpTokenAccess = "read" | "write";
+
 export type ActivityAction = "created" | "updated" | "deleted" | "stage_changed" | "status_changed";
 
 // GTM
@@ -1441,6 +1446,117 @@ export type Database = {
           },
         ];
       };
+      passkeys: {
+        Row: {
+          id: string;
+          user_id: string;
+          credential_id: string;
+          public_key: string;
+          counter: number;
+          transports: string[];
+          device_type: PasskeyDeviceType;
+          backed_up: boolean;
+          aaguid: string | null;
+          name: string;
+          created_at: string;
+          last_used_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          credential_id: string;
+          public_key: string;
+          counter?: number;
+          transports?: string[];
+          device_type?: PasskeyDeviceType;
+          backed_up?: boolean;
+          aaguid?: string | null;
+          name: string;
+          created_at?: string;
+          last_used_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          credential_id?: string;
+          public_key?: string;
+          counter?: number;
+          transports?: string[];
+          device_type?: PasskeyDeviceType;
+          backed_up?: boolean;
+          aaguid?: string | null;
+          name?: string;
+          created_at?: string;
+          last_used_at?: string | null;
+        };
+        Relationships: [];
+      };
+      webauthn_challenges: {
+        Row: {
+          id: string;
+          user_id: string | null;
+          challenge: string;
+          kind: WebauthnChallengeKind;
+          created_at: string;
+          expires_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id?: string | null;
+          challenge: string;
+          kind: WebauthnChallengeKind;
+          created_at?: string;
+          expires_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string | null;
+          challenge?: string;
+          kind?: WebauthnChallengeKind;
+          created_at?: string;
+          expires_at?: string;
+        };
+        Relationships: [];
+      };
+      mcp_tokens: {
+        Row: {
+          id: string;
+          user_id: string;
+          name: string;
+          token_hash: string;
+          token_prefix: string;
+          access: McpTokenAccess;
+          created_at: string;
+          expires_at: string | null;
+          last_used_at: string | null;
+          revoked_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          name: string;
+          token_hash: string;
+          token_prefix: string;
+          access?: McpTokenAccess;
+          created_at?: string;
+          expires_at?: string | null;
+          last_used_at?: string | null;
+          revoked_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          name?: string;
+          token_hash?: string;
+          token_prefix?: string;
+          access?: McpTokenAccess;
+          created_at?: string;
+          expires_at?: string | null;
+          last_used_at?: string | null;
+          revoked_at?: string | null;
+        };
+        Relationships: [];
+      };
     };
     Views: {
       call_list_candidates: { Row: ListCandidateBase & { phone: string; linkedin_url: string | null }; Relationships: [] };
@@ -1510,5 +1626,7 @@ export type ListExport = Tables<"list_exports">;
 export type JobRun = Tables<"job_runs">;
 export type Match = Tables<"matches">;
 export type AnonymousProfile = Tables<"anonymous_profiles">;
+export type Passkey = Tables<"passkeys">;
+export type McpToken = Tables<"mcp_tokens">;
 export type CallListCandidate = Database["public"]["Views"]["call_list_candidates"]["Row"];
 export type MailListCandidate = Database["public"]["Views"]["mail_list_candidates"]["Row"];

@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { safeNextPath } from "@/lib/safe-redirect";
+import { MFA_VERIFY_PATH, hasVerifiedTotp } from "@/lib/security/mfa";
 
 export type LoginState = {
   error?: string;
@@ -31,6 +32,13 @@ export async function login(
           : "Deze combinatie van e-mailadres en wachtwoord klopt niet.",
       email,
     };
+  }
+
+  // With an authenticator app, the session stays at aal1 until the code is entered.
+  // The factors come straight from Supabase Auth's sign-in response.
+  if (hasVerifiedTotp(data.user.factors)) {
+    const next = safeNextPath(formData.get("next"), "");
+    redirect(next ? `${MFA_VERIFY_PATH}?next=${encodeURIComponent(next)}` : MFA_VERIFY_PATH);
   }
 
   const { data: profile } = await supabase
