@@ -47,7 +47,7 @@ function DetailSkeleton() {
   return (
     <div aria-busy="true" aria-label="Laden">
       <Skeleton className="mb-8 h-12 w-72" />
-      <div className="grid gap-6 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="space-y-6 lg:col-span-2">
           <ListSkeleton rows={4} />
           <ListSkeleton rows={3} />
@@ -92,7 +92,7 @@ async function CandidateDetail({ params }: { params: Promise<{ id: string }> }) 
         }
       />
 
-      <div className="grid gap-6 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="min-w-0 space-y-6 lg:col-span-2">
           <Card>
             <CardHeader title="Profiel" />

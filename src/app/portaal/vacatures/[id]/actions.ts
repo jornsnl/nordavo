@@ -7,7 +7,7 @@ import { requireClient } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 
 const reviewSchema = z.object({
-  applicationId: z.uuid("Onbekende kandidaat."),
+  applicationId: z.guid("Onbekende kandidaat."),
   decision: z.enum(["approved", "rejected"], "Kies akkoord of afwijzen."),
   feedback: z.string().max(2000, "Houd je feedback onder de 2000 tekens.").optional(),
 });

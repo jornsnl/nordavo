@@ -479,6 +479,17 @@ create policy "Clients read presented candidates" on public.candidates
     )
   );
 
+-- Developers placed at the client stay visible to them, also when the
+-- placement was created without going through the pipeline.
+create policy "Clients read placed candidates" on public.candidates
+  for select to authenticated using (
+    exists (
+      select 1 from public.placements pl
+      where pl.candidate_id = candidates.id
+        and pl.client_id = public.current_client_id()
+    )
+  );
+
 create policy "Clients read own placements" on public.placements
   for select to authenticated using (client_id = public.current_client_id());
 

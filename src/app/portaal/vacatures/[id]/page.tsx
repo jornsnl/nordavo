@@ -49,7 +49,7 @@ async function VacancyDetail({ params }: { params: Promise<{ id: string }> }) {
         actions={<Badge tone={status.tone}>{status.label}</Badge>}
       />
 
-      <div className="grid gap-8 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
         <section aria-labelledby="candidates-heading" className="space-y-6 lg:col-span-2">
           <div>
             <h2 id="candidates-heading" className="font-display text-lg font-semibold text-brand-900">
@@ -129,7 +129,7 @@ function VacancySkeleton() {
         <Skeleton className="h-3 w-20" />
         <Skeleton className="h-8 w-72 max-w-full" />
       </div>
-      <div className="grid gap-8 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
         <div className="lg:col-span-2">
           <ListSkeleton rows={4} />
         </div>

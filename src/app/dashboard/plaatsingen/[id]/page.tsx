@@ -56,7 +56,7 @@ async function PlacementDetail({
   searchParams: SearchParams;
 }) {
   const [{ id }, query] = await Promise.all([params, searchParams]);
-  if (!z.uuid().safeParse(id).success) notFound();
+  if (!z.guid().safeParse(id).success) notFound();
 
   const placement = await getPlacement(id);
   if (!placement) notFound();
@@ -100,7 +100,7 @@ async function PlacementDetail({
         </div>
       )}
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
         <div className="min-w-0 space-y-6">
           <Card>
             <CardHeader title="Details" />
@@ -242,7 +242,7 @@ function DetailSkeleton() {
         <Skeleton className="h-8 w-80 max-w-full" />
         <Skeleton className="h-4 w-48" />
       </div>
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
         <Skeleton className="h-80" />
         <Skeleton className="h-48" />
       </div>

@@ -32,7 +32,7 @@ export default function Page({ params }: { params: Params }) {
 
 async function EditPlacement({ params }: { params: Params }) {
   const { id } = await params;
-  if (!z.uuid().safeParse(id).success) notFound();
+  if (!z.guid().safeParse(id).success) notFound();
 
   const [placement, options] = await Promise.all([getPlacement(id), getPlacementFormOptions()]);
   if (!placement) notFound();

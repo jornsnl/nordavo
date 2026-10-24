@@ -9,7 +9,7 @@ import { fieldErrorsFrom, GENERIC_ERROR, type ActionState } from "@/lib/action-s
 
 const entitySchema = z.object({
   entityType: z.enum(["client", "vacancy", "candidate", "application", "placement"]),
-  entityId: z.uuid(),
+  entityId: z.guid(),
 });
 
 // ---------------------------------------------------------------------------
@@ -45,7 +45,7 @@ export async function addNote(_prev: ActionState, formData: FormData): Promise<A
 /** Only the author can edit a note. */
 export async function updateNote(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const user = await requireStaff();
-  const parsed = z.object({ id: z.uuid(), body: noteBody }).safeParse({
+  const parsed = z.object({ id: z.guid(), body: noteBody }).safeParse({
     id: formData.get("id"),
     body: formData.get("body") ?? "",
   });
@@ -66,7 +66,7 @@ export async function updateNote(_prev: ActionState, formData: FormData): Promis
 
 export async function deleteNote(noteId: string): Promise<ActionState> {
   const user = await requireStaff();
-  const id = z.uuid().safeParse(noteId);
+  const id = z.guid().safeParse(noteId);
   if (!id.success) return { error: GENERIC_ERROR };
 
   const supabase = await createClient();
@@ -165,7 +165,7 @@ export async function getAttachmentUrl(
   attachmentId: string,
 ): Promise<{ url: string } | { error: string }> {
   await requireStaff();
-  const id = z.uuid().safeParse(attachmentId);
+  const id = z.guid().safeParse(attachmentId);
   if (!id.success) return { error: GENERIC_ERROR };
 
   const supabase = await createClient();
@@ -185,7 +185,7 @@ export async function getAttachmentUrl(
 
 export async function deleteAttachment(attachmentId: string): Promise<ActionState> {
   await requireStaff();
-  const id = z.uuid().safeParse(attachmentId);
+  const id = z.guid().safeParse(attachmentId);
   if (!id.success) return { error: GENERIC_ERROR };
 
   const supabase = await createClient();

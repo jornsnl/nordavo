@@ -46,7 +46,7 @@ export function CandidateCard({ item }: { item: PortalCandidate }) {
           {stage && <Badge tone={stage.tone}>{stage.label}</Badge>}
         </header>
 
-        <div className="grid gap-6 px-5 py-5 lg:grid-cols-[1fr_280px]">
+        <div className="grid grid-cols-1 gap-6 px-5 py-5 lg:grid-cols-[minmax(0,1fr)_280px]">
           <div className="min-w-0 space-y-4">
             {candidate.summary ? (
               <p className="text-sm leading-relaxed whitespace-pre-line text-ink">{candidate.summary}</p>

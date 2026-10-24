@@ -91,7 +91,7 @@ async function VacancyDetail({ params }: { params: Params }) {
         }
       />
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
         <div className="min-w-0 space-y-6">
           <PipelineSummary vacancyId={vacancy.id} summary={summary} target={PRESENTED_TARGET} />
 
@@ -165,7 +165,7 @@ function DetailSkeleton() {
         <Skeleton className="h-3 w-20" />
         <Skeleton className="h-8 w-72 max-w-full" />
       </div>
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
         <ListSkeleton rows={6} />
         <ListSkeleton rows={3} />
       </div>

@@ -73,9 +73,9 @@ export async function changePassword(
 
 const roleSchema = z
   .object({
-    user_id: z.uuid({ error: "Gebruiker niet gevonden" }),
+    user_id: z.guid({ error: "Gebruiker niet gevonden" }),
     role: z.enum(["admin", "member", "client"], { error: "Kies een rol" }),
-    client_id: z.uuid({ error: "Kies een klant" }).optional(),
+    client_id: z.guid({ error: "Kies een klant" }).optional(),
   })
   .refine((v) => v.role !== "client" || v.client_id, {
     error: "Kies de klant waar dit account bij hoort",
@@ -117,7 +117,7 @@ const inviteSchema = z
       .min(2, { error: "Vul een naam in" })
       .max(120, { error: "Maximaal 120 tekens" }),
     role: z.enum(["admin", "member", "client"], { error: "Kies een rol" }),
-    client_id: z.uuid({ error: "Kies een klant" }).optional(),
+    client_id: z.guid({ error: "Kies een klant" }).optional(),
   })
   .refine((v) => v.role !== "client" || v.client_id, {
     error: "Kies de klant waar dit account bij hoort",

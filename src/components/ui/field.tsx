@@ -1,4 +1,5 @@
 import type { ComponentProps, ReactNode } from "react";
+import { ChevronDown } from "lucide-react";
 
 const control =
   "block w-full rounded-xl border border-border bg-white px-3.5 py-2.5 text-sm text-ink shadow-xs outline-none transition placeholder:text-muted/60 focus:border-brand-500 focus:ring-4 focus:ring-brand-100 disabled:bg-surface aria-invalid:border-danger";
@@ -47,10 +48,20 @@ export function Textarea({ className = "", rows = 4, ...props }: ComponentProps<
 }
 
 export function Select({ className = "", children, ...props }: ComponentProps<"select">) {
+  // Width classes size the wrapper; everything else styles the select itself.
+  const classes = className.split(/\s+/).filter(Boolean);
+  const widths = classes.filter((c) => /(^|:)w-/.test(c)).join(" ");
+  const rest = classes.filter((c) => !/(^|:)w-/.test(c)).join(" ");
   return (
-    <select className={`${control} appearance-none bg-[url('data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 20 20%22 fill=%22%235b6779%22><path d=%22M5.5 7.5 10 12l4.5-4.5%22 stroke=%22%235b6779%22 stroke-width=%221.5%22 fill=%22none%22/></svg>')] bg-[length:20px] bg-[right_10px_center] bg-no-repeat pr-10 ${className}`} {...props}>
-      {children}
-    </select>
+    <div className={`relative ${widths}`}>
+      <select className={`${control} appearance-none pr-10 ${rest}`} {...props}>
+        {children}
+      </select>
+      <ChevronDown
+        aria-hidden="true"
+        className="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 text-muted"
+      />
+    </div>
   );
 }
 

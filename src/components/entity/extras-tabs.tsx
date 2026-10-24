@@ -21,7 +21,7 @@ export function ExtrasTabs({ tabs, label }: { tabs: ExtrasTab[]; label: string }
       <div
         role="tablist"
         aria-label={label}
-        className="flex gap-1 overflow-x-auto border-b border-border px-2 pt-2"
+        className="relative flex gap-1 overflow-x-auto border-b border-border px-2 pt-2"
       >
         {tabs.map((tab, index) => {
           const selected = tab.key === active;

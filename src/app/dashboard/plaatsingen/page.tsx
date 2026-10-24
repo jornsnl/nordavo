@@ -17,11 +17,11 @@ import {
   GuaranteeBadge,
   PlacementStatusBadge,
 } from "@/components/placements/placement-badges";
+import { PlacementFilters } from "@/components/placements/placement-filters";
 import {
-  PlacementFilters,
   STATUS_FILTERS,
   type StatusFilter,
-} from "@/components/placements/placement-filters";
+} from "@/components/placements/status-filters";
 
 export const metadata: Metadata = {
   title: "Plaatsingen",
@@ -64,7 +64,7 @@ function parseFilters(params: Record<string, string | string[] | undefined>) {
     ? (rawStatus as StatusFilter)
     : "lopend";
   const rawClient = typeof params.klant === "string" ? params.klant : "";
-  const clientId = z.uuid().safeParse(rawClient).success ? rawClient : "";
+  const clientId = z.guid().safeParse(rawClient).success ? rawClient : "";
   return { status, clientId };
 }
 

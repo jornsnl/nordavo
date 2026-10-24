@@ -14,7 +14,7 @@ import { todayIso } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 import { addDays, addMonths } from "@/components/placements/dates";
 
-const id = z.uuid();
+const id = z.guid();
 
 const date = (message: string) => z.iso.date({ error: message });
 
@@ -26,10 +26,10 @@ const money = z
 
 const placementSchema = z
   .object({
-    client_id: z.uuid({ error: "Kies een klant" }),
-    candidate_id: z.uuid({ error: "Kies een kandidaat" }),
-    vacancy_id: z.uuid({ error: "Kies een geldige vacature" }).optional(),
-    application_id: z.uuid().optional(),
+    client_id: z.guid({ error: "Kies een klant" }),
+    candidate_id: z.guid({ error: "Kies een kandidaat" }),
+    vacancy_id: z.guid({ error: "Kies een geldige vacature" }).optional(),
+    application_id: z.guid().optional(),
     start_date: date("Vul een startdatum in"),
     monthly_rate: money,
     next_checkin_at: date("Vul een geldige datum in").optional(),
@@ -151,6 +151,9 @@ export async function createPlacement(
         title: "Check-in met klant",
         description: "Hoe gaat het met de developer? Vraag door op samenwerking, tempo en communicatie.",
         due_date: nextCheckin,
+        // Bulk inserts send NULL for keys missing in a row, so every row
+        // lists the same columns.
+        priority: "normal",
         assignee_id: user.id,
         entity_type: "placement",
         entity_id: placement.id,

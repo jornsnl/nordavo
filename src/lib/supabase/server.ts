@@ -1,5 +1,6 @@
 import "server-only";
 import { createServerClient } from "@supabase/ssr";
+import { io } from "next/cache";
 import { cookies } from "next/headers";
 import type { Database } from "@/lib/database.types";
 import { env } from "@/lib/env";
@@ -10,6 +11,9 @@ import { env } from "@/lib/env";
  */
 export async function createClient() {
   const cookieStore = await cookies();
+  // The auth client compares token expiry with the current time;
+  // tell Cache Components that request-time work follows.
+  await io();
 
   return createServerClient<Database>(env.supabaseUrl(), env.supabasePublishableKey(), {
     cookies: {

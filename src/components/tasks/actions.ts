@@ -16,7 +16,7 @@ const statusSchema = z.enum(["todo", "in_progress", "done"]);
 
 const taskSchema = z
   .object({
-    id: z.uuid().optional(),
+    id: z.guid().optional(),
     title: z
       .string({ error: "Geef de taak een titel." })
       .min(1, "Geef de taak een titel.")
@@ -25,9 +25,9 @@ const taskSchema = z
     status: statusSchema.default("todo"),
     priority: z.enum(["low", "normal", "high"]).default("normal"),
     due_date: z.iso.date("Kies een geldige datum.").optional(),
-    assignee_id: z.uuid("Kies een teamlid.").optional(),
+    assignee_id: z.guid("Kies een teamlid.").optional(),
     entity_type: entityTypeSchema.optional(),
-    entity_id: z.uuid("Kies een record.").optional(),
+    entity_id: z.guid("Kies een record.").optional(),
   })
   .refine((v) => Boolean(v.entity_type) === Boolean(v.entity_id), {
     message: "Kies een record of haal de koppeling weg.",
@@ -72,7 +72,7 @@ export async function saveTask(_prev: ActionState, formData: FormData): Promise<
 /** Tick a task off, or open it again. */
 export async function setTaskDone(taskId: string, done: boolean): Promise<ActionState> {
   await requireStaff();
-  const id = z.uuid().safeParse(taskId);
+  const id = z.guid().safeParse(taskId);
   if (!id.success) return { error: GENERIC_ERROR };
 
   const supabase = await createClient();
@@ -86,11 +86,11 @@ export async function setTaskDone(taskId: string, done: boolean): Promise<Action
 }
 
 const moveSchema = z.object({
-  id: z.uuid(),
+  id: z.guid(),
   status: statusSchema,
   position: z.number(),
   /** Set when positions in the column ran out of room: renumber in this order. */
-  reorder: z.array(z.uuid()).max(500).optional(),
+  reorder: z.array(z.guid()).max(500).optional(),
 });
 
 /** Drag and drop on the board: new status and a fractional position. */
@@ -124,7 +124,7 @@ export async function moveTask(input: z.input<typeof moveSchema>): Promise<Actio
 
 export async function deleteTask(taskId: string): Promise<ActionState> {
   await requireStaff();
-  const id = z.uuid().safeParse(taskId);
+  const id = z.guid().safeParse(taskId);
   if (!id.success) return { error: GENERIC_ERROR };
 
   const supabase = await createClient();

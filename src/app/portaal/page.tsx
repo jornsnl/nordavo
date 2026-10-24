@@ -24,8 +24,8 @@ export default function PortalOverviewPage() {
         <Greeting />
       </Suspense>
 
-      <div className="grid gap-8 lg:grid-cols-3">
-        <div className="space-y-8 lg:col-span-2">
+      <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
+        <div className="min-w-0 space-y-8 lg:col-span-2">
           <Suspense fallback={<ListSkeleton rows={2} />}>
             <PendingReviews />
           </Suspense>
@@ -40,7 +40,7 @@ export default function PortalOverviewPage() {
           </section>
         </div>
 
-        <aside className="space-y-6">
+        <aside className="min-w-0 space-y-6">
           <Suspense fallback={<ListSkeleton rows={3} />}>
             <PlacementsSummary />
           </Suspense>

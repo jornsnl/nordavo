@@ -209,7 +209,7 @@ function Segmented({
   options: { label: string; href: string; active: boolean; icon?: ReactNode }[];
 }) {
   return (
-    <nav aria-label={label} className="inline-flex w-fit max-w-full overflow-x-auto rounded-xl border border-border bg-white p-1 shadow-xs">
+    <nav aria-label={label} className="relative inline-flex w-fit max-w-full overflow-x-auto rounded-xl border border-border bg-white p-1 shadow-xs">
       {options.map((option) => (
         <Link
           key={option.label}

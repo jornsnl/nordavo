@@ -3,7 +3,7 @@ import type { ComponentProps, ReactNode } from "react";
 /** Horizontally scrollable table inside a card. */
 export function Table({ children }: { children: ReactNode }) {
   return (
-    <div className="overflow-x-auto rounded-2xl border border-border bg-card shadow-xs">
+    <div className="relative overflow-x-auto rounded-2xl border border-border bg-card shadow-xs">
       <table className="w-full min-w-[640px] text-left text-sm">{children}</table>
     </div>
   );

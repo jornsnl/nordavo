@@ -1,12 +1,30 @@
 "use client";
 
+import { Suspense } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { navSections } from "./nav-items";
 
-export function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
-  const pathname = usePathname();
+type Props = { onNavigate?: () => void };
 
+/**
+ * The current path is request data on dynamic routes, so the active state
+ * streams in behind Suspense; the fallback is the same menu without it.
+ */
+export function SidebarNav(props: Props) {
+  return (
+    <Suspense fallback={<NavList {...props} pathname={null} />}>
+      <ActiveNavList {...props} />
+    </Suspense>
+  );
+}
+
+function ActiveNavList(props: Props) {
+  const pathname = usePathname();
+  return <NavList {...props} pathname={pathname} />;
+}
+
+function NavList({ onNavigate, pathname }: Props & { pathname: string | null }) {
   return (
     <nav aria-label="Hoofdmenu" className="space-y-6">
       {navSections.map((section, index) => (
@@ -19,9 +37,10 @@ export function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
           <ul className="space-y-1">
             {section.items.map(({ label, href, icon: Icon }) => {
               const active =
-                href === "/dashboard"
+                pathname !== null &&
+                (href === "/dashboard"
                   ? pathname === href
-                  : pathname === href || pathname.startsWith(`${href}/`);
+                  : pathname === href || pathname.startsWith(`${href}/`));
               return (
                 <li key={href}>
                   <Link

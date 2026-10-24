@@ -70,19 +70,14 @@ export default function DashboardPage() {
             </Suspense>
           </Card>
 
-          <Card>
-            <CardHeader title="Mijn taken" description="Openstaande taken die aan jou zijn toegewezen." />
-            <Suspense fallback={<PanelSkeleton />}>
-              <MyTasksWidget />
-            </Suspense>
-          </Card>
+          {/* Both widgets render their own card and header. */}
+          <Suspense fallback={<PanelSkeleton />}>
+            <MyTasksWidget />
+          </Suspense>
 
-          <Card>
-            <CardHeader title="Recente activiteit" description="Wat er de laatste tijd is veranderd." />
-            <Suspense fallback={<PanelSkeleton />}>
-              <RecentActivity />
-            </Suspense>
-          </Card>
+          <Suspense fallback={<PanelSkeleton />}>
+            <RecentActivity />
+          </Suspense>
         </div>
 
         <div className="min-w-0 space-y-6">

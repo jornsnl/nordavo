@@ -26,7 +26,7 @@ export async function listProfiles() {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("profiles")
-    .select("id, full_name, email, role, client_id, created_at, client:clients(id, name)")
+    .select("id, full_name, email, role, client_id, created_at, client:clients!profiles_client_id_fkey(id, name)")
     .order("role")
     .order("full_name");
 

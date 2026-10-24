@@ -44,7 +44,7 @@ export default function Page({ searchParams }: { searchParams: SearchParams }) {
 async function NewPlacement({ searchParams }: { searchParams: SearchParams }) {
   const params = await searchParams;
   const applicationParam = typeof params.application === "string" ? params.application : "";
-  const applicationId = z.uuid().safeParse(applicationParam).success ? applicationParam : null;
+  const applicationId = z.guid().safeParse(applicationParam).success ? applicationParam : null;
 
   const [options, application, existing] = await Promise.all([
     getPlacementFormOptions(),
