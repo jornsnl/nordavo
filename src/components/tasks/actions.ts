@@ -11,7 +11,7 @@ import {
   type ActionState,
 } from "@/lib/action-state";
 
-const entityTypeSchema = z.enum(["client", "vacancy", "candidate", "application", "placement"]);
+const entityTypeSchema = z.enum(["client", "vacancy", "candidate", "application", "placement", "company"]);
 const statusSchema = z.enum(["todo", "in_progress", "done"]);
 
 const taskSchema = z

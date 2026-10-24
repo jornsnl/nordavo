@@ -233,6 +233,7 @@ export const entityTypes: Record<EntityType, { label: string; href: (id: string)
   candidate: { label: "Kandidaat", href: (id) => `/dashboard/kandidaten/${id}` },
   application: { label: "Sollicitatie", href: (id) => `/dashboard/kandidaten?application=${id}` },
   placement: { label: "Plaatsing", href: (id) => `/dashboard/plaatsingen/${id}` },
+  company: { label: "Lead", href: (id) => `/dashboard/leads/${id}` },
 };
 
 /** Look up the option for a value, e.g. optionFor(clientStatuses, "active"). */

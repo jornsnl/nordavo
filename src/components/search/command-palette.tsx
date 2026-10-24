@@ -2,18 +2,19 @@
 
 import { useEffect, useId, useRef, useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
-import { Briefcase, Building2, Handshake, LoaderCircle, Search, Users, type LucideIcon } from "lucide-react";
+import { Briefcase, Building2, Handshake, LoaderCircle, Radar, Search, Users, type LucideIcon } from "lucide-react";
 import type { RecordHit, SearchGroups } from "@/lib/data/search";
 import { globalSearch } from "./actions";
 
 const groups: { key: keyof SearchGroups; label: string; icon: LucideIcon }[] = [
+  { key: "company", label: "Leads", icon: Radar },
   { key: "client", label: "Klanten", icon: Building2 },
   { key: "vacancy", label: "Vacatures", icon: Briefcase },
   { key: "candidate", label: "Kandidaten", icon: Users },
   { key: "placement", label: "Plaatsingen", icon: Handshake },
 ];
 
-const emptyResults: SearchGroups = { client: [], vacancy: [], candidate: [], placement: [] };
+const emptyResults: SearchGroups = { company: [], client: [], vacancy: [], candidate: [], placement: [] };
 
 const subscribeNever = () => () => {};
 

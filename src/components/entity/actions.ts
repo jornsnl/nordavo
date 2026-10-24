@@ -8,7 +8,7 @@ import { createClient } from "@/lib/supabase/server";
 import { fieldErrorsFrom, GENERIC_ERROR, type ActionState } from "@/lib/action-state";
 
 const entitySchema = z.object({
-  entityType: z.enum(["client", "vacancy", "candidate", "application", "placement"]),
+  entityType: z.enum(["client", "vacancy", "candidate", "application", "placement", "company"]),
   entityId: z.guid(),
 });
 

@@ -266,6 +266,17 @@ create table public.anonymous_profiles (
   check (sent_at is null or (approved_at is not null and consent_confirmed))
 );
 
+-- Tasks, notes and attachments can also hang on a lead (company).
+alter table public.tasks drop constraint tasks_entity_type_check;
+alter table public.tasks add constraint tasks_entity_type_check
+  check (entity_type in ('client', 'vacancy', 'candidate', 'application', 'placement', 'company'));
+alter table public.notes drop constraint notes_entity_type_check;
+alter table public.notes add constraint notes_entity_type_check
+  check (entity_type in ('client', 'vacancy', 'candidate', 'application', 'placement', 'company'));
+alter table public.attachments drop constraint attachments_entity_type_check;
+alter table public.attachments add constraint attachments_entity_type_check
+  check (entity_type in ('client', 'vacancy', 'candidate', 'application', 'placement', 'company'));
+
 -- ---------------------------------------------------------------------------
 -- Indexes
 -- ---------------------------------------------------------------------------

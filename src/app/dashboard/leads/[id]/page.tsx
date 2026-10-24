@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Suspense, type ReactNode } from "react";
+import { EntityExtras } from "@/components/entity/entity-extras";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, Briefcase, ExternalLink, ShieldAlert, TriangleAlert } from "lucide-react";
@@ -263,6 +264,10 @@ async function LeadDetail({ params }: { params: Params }) {
             contacts={contacts}
             actions={<SuppressButton contacts={contactOptions} action={suppressAction.bind(null, company.id)} />}
           />
+
+          <Suspense fallback={<Skeleton className="h-64 w-full" />}>
+            <EntityExtras entityType="company" entityId={company.id} />
+          </Suspense>
         </div>
       </div>
     </>

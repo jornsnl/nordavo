@@ -4,7 +4,7 @@ import { entityTypes } from "@/lib/labels";
 import { createClient } from "@/lib/supabase/server";
 
 /** Record types you can search for and link a task to. */
-export const searchableTypes = ["client", "vacancy", "candidate", "placement"] as const;
+export const searchableTypes = ["company", "client", "vacancy", "candidate", "placement"] as const;
 export type SearchableType = (typeof searchableTypes)[number];
 
 export type RecordHit = {
@@ -44,6 +44,22 @@ export function applicationHref(vacancyId: string) {
 
 async function searchType(type: SearchableType, pattern: string, limit: number): Promise<RecordHit[]> {
   const supabase = await createClient();
+
+  if (type === "company") {
+    const { data } = await supabase
+      .from("companies")
+      .select("id, name, domain")
+      .or(`name.ilike.${pattern},domain.ilike.${pattern}`)
+      .order("icp_score", { ascending: false, nullsFirst: false })
+      .limit(limit);
+    return (data ?? []).map((c) => ({
+      type,
+      id: c.id,
+      label: c.name,
+      sublabel: c.domain,
+      href: entityTypes.company.href(c.id),
+    }));
+  }
 
   if (type === "client") {
     const { data } = await supabase
@@ -120,14 +136,14 @@ async function searchType(type: SearchableType, pattern: string, limit: number):
 /** Global search for the command palette: a few hits per record type. */
 export async function searchEverything(query: string, perGroup = 5): Promise<SearchGroups> {
   await requireStaff();
-  const empty: SearchGroups = { client: [], vacancy: [], candidate: [], placement: [] };
+  const empty: SearchGroups = { company: [], client: [], vacancy: [], candidate: [], placement: [] };
   const pattern = searchPattern(query);
   if (!pattern) return empty;
 
-  const [client, vacancy, candidate, placement] = await Promise.all(
+  const [company, client, vacancy, candidate, placement] = await Promise.all(
     searchableTypes.map((type) => searchType(type, pattern, perGroup)),
   );
-  return { client, vacancy, candidate, placement };
+  return { company, client, vacancy, candidate, placement };
 }
 
 /** Search one record type, for the record picker on tasks. */
@@ -153,6 +169,7 @@ export async function resolveRecords(
   const result = new Map<string, RecordLink>();
 
   const idsOf = (type: string) => [...new Set(refs.filter((r) => r.type === type).map((r) => r.id))];
+  const companyIds = idsOf("company");
   const clientIds = idsOf("client");
   const vacancyIds = idsOf("vacancy");
   const candidateIds = idsOf("candidate");
@@ -161,6 +178,20 @@ export async function resolveRecords(
   const taskIds = idsOf("task");
 
   await Promise.all([
+    companyIds.length > 0 &&
+      supabase
+        .from("companies")
+        .select("id, name, domain")
+        .in("id", companyIds)
+        .then(({ data }) => {
+          for (const c of data ?? []) {
+            result.set(recordKey("company", c.id), {
+              label: c.name,
+              sublabel: c.domain,
+              href: entityTypes.company.href(c.id),
+            });
+          }
+        }),
     clientIds.length > 0 &&
       supabase
         .from("clients")

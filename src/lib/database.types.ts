@@ -28,7 +28,7 @@ export type ClientDecision = "pending" | "approved" | "rejected";
 export type PlacementStatus = "active" | "notice" | "ended";
 export type TaskStatus = "todo" | "in_progress" | "done";
 export type TaskPriority = "low" | "normal" | "high";
-export type EntityType = "client" | "vacancy" | "candidate" | "application" | "placement";
+export type EntityType = "client" | "vacancy" | "candidate" | "application" | "placement" | "company";
 export type ActivityAction = "created" | "updated" | "deleted" | "stage_changed" | "status_changed";
 
 // GTM

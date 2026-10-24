@@ -16,7 +16,7 @@ const querySchema = z.string().trim().max(100);
 export async function globalSearch(query: string): Promise<SearchGroups> {
   await requireStaff();
   const q = querySchema.safeParse(query);
-  if (!q.success) return { client: [], vacancy: [], candidate: [], placement: [] };
+  if (!q.success) return { company: [], client: [], vacancy: [], candidate: [], placement: [] };
   return searchEverything(q.data);
 }
 

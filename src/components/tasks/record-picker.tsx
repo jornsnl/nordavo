@@ -8,7 +8,7 @@ import { entityTypes } from "@/lib/labels";
 import { Field, Input, Select } from "@/components/ui/field";
 import { searchRecords } from "@/components/search/actions";
 
-const pickableTypes = ["client", "vacancy", "candidate", "placement"] as const;
+const pickableTypes = ["company", "client", "vacancy", "candidate", "placement"] as const;
 
 export type PickedRecord = { type: EntityType; id: string; label: string };
 
