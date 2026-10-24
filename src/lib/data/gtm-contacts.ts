@@ -61,6 +61,8 @@ export async function listGtmContacts(
       { count: "exact" },
     );
 
+  // PostgREST takes one `or` filter; several OR groups are combined into one.
+  const orGroups: string[] = [];
   if (filters.q) {
     const q = filters.q;
     const p = orFilterPattern(q);
@@ -80,7 +82,7 @@ export async function listGtmContacts(
     if (companies && companies.length > 0) {
       parts.push(`company_id.in.(${companies.map((c) => c.id).join(",")})`);
     }
-    query = query.or(parts.join(","));
+    orGroups.push(parts.join(","));
   }
   if (filters.status) query = query.eq("status", filters.status);
   if (filters.tier) query = query.eq("tier", filters.tier);
@@ -88,9 +90,12 @@ export async function listGtmContacts(
   if (filters.hasEmail === false) query = query.is("email", null);
   if (filters.emailStatus) query = query.eq("email_status", filters.emailStatus);
   if (filters.hasMobile === true) query = query.eq("phone_type", "mobiel").not("phone", "is", null);
-  if (filters.hasMobile === false) query = query.or("phone.is.null,phone_type.neq.mobiel,phone_type.is.null");
+  if (filters.hasMobile === false) orGroups.push("phone.is.null,phone_type.is.null,phone_type.eq.vast");
   if (filters.inOnePage === true) query = query.not("onepage_id", "is", null);
   if (filters.inOnePage === false) query = query.is("onepage_id", null);
+
+  if (orGroups.length === 1) query = query.or(orGroups[0]);
+  else if (orGroups.length > 1) query = query.or(`and(${orGroups.map((g) => `or(${g})`).join(",")})`);
 
   const { data, error, count } = await query
     .order("updated_at", { ascending: false })

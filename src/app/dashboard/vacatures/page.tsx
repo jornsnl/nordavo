@@ -12,7 +12,7 @@ import { Button, ButtonLink } from "@/components/ui/button";
 import { Input, Select } from "@/components/ui/field";
 import { ListSkeleton, Skeleton } from "@/components/ui/skeleton";
 import { Table, TBody, TD, TH, THead, TR } from "@/components/ui/table";
-import type { VacancyStatus } from "@/lib/database.types";
+import type { TalentStage, VacancyStatus } from "@/lib/database.types";
 import { isUuid, listClientOptions } from "@/lib/data/clients";
 import { isTalentStage, isVacancyStatus, listVacancies } from "@/lib/data/vacancies";
 import { optionFor, seniorities, talentStages, vacancyStatuses } from "@/lib/labels";
@@ -30,7 +30,8 @@ function readFilters(params: Record<string, string | string[] | undefined>) {
   const rawStatus = typeof params.status === "string" ? params.status : "";
   const status = rawStatus === "all" || isVacancyStatus(rawStatus) ? rawStatus : "";
   const client = isUuid(params.client) ? params.client : "";
-  const stage = isTalentStage(params.stage) ? params.stage : "";
+  const rawStage = params.stage;
+  const stage: TalentStage | "" = isTalentStage(rawStage) ? rawStage : "";
   const statuses: VacancyStatus[] | undefined =
     status === "all" ? undefined : status ? [status] : DEFAULT_STATUSES;
   return { q, status, client, stage, statuses };

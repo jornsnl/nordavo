@@ -7,7 +7,7 @@ import { PageHeader } from "@/components/dashboard/page-header";
 import { RunJobForm } from "@/components/jobs/run-job-form";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardBody, CardHeader } from "@/components/ui/card";
+import { Card, CardHeader } from "@/components/ui/card";
 import { Select } from "@/components/ui/field";
 import { ListSkeleton } from "@/components/ui/skeleton";
 import { Table, TBody, TD, TH, THead, TR } from "@/components/ui/table";

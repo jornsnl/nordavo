@@ -8,13 +8,20 @@ import { PageHeader } from "@/components/dashboard/page-header";
 import { ConfirmDeleteButton } from "@/components/clients/confirm-delete-button";
 import { DaysOpen } from "@/components/vacancies/days-open";
 import { PipelineSummary } from "@/components/vacancies/pipeline-summary";
+import { sourceLabel } from "@/components/vacancies/talent-labels";
+import { MatchesSection } from "@/components/talent/matches-section";
+import { RequirementsCard } from "@/components/talent/requirements-card";
+import { SearchBriefCard } from "@/components/talent/search-brief-card";
+import { TimelineCard } from "@/components/talent/timeline-card";
+import { hasClaude } from "@/lib/ai/claude";
+import { readSearchBrief } from "@/lib/talent/match";
 import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
 import { Card, CardBody, CardHeader, DetailList } from "@/components/ui/card";
 import { ListSkeleton, Skeleton } from "@/components/ui/skeleton";
 import { getVacancy, getVacancyPipelineSummary, PRESENTED_TARGET } from "@/lib/data/vacancies";
 import { formatCurrency, formatDate } from "@/lib/format";
-import { optionFor, seniorities, vacancyStatuses } from "@/lib/labels";
+import { optionFor, seniorities, talentStages, vacancyStatuses } from "@/lib/labels";
 import { deleteVacancyAction } from "../actions";
 
 export const metadata: Metadata = {
@@ -48,6 +55,9 @@ async function VacancyDetail({ params }: { params: Params }) {
   const summary = await getVacancyPipelineSummary(vacancy.id);
   const status = optionFor(vacancyStatuses, vacancy.status);
   const seniority = optionFor(seniorities, vacancy.seniority);
+  const stage = optionFor(talentStages, vacancy.talent_stage);
+  const searchBrief = readSearchBrief(vacancy.search_brief);
+  const hasRequirements = vacancy.stack.length > 0 || vacancy.must_haves.length > 0;
 
   return (
     <>
@@ -57,6 +67,7 @@ async function VacancyDetail({ params }: { params: Params }) {
           <span className="flex flex-wrap items-center gap-3">
             {vacancy.title}
             <Badge tone={status.tone}>{status.label}</Badge>
+            <Badge tone={stage.tone}>{stage.label}</Badge>
           </span>
         }
         description={
@@ -68,6 +79,16 @@ async function VacancyDetail({ params }: { params: Params }) {
               >
                 <Building2 className="size-4" aria-hidden="true" />
                 {vacancy.client.name}
+              </Link>
+            )}
+            {!vacancy.client && vacancy.company && (
+              <Link
+                href={`/dashboard/leads/${vacancy.company.id}`}
+                className="inline-flex items-center gap-1.5 font-medium text-brand-700 hover:underline"
+              >
+                <Building2 className="size-4" aria-hidden="true" />
+                {vacancy.company.name}
+                <Badge tone="accent">Prospect</Badge>
               </Link>
             )}
             <span className="inline-flex items-center gap-1.5 text-sm">
@@ -93,6 +114,15 @@ async function VacancyDetail({ params }: { params: Params }) {
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
         <div className="min-w-0 space-y-6">
+          <TimelineCard vacancy={vacancy} leadTime={vacancy.leadTime} />
+          <RequirementsCard vacancy={vacancy} />
+          <Suspense fallback={<ListSkeleton rows={4} />}>
+            <MatchesSection vacancyId={vacancy.id} hasRequirements={hasRequirements} />
+          </Suspense>
+          {(searchBrief || hasRequirements) && (
+            <SearchBriefCard vacancyId={vacancy.id} brief={searchBrief} canGenerate={hasClaude() && hasRequirements} />
+          )}
+
           <PipelineSummary vacancyId={vacancy.id} summary={summary} target={PRESENTED_TARGET} />
 
           <Card>
@@ -100,7 +130,11 @@ async function VacancyDetail({ params }: { params: Params }) {
             <CardBody>
               <DetailList
                 items={[
-                  { label: "Klant", value: vacancy.client?.name },
+                  vacancy.client || !vacancy.company
+                    ? { label: "Klant", value: vacancy.client?.name }
+                    : { label: "Prospect", value: vacancy.company.name },
+                  { label: "Bron", value: sourceLabel(vacancy.source) },
+                  { label: "Deal in OnePageCRM", value: vacancy.onepage_deal_id },
                   { label: "Senioriteit", value: seniority.label },
                   { label: "Budget per maand", value: formatCurrency(vacancy.monthly_budget, "Niet ingevuld") },
                   {

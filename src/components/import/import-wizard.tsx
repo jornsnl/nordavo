@@ -8,7 +8,7 @@ import { Button, ButtonLink } from "@/components/ui/button";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { Field, FormMessage, Input, Select } from "@/components/ui/field";
 import { Table, TBody, TD, TH, THead, TR } from "@/components/ui/table";
-import { guessMapping, type LeadImportMapping, type LeadImportResult } from "@/lib/gtm/import";
+import type { LeadImportMapping, LeadImportResult } from "@/lib/gtm/import";
 import {
   normalizeDomain,
   normalizeEmail,
@@ -17,7 +17,7 @@ import {
   phoneTypeFor,
   splitName,
 } from "@/lib/gtm/normalize";
-import { importChunkAction } from "@/app/dashboard/import/actions";
+import { guessMappingAction, importChunkAction } from "@/app/dashboard/import/actions";
 
 const CHUNK_SIZE = 500;
 const PREVIEW_ROWS = 10;
@@ -99,14 +99,20 @@ export function ImportWizard() {
       header: true,
       skipEmptyLines: "greedy",
       transformHeader: (h) => h.trim(),
-      complete: (result) => {
-        setParsing(false);
+      complete: async (result) => {
         const headers = (result.meta.fields ?? []).filter(Boolean);
         if (headers.length === 0 || result.data.length === 0) {
+          setParsing(false);
           setParseError("Dit bestand heeft geen kopregel of geen rijen. Exporteer de Sheet als CSV met kolomnamen op de eerste regel.");
           return;
         }
-        const guess = guessMapping(headers);
+        let guess: Partial<LeadImportMapping> = {};
+        try {
+          guess = await guessMappingAction(headers);
+        } catch {
+          // No suggestion: the user maps the columns by hand.
+        }
+        setParsing(false);
         const clean: Partial<LeadImportMapping> = {};
         for (const [key, value] of Object.entries(guess) as [MappingKey, string | undefined][]) {
           if (value && headers.includes(value)) clean[key] = value;
@@ -398,7 +404,7 @@ export function ImportWizard() {
 
             {run.status === "failed" && (
               <FormMessage
-                error={`De import stopte bij rij ${run.processed + 1}: ${run.error ?? "onbekende fout"}. Wat al verwerkt is, blijft staan.`}
+                error={`De import stopte na ${run.processed} verwerkte rijen: ${run.error ?? "onbekende fout"}. Wat al verwerkt is, blijft staan.`}
               />
             )}
             {run.status === "stopped" && (
@@ -434,7 +440,7 @@ export function ImportWizard() {
                 <>
                   <Button onClick={() => start(run.processed)} disabled={!canStart}>
                     <RotateCcw aria-hidden="true" />
-                    Verder vanaf rij {run.processed + 1}
+                    Verder met de overige {total - run.processed} rijen
                   </Button>
                   <Button variant="secondary" onClick={() => start(0)} disabled={!canStart}>
                     Opnieuw vanaf het begin
@@ -463,7 +469,7 @@ export function ImportWizard() {
         <Card>
           <CardHeader
             title={`Overgeslagen rijen (${run.skipped.length})`}
-            description="Deze rijen zijn niet geïmporteerd. Pas ze aan in de Sheet en importeer opnieuw; dubbelingen worden aangevuld."
+            description="Deze rijen zijn niet geïmporteerd. Het rijnummer is zoals in de Sheet, met de kopregel als rij 1. Pas ze aan en importeer opnieuw; dubbelingen worden aangevuld."
           />
           <ul className="max-h-96 divide-y divide-border overflow-y-auto">
             {run.skipped.slice(0, 1000).map((s, i) => (

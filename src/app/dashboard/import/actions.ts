@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requireStaff } from "@/lib/auth";
-import { importLeadRows, type LeadImportMapping, type LeadImportResult } from "@/lib/gtm/import";
+import { guessMapping, importLeadRows, type LeadImportMapping, type LeadImportResult } from "@/lib/gtm/import";
 import { createClient } from "@/lib/supabase/server";
 
 // Matches the chunk size in the import wizard.
@@ -74,4 +74,14 @@ export async function importChunkAction(input: ImportChunkInput): Promise<Import
       error: error instanceof Error && error.message ? error.message : "Er ging iets mis bij het importeren.",
     };
   }
+}
+
+const headersSchema = z.array(z.string().max(200)).max(500);
+
+/** Suggested column mapping for the header row. Runs on the server: the import module is server code. */
+export async function guessMappingAction(headers: string[]): Promise<Partial<LeadImportMapping>> {
+  await requireStaff();
+  const parsed = headersSchema.safeParse(headers);
+  if (!parsed.success) return {};
+  return guessMapping(parsed.data);
 }
