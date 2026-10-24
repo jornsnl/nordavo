@@ -36,7 +36,7 @@ export function CardBody({ className = "", children }: { className?: string; chi
 /** Label/value pairs for detail pages. */
 export function DetailList({ items }: { items: { label: string; value: ReactNode }[] }) {
   return (
-    <dl className="grid gap-x-6 gap-y-4 sm:grid-cols-2">
+    <dl className="grid grid-cols-2 gap-x-4 gap-y-4 sm:gap-x-6">
       {items.map(({ label, value }) => (
         <div key={label} className="min-w-0">
           <dt className="text-xs font-medium tracking-wide text-muted uppercase">{label}</dt>
