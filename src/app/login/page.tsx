@@ -3,6 +3,7 @@ import { Suspense } from "react";
 import { Clock, Handshake, Users } from "lucide-react";
 import { Logo } from "@/components/brand/logo";
 import { LoginForm } from "./login-form";
+import { PasskeySignIn } from "./passkey-sign-in";
 
 export const metadata: Metadata = {
   title: "Inloggen",
@@ -80,6 +81,9 @@ export default function LoginPage() {
           <div className="mt-8">
             <Suspense>
               <LoginForm />
+            </Suspense>
+            <Suspense>
+              <PasskeySignIn />
             </Suspense>
           </div>
 

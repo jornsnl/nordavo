@@ -15,6 +15,9 @@ import { InviteForm } from "@/components/settings/invite-form";
 import { PasswordForm } from "@/components/settings/password-form";
 import { ProfileForm } from "@/components/settings/profile-form";
 import { RoleEditor } from "@/components/settings/role-editor";
+import { McpSection } from "@/components/settings/security/mcp-section";
+import { MfaSection } from "@/components/settings/security/mfa-section";
+import { PasskeySection } from "@/components/settings/security/passkey-section";
 import { changePassword, inviteUser, updateOwnProfile, updateUserRole } from "./actions";
 
 export const metadata: Metadata = {
@@ -49,6 +52,18 @@ export default function Page() {
             <PasswordForm action={changePassword} />
           </CardBody>
         </Card>
+
+        <Suspense fallback={<ListSkeleton rows={2} />}>
+          <MfaSection />
+        </Suspense>
+
+        <Suspense fallback={<ListSkeleton rows={2} />}>
+          <PasskeySection />
+        </Suspense>
+
+        <Suspense fallback={<ListSkeleton rows={2} />}>
+          <McpSection />
+        </Suspense>
 
         <Suspense fallback={<ListSkeleton rows={4} />}>
           <UsersSection />
