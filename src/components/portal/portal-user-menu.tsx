@@ -1,4 +1,5 @@
-import { LogOut } from "lucide-react";
+import Link from "next/link";
+import { LogOut, ShieldCheck } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { requireClient } from "@/lib/auth";
@@ -12,6 +13,14 @@ export async function PortalUserMenu() {
         <p className="max-w-40 truncate text-sm font-medium text-ink">{user.name}</p>
         <p className="max-w-40 truncate text-xs text-muted">{user.email}</p>
       </div>
+      <Link
+        href="/portaal/beveiliging"
+        className="flex size-9 items-center justify-center rounded-lg text-muted transition hover:bg-brand-50 hover:text-brand-900 focus-visible:outline-2 focus-visible:outline-brand-500"
+        aria-label="Beveiliging"
+        title="Beveiliging"
+      >
+        <ShieldCheck className="size-[18px]" aria-hidden="true" />
+      </Link>
       <form action="/auth/signout" method="post">
         <button
           type="submit"

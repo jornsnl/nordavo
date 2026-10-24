@@ -1,7 +1,9 @@
 import "server-only";
 import { cache } from "react";
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import type { ProfileRole } from "@/lib/database.types";
+import { MFA_VERIFY_PATH, checkSecondStep } from "@/lib/security/mfa";
 import { createClient } from "@/lib/supabase/server";
 
 export type CurrentUser = {
@@ -16,6 +18,8 @@ export type CurrentUser = {
 /**
  * Data Access Layer entry point: the one place that reads the session.
  * Reads the request, so call it from a component inside a <Suspense> boundary.
+ * A session that still needs its authenticator app code goes to /login/verificatie,
+ * so never call this from that page.
  */
 export const getCurrentUser = cache(async (): Promise<CurrentUser> => {
   const supabase = await createClient();
@@ -23,6 +27,13 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser> => {
 
   if (error || !data?.claims) {
     redirect("/login");
+  }
+
+  // Same check as the proxy, for requests it did not see (and as a second line of defence).
+  const cookieStore = await cookies();
+  const step = await checkSecondStep(supabase, data.claims, (name) => cookieStore.get(name)?.value);
+  if (step.required) {
+    redirect(MFA_VERIFY_PATH);
   }
 
   const userId = data.claims.sub;
