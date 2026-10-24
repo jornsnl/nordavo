@@ -62,7 +62,7 @@ export function RecordChip({ task }: { task: Pick<TaskItem, "entityType" | "reco
   return (
     <Link
       href={task.record.href}
-      className={`${className} transition hover:bg-brand-50 hover:ring-brand-200 focus-visible:outline-2 focus-visible:outline-brand-500`}
+      className={`${className} transition hover:bg-brand-50 hover:ring-brand-200 active:bg-brand-100 pointer-coarse:py-1 focus-visible:outline-2 focus-visible:outline-brand-500`}
     >
       {content}
     </Link>

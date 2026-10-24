@@ -50,8 +50,8 @@ export default function DashboardPage() {
         <StatCards />
       </Suspense>
 
-      <div className="mb-10 grid gap-6 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
-        <div className="min-w-0 space-y-6">
+      <div className="mb-8 grid gap-4 sm:mb-10 sm:gap-6 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+        <div className="min-w-0 space-y-4 sm:space-y-6">
           <Card>
             <CardHeader
               title="Vacatures die aandacht nodig hebben"
@@ -59,7 +59,7 @@ export default function DashboardPage() {
               actions={
                 <Link
                   href="/dashboard/vacatures"
-                  className="text-sm font-semibold text-brand-600 hover:text-brand-800"
+                  className="text-sm font-semibold text-brand-600 hover:text-brand-800 pointer-coarse:-my-3 pointer-coarse:inline-flex pointer-coarse:min-h-11 pointer-coarse:items-center"
                 >
                   Alle vacatures
                 </Link>
@@ -80,7 +80,7 @@ export default function DashboardPage() {
           </Suspense>
         </div>
 
-        <div className="min-w-0 space-y-6">
+        <div className="min-w-0 space-y-4 sm:space-y-6">
           <Card>
             <CardHeader
               title="Komende momenten"
@@ -102,7 +102,7 @@ export default function DashboardPage() {
 
       <section
         aria-labelledby="process-heading"
-        className="rounded-2xl border border-border bg-card p-6 shadow-xs sm:p-8"
+        className="rounded-2xl border border-border bg-card px-5 py-6 shadow-xs sm:p-8"
       >
         <div className="mb-6 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
           <div>
@@ -119,15 +119,16 @@ export default function DashboardPage() {
           </div>
           <Link
             href="/dashboard/vacatures"
-            className="inline-flex items-center gap-1.5 text-sm font-semibold text-brand-600 hover:text-brand-800"
+            className="inline-flex items-center gap-1.5 self-start text-sm font-semibold text-brand-600 hover:text-brand-800 pointer-coarse:min-h-11"
           >
             Naar vacatures
             <ArrowRight className="size-4" aria-hidden="true" />
           </Link>
         </div>
-        <ol className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        {/* On phones the steps swipe sideways instead of stacking four tall cards. */}
+        <ol className="-mx-5 flex snap-strip scrollbar-none gap-3 px-5 sm:-mx-8 sm:px-8 md:mx-0 md:grid md:grid-cols-2 md:gap-4 md:overflow-visible md:px-0 xl:grid-cols-4">
           {process.map(({ step, title, text }) => (
-            <li key={step} className="rounded-xl bg-surface p-5">
+            <li key={step} className="w-[78%] shrink-0 snap-start scroll-ml-5 rounded-xl sm:scroll-ml-8 bg-surface p-5 md:w-auto">
               <span className="font-display text-sm font-bold text-accent-600">
                 {step}
               </span>
@@ -157,14 +158,14 @@ async function Greeting() {
     hour < 12 ? "Goedemorgen" : hour < 18 ? "Goedemiddag" : "Goedenavond";
 
   return (
-    <header className="mb-8">
+    <header className="mb-6 sm:mb-8">
       <p className="mb-1.5 text-xs font-semibold tracking-wider text-accent-600 uppercase">
         Overzicht
       </p>
       <h1 className="font-display text-2xl font-bold tracking-tight text-brand-900 sm:text-3xl">
         {greeting}, {firstName}
       </h1>
-      <p className="mt-2 text-muted">
+      <p className="mt-2 text-muted max-sm:text-sm">
         In één oogopslag hoe het ervoor staat met klanten, vacatures,
         kandidaten en plaatsingen.
       </p>

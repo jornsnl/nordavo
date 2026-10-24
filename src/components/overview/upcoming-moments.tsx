@@ -40,7 +40,7 @@ export async function UpcomingMoments() {
           <li key={`${moment.kind}-${moment.placementId}`}>
             <Link
               href={`/dashboard/plaatsingen/${moment.placementId}`}
-              className="flex items-center gap-3 px-5 py-3 transition hover:bg-brand-50/40 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-brand-500"
+              className="flex min-h-14 items-center gap-3 px-5 py-3 transition hover:bg-brand-50/40 active:bg-brand-50 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-brand-500"
             >
               <span
                 className={`flex size-9 shrink-0 items-center justify-center rounded-lg ${

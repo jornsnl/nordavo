@@ -4,7 +4,11 @@ import { useId, useRef, useState, type ReactNode } from "react";
 
 export type ExtrasTab = { key: string; label: string; count?: number; content: ReactNode };
 
-/** Accessible tabs (arrow keys, Home, End) for the side column of a detail page. */
+/**
+ * Accessible tabs (arrow keys, Home, End) for the side column of a detail page.
+ * On phones the tabs are a segmented control that scrolls sideways when the
+ * labels do not fit.
+ */
 export function ExtrasTabs({ tabs, label }: { tabs: ExtrasTab[]; label: string }) {
   const id = useId();
   const [active, setActive] = useState(tabs[0]?.key);
@@ -21,7 +25,7 @@ export function ExtrasTabs({ tabs, label }: { tabs: ExtrasTab[]; label: string }
       <div
         role="tablist"
         aria-label={label}
-        className="relative flex gap-1 overflow-x-auto border-b border-border px-2 pt-2"
+        className="relative flex scrollbar-none gap-1 overflow-x-auto overscroll-x-contain max-sm:m-3 max-sm:mb-0 max-sm:rounded-xl max-sm:bg-surface max-sm:p-1 sm:border-b sm:border-border sm:px-2 sm:pt-2"
       >
         {tabs.map((tab, index) => {
           const selected = tab.key === active;
@@ -46,10 +50,10 @@ export function ExtrasTabs({ tabs, label }: { tabs: ExtrasTab[]; label: string }
                 else return;
                 event.preventDefault();
               }}
-              className={`relative -mb-px inline-flex shrink-0 items-center gap-1.5 rounded-t-lg border-b-2 px-3 py-2.5 text-sm font-medium whitespace-nowrap transition focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-brand-500 ${
+              className={`relative inline-flex shrink-0 items-center gap-1.5 px-3 text-sm font-medium whitespace-nowrap transition focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-brand-500 max-sm:min-h-10 max-sm:flex-1 max-sm:justify-center max-sm:gap-1 max-sm:px-2 max-sm:text-[13px] max-sm:rounded-lg max-sm:active:scale-95 sm:-mb-px sm:rounded-t-lg sm:border-b-2 sm:py-2.5 ${
                 selected
-                  ? "border-accent-500 text-brand-900"
-                  : "border-transparent text-muted hover:text-brand-900"
+                  ? "text-brand-900 max-sm:bg-white max-sm:shadow-xs sm:border-accent-500"
+                  : "text-muted hover:text-brand-900 sm:border-transparent"
               }`}
             >
               {tab.label}

@@ -34,9 +34,30 @@ export function PlacementFilters({
       role="search"
       aria-label="Plaatsingen filteren"
       aria-busy={pending}
-      className="mb-5 grid gap-3 sm:grid-cols-2 lg:max-w-2xl"
+      className="mb-5 grid grid-cols-[minmax(0,1fr)] gap-3 sm:grid-cols-2 lg:max-w-2xl"
     >
-      <div>
+      {/* Phones: the status as a strip of chips instead of a select. */}
+      <div className="-mx-4 sm:hidden">
+        <div role="group" aria-label="Status" className="flex snap-strip scrollbar-none gap-2 px-4 py-0.5">
+          {STATUS_FILTERS.map((option) => {
+            const active = option.value === status;
+            return (
+              <button
+                key={option.value}
+                type="button"
+                aria-pressed={active}
+                onClick={() => update({ status: option.value })}
+                className={`inline-flex min-h-10 shrink-0 snap-start scroll-ml-4 items-center rounded-full border px-3.5 text-sm font-medium whitespace-nowrap transition active:scale-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500 ${
+                  active ? "border-brand-700 bg-brand-700 text-white" : "border-border bg-white text-ink active:bg-brand-50"
+                }`}
+              >
+                {option.short}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+      <div className="max-sm:hidden">
         <label htmlFor="filter-status" className="sr-only">
           Status
         </label>

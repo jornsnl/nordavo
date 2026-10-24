@@ -68,7 +68,7 @@ export function TimelineForm({
           </Field>
         ))}
       </div>
-      <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+      <div className="flex gap-2 max-sm:*:flex-1 sm:justify-end">
         <Button variant="secondary" size="sm" onClick={() => setOpen(false)}>
           Annuleren
         </Button>

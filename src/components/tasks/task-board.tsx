@@ -1,11 +1,12 @@
 "use client";
 
-import { useId, useRef, useState, useTransition, type ReactNode } from "react";
+import { useId, useRef, useState, useTransition, type ReactNode, type TouchEventHandler } from "react";
 import {
   DndContext,
   DragOverlay,
   KeyboardSensor,
-  PointerSensor,
+  MouseSensor,
+  TouchSensor,
   closestCorners,
   useDroppable,
   useSensor,
@@ -92,8 +93,11 @@ export function TaskBoard({
     setColumns(toColumns(tasks));
   }
 
+  // Touch drags start after a short press, so a swipe still scrolls the
+  // page and the column strip.
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 8 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
 
@@ -108,6 +112,8 @@ export function TaskBoard({
   function handleDragStart({ active }: DragStartEvent) {
     setActiveId(String(active.id));
     setError(undefined);
+    // A short buzz on phones that support it, like a native long press.
+    navigator.vibrate?.(10);
     snapshot.current = columns;
     startStatus.current = findStatus(active.id);
   }
@@ -228,7 +234,11 @@ export function TaskBoard({
           },
         }}
       >
-        <div className="grid gap-4 md:grid-cols-3">
+        <p className="mb-3 text-xs text-muted md:hidden">
+          Veeg opzij voor de andere kolommen. Houd een taak ingedrukt om hem te verplaatsen.
+        </p>
+        {/* Phones: a swipeable strip of columns. From md: a three column grid. */}
+        <div className="-mx-4 flex snap-strip scrollbar-none gap-3 px-4 sm:-mx-6 sm:px-6 md:mx-0 md:grid md:grid-cols-3 md:gap-4 md:overflow-visible md:px-0">
           {statusOrder.map((status) => (
             <BoardColumn
               key={status}
@@ -275,7 +285,7 @@ function BoardColumn({
   return (
     <section
       aria-labelledby={headingId}
-      className={`flex min-h-40 flex-col rounded-2xl border bg-surface/80 p-3 transition ${
+      className={`flex min-h-40 w-[85%] max-w-80 shrink-0 snap-start scroll-ml-4 flex-col rounded-2xl border bg-surface/80 p-3 transition max-md:min-h-[50dvh] sm:scroll-ml-6 md:w-auto md:max-w-none ${
         isOver ? "border-brand-200 bg-brand-50" : "border-border"
       }`}
     >
@@ -313,11 +323,13 @@ function SortableTaskCard({
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } =
     useSortable({ id: task.id });
 
+  // On touch the whole card can be long pressed; mouse and keyboard use the handle.
   return (
     <li
       ref={setNodeRef}
       style={{ transform: CSS.Translate.toString(transform), transition }}
-      className={isDragging ? "opacity-40" : undefined}
+      onTouchStart={listeners?.onTouchStart as TouchEventHandler<HTMLLIElement> | undefined}
+      className={`select-none [-webkit-touch-callout:none] md:select-auto ${isDragging ? "opacity-40" : ""}`}
     >
       <TaskCard
         task={task}
@@ -330,7 +342,7 @@ function SortableTaskCard({
             {...attributes}
             {...listeners}
             aria-label={`${task.title} verplaatsen`}
-            className="flex size-8 shrink-0 cursor-grab touch-none items-center justify-center rounded-lg text-muted hover:bg-brand-50 hover:text-ink focus-visible:outline-2 focus-visible:outline-brand-500 active:cursor-grabbing"
+            className="flex size-8 shrink-0 cursor-grab items-center justify-center rounded-lg text-muted hover:bg-brand-50 hover:text-ink active:bg-brand-50 focus-visible:outline-2 focus-visible:outline-brand-500 active:cursor-grabbing"
           >
             <GripVertical className="size-4" aria-hidden="true" />
           </button>

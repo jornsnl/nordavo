@@ -29,7 +29,7 @@ export async function MyTasksWidget({ limit = 6 }: { limit?: number }) {
         actions={
           <Link
             href="/dashboard/taken"
-            className="inline-flex items-center gap-1 rounded-lg text-sm font-semibold text-brand-600 hover:text-brand-800 focus-visible:outline-2 focus-visible:outline-brand-500"
+            className="inline-flex items-center gap-1 rounded-lg text-sm font-semibold text-brand-600 hover:text-brand-800 pointer-coarse:-my-3 pointer-coarse:min-h-11 focus-visible:outline-2 focus-visible:outline-brand-500"
           >
             Alle taken
             <ArrowRight className="size-4" aria-hidden="true" />

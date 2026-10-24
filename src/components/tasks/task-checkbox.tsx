@@ -10,7 +10,8 @@ export function TaskCheckbox({ taskId, title, done }: { taskId: string; title: s
   const [pending, startTransition] = useTransition();
 
   return (
-    <label className="relative inline-flex size-6 shrink-0 cursor-pointer items-center justify-center">
+    // On touch screens the hit area grows to 44px without changing the layout.
+    <label className="relative inline-flex size-6 shrink-0 cursor-pointer items-center justify-center pointer-coarse:-m-2.5 pointer-coarse:size-11">
       <input
         type="checkbox"
         className="peer absolute inset-0 cursor-pointer opacity-0"
@@ -30,7 +31,7 @@ export function TaskCheckbox({ taskId, title, done }: { taskId: string; title: s
         className={`flex size-5 items-center justify-center rounded-full border-2 transition peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-brand-500 ${
           optimisticDone
             ? "border-emerald-600 bg-emerald-600 text-white"
-            : "border-brand-200 bg-white text-transparent hover:border-brand-500"
+            : "border-brand-200 bg-white text-transparent hover:border-brand-500 peer-active:border-brand-500 peer-active:bg-brand-50"
         }`}
       >
         <Check className="size-3.5" strokeWidth={3} />

@@ -12,11 +12,12 @@ const cards = [
 
 function CardGrid({ children }: { children: ReactNode }) {
   return (
-    <section aria-labelledby="stats-heading" className="mb-10">
+    <section aria-labelledby="stats-heading" className="mb-8 sm:mb-10">
       <h2 id="stats-heading" className="sr-only">
         Kerncijfers
       </h2>
-      <ul className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">{children}</ul>
+      {/* Two columns on phones too, like a native dashboard. */}
+      <ul className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">{children}</ul>
     </section>
   );
 }
@@ -30,16 +31,16 @@ export async function StatCards() {
         <li key={key}>
           <Link
             href={href}
-            className="group flex h-full flex-col rounded-2xl border border-border bg-card p-5 shadow-xs transition hover:border-brand-200 hover:shadow-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500"
+            className="group flex h-full flex-col rounded-2xl border border-border bg-card p-4 shadow-xs transition hover:border-brand-200 hover:shadow-md active:scale-[0.98] active:bg-brand-50/60 sm:p-5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500"
           >
-            <span className="mb-4 flex size-10 items-center justify-center rounded-xl bg-brand-50 text-brand-600 transition group-hover:bg-brand-100">
+            <span className="mb-3 flex size-9 items-center justify-center rounded-xl bg-brand-50 text-brand-600 transition group-hover:bg-brand-100 sm:mb-4 sm:size-10">
               <Icon className="size-5" aria-hidden="true" />
             </span>
             <span className="text-sm text-muted">{label}</span>
-            <span className="mt-1 font-display text-3xl font-bold text-brand-900 tabular-nums">
+            <span className="mt-1 font-display text-2xl font-bold sm:text-3xl text-brand-900 tabular-nums">
               {stats[key]}
             </span>
-            <span className="mt-auto pt-3 text-xs text-muted/80">{hint}</span>
+            <span className="mt-auto pt-2 text-xs text-muted/80 sm:pt-3">{hint}</span>
           </Link>
         </li>
       ))}
@@ -51,8 +52,8 @@ export function StatCardsSkeleton() {
   return (
     <CardGrid>
       {cards.map(({ key, label, icon: Icon }) => (
-        <li key={key} className="flex h-full flex-col rounded-2xl border border-border bg-card p-5 shadow-xs">
-          <span className="mb-4 flex size-10 items-center justify-center rounded-xl bg-brand-50 text-brand-600">
+        <li key={key} className="flex h-full flex-col rounded-2xl border border-border bg-card p-4 shadow-xs sm:p-5">
+          <span className="mb-3 flex size-9 sm:mb-4 sm:size-10 items-center justify-center rounded-xl bg-brand-50 text-brand-600">
             <Icon className="size-5" aria-hidden="true" />
           </span>
           <span className="text-sm text-muted">{label}</span>

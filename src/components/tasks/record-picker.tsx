@@ -94,7 +94,7 @@ export function RecordPicker({ initial, error }: { initial: PickedRecord | null;
           <button
             type="button"
             onClick={() => setPicked(null)}
-            className="flex size-8 shrink-0 items-center justify-center rounded-lg text-muted hover:bg-white hover:text-ink focus-visible:outline-2 focus-visible:outline-brand-500"
+            className="flex size-8 shrink-0 items-center justify-center rounded-lg text-muted hover:bg-white hover:text-ink active:bg-white pointer-coarse:-my-1.5 pointer-coarse:size-11 focus-visible:outline-2 focus-visible:outline-brand-500"
             aria-label="Koppeling weghalen"
           >
             <X className="size-4" aria-hidden="true" />
@@ -113,6 +113,7 @@ export function RecordPicker({ initial, error }: { initial: PickedRecord | null;
               id={`${id}-query`}
               type="search"
               autoComplete="off"
+              enterKeyHint="search"
               placeholder="Typ minstens 2 letters"
               className="pl-9"
               value={query}
@@ -158,7 +159,7 @@ export function RecordPicker({ initial, error }: { initial: PickedRecord | null;
                   onMouseDown={(event) => event.preventDefault()}
                   onClick={() => choose(hit)}
                   onMouseEnter={() => setActive(index)}
-                  className={`cursor-pointer rounded-lg px-3 py-2 text-sm ${
+                  className={`cursor-pointer rounded-lg px-3 py-2 text-sm active:bg-brand-100 pointer-coarse:py-2.5 ${
                     index === active ? "bg-brand-50 text-brand-900" : "text-ink"
                   }`}
                 >

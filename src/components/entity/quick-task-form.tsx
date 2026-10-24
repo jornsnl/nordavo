@@ -50,6 +50,8 @@ export function QuickTaskForm({
           required
           maxLength={200}
           autoFocus
+          autoComplete="off"
+          enterKeyHint="done"
           placeholder="Wat moet er gebeuren?"
           aria-invalid={errors.title ? true : undefined}
         />
@@ -79,7 +81,7 @@ export function QuickTaskForm({
           </Select>
         </Field>
       </div>
-      <div className="flex justify-end gap-2">
+      <div className="flex justify-end gap-2 max-sm:*:flex-1">
         <Button variant="ghost" size="sm" onClick={() => setOpen(false)}>
           Klaar
         </Button>

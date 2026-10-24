@@ -48,7 +48,7 @@ export function TaskList({
 
       {done.length > 0 && (
         <details className="group">
-          <summary className="mb-2 flex w-fit cursor-pointer list-none items-center gap-2 rounded-lg font-display text-sm font-semibold text-muted hover:text-brand-900 focus-visible:outline-2 focus-visible:outline-brand-500">
+          <summary className="mb-2 flex w-fit cursor-pointer list-none items-center gap-2 rounded-lg font-display pointer-coarse:min-h-11 text-sm font-semibold text-muted hover:text-brand-900 focus-visible:outline-2 focus-visible:outline-brand-500">
             <ChevronDown className="size-4 transition group-open:rotate-180" aria-hidden="true" />
             Afgerond
             <span className="rounded-full bg-white px-2 py-0.5 text-xs font-medium ring-1 ring-border">{done.length}</span>
@@ -82,8 +82,9 @@ function TaskRows({
       {tasks.map((task) => {
         const done = task.status === "done";
         return (
-          <li key={task.id} className="flex items-start gap-3 px-4 py-3 transition hover:bg-brand-50/40">
-            <span className="pt-0.5">
+          // The title button stretches over the row, so the whole row opens the task.
+          <li key={task.id} className="relative flex items-start gap-3 px-4 py-3 transition hover:bg-brand-50/40 has-[button:active]:bg-brand-50">
+            <span className="relative z-10 pt-0.5">
               <TaskCheckbox taskId={task.id} title={task.title} done={done} />
             </span>
             <div className="min-w-0 flex-1">
@@ -91,7 +92,7 @@ function TaskRows({
                 <button
                   type="button"
                   onClick={() => onEdit(task)}
-                  className={`min-w-0 text-left text-sm font-medium break-words hover:text-brand-600 hover:underline focus-visible:outline-2 focus-visible:outline-brand-500 ${
+                  className={`min-w-0 text-left text-sm font-medium break-words after:absolute after:inset-0 hover:text-brand-600 hover:underline focus-visible:outline-2 focus-visible:outline-brand-500 ${
                     done ? "text-muted line-through" : "text-ink"
                   }`}
                 >
@@ -107,7 +108,9 @@ function TaskRows({
               <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1.5">
                 <DueLabel dueDate={task.dueDate} today={today} done={done} />
                 <AssigneeLabel name={task.assigneeName} />
-                <RecordChip task={task} />
+                <span className="relative z-10 min-w-0 max-w-full">
+                  <RecordChip task={task} />
+                </span>
               </div>
             </div>
           </li>

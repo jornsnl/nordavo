@@ -98,7 +98,7 @@ function CheckinFlow({
           placeholder="Wat gaat goed, wat kan beter, afspraken."
         />
       </Field>
-      <div className="flex justify-end gap-2">
+      <div className="flex justify-end gap-2 max-sm:*:flex-1">
         <Button variant="secondary" onClick={onDone}>
           Annuleren
         </Button>
@@ -139,7 +139,7 @@ function StarInput({ error }: { error?: string }) {
               </span>
               <Star
                 aria-hidden="true"
-                className={`size-7 transition ${
+                className={`size-7 transition pointer-coarse:size-9 ${
                   n <= shown ? "fill-accent-500 text-accent-500" : "text-brand-200"
                 }`}
               />
@@ -171,7 +171,7 @@ function NextCheckinForm({
     return (
       <div className="space-y-5">
         <FormMessage success="Check-in opgeslagen en de volgende staat gepland." />
-        <div className="flex justify-end">
+        <div className="flex justify-end max-sm:*:flex-1">
           <Button onClick={onDone}>Sluiten</Button>
         </div>
       </div>
@@ -188,7 +188,7 @@ function NextCheckinForm({
       <Field label="Volgende check-in" htmlFor="next_checkin_at" required error={errors.next_checkin_at}>
         <Input id="next_checkin_at" name="next_checkin_at" type="date" required defaultValue={suggested} />
       </Field>
-      <label className="flex items-center gap-2 text-sm text-ink">
+      <label className="flex cursor-pointer items-center gap-2 text-sm text-ink pointer-coarse:min-h-11">
         <input
           type="checkbox"
           name="create_task"
@@ -197,7 +197,7 @@ function NextCheckinForm({
         />
         Maak er een taak voor mij van
       </label>
-      <div className="flex justify-end gap-2">
+      <div className="flex justify-end gap-2 max-sm:*:flex-1">
         <Button variant="secondary" onClick={onDone}>
           Niet nu
         </Button>

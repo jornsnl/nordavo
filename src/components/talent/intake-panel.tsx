@@ -97,7 +97,7 @@ export function IntakePanel({
           </p>
         )}
         <FormMessage error={extractState.error} />
-        <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+        <div className="flex gap-2 max-sm:*:flex-1 sm:justify-end">
           <Button variant="secondary" size="sm" onClick={() => setMode("closed")}>
             Annuleren
           </Button>
@@ -216,7 +216,7 @@ function RequirementsForm({
 
       <ActionFeedback state={state.error ? {} : state} />
 
-      <div className="flex flex-col-reverse gap-2 border-t border-border pt-4 sm:flex-row sm:justify-end">
+      <div className="flex gap-2 border-t border-border pt-4 max-sm:*:flex-1 sm:justify-end">
         <Button variant="secondary" size="sm" onClick={onDone}>
           {state.ok ? "Sluiten" : "Annuleren"}
         </Button>

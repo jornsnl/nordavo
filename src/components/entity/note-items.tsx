@@ -36,7 +36,7 @@ export function NoteComposer({ entityType, entityId }: { entityType: EntityType;
           {error}
         </p>
       )}
-      <div className="flex justify-end">
+      <div className="flex justify-end max-sm:*:flex-1">
         <SubmitButton size="sm" pendingLabel="Opslaan">
           Notitie opslaan
         </SubmitButton>
@@ -85,7 +85,7 @@ export function NoteItem({
             <button
               type="button"
               onClick={() => setEditing(true)}
-              className="flex size-8 items-center justify-center rounded-lg text-muted hover:bg-brand-50 hover:text-ink focus-visible:outline-2 focus-visible:outline-brand-500"
+              className="flex size-8 items-center justify-center rounded-lg text-muted hover:bg-brand-50 hover:text-ink active:bg-brand-50 pointer-coarse:size-10 focus-visible:outline-2 focus-visible:outline-brand-500"
               aria-label="Notitie bewerken"
             >
               <Pencil className="size-3.5" aria-hidden="true" />
@@ -93,7 +93,7 @@ export function NoteItem({
             <button
               type="button"
               onClick={() => setConfirming(true)}
-              className="flex size-8 items-center justify-center rounded-lg text-muted hover:bg-danger-bg hover:text-danger focus-visible:outline-2 focus-visible:outline-brand-500"
+              className="flex size-8 items-center justify-center rounded-lg text-muted hover:bg-danger-bg hover:text-danger active:bg-danger-bg active:text-danger pointer-coarse:size-10 focus-visible:outline-2 focus-visible:outline-brand-500"
               aria-label="Notitie verwijderen"
             >
               <Trash2 className="size-3.5" aria-hidden="true" />
@@ -110,7 +110,7 @@ export function NoteItem({
           </label>
           <Textarea id={`${id}-edit`} name="body" rows={4} defaultValue={note.body} required />
           <FormMessage error={state.fieldErrors?.body ?? state.error} />
-          <div className="flex justify-end gap-2">
+          <div className="flex justify-end gap-2 max-sm:*:flex-1">
             <Button variant="ghost" size="sm" onClick={() => setEditing(false)}>
               Annuleren
             </Button>

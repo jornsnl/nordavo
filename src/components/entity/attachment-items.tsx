@@ -1,7 +1,7 @@
 "use client";
 
 import { useId, useRef, useState, useTransition } from "react";
-import { Download, FileText, LoaderCircle, Trash2, Upload } from "lucide-react";
+import { Camera, Download, FileText, FolderOpen, LoaderCircle, Trash2, Upload } from "lucide-react";
 import type { EntityType } from "@/lib/database.types";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -22,6 +22,7 @@ export function AttachmentUploader({
 }) {
   const id = useId();
   const input = useRef<HTMLInputElement>(null);
+  const cameraInput = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
   const [message, setMessage] = useState<string>();
@@ -72,14 +73,48 @@ export function AttachmentUploader({
     } finally {
       setBusy(false);
       if (input.current) input.current.value = "";
+      if (cameraInput.current) cameraInput.current.value = "";
     }
   }
 
+  const phoneButton = `flex min-h-12 flex-1 cursor-pointer items-center justify-center gap-2 rounded-xl border border-border bg-white px-3 text-sm font-semibold text-brand-900 shadow-xs transition active:scale-[0.98] active:bg-brand-50 has-focus-visible:outline-2 has-focus-visible:outline-brand-500 ${
+    busy ? "pointer-events-none opacity-70" : ""
+  }`;
+
   return (
     <div className="space-y-2">
+      {/* Phones: take a photo of a document straight away, or pick a file. */}
+      <div className="flex gap-2 sm:hidden">
+        <label htmlFor={`${id}-camera`} className={phoneButton}>
+          <Camera className="size-[18px] text-brand-600" aria-hidden="true" />
+          Foto maken
+          <input
+            ref={cameraInput}
+            id={`${id}-camera`}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            className="sr-only"
+            disabled={busy}
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+              if (file) void upload(file);
+            }}
+          />
+        </label>
+        <label htmlFor={`${id}-file`} className={phoneButton}>
+          {busy ? (
+            <LoaderCircle className="size-[18px] animate-spin text-brand-600" aria-hidden="true" />
+          ) : (
+            <FolderOpen className="size-[18px] text-brand-600" aria-hidden="true" />
+          )}
+          {busy ? "Bezig" : "Bestand kiezen"}
+        </label>
+      </div>
+      <p className="text-center text-xs text-muted sm:hidden">Maximaal {maxMb} MB</p>
       <label
         htmlFor={`${id}-file`}
-        className={`flex cursor-pointer flex-col items-center gap-1 rounded-xl border border-dashed border-brand-200 bg-surface/60 px-4 py-5 text-center transition hover:border-brand-500 hover:bg-brand-50 has-focus-visible:outline-2 has-focus-visible:outline-brand-500 ${
+        className={`flex cursor-pointer flex-col max-sm:hidden items-center gap-1 rounded-xl border border-dashed border-brand-200 bg-surface/60 px-4 py-5 text-center transition hover:border-brand-500 hover:bg-brand-50 has-focus-visible:outline-2 has-focus-visible:outline-brand-500 ${
           busy ? "pointer-events-none opacity-70" : ""
         }`}
       >
@@ -135,7 +170,7 @@ export function AttachmentRow({
                 else window.location.assign(result.url);
               })
             }
-            className="max-w-full text-left text-sm font-medium break-all text-brand-700 hover:underline focus-visible:outline-2 focus-visible:outline-brand-500"
+            className="max-w-full text-left text-sm font-medium break-all text-brand-700 hover:underline active:text-brand-900 pointer-coarse:py-0.5 focus-visible:outline-2 focus-visible:outline-brand-500"
           >
             {attachment.fileName}
           </button>
@@ -145,18 +180,18 @@ export function AttachmentRow({
         </div>
         <span className="flex shrink-0">
           {downloading ? (
-            <span className="flex size-8 items-center justify-center">
+            <span className="flex size-8 items-center justify-center pointer-coarse:size-10">
               <LoaderCircle className="size-3.5 animate-spin text-muted" aria-label="Bezig met downloaden" />
             </span>
           ) : (
-            <span className="flex size-8 items-center justify-center text-muted" aria-hidden="true">
+            <span className="flex size-8 items-center justify-center text-muted pointer-coarse:size-10" aria-hidden="true">
               <Download className="size-3.5" />
             </span>
           )}
           <button
             type="button"
             onClick={() => setConfirming(true)}
-            className="flex size-8 items-center justify-center rounded-lg text-muted hover:bg-danger-bg hover:text-danger focus-visible:outline-2 focus-visible:outline-brand-500"
+            className="flex size-8 items-center justify-center rounded-lg text-muted hover:bg-danger-bg hover:text-danger active:bg-danger-bg active:text-danger pointer-coarse:size-10 focus-visible:outline-2 focus-visible:outline-brand-500"
             aria-label={`${attachment.fileName} verwijderen`}
           >
             <Trash2 className="size-3.5" aria-hidden="true" />

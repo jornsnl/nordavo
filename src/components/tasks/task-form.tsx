@@ -51,6 +51,8 @@ export function TaskForm({ task, staff, currentUserId, onDone }: FormProps) {
           name="title"
           required
           maxLength={200}
+          autoComplete="off"
+          enterKeyHint="done"
           defaultValue={task?.title}
           placeholder="Bijvoorbeeld: Julius belt klant over profielen"
           aria-invalid={errors.title ? true : undefined}
@@ -62,7 +64,7 @@ export function TaskForm({ task, staff, currentUserId, onDone }: FormProps) {
         <Textarea id={`${id}-description`} name="description" rows={3} defaultValue={task?.description ?? ""} />
       </Field>
 
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4">
         <Field label="Status" htmlFor={`${id}-status`} error={errors.status}>
           <Select id={`${id}-status`} name="status" defaultValue={task?.status ?? "todo"}>
             {taskStatuses.map((s) => (
@@ -110,7 +112,8 @@ export function TaskForm({ task, staff, currentUserId, onDone }: FormProps) {
         error={errors.entity_id}
       />
 
-      <div className="flex flex-col-reverse gap-3 border-t border-border pt-4 sm:flex-row sm:items-center sm:justify-between">
+      {/* On phones the buttons stay in reach at the bottom of the sheet. */}
+      <div className="flex flex-col-reverse gap-3 border-t border-border pt-4 max-sm:sticky max-sm:bottom-0 max-sm:z-10 max-sm:-mx-5 max-sm:bg-card max-sm:px-5 max-sm:pb-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           {task &&
             (confirmDelete ? (
@@ -141,7 +144,7 @@ export function TaskForm({ task, staff, currentUserId, onDone }: FormProps) {
               </Button>
             ))}
         </div>
-        <div className="flex gap-2 sm:justify-end">
+        <div className="flex gap-2 max-sm:*:flex-1 sm:justify-end">
           <Button variant="secondary" onClick={onDone}>
             Annuleren
           </Button>

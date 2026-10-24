@@ -4,6 +4,7 @@ import { startTransition, useActionState } from "react";
 import { LoaderCircle } from "lucide-react";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { Field, FormMessage, Input, Select, Textarea } from "@/components/ui/field";
+import { FormActions } from "@/components/entity/form-actions";
 import { initialActionState, type ActionState } from "@/lib/action-state";
 import type { ClientStatus } from "@/lib/database.types";
 import { clientStatuses } from "@/lib/labels";
@@ -51,16 +52,26 @@ export function ClientForm({
 
       <div className="grid gap-5 sm:grid-cols-2">
         <Field label="Naam" htmlFor="name" required error={errors.name} className="sm:col-span-2">
-          <Input id="name" name="name" required defaultValue={defaults?.name} autoComplete="organization" {...invalid("name")} />
+          <Input id="name" name="name" required defaultValue={defaults?.name} autoComplete="organization" enterKeyHint="next" {...invalid("name")} />
         </Field>
         <Field label="Website" htmlFor="website" error={errors.website} hint="Bijvoorbeeld bedrijf.nl">
-          <Input id="website" name="website" inputMode="url" defaultValue={defaults?.website ?? ""} {...invalid("website")} />
+          <Input
+            id="website"
+            name="website"
+            inputMode="url"
+            autoComplete="url"
+            autoCapitalize="none"
+            spellCheck={false}
+            enterKeyHint="next"
+            defaultValue={defaults?.website ?? ""}
+            {...invalid("website")}
+          />
         </Field>
         <Field label="Branche" htmlFor="industry" error={errors.industry}>
-          <Input id="industry" name="industry" defaultValue={defaults?.industry ?? ""} placeholder="Bijvoorbeeld fintech" {...invalid("industry")} />
+          <Input id="industry" name="industry" enterKeyHint="next" defaultValue={defaults?.industry ?? ""} placeholder="Bijvoorbeeld fintech" {...invalid("industry")} />
         </Field>
         <Field label="Plaats" htmlFor="city" error={errors.city}>
-          <Input id="city" name="city" defaultValue={defaults?.city ?? ""} {...invalid("city")} />
+          <Input id="city" name="city" autoComplete="address-level2" enterKeyHint="next" defaultValue={defaults?.city ?? ""} {...invalid("city")} />
         </Field>
         <Field label="Status" htmlFor="status" required error={errors.status}>
           <Select id="status" name="status" defaultValue={defaults?.status ?? "lead"} {...invalid("status")}>
@@ -86,7 +97,7 @@ export function ClientForm({
         </Field>
       </div>
 
-      <div className="flex flex-col-reverse gap-2 border-t border-border pt-5 sm:flex-row sm:justify-end">
+      <FormActions>
         <ButtonLink href={cancelHref} variant="secondary">
           Annuleren
         </ButtonLink>
@@ -94,7 +105,7 @@ export function ClientForm({
           {pending && <LoaderCircle className="animate-spin" aria-hidden="true" />}
           {pending ? "Bezig met opslaan" : submitLabel}
         </Button>
-      </div>
+      </FormActions>
     </form>
   );
 }

@@ -47,7 +47,7 @@ export function PipelineColumn({
       <section
         ref={setNodeRef}
         aria-labelledby={headingId}
-        className={`flex w-14 shrink-0 snap-start flex-col items-center gap-3 rounded-2xl border border-dashed py-3 transition ${
+        className={`flex w-14 shrink-0 snap-start flex-col max-lg:min-h-[60dvh] items-center gap-3 rounded-2xl border border-dashed py-3 transition ${
           isOver ? "border-danger bg-danger-bg" : "border-border bg-surface/60"
         }`}
       >
@@ -57,7 +57,7 @@ export function PipelineColumn({
           aria-expanded={false}
           aria-controls={`${headingId}-list`}
           aria-label={`${label} uitklappen`}
-          className="flex size-8 items-center justify-center rounded-lg text-muted hover:bg-white hover:text-ink focus-visible:outline-2 focus-visible:outline-brand-500"
+          className="flex size-8 items-center justify-center rounded-lg text-muted hover:bg-white hover:text-ink active:bg-white pointer-coarse:size-10 focus-visible:outline-2 focus-visible:outline-brand-500"
         >
           <ChevronLeft className="size-4" aria-hidden="true" />
         </button>
@@ -77,7 +77,7 @@ export function PipelineColumn({
   return (
     <section
       aria-labelledby={headingId}
-      className={`flex shrink-0 snap-start flex-col rounded-2xl border border-border bg-surface/60 ${
+      className={`flex shrink-0 snap-start flex-col rounded-2xl border border-border bg-surface/60 max-lg:min-h-[60dvh] ${
         collapsible ? "w-60" : "w-[17rem]"
       }`}
     >
@@ -97,7 +97,7 @@ export function PipelineColumn({
             aria-expanded
             aria-controls={`${headingId}-list`}
             aria-label={`${label} inklappen`}
-            className="flex size-8 items-center justify-center rounded-lg text-muted hover:bg-white hover:text-ink focus-visible:outline-2 focus-visible:outline-brand-500"
+            className="flex size-8 items-center justify-center rounded-lg text-muted hover:bg-white hover:text-ink active:bg-white pointer-coarse:size-10 focus-visible:outline-2 focus-visible:outline-brand-500"
           >
             <ChevronRight className="size-4" aria-hidden="true" />
           </button>
