@@ -90,6 +90,9 @@ export async function createPlacement(
     }
     candidateId = application.candidate_id;
     vacancyId = application.vacancy.id;
+    if (!application.vacancy.client_id) {
+      return { error: "Koppel deze vacature eerst aan een klant voordat je een plaatsing vastlegt." };
+    }
     clientId = application.vacancy.client_id;
   } else if (vacancyId) {
     const { data: vacancy } = await supabase

@@ -2,7 +2,8 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { env } from "@/lib/env";
 
-const PUBLIC_PATHS = ["/login", "/auth"];
+// /api/jobs and /api/webhooks authenticate themselves (CRON_SECRET, signatures).
+const PUBLIC_PATHS = ["/login", "/auth", "/api/jobs", "/api/webhooks"];
 
 function isPublicPath(pathname: string) {
   return PUBLIC_PATHS.some(

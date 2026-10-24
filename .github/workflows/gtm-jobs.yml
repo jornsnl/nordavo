@@ -1,0 +1,78 @@
+name: GTM jobs
+
+# Scheduled GTM workflows (briefing sections 9 and 10). Times are Europe/Amsterdam:
+# each schedule fires at two UTC hours and the guard step keeps only the run
+# that matches local time, so summer and winter time both work.
+on:
+  schedule:
+    - cron: "0 4,5 * * 1" # maandag 06:00: S1 tot en met S4
+    - cron: "0 5,6 * * *" # dagelijks 07:00: S8 en S9
+    - cron: "0 14,15 * * 5" # vrijdag 16:00: S10 weekrapport
+  workflow_dispatch:
+    inputs:
+      job:
+        description: "Job of reeks (bijvoorbeeld maandag, s2-qualify, t2-match)"
+        required: true
+      params:
+        description: "Optionele parameters, bijvoorbeeld --vacancy=<uuid>"
+        required: false
+
+concurrency:
+  group: gtm-${{ github.event.schedule || github.event.inputs.job }}
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
+      NEXT_PUBLIC_SITE_URL: ${{ secrets.NEXT_PUBLIC_SITE_URL }}
+      SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      APIFY_TOKEN: ${{ secrets.APIFY_TOKEN }}
+      APIFY_LINKEDIN_JOBS_ACTOR: ${{ vars.APIFY_LINKEDIN_JOBS_ACTOR }}
+      APIFY_INDEED_JOBS_ACTOR: ${{ vars.APIFY_INDEED_JOBS_ACTOR }}
+      APIFY_PEOPLE_ACTOR: ${{ vars.APIFY_PEOPLE_ACTOR }}
+      PROSPEO_API_KEY: ${{ secrets.PROSPEO_API_KEY }}
+      INSTANTLY_API_KEY: ${{ secrets.INSTANTLY_API_KEY }}
+      ONEPAGE_USER_ID: ${{ secrets.ONEPAGE_USER_ID }}
+      ONEPAGE_API_KEY: ${{ secrets.ONEPAGE_API_KEY }}
+      AIRTABLE_TOKEN: ${{ secrets.AIRTABLE_TOKEN }}
+      AIRTABLE_BASE_ID: ${{ vars.AIRTABLE_BASE_ID }}
+      AIRTABLE_CANDIDATES_TABLE: ${{ vars.AIRTABLE_CANDIDATES_TABLE }}
+      GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+      WEBPARTNERS_SHARE_WITH: ${{ vars.WEBPARTNERS_SHARE_WITH }}
+      WEBPARTNERS_APPOINTMENTS_SHEET_ID: ${{ vars.WEBPARTNERS_APPOINTMENTS_SHEET_ID }}
+      RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+      MAIL_FROM: ${{ vars.MAIL_FROM }}
+      REPORT_EMAIL_TO: ${{ vars.REPORT_EMAIL_TO }}
+    steps:
+      - name: Kies de job
+        id: pick
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "job=${{ github.event.inputs.job }}" >> "$GITHUB_OUTPUT"
+            echo "params=${{ github.event.inputs.params }}" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          HOUR=$(TZ=Europe/Amsterdam date +%H)
+          case "${{ github.event.schedule }}" in
+            "0 4,5 * * 1") [ "$HOUR" = "06" ] && echo "job=maandag" >> "$GITHUB_OUTPUT" ;;
+            "0 5,6 * * *") [ "$HOUR" = "07" ] && echo "job=dagelijks" >> "$GITHUB_OUTPUT" ;;
+            "0 14,15 * * 5") [ "$HOUR" = "16" ] && echo "job=vrijdag" >> "$GITHUB_OUTPUT" ;;
+          esac
+          true
+      - uses: actions/checkout@v4
+        if: steps.pick.outputs.job != ''
+      - uses: actions/setup-node@v4
+        if: steps.pick.outputs.job != ''
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+        if: steps.pick.outputs.job != ''
+      - name: Draai ${{ steps.pick.outputs.job }}
+        if: steps.pick.outputs.job != ''
+        run: npm run job -- ${{ steps.pick.outputs.job }} ${{ steps.pick.outputs.params }}

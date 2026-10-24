@@ -70,7 +70,7 @@ async function NewPlacement({ searchParams }: { searchParams: SearchParams }) {
   const defaults: PlacementFormValues = application?.vacancy
     ? {
         application_id: application.id,
-        client_id: application.vacancy.client_id,
+        client_id: application.vacancy.client_id ?? undefined,
         candidate_id: application.candidate_id,
         vacancy_id: application.vacancy.id,
         monthly_rate: application.vacancy.monthly_budget,

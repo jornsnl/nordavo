@@ -41,7 +41,7 @@ async function EditVacancyForm({ params }: { params: Promise<{ id: string }> }) 
     <VacancyForm
       action={updateVacancyAction.bind(null, vacancy.id)}
       defaults={{
-        client_id: vacancy.client_id,
+        client_id: vacancy.client_id ?? undefined,
         title: vacancy.title,
         description: vacancy.description,
         stack: vacancy.stack,

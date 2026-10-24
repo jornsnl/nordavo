@@ -24,7 +24,7 @@ export function vacancyDaysOpen(v: { opened_at: string; closed_at: string | null
 export type VacancyListItem = {
   id: string;
   title: string;
-  clientId: string;
+  clientId: string | null;
   clientName: string;
   seniority: Seniority;
   status: VacancyStatus;

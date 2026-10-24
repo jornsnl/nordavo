@@ -12,7 +12,7 @@ import { PendingSubmit, submitWithoutReset } from "./form-utils";
 
 type Option = { id: string; name: string };
 type CandidateOption = { id: string; full_name: string; status: CandidateStatus };
-type VacancyOption = { id: string; title: string; client_id: string; status: VacancyStatus };
+type VacancyOption = { id: string; title: string; client_id: string | null; status: VacancyStatus };
 
 export type PlacementFormValues = {
   client_id?: string;
