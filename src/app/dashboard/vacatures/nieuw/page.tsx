@@ -5,6 +5,8 @@ import { VacancyForm } from "@/components/vacancies/vacancy-form";
 import { Card, CardBody } from "@/components/ui/card";
 import { ListSkeleton } from "@/components/ui/skeleton";
 import { listClientOptions, listStaffOptions } from "@/lib/data/clients";
+import { isUuid } from "@/lib/data/clients";
+import { listCompanyOptions } from "@/lib/data/vacancies";
 import { createVacancyAction } from "../actions";
 
 export const metadata: Metadata = {
@@ -35,20 +37,27 @@ async function NewVacancyForm({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const [{ client }, clients, staff] = await Promise.all([
-    searchParams,
+  const params = await searchParams;
+  // ?company=<id>: the sales UI links here to start a vacancy for a prospect.
+  const companyParam = isUuid(params.company) ? params.company : undefined;
+  const [clients, companies, staff] = await Promise.all([
     listClientOptions(),
+    listCompanyOptions(companyParam),
     listStaffOptions(),
   ]);
-  const clientId = typeof client === "string" && clients.some((c) => c.id === client) ? client : undefined;
+  const clientId = typeof params.client === "string" && clients.some((c) => c.id === params.client) ? params.client : undefined;
+  const companyId = !clientId && companyParam && companies.some((c) => c.id === companyParam) ? companyParam : undefined;
 
   return (
     <VacancyForm
       action={createVacancyAction}
-      defaults={{ client_id: clientId }}
+      defaults={{ client_id: clientId, company_id: companyId }}
       clients={clients}
+      companies={companies}
       staff={staff}
-      cancelHref={clientId ? `/dashboard/klanten/${clientId}` : "/dashboard/vacatures"}
+      cancelHref={
+        clientId ? `/dashboard/klanten/${clientId}` : companyId ? `/dashboard/leads/${companyId}` : "/dashboard/vacatures"
+      }
       submitLabel="Vacature toevoegen"
     />
   );

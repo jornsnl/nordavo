@@ -5,6 +5,7 @@ import Form from "next/form";
 import { Briefcase, Plus, Search } from "lucide-react";
 import { EmptyState } from "@/components/dashboard/empty-state";
 import { PageHeader } from "@/components/dashboard/page-header";
+import { LeadTimeSignal } from "@/components/talent/lead-time-signal";
 import { DaysOpen } from "@/components/vacancies/days-open";
 import { Badge } from "@/components/ui/badge";
 import { Button, ButtonLink } from "@/components/ui/button";
@@ -13,8 +14,8 @@ import { ListSkeleton, Skeleton } from "@/components/ui/skeleton";
 import { Table, TBody, TD, TH, THead, TR } from "@/components/ui/table";
 import type { VacancyStatus } from "@/lib/database.types";
 import { isUuid, listClientOptions } from "@/lib/data/clients";
-import { isVacancyStatus, listVacancies } from "@/lib/data/vacancies";
-import { optionFor, seniorities, vacancyStatuses } from "@/lib/labels";
+import { isTalentStage, isVacancyStatus, listVacancies } from "@/lib/data/vacancies";
+import { optionFor, seniorities, talentStages, vacancyStatuses } from "@/lib/labels";
 
 export const metadata: Metadata = {
   title: "Vacatures",
@@ -29,9 +30,10 @@ function readFilters(params: Record<string, string | string[] | undefined>) {
   const rawStatus = typeof params.status === "string" ? params.status : "";
   const status = rawStatus === "all" || isVacancyStatus(rawStatus) ? rawStatus : "";
   const client = isUuid(params.client) ? params.client : "";
+  const stage = isTalentStage(params.stage) ? params.stage : "";
   const statuses: VacancyStatus[] | undefined =
     status === "all" ? undefined : status ? [status] : DEFAULT_STATUSES;
-  return { q, status, client, statuses };
+  return { q, status, client, stage, statuses };
 }
 
 export default function Page({ searchParams }: { searchParams: SearchParams }) {
@@ -60,7 +62,7 @@ export default function Page({ searchParams }: { searchParams: SearchParams }) {
 
 async function Filters({ searchParams }: { searchParams: SearchParams }) {
   const [params, clients] = await Promise.all([searchParams, listClientOptions()]);
-  const { q, status, client } = readFilters(params);
+  const { q, status, client, stage } = readFilters(params);
 
   return (
     <Form
@@ -101,6 +103,17 @@ async function Filters({ searchParams }: { searchParams: SearchParams }) {
           </option>
         ))}
       </Select>
+      <label htmlFor="vacancy-stage" className="sr-only">
+        Fase talent
+      </label>
+      <Select id="vacancy-stage" name="stage" defaultValue={stage} className="lg:w-48">
+        <option value="">Alle fases</option>
+        {talentStages.map((s) => (
+          <option key={s.value} value={s.value}>
+            {s.label}
+          </option>
+        ))}
+      </Select>
       <Button type="submit" variant="secondary" className="sm:col-span-2 lg:col-span-1">
         Filteren
       </Button>
@@ -109,18 +122,23 @@ async function Filters({ searchParams }: { searchParams: SearchParams }) {
 }
 
 async function VacancyTable({ searchParams }: { searchParams: SearchParams }) {
-  const { q, status, client, statuses } = readFilters(await searchParams);
-  const vacancies = await listVacancies({ q: q || undefined, statuses, clientId: client || undefined });
+  const { q, status, client, stage, statuses } = readFilters(await searchParams);
+  const vacancies = await listVacancies({
+    q: q || undefined,
+    statuses,
+    clientId: client || undefined,
+    talentStage: stage || undefined,
+  });
 
   if (vacancies.length === 0) {
-    const filtered = Boolean(q || status || client);
+    const filtered = Boolean(q || status || client || stage);
     return (
       <EmptyState
         icon={Briefcase}
         title={filtered ? "Geen vacatures gevonden" : "Geen lopende vacatures"}
         description={
           filtered
-            ? "Niets gevonden met deze filters. Pas je zoekterm, status of klant aan."
+            ? "Niets gevonden met deze filters. Pas je zoekterm, status, klant of fase aan."
             : "Er staan geen vacatures open of on hold. Voeg een nieuwe vacature toe of bekijk alle statussen."
         }
       />
@@ -133,17 +151,20 @@ async function VacancyTable({ searchParams }: { searchParams: SearchParams }) {
         <THead>
           <tr>
             <TH>Functie</TH>
-            <TH>Klant</TH>
+            <TH>Klant of prospect</TH>
             <TH>Senioriteit</TH>
             <TH>Status</TH>
+            <TH>Fase</TH>
             <TH>Stack</TH>
             <TH className="text-right">In pipeline</TH>
             <TH>Dagen open</TH>
+            <TH>Doorlooptijd</TH>
           </tr>
         </THead>
         <TBody>
           {vacancies.map((v) => {
             const statusOption = optionFor(vacancyStatuses, v.status);
+            const stageOption = optionFor(talentStages, v.talentStage);
             const seniority = optionFor(seniorities, v.seniority);
             const extra = v.stack.length - 3;
             return (
@@ -157,13 +178,27 @@ async function VacancyTable({ searchParams }: { searchParams: SearchParams }) {
                   </Link>
                 </TD>
                 <TD>
-                  <Link href={`/dashboard/klanten/${v.clientId}`} className="text-ink hover:text-brand-700 hover:underline">
-                    {v.clientName}
-                  </Link>
+                  {v.clientId ? (
+                    <Link href={`/dashboard/klanten/${v.clientId}`} className="text-ink hover:text-brand-700 hover:underline">
+                      {v.clientName ?? "Klant"}
+                    </Link>
+                  ) : v.companyId ? (
+                    <span className="inline-flex flex-wrap items-center gap-1.5">
+                      <Link href={`/dashboard/leads/${v.companyId}`} className="text-ink hover:text-brand-700 hover:underline">
+                        {v.companyName ?? "Prospect"}
+                      </Link>
+                      <Badge tone="accent">Prospect</Badge>
+                    </span>
+                  ) : (
+                    <span className="text-muted">Onbekend</span>
+                  )}
                 </TD>
                 <TD className="text-muted">{seniority.label}</TD>
                 <TD>
                   <Badge tone={statusOption.tone}>{statusOption.label}</Badge>
+                </TD>
+                <TD>
+                  <Badge tone={stageOption.tone}>{stageOption.label}</Badge>
                 </TD>
                 <TD>
                   {v.stack.length === 0 ? (
@@ -181,13 +216,17 @@ async function VacancyTable({ searchParams }: { searchParams: SearchParams }) {
                 <TD>
                   <DaysOpen days={v.daysOpen} status={v.status} />
                 </TD>
+                <TD>
+                  <LeadTimeSignal leadTime={v.leadTime} />
+                </TD>
               </TR>
             );
           })}
         </TBody>
       </Table>
       <p className="mt-3 text-xs text-muted">
-        Dagen open bij status Open: groen onder 14 dagen, oranje van 14 tot 21 dagen, rood boven 21 dagen.
+        Dagen open bij status Open: groen onder 14 dagen, oranje van 14 tot 21 dagen, rood boven 21 dagen. Doorlooptijd telt
+        vanaf de intake tot de eerste verstuurde profielen, met dezelfde kleuren.
       </p>
     </>
   );
