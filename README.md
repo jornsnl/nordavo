@@ -13,8 +13,9 @@ Het interne portaal van [Nordavo](https://nordavo.nl): de brug tussen Nederlands
 | Pipeline | `/dashboard/vacatures/[id]/pipeline` | Kanbanbord per vacature: sourcing tot plaatsing, slepen met muis of toetsenbord |
 | Kandidaten | `/dashboard/kandidaten` | Profielen, skills, cv-upload, video-intro, sollicitaties |
 | Plaatsingen | `/dashboard/plaatsingen` | Startdatum, tarief, 30 dagen garantie, check-ins, opzegtermijn van een maand |
-| Instellingen | `/dashboard/instellingen` | Profiel, wachtwoord, gebruikers en rollen, uitnodigen |
-| Klantportaal | `/portaal` | Voor klanten: eigen vacatures, voorgestelde kandidaten met cv, akkoord of afwijzen met feedback, plaatsingen |
+| Instellingen | `/dashboard/instellingen` | Profiel, wachtwoord, tweestapsverificatie, passkeys, Claude Code koppelen (MCP), gebruikers en rollen, uitnodigen |
+| Klantportaal | `/portaal` | Voor klanten: eigen vacatures, voorgestelde kandidaten met cv, akkoord of afwijzen met feedback, plaatsingen, beveiliging (`/portaal/beveiliging`) |
+| MCP server | `/api/mcp` | Claude Code leest (en met schrijfrechten wijzigt) portaaldata met een persoonlijke token |
 | Zoeken | Ctrl+K / Cmd+K | Klanten, vacatures, kandidaten en plaatsingen |
 
 Daarnaast draait het **GTM systeem** (leads, signalen, kwalificatie met Claude, bellijsten, mailcampagnes, OnePageCRM, weekrapport en talentmatching). Werking, inrichting en planning staan in [docs/gtm.md](docs/gtm.md); de oorspronkelijke briefing in [docs/gtm-briefing.md](docs/gtm-briefing.md).
@@ -102,6 +103,16 @@ supabase/migrations/       SQL migraties met RLS
   - Invite user: `{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=invite&next=/auth/wachtwoord`
   - Reset password: `{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=recovery&next=/auth/wachtwoord`
 - Zet onder Authentication > URL Configuration de Site URL op het productiedomein en voeg `http://localhost:3000/**` toe aan de Redirect URLs.
+
+### Tweestapsverificatie, passkeys en MCP
+
+| Onderdeel | Wat het doet | Uitleg |
+| --- | --- | --- |
+| Tweestapsverificatie | Code uit een authenticator app na het wachtwoord, in te stellen via het profiel. De proxy en `getCurrentUser()` laten een sessie zonder tweede stap niet verder dan `/login/verificatie`. | [docs/mfa.md](docs/mfa.md) |
+| Passkeys | Inloggen met vingerafdruk, gezicht of pincode. Toevoegen, hernoemen en intrekken via het profiel. Een passkey telt ook als tweede stap. | [docs/passkeys.md](docs/passkeys.md) |
+| MCP server | Claude Code koppelen aan het portaal met een persoonlijke token (lezen, of lezen en schrijven). Tokens maak en trek je in via het profiel. | [docs/mcp.md](docs/mcp.md) |
+
+Hiervoor is de migratie `20261026000000_security.sql` nodig en moet `SUPABASE_SECRET_KEY` op de server staan.
 
 ## Een module toevoegen
 
