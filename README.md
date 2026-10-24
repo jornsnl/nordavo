@@ -1,6 +1,25 @@
 # Nordavo Portal
 
-Het interne portaal van [Nordavo](https://nordavo.nl): de brug tussen Nederlandse groeibedrijven en Indiaas tech talent. Deze repository bevat de basis waarop we de backend en de modules (klanten, vacatures, kandidaten, plaatsingen) verder uitbouwen.
+Het interne portaal van [Nordavo](https://nordavo.nl): de brug tussen Nederlandse groeibedrijven en Indiaas tech talent. Het team beheert hier klanten, vacatures, kandidaten en plaatsingen. Klanten volgen in hun eigen portaal de kandidaten die Nordavo voor ze selecteert.
+
+## Wat zit erin
+
+| Onderdeel | Route | Wat het doet |
+| --- | --- | --- |
+| Overzicht | `/dashboard` | Kerncijfers, vacatures die aandacht nodig hebben (belofte: 3 kandidaten in 3 weken), komende check-ins en garanties, pipeline, mijn taken, recente activiteit |
+| Taken | `/dashboard/taken` | Lijst (te laat, vandaag, deze week) en kanbanbord, te koppelen aan elk record |
+| Klanten | `/dashboard/klanten` | Bedrijven, contactpersonen, hun vacatures en plaatsingen |
+| Vacatures | `/dashboard/vacatures` | Functieprofielen met dagen open en pipeline-samenvatting |
+| Pipeline | `/dashboard/vacatures/[id]/pipeline` | Kanbanbord per vacature: sourcing tot plaatsing, slepen met muis of toetsenbord |
+| Kandidaten | `/dashboard/kandidaten` | Profielen, skills, cv-upload, video-intro, sollicitaties |
+| Plaatsingen | `/dashboard/plaatsingen` | Startdatum, tarief, 30 dagen garantie, check-ins, opzegtermijn van een maand |
+| Instellingen | `/dashboard/instellingen` | Profiel, wachtwoord, gebruikers en rollen, uitnodigen |
+| Klantportaal | `/portaal` | Voor klanten: eigen vacatures, voorgestelde kandidaten met cv, akkoord of afwijzen met feedback, plaatsingen |
+| Zoeken | Ctrl+K / Cmd+K | Klanten, vacatures, kandidaten en plaatsingen |
+
+Daarnaast draait het **GTM systeem** (leads, signalen, kwalificatie met Claude, bellijsten, mailcampagnes, OnePageCRM, weekrapport en talentmatching). Werking, inrichting en planning staan in [docs/gtm.md](docs/gtm.md); de oorspronkelijke briefing in [docs/gtm-briefing.md](docs/gtm-briefing.md).
+
+Op elke detailpagina staan taken, notities, bijlagen en een activiteitenlog. Het activiteitenlog wordt door database-triggers gevuld, dus elke wijziging komt erin.
 
 ## Stack
 
@@ -22,8 +41,14 @@ Het interne portaal van [Nordavo](https://nordavo.nl): de brug tussen Nederlands
    ```bash
    cp .env.example .env.local
    ```
-3. Voer de migraties uit in `supabase/migrations` (via de Supabase CLI met `supabase db push`, of plak de SQL in de SQL editor).
-4. Maak een gebruiker aan via Supabase (Authentication > Users > Invite user). Er is bewust geen publieke registratie.
+   Zet `SUPABASE_SECRET_KEY` alleen als je vanuit Instellingen gebruikers wilt uitnodigen. Deze key blijft op de server.
+3. Voer de migraties uit in `supabase/migrations`, in volgorde (via de Supabase CLI met `supabase db push`, of plak de SQL per bestand in de SQL editor). Ze maken ook de private storage bucket `attachments` aan.
+4. Maak de eerste gebruiker aan via Supabase (Authentication > Users > Add user, met Auto Confirm) en maak die beheerder:
+   ```sql
+   update public.profiles set role = 'admin', full_name = 'Voornaam Achternaam'
+   where id = (select id from auth.users where email = 'jij@voorbeeld.nl');
+   ```
+   Er is bewust geen publieke registratie. Volgende gebruikers nodig je uit via Instellingen.
 5. Start de app:
    ```bash
    npm run dev
@@ -39,6 +64,8 @@ Het interne portaal van [Nordavo](https://nordavo.nl): de brug tussen Nederlands
 | `npm run start` | Productiebuild draaien |
 | `npm run lint` | ESLint |
 | `npm run typecheck` | Route types genereren en TypeScript controleren |
+| `npm test` | Unit tests (Node test runner) |
+| `npm run job -- <naam>` | Een GTM job of reeks draaien, `--help` toont ze allemaal |
 
 ## Structuur
 
@@ -48,15 +75,21 @@ src/
   app/
     login/                 Inlogscherm, formulier en server action
     auth/confirm/          Landingspunt voor links uit auth e-mails (uitnodiging, reset)
+    auth/wachtwoord/       Wachtwoord instellen na uitnodiging of reset
     auth/signout/          Uitloggen (POST)
-    dashboard/             Dashboard met sidebar, één map per module
+    dashboard/             Intern portaal met sidebar, één map per module
+    portaal/               Klantportaal
   components/
-    brand/                 Logo
-    dashboard/             App shell, sidebar, navigatie, page header, empty state
+    ui/                    Gedeelde bouwstenen: Button, Field, Select, Badge, Card, Table, Modal
+    entity/                Taken, notities, bijlagen en activiteit per record
+    <module>/              Componenten per module (clients, vacancies, pipeline, ...)
   lib/
-    auth.ts                getCurrentUser(): de enige plek die de sessie leest
-    supabase/              Supabase clients voor browser, server en proxy
-supabase/migrations/       SQL migraties (profiles tabel met RLS)
+    auth.ts                getCurrentUser, requireStaff, requireAdmin, requireClient
+    data/                  Alle Supabase queries per module (server-only)
+    database.types.ts      Types van het datamodel
+    labels.ts              Nederlandse labels voor statussen en fases
+    supabase/              Supabase clients voor browser, server, proxy en admin
+supabase/migrations/       SQL migraties met RLS
 ```
 
 ## Authenticatie
@@ -64,14 +97,18 @@ supabase/migrations/       SQL migraties (profiles tabel met RLS)
 - `src/proxy.ts` draait op elke request, ververst de sessie en stuurt niet ingelogde bezoekers naar `/login?next=...`.
 - `getCurrentUser()` in `src/lib/auth.ts` is de Data Access Layer. Gebruik deze in Server Components binnen een `<Suspense>` boundary (verplicht met Cache Components) en controleer de gebruiker opnieuw in elke Server Action of Route Handler.
 - Rechten op data regel je in de database met Row Level Security, niet alleen in de UI.
-- Voor uitnodigingen: zet in Supabase de e-mail template "Invite user" op
-  `{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=invite&next=/dashboard`.
+- Rollen staan in `profiles.role`: `admin` en `member` (het Nordavo team) zien alles; `client` is een contactpersoon van een klant en ziet via `/portaal` alleen het eigen bedrijf, de kandidaten die aan hen zijn voorgesteld en de eigen plaatsingen. Dit is afgedwongen met RLS; klanten geven feedback alleen via de functie `client_review_application`.
+- Zet in Supabase (Authentication > Emails) de templates op:
+  - Invite user: `{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=invite&next=/auth/wachtwoord`
+  - Reset password: `{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=recovery&next=/auth/wachtwoord`
+- Zet onder Authentication > URL Configuration de Site URL op het productiedomein en voeg `http://localhost:3000/**` toe aan de Redirect URLs.
 
 ## Een module toevoegen
 
-1. Voeg een item toe aan `src/components/dashboard/nav-items.ts`.
-2. Maak de route aan in `src/app/dashboard/<module>/page.tsx` met `PageHeader`.
-3. Voeg tabellen toe via een nieuwe migratie in `supabase/migrations` en zet RLS aan.
+1. Voeg tabellen toe via een nieuwe migratie in `supabase/migrations`, zet RLS aan en werk `src/lib/database.types.ts` bij (of genereer met `npx supabase gen types typescript`).
+2. Zet queries in `src/lib/data/<module>.ts`; elke functie begint met `requireStaff()`.
+3. Voeg een item toe aan `src/components/dashboard/nav-items.ts` en maak de route in `src/app/dashboard/<module>/`.
+4. Lees data in componenten binnen `<Suspense>` (Cache Components) en zet mutaties in server actions met zod-validatie.
 
 ## Huisstijl
 

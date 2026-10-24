@@ -6,7 +6,7 @@ import { safeNextPath } from "@/lib/safe-redirect";
 /**
  * Landing point for links in Supabase auth e-mails (invites, magic links,
  * password recovery). Point the e-mail templates at:
- * {{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=invite&next=/dashboard
+ * {{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=invite&next=/auth/wachtwoord
  */
 export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl;

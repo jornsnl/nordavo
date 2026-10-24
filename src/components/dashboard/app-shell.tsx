@@ -4,6 +4,11 @@ import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { Menu, X } from "lucide-react";
 import { Logo } from "@/components/brand/logo";
+import {
+  CommandPalette,
+  MobileSearchButton,
+  SidebarSearchButton,
+} from "@/components/search/command-palette";
 import { SidebarNav } from "./sidebar-nav";
 
 /**
@@ -18,6 +23,7 @@ export function AppShell({
   children: ReactNode;
 }) {
   const [open, setOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -32,10 +38,16 @@ export function AppShell({
     <div className="flex h-full flex-col bg-brand-900 px-4 py-5">
       <Link
         href="/dashboard"
-        className="mb-8 flex items-center rounded-lg px-2 focus-visible:outline-2 focus-visible:outline-accent-500"
+        className="mb-5 flex items-center rounded-lg px-2 focus-visible:outline-2 focus-visible:outline-accent-500"
       >
         <Logo tone="light" />
       </Link>
+      <SidebarSearchButton
+        onClick={() => {
+          setOpen(false);
+          setSearchOpen(true);
+        }}
+      />
       <div className="flex-1 overflow-y-auto">
         <SidebarNav onNavigate={() => setOpen(false)} />
       </div>
@@ -55,16 +67,19 @@ export function AppShell({
         <Link href="/dashboard">
           <Logo />
         </Link>
-        <button
-          type="button"
-          onClick={() => setOpen(true)}
-          className="flex size-10 items-center justify-center rounded-lg text-brand-900 hover:bg-brand-50"
-          aria-label="Menu openen"
-          aria-expanded={open}
-          aria-controls="mobile-sidebar"
-        >
-          <Menu className="size-6" aria-hidden="true" />
-        </button>
+        <div className="flex items-center gap-1">
+          <MobileSearchButton onClick={() => setSearchOpen(true)} />
+          <button
+            type="button"
+            onClick={() => setOpen(true)}
+            className="flex size-10 items-center justify-center rounded-lg text-brand-900 hover:bg-brand-50"
+            aria-label="Menu openen"
+            aria-expanded={open}
+            aria-controls="mobile-sidebar"
+          >
+            <Menu className="size-6" aria-hidden="true" />
+          </button>
+        </div>
       </header>
 
       {/* Mobile drawer */}
@@ -99,6 +114,8 @@ export function AppShell({
           </button>
         </div>
       </div>
+
+      <CommandPalette open={searchOpen} onOpenChange={setSearchOpen} />
 
       <div className="lg:pl-64">
         <main className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 lg:px-10 lg:py-10">

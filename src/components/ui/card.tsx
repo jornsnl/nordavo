@@ -1,0 +1,47 @@
+import type { ReactNode } from "react";
+
+export function Card({ className = "", children }: { className?: string; children: ReactNode }) {
+  return (
+    <section className={`rounded-2xl border border-border bg-card shadow-xs ${className}`}>
+      {children}
+    </section>
+  );
+}
+
+export function CardHeader({
+  title,
+  description,
+  actions,
+}: {
+  title: ReactNode;
+  description?: ReactNode;
+  actions?: ReactNode;
+}) {
+  return (
+    <header className="flex items-start justify-between gap-4 border-b border-border px-5 py-4">
+      <div className="min-w-0">
+        <h2 className="font-display text-base font-semibold text-brand-900">{title}</h2>
+        {description && <p className="mt-0.5 text-sm text-muted">{description}</p>}
+      </div>
+      {actions && <div className="flex shrink-0 items-center gap-2">{actions}</div>}
+    </header>
+  );
+}
+
+export function CardBody({ className = "", children }: { className?: string; children: ReactNode }) {
+  return <div className={`px-5 py-4 ${className}`}>{children}</div>;
+}
+
+/** Label/value pairs for detail pages. */
+export function DetailList({ items }: { items: { label: string; value: ReactNode }[] }) {
+  return (
+    <dl className="grid gap-x-6 gap-y-4 sm:grid-cols-2">
+      {items.map(({ label, value }) => (
+        <div key={label} className="min-w-0">
+          <dt className="text-xs font-medium tracking-wide text-muted uppercase">{label}</dt>
+          <dd className="mt-1 text-sm break-words text-ink">{value ?? <span className="text-muted">Niet ingevuld</span>}</dd>
+        </div>
+      ))}
+    </dl>
+  );
+}

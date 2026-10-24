@@ -21,7 +21,7 @@ export async function login(
   }
 
   const supabase = await createClient();
-  const { error } = await supabase.auth.signInWithPassword({ email, password });
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
   if (error) {
     return {
@@ -31,6 +31,16 @@ export async function login(
           : "Deze combinatie van e-mailadres en wachtwoord klopt niet.",
       email,
     };
+  }
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", data.user.id)
+    .maybeSingle();
+
+  if (profile?.role === "client") {
+    redirect("/portaal");
   }
 
   redirect(safeNextPath(formData.get("next")));

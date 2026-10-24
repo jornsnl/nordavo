@@ -2,7 +2,8 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { env } from "@/lib/env";
 
-const PUBLIC_PATHS = ["/login", "/auth"];
+// /api/jobs and /api/webhooks authenticate themselves (CRON_SECRET, signatures).
+const PUBLIC_PATHS = ["/login", "/auth", "/api/jobs", "/api/webhooks"];
 
 function isPublicPath(pathname: string) {
   return PUBLIC_PATHS.some(
@@ -51,7 +52,11 @@ export async function updateSession(request: NextRequest) {
     return redirectWithCookies(request, response, "/login", pathname);
   }
 
-  if (isSignedIn && (pathname === "/login" || pathname === "/")) {
+  // Signed-in users skip the login screen, unless it is showing an error
+  // (for example a client account that is not linked to a company yet).
+  const showsLoginError =
+    pathname === "/login" && request.nextUrl.searchParams.has("error");
+  if (isSignedIn && !showsLoginError && (pathname === "/login" || pathname === "/")) {
     return redirectWithCookies(request, response, "/dashboard");
   }
 
