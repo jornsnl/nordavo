@@ -20,7 +20,7 @@ test("renders a valid one page PDF with code-only metadata", async () => {
   const bytes = await renderProfilePdf(content, { code: "NV-3F2A9C", vacancyTitle: "Senior Data Engineer", date: "2026-10-24" });
   assert.ok(bytes.length > 1000);
   assert.equal(Buffer.from(bytes.slice(0, 5)).toString(), "%PDF-");
-  const pdf = await PDFDocument.load(bytes);
+  const pdf = await PDFDocument.load(bytes, { updateMetadata: false });
   assert.equal(pdf.getPageCount(), 1);
   assert.equal(pdf.getTitle(), "Nordavo profiel NV-3F2A9C");
   assert.equal(pdf.getAuthor(), "Nordavo");

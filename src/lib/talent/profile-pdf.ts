@@ -100,7 +100,8 @@ export type ProfilePdfOptions = {
 };
 
 export async function renderProfilePdf(content: ProfileContent, { code, vacancyTitle, date }: ProfilePdfOptions): Promise<Uint8Array> {
-  const pdf = await PDFDocument.create();
+  // updateMetadata: false, so pdf-lib does not overwrite our producer and dates on save.
+  const pdf = await PDFDocument.create({ updateMetadata: false });
   pdf.setTitle(`Nordavo profiel ${code}`);
   pdf.setAuthor("Nordavo");
   pdf.setSubject("Anoniem kandidaatprofiel");
@@ -228,15 +229,20 @@ export async function renderProfilePdf(content: ProfileContent, { code, vacancyT
   ];
   const colW = CONTENT_W / 2;
   const factRows = Math.ceil(facts.length / 2);
-  const factH = factRows * 40 + 12;
+  const rowH = 52;
+  const factH = factRows * rowH + 8;
   ensure(factH);
   page.drawRectangle({ x: MARGIN, y: y - factH, width: CONTENT_W, height: factH, color: SOFT });
   facts.forEach(([label, value], i) => {
     const fx = MARGIN + 14 + (i % 2) * colW;
-    const fy = y - 14 - Math.floor(i / 2) * 40;
+    const fy = y - 14 - Math.floor(i / 2) * rowH;
     page.drawText(toPdfText(label.toUpperCase()), { x: fx, y: fy - 8, size: 8, font: bold, color: MUTED });
-    const valueLine = wrapText(value, bold, 11, colW - 24)[0] ?? "";
-    page.drawText(valueLine, { x: fx, y: fy - 24, size: 11, font: bold, color: INK });
+    // At most two lines per value; the second is cut with an ellipsis when needed.
+    const valueLines = wrapText(value, bold, 10.5, colW - 24);
+    valueLines.slice(0, 2).forEach((line, li) => {
+      const text = li === 1 && valueLines.length > 2 ? `${line.replace(/\s*\S+$/, "")}...` : line;
+      page.drawText(text, { x: fx, y: fy - 23 - li * 14, size: 10.5, font: bold, color: INK });
+    });
   });
   y -= factH + 6;
 
