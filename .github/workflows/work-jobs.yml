@@ -1,0 +1,71 @@
+name: Work jobs
+
+# Scheduled jobs of the task tool (docs/work.md). Mails for review requests and
+# mentions go out right after the change; work-notify is the hourly safety net
+# and only calls the running app (no install), so it costs seconds.
+# work-daily runs at 07:00 Europe/Amsterdam (the guard keeps the right UTC hour).
+on:
+  schedule:
+    - cron: "17 * * * *" # work-notify
+    - cron: "0 5,6 * * *" # work-daily, 07:00 Amsterdam
+  workflow_dispatch:
+    inputs:
+      job:
+        description: "work-notify, work-daily or clickup-import"
+        required: true
+      params:
+        description: "Optional, e.g. --dry-run=true"
+        required: false
+
+concurrency:
+  group: work-${{ github.event.schedule || github.event.inputs.job }}
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
+      NEXT_PUBLIC_SITE_URL: ${{ secrets.NEXT_PUBLIC_SITE_URL }}
+      SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+      RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+      MAIL_FROM: ${{ vars.MAIL_FROM }}
+      REPORT_EMAIL_TO: ${{ vars.REPORT_EMAIL_TO }}
+      CLICKUP_API_TOKEN: ${{ secrets.CLICKUP_API_TOKEN }}
+      CLICKUP_IMPORT_MAP: ${{ vars.CLICKUP_IMPORT_MAP }}
+    steps:
+      - name: Pick the job
+        id: pick
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "job=${{ github.event.inputs.job }}" >> "$GITHUB_OUTPUT"
+            echo "params=${{ github.event.inputs.params }}" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          HOUR=$(TZ=Europe/Amsterdam date +%H)
+          case "${{ github.event.schedule }}" in
+            "17 * * * *") echo "job=work-notify" >> "$GITHUB_OUTPUT" ;;
+            "0 5,6 * * *") [ "$HOUR" = "07" ] && echo "job=work-daily" >> "$GITHUB_OUTPUT" ;;
+          esac
+          true
+      - name: Call the app for work-notify
+        if: steps.pick.outputs.job == 'work-notify'
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          curl -fsS -X POST -H "Authorization: Bearer $CRON_SECRET" \
+            "${{ secrets.NEXT_PUBLIC_SITE_URL }}/api/jobs/work-notify"
+      - uses: actions/checkout@v4
+        if: steps.pick.outputs.job != '' && steps.pick.outputs.job != 'work-notify'
+      - uses: actions/setup-node@v4
+        if: steps.pick.outputs.job != '' && steps.pick.outputs.job != 'work-notify'
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+        if: steps.pick.outputs.job != '' && steps.pick.outputs.job != 'work-notify'
+      - name: Run ${{ steps.pick.outputs.job }}
+        if: steps.pick.outputs.job != '' && steps.pick.outputs.job != 'work-notify'
+        run: npm run job -- ${{ steps.pick.outputs.job }} ${{ steps.pick.outputs.params }}

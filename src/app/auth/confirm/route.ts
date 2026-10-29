@@ -25,5 +25,7 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  return NextResponse.redirect(new URL("/login?error=link", request.url));
+  // Links for the task tool fall back to its own sign-in page.
+  const failed = next.startsWith("/work") ? `/work/sign-in?error=link&next=${encodeURIComponent(next)}` : "/login?error=link";
+  return NextResponse.redirect(new URL(failed, request.url));
 }

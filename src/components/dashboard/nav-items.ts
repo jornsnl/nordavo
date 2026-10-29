@@ -5,6 +5,7 @@ import {
   CheckSquare,
   Contact,
   Handshake,
+  KanbanSquare,
   LayoutDashboard,
   ListChecks,
   Megaphone,
@@ -34,6 +35,7 @@ export const navSections: NavSection[] = [
     items: [
       { label: "Overzicht", href: "/dashboard", icon: LayoutDashboard },
       { label: "Taken", href: "/dashboard/taken", icon: CheckSquare },
+      { label: "Work (takentool)", href: "/work", icon: KanbanSquare },
     ],
   },
   {

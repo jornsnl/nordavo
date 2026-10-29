@@ -13,6 +13,8 @@ export type CurrentUser = {
   role: ProfileRole;
   /** Only set for client portal users. */
   clientId: string | null;
+  /** IANA time zone the user sees dates in (deadlines are stored in UTC). */
+  timeZone: string;
 };
 
 /**
@@ -41,14 +43,15 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser> => {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("full_name, role, client_id")
+    .select("full_name, role, client_id, time_zone")
     .eq("id", userId)
     .maybeSingle();
 
+  // Unknown or missing roles get the least access.
   const role: ProfileRole =
-    profile?.role === "admin" || profile?.role === "client"
+    profile?.role === "admin" || profile?.role === "member" || profile?.role === "client"
       ? profile.role
-      : "member";
+      : "external";
 
   return {
     id: userId,
@@ -56,6 +59,7 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser> => {
     name: profile?.full_name || email.split("@")[0] || "Nordavo",
     role,
     clientId: role === "client" ? (profile?.client_id ?? null) : null,
+    timeZone: profile?.time_zone || "Europe/Amsterdam",
   };
 });
 
@@ -65,13 +69,14 @@ export function isStaff(user: CurrentUser) {
 
 /** The landing page for a user, based on their role. */
 export function homePathFor(user: CurrentUser) {
+  if (user.role === "external") return "/work";
   return isStaff(user) ? "/dashboard" : "/portaal";
 }
 
-/** Nordavo team only. Client users are sent to their portal. */
+/** Nordavo team only. Client users are sent to their portal, task tool users to /work. */
 export async function requireStaff(): Promise<CurrentUser> {
   const user = await getCurrentUser();
-  if (!isStaff(user)) redirect("/portaal");
+  if (!isStaff(user)) redirect(homePathFor(user));
   return user;
 }
 
@@ -84,7 +89,7 @@ export async function requireAdmin(): Promise<CurrentUser> {
 /** Client portal users only, always linked to a client company. */
 export async function requireClient(): Promise<CurrentUser & { clientId: string }> {
   const user = await getCurrentUser();
-  if (isStaff(user)) redirect("/dashboard");
+  if (user.role !== "client") redirect(homePathFor(user));
   if (!user.clientId) redirect("/login?error=account");
   return { ...user, clientId: user.clientId };
 }

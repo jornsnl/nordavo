@@ -12,6 +12,7 @@ import { s9OnepagePush } from "./s9-onepage-push";
 import { s9OnepagePull } from "./s9-onepage-pull";
 import { s10WeeklyReport } from "./s10-weekly-report";
 import { t2Match } from "./t2-match";
+import { clickupImport, workDaily, workNotify } from "./work";
 
 /** Every job, by name. Run with `npm run job -- <name>` or POST /api/jobs/<name>. */
 export const jobs: Record<string, Job> = Object.fromEntries(
@@ -28,6 +29,9 @@ export const jobs: Record<string, Job> = Object.fromEntries(
   s9OnepagePull,
   s10WeeklyReport,
   t2Match,
+  workNotify,
+  workDaily,
+  clickupImport,
   ].map((job) => [job.name, job]),
 );
 
