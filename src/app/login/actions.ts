@@ -50,6 +50,9 @@ export async function login(
   if (profile?.role === "client") {
     redirect("/portaal");
   }
+  if (profile?.role !== "admin" && profile?.role !== "member") {
+    redirect(safeNextPath(formData.get("next"), "/work"));
+  }
 
   redirect(safeNextPath(formData.get("next")));
 }

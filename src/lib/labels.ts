@@ -96,6 +96,7 @@ export const profileRoles: Option<ProfileRole>[] = [
   { value: "admin", label: "Beheerder", tone: "accent" },
   { value: "member", label: "Teamlid", tone: "brand" },
   { value: "client", label: "Klant", tone: "neutral" },
+  { value: "external", label: "Alleen Work", tone: "neutral" },
 ];
 
 // ---------------------------------------------------------------------------

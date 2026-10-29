@@ -134,7 +134,11 @@ async function UsersSection() {
                 subtitle={profile.email ?? "Geen e-mailadres"}
                 meta={
                   <>
-                    {profile.role === "client" ? (profile.client?.name ?? "Niet gekoppeld") : "Nordavo"}
+                    {profile.role === "client"
+                      ? (profile.client?.name ?? "Niet gekoppeld")
+                      : profile.role === "external"
+                        ? "Alleen Work"
+                        : "Nordavo"}
                     {" · 2FA "}
                     {mfaOn === undefined ? "onbekend" : mfaOn ? "aan" : "uit"}
                   </>
@@ -203,7 +207,9 @@ async function UsersSection() {
                   <TD className="text-muted">
                     {profile.role === "client"
                       ? (profile.client?.name ?? <span className="text-danger">Niet gekoppeld</span>)
-                      : "Nordavo"}
+                      : profile.role === "external"
+                        ? "Alleen Work"
+                        : "Nordavo"}
                   </TD>
                   <TD>
                     {mfaOn === undefined ? (

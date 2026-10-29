@@ -8,12 +8,14 @@ import {
   mfaCheckCookieOptions,
 } from "@/lib/security/mfa";
 
-// /api/webhooks and /api/mcp authenticate themselves (signatures, bearer tokens)
-// and never use the session cookie.
-const TOKEN_API_PATHS = ["/api/webhooks", "/api/mcp"];
+// /api/webhooks, /api/mcp and /api/work authenticate themselves (signatures,
+// bearer tokens) and never use the session cookie.
+const TOKEN_API_PATHS = ["/api/webhooks", "/api/mcp", "/api/work"];
 // /api/jobs takes CRON_SECRET or a staff session, so a session there still
 // needs its second step.
-const PUBLIC_PATHS = ["/login", "/auth", "/api/jobs", ...TOKEN_API_PATHS];
+// The task tool has its own sign-in page, and invite links must open signed out.
+const WORK_SIGN_IN = "/work/sign-in";
+const PUBLIC_PATHS = ["/login", "/auth", "/api/jobs", WORK_SIGN_IN, "/work/invite", ...TOKEN_API_PATHS];
 
 // All a session may reach before its second step: the code form, signing out
 // and the e-mail link landing point (it only swaps tokens and redirects).
@@ -67,7 +69,8 @@ export async function updateSession(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   if (!isSignedIn && !isPublicPath(pathname)) {
-    return redirectWithCookies(request, response, "/login", pathname);
+    const signIn = matches(["/work"], pathname) ? WORK_SIGN_IN : "/login";
+    return redirectWithCookies(request, response, signIn, pathname);
   }
 
   // Password done but authenticator app code not yet: only the code form is open.
@@ -90,6 +93,11 @@ export async function updateSession(request: NextRequest) {
     pathname === "/login" && request.nextUrl.searchParams.has("error");
   if (isSignedIn && !showsLoginError && (pathname === "/login" || pathname === "/")) {
     return redirectWithCookies(request, response, "/dashboard");
+  }
+  if (isSignedIn && pathname === WORK_SIGN_IN && !request.nextUrl.searchParams.has("error")) {
+    const next = request.nextUrl.searchParams.get("next");
+    const target = next && next.startsWith("/") && !next.startsWith("//") ? next : "/work";
+    return redirectWithCookies(request, response, target.split("?")[0]);
   }
 
   return response;
