@@ -15,6 +15,7 @@ Het interne portaal van [Nordavo](https://nordavo.nl): de brug tussen Nederlands
 | Plaatsingen | `/dashboard/plaatsingen` | Startdatum, tarief, 30 dagen garantie, check-ins, opzegtermijn van een maand |
 | Instellingen | `/dashboard/instellingen` | Profiel, wachtwoord, tweestapsverificatie, passkeys, Claude Code koppelen (MCP), gebruikers en rollen, uitnodigen |
 | Klantportaal | `/portaal` | Voor klanten: eigen vacatures, voorgestelde kandidaten met cv, akkoord of afwijzen met feedback, plaatsingen, beveiliging (`/portaal/beveiliging`) |
+| Work | `/work` | De eigen takentool die ClickUp vervangt: workspaces (Nordavo, KG), projecten, taken met review, gasten (freelancers), meldingen per mail, API. Engels. Zie [docs/work.md](docs/work.md) |
 | MCP server | `/api/mcp` | Claude Code leest (en met schrijfrechten wijzigt) portaaldata met een persoonlijke token |
 | Zoeken | Ctrl+K / Cmd+K | Klanten, vacatures, kandidaten en plaatsingen |
 
@@ -49,6 +50,7 @@ Op elke detailpagina staan taken, notities, bijlagen en een activiteitenlog. Het
    update public.profiles set role = 'admin', full_name = 'Voornaam Achternaam'
    where id = (select id from auth.users where email = 'jij@voorbeeld.nl');
    ```
+   Nieuwe accounts krijgen de rol `external` (alleen Work). Wie je via het Supabase dashboard toevoegt, geef je daarna in Instellingen de juiste rol.
    Er is bewust geen publieke registratie. Volgende gebruikers nodig je uit via Instellingen.
 5. Start de app:
    ```bash
@@ -98,7 +100,7 @@ supabase/migrations/       SQL migraties met RLS
 - `src/proxy.ts` draait op elke request, ververst de sessie en stuurt niet ingelogde bezoekers naar `/login?next=...`.
 - `getCurrentUser()` in `src/lib/auth.ts` is de Data Access Layer. Gebruik deze in Server Components binnen een `<Suspense>` boundary (verplicht met Cache Components) en controleer de gebruiker opnieuw in elke Server Action of Route Handler.
 - Rechten op data regel je in de database met Row Level Security, niet alleen in de UI.
-- Rollen staan in `profiles.role`: `admin` en `member` (het Nordavo team) zien alles; `client` is een contactpersoon van een klant en ziet via `/portaal` alleen het eigen bedrijf, de kandidaten die aan hen zijn voorgesteld en de eigen plaatsingen. Dit is afgedwongen met RLS; klanten geven feedback alleen via de functie `client_review_application`.
+- Rollen staan in `profiles.role`: `admin` en `member` (het Nordavo team) zien alles; `external` gebruikt alleen Work (`/work`) en is de standaard voor elk nieuw account; `client` is een contactpersoon van een klant en ziet via `/portaal` alleen het eigen bedrijf, de kandidaten die aan hen zijn voorgesteld en de eigen plaatsingen. Dit is afgedwongen met RLS; klanten geven feedback alleen via de functie `client_review_application`.
 - Zet in Supabase (Authentication > Emails) de templates op:
   - Invite user: `{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=invite&next=/auth/wachtwoord`
   - Reset password: `{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=recovery&next=/auth/wachtwoord`
