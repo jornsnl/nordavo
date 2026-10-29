@@ -2,6 +2,8 @@
 // `npx supabase gen types typescript --project-id <ref> > src/lib/database.types.ts`
 // once the project exists, then keep the aliases at the bottom.
 
+import type { WorkFunctions, WorkTables } from "@/lib/work/database";
+
 export type Json =
   | string
   | number
@@ -10,7 +12,8 @@ export type Json =
   | { [key: string]: Json | undefined }
   | Json[];
 
-export type ProfileRole = "admin" | "member" | "client";
+/** "external": only uses the task tool (/work), no access to the Nordavo portal. */
+export type ProfileRole = "admin" | "member" | "client" | "external";
 export type ClientStatus = "lead" | "active" | "inactive";
 export type Seniority = "medior" | "senior" | "lead";
 export type VacancyStatus = "open" | "on_hold" | "filled" | "closed";
@@ -121,6 +124,7 @@ export type Database = {
           role: ProfileRole;
           client_id: string | null;
           email: string | null;
+          time_zone: string;
           created_at: string;
           updated_at: string;
         };
@@ -130,6 +134,7 @@ export type Database = {
           role?: ProfileRole;
           client_id?: string | null;
           email?: string | null;
+          time_zone?: string;
           created_at?: string;
           updated_at?: string;
         };
@@ -139,6 +144,7 @@ export type Database = {
           role?: ProfileRole;
           client_id?: string | null;
           email?: string | null;
+          time_zone?: string;
           created_at?: string;
           updated_at?: string;
         };
@@ -1557,7 +1563,7 @@ export type Database = {
         };
         Relationships: [];
       };
-    };
+    } & WorkTables;
     Views: {
       call_list_candidates: { Row: ListCandidateBase & { phone: string; linkedin_url: string | null }; Relationships: [] };
       mail_list_candidates: { Row: ListCandidateBase & { email: string }; Relationships: [] };
@@ -1593,7 +1599,7 @@ export type Database = {
         Args: { p_user_id: string; p_role: string; p_client_id: string | null };
         Returns: undefined;
       };
-    };
+    } & WorkFunctions;
     Enums: { [_ in never]: never };
     CompositeTypes: { [_ in never]: never };
   };
