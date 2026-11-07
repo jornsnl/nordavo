@@ -20,7 +20,7 @@ export type CurrentUser = {
 /**
  * Data Access Layer entry point: the one place that reads the session.
  * Reads the request, so call it from a component inside a <Suspense> boundary.
- * A session that still needs its authenticator app code goes to /login/verificatie,
+ * A session that still needs its authenticator app code goes to /login/verify,
  * so never call this from that page.
  */
 export const getCurrentUser = cache(async (): Promise<CurrentUser> => {
@@ -70,7 +70,7 @@ export function isStaff(user: CurrentUser) {
 /** The landing page for a user, based on their role. */
 export function homePathFor(user: CurrentUser) {
   if (user.role === "external") return "/work";
-  return isStaff(user) ? "/dashboard" : "/portaal";
+  return isStaff(user) ? "/dashboard" : "/portal";
 }
 
 /** Nordavo team only. Client users are sent to their portal, task tool users to /work. */

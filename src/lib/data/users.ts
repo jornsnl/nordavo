@@ -30,7 +30,7 @@ export async function listProfiles() {
     .order("role")
     .order("full_name");
 
-  if (error) throw new Error(`Gebruikers laden mislukt: ${error.message}`);
+  if (error) throw new Error(`Could not load users: ${error.message}`);
   return data;
 }
 
@@ -41,7 +41,7 @@ export async function listClientOptions() {
   await requireAdmin();
   const supabase = await createClient();
   const { data, error } = await supabase.from("clients").select("id, name").order("name");
-  if (error) throw new Error(`Klanten laden mislukt: ${error.message}`);
+  if (error) throw new Error(`Could not load clients: ${error.message}`);
   return data;
 }
 

@@ -11,14 +11,14 @@ export default function NotFound() {
         404
       </p>
       <h1 className="mt-2 font-display text-[1.75rem] leading-tight font-bold tracking-tight text-brand-900 sm:text-3xl">
-        Deze pagina bestaat niet
+        This page does not exist
       </h1>
       <p className="mt-3 max-w-md text-muted">
-        Misschien is het record verwijderd, of heb je geen toegang. Ga terug en probeer het opnieuw.
+        The record may have been deleted, or you have no access. Go back and try again.
       </p>
       <Link href="/" className={buttonClasses({ className: "mt-8 max-sm:w-full max-sm:max-w-sm" })}>
         <ArrowLeft aria-hidden="true" />
-        Terug naar het portaal
+        Back to the portal
       </Link>
     </main>
   );

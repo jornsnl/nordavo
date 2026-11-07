@@ -18,6 +18,7 @@ export type ClientStatus = "lead" | "active" | "inactive";
 export type Seniority = "medior" | "senior" | "lead";
 export type VacancyStatus = "open" | "on_hold" | "filled" | "closed";
 export type CandidateStatus = "available" | "in_process" | "placed" | "unavailable";
+export type CandidateSeniority = "junior" | "medior" | "senior" | "lead";
 export type ApplicationStage =
   | "sourced"
   | "screening"
@@ -283,6 +284,7 @@ export type Database = {
           profiles_sent_at: string | null;
           first_interview_at: string | null;
           start_at: string | null;
+          is_talent_pool: boolean;
         };
         Insert: {
           id?: string;
@@ -317,6 +319,7 @@ export type Database = {
           profiles_sent_at?: string | null;
           first_interview_at?: string | null;
           start_at?: string | null;
+          is_talent_pool?: boolean;
         };
         Update: {
           id?: string;
@@ -351,6 +354,7 @@ export type Database = {
           profiles_sent_at?: string | null;
           first_interview_at?: string | null;
           start_at?: string | null;
+          is_talent_pool?: boolean;
         };
         Relationships: [
           {
@@ -392,6 +396,14 @@ export type Database = {
           summary: string | null;
           status: CandidateStatus;
           owner_id: string | null;
+          seniority: CandidateSeniority | null;
+          employers: string[];
+          project_types: string[];
+          sectors: string[];
+          cv_text: string | null;
+          english_level: string | null;
+          availability: string | null;
+          profile_consent: boolean | null;
           created_at: string;
           updated_at: string;
         };
@@ -410,6 +422,14 @@ export type Database = {
           summary?: string | null;
           status?: CandidateStatus;
           owner_id?: string | null;
+          seniority?: CandidateSeniority | null;
+          employers?: string[];
+          project_types?: string[];
+          sectors?: string[];
+          cv_text?: string | null;
+          english_level?: string | null;
+          availability?: string | null;
+          profile_consent?: boolean | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -428,6 +448,14 @@ export type Database = {
           summary?: string | null;
           status?: CandidateStatus;
           owner_id?: string | null;
+          seniority?: CandidateSeniority | null;
+          employers?: string[];
+          project_types?: string[];
+          sectors?: string[];
+          cv_text?: string | null;
+          english_level?: string | null;
+          availability?: string | null;
+          profile_consent?: boolean | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -1332,7 +1360,7 @@ export type Database = {
         Row: {
           id: string;
           vacancy_id: string;
-          airtable_candidate_id: string;
+          candidate_id: string;
           score: number | null;
           reason: string | null;
           risks: string[];
@@ -1347,7 +1375,7 @@ export type Database = {
         Insert: {
           id?: string;
           vacancy_id: string;
-          airtable_candidate_id: string;
+          candidate_id: string;
           score?: number | null;
           reason?: string | null;
           risks?: string[];
@@ -1362,7 +1390,7 @@ export type Database = {
         Update: {
           id?: string;
           vacancy_id?: string;
-          airtable_candidate_id?: string;
+          candidate_id?: string;
           score?: number | null;
           reason?: string | null;
           risks?: string[];
@@ -1375,6 +1403,13 @@ export type Database = {
           updated_at?: string;
         };
         Relationships: [
+          {
+            foreignKeyName: "matches_candidate_id_fkey";
+            columns: ["candidate_id"];
+            isOneToOne: false;
+            referencedRelation: "candidates";
+            referencedColumns: ["id"];
+          },
           {
             foreignKeyName: "matches_vacancy_id_fkey";
             columns: ["vacancy_id"];
@@ -1598,6 +1633,10 @@ export type Database = {
       admin_update_profile: {
         Args: { p_user_id: string; p_role: string; p_client_id: string | null };
         Returns: undefined;
+      };
+      t2_candidate_pool: {
+        Args: { p_vacancy_id: string; p_patterns?: string[]; p_weights?: number[]; p_require_hit?: boolean; p_limit?: number };
+        Returns: PublicTables["candidates"]["Row"][];
       };
     } & WorkFunctions;
     Enums: { [_ in never]: never };

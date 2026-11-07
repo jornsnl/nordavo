@@ -56,8 +56,8 @@ test("parseServiceAccount reads the JSON and unescapes the key", () => {
 });
 
 test("parseServiceAccount fails with a clear message", () => {
-  assert.throws(() => parseServiceAccount(undefined), /ontbreekt/);
-  assert.throws(() => parseServiceAccount("{not json"), /geen geldige JSON/);
+  assert.throws(() => parseServiceAccount(undefined), /is missing/);
+  assert.throws(() => parseServiceAccount("{not json"), /not valid JSON/);
   assert.throws(() => parseServiceAccount(JSON.stringify({ client_email: "x" })), /private_key/);
 });
 

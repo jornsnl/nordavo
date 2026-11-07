@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { ShieldOff } from "lucide-react";
-import { deleteSuppressionAction } from "@/app/dashboard/uitsluitingen/actions";
+import { deleteSuppressionAction } from "@/app/dashboard/suppressions/actions";
 import { ConfirmDeleteButton } from "@/components/clients/confirm-delete-button";
 import { EmptyState } from "@/components/dashboard/empty-state";
 import { Badge } from "@/components/ui/badge";
@@ -14,7 +14,7 @@ function Target({ item }: { item: SuppressionItem }) {
   if (item.contact) {
     return (
       <div>
-        <Link href={`/dashboard/contacten/${item.contact.id}`} className="font-medium text-brand-800 hover:underline">
+        <Link href={`/dashboard/contacts/${item.contact.id}`} className="font-medium text-brand-800 hover:underline">
           {item.contact.name}
         </Link>
         <div className="text-xs text-muted">{[item.contact.companyName, item.contact.email].filter(Boolean).join(", ") || "Contact"}</div>
@@ -27,14 +27,14 @@ function Target({ item }: { item: SuppressionItem }) {
         <Link href={`/dashboard/leads/${item.company.id}`} className="font-medium text-brand-800 hover:underline">
           {item.company.name}
         </Link>
-        <div className="text-xs text-muted">Heel het bedrijf, {item.company.domain}</div>
+        <div className="text-xs text-muted">The whole company, {item.company.domain}</div>
       </div>
     );
   }
   return (
     <div>
       <div className="font-medium break-all text-ink">{item.email}</div>
-      <div className="text-xs text-muted">Alleen dit mailadres</div>
+      <div className="text-xs text-muted">Only this email address</div>
     </div>
   );
 }
@@ -44,22 +44,22 @@ export function SuppressionTable({ items, filtered }: { items: SuppressionItem[]
     return (
       <EmptyState
         icon={ShieldOff}
-        title={filtered ? "Niets gevonden" : "Nog niemand uitgesloten"}
+        title={filtered ? "Nothing found" : "Nobody suppressed yet"}
         description={
           filtered
-            ? "Geen uitsluitingen met deze zoekterm of dit filter."
-            : "Afmeldingen uit Instantly komen hier vanzelf. Voeg zelf iemand toe die niet benaderd wil of mag worden."
+            ? "No suppressions match this search or filter."
+            : "Unsubscribes from Instantly show up here by themselves. Add anyone yourself who does not want to be, or may not be, contacted."
         }
       />
     );
   }
   return (
     <>
-      <MobileList label="Uitsluitingen" className="md:hidden">
+      <MobileList label="Suppressions" className="md:hidden">
         {items.map((item) => {
           const reason = optionFor(suppressionReasons, item.reason);
           const scope = optionFor(suppressionScopes, item.scope);
-          const name = item.contact?.name ?? item.company?.name ?? item.email ?? "deze uitsluiting";
+          const name = item.contact?.name ?? item.company?.name ?? item.email ?? "this entry";
           return (
             <MobileListItem
               key={item.id}
@@ -76,18 +76,18 @@ export function SuppressionTable({ items, filtered }: { items: SuppressionItem[]
                 item.contact
                   ? [item.contact.companyName, item.contact.email].filter(Boolean).join(", ") || "Contact"
                   : item.company
-                    ? `Heel het bedrijf, ${item.company.domain}`
-                    : "Alleen dit mailadres"
+                    ? `The whole company, ${item.company.domain}`
+                    : "Only this email address"
               }
-              meta={`Sinds ${formatDate(item.createdAt)}${item.createdBy ? `, door ${item.createdBy}` : ""}`}
+              meta={`Since ${formatDate(item.createdAt)}${item.createdBy ? `, by ${item.createdBy}` : ""}`}
               trailing={
                 <div className="-mr-2 [&>button]:size-11">
                   <ConfirmDeleteButton
                     action={deleteSuppressionAction.bind(null, item.id)}
-                    title="Uitsluiting opheffen?"
-                    description={`${name} kan daarna weer op bel en maillijsten komen, als de 30 dagen regel het toelaat. Doe dit alleen als je zeker weet dat het mag.`}
-                    label={`Uitsluiting van ${name} opheffen`}
-                    confirmLabel="Ja, opheffen"
+                    title="Lift suppression?"
+                    description={`${name} can then go on call and mail lists again, if the 30 day rule allows it. Only do this if you are sure it is allowed.`}
+                    label={`Lift suppression for ${name}`}
+                    confirmLabel="Yes, lift it"
                     iconOnly
                   />
                 </div>
@@ -105,13 +105,13 @@ export function SuppressionTable({ items, filtered }: { items: SuppressionItem[]
       <Table className="hidden md:block">
         <THead>
           <tr>
-            <TH>Wie</TH>
-            <TH>Reden</TH>
-            <TH>Kanalen</TH>
-            <TH>Notitie</TH>
-            <TH>Sinds</TH>
+            <TH>Who</TH>
+            <TH>Reason</TH>
+            <TH>Channels</TH>
+            <TH>Note</TH>
+            <TH>Since</TH>
             <TH>
-              <span className="sr-only">Acties</span>
+              <span className="sr-only">Actions</span>
             </TH>
           </tr>
         </THead>
@@ -119,7 +119,7 @@ export function SuppressionTable({ items, filtered }: { items: SuppressionItem[]
           {items.map((item) => {
             const reason = optionFor(suppressionReasons, item.reason);
             const scope = optionFor(suppressionScopes, item.scope);
-            const name = item.contact?.name ?? item.company?.name ?? item.email ?? "deze uitsluiting";
+            const name = item.contact?.name ?? item.company?.name ?? item.email ?? "this entry";
             return (
               <TR key={item.id}>
                 <TD>
@@ -136,15 +136,15 @@ export function SuppressionTable({ items, filtered }: { items: SuppressionItem[]
                 </TD>
                 <TD className="whitespace-nowrap text-muted">
                   {formatDate(item.createdAt)}
-                  {item.createdBy && <div className="text-xs">door {item.createdBy}</div>}
+                  {item.createdBy && <div className="text-xs">by {item.createdBy}</div>}
                 </TD>
                 <TD className="text-right">
                   <ConfirmDeleteButton
                     action={deleteSuppressionAction.bind(null, item.id)}
-                    title="Uitsluiting opheffen?"
-                    description={`${name} kan daarna weer op bel en maillijsten komen, als de 30 dagen regel het toelaat. Doe dit alleen als je zeker weet dat het mag.`}
-                    label={`Uitsluiting van ${name} opheffen`}
-                    confirmLabel="Ja, opheffen"
+                    title="Lift suppression?"
+                    description={`${name} can then go on call and mail lists again, if the 30 day rule allows it. Only do this if you are sure it is allowed.`}
+                    label={`Lift suppression for ${name}`}
+                    confirmLabel="Yes, lift it"
                     iconOnly
                   />
                 </TD>

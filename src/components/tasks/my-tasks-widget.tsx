@@ -18,20 +18,20 @@ export async function MyTasksWidget({ limit = 6 }: { limit?: number }) {
   return (
     <Card>
       <CardHeader
-        title="Mijn taken"
+        title="My tasks"
         description={
           total === 0
-            ? "Niets open op jouw naam."
+            ? "Nothing open in your name."
             : overdue > 0
-              ? `${total} open, waarvan ${overdue} te laat.`
+              ? `${total} open, ${overdue} of them overdue.`
               : `${total} open.`
         }
         actions={
           <Link
-            href="/dashboard/taken"
+            href="/dashboard/tasks"
             className="inline-flex items-center gap-1 rounded-lg text-sm font-semibold text-brand-600 hover:text-brand-800 pointer-coarse:-my-3 pointer-coarse:min-h-11 focus-visible:outline-2 focus-visible:outline-brand-500"
           >
-            Alle taken
+            All tasks
             <ArrowRight className="size-4" aria-hidden="true" />
           </Link>
         }
@@ -39,7 +39,7 @@ export async function MyTasksWidget({ limit = 6 }: { limit?: number }) {
       {tasks.length === 0 ? (
         <div className="flex flex-col items-center px-5 py-10 text-center">
           <CheckCircle2 className="mb-2 size-6 text-emerald-600" aria-hidden="true" />
-          <p className="text-sm text-muted">Je hebt geen open taken. Lekker bezig.</p>
+          <p className="text-sm text-muted">You have no open tasks. Nice work.</p>
         </div>
       ) : (
         <ul className="divide-y divide-border">
@@ -60,9 +60,9 @@ export async function MyTasksWidget({ limit = 6 }: { limit?: number }) {
       )}
       {total > tasks.length && (
         <p className="border-t border-border px-5 py-3 text-xs text-muted">
-          En nog {total - tasks.length} andere.{" "}
-          <Link href="/dashboard/taken" className="font-medium text-brand-600 hover:underline">
-            Bekijk ze allemaal
+          And {total - tasks.length} more.{" "}
+          <Link href="/dashboard/tasks" className="font-medium text-brand-600 hover:underline">
+            View them all
           </Link>
         </p>
       )}

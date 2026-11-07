@@ -182,7 +182,7 @@ async function listToolNames(access: "read" | "write") {
     email: "julius@nordavo.nl",
     role: "member",
   };
-  const server = createNordavoMcpServer(ctx, {} as McpDb, "https://portaal.nordavo.nl");
+  const server = createNordavoMcpServer(ctx, {} as McpDb, "https://portal.nordavo.nl");
   const client = new Client({ name: "test", version: "1.0.0" });
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
   await Promise.all([server.connect(serverTransport), client.connect(clientTransport)]);

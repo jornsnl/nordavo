@@ -58,9 +58,9 @@ Koopsignaal nummer 1 is een openstaande developer of data vacature. Meerdere tec
 - decision: GO, NO_GO of REVIEW.
 - segment: saas, productie, agency_automation, agency_overig, of null.
 - score: geheel getal van 0 tot 100, de som van de vier delen hierboven.
-- reason: maximaal twee zinnen in het Nederlands. Noem het belangrijkste bewijs.
+- reason: maximaal twee zinnen in het Engels (alleen het team van Nordavo leest dit). Noem het belangrijkste bewijs.
 - client_contact_risk: true als de developer direct contact met de klanten van de klant moet hebben, anders false.
-- red_flags: korte Nederlandse punten (bijvoorbeeld "eenmanszaak", "omvang onbekend", "vacature noemt detachering bij klanten"). Lege lijst als er geen zijn.
+- red_flags: korte Engelse punten (bijvoorbeeld "sole proprietorship", "size unknown", "vacancy mentions secondment at clients"). Lege lijst als er geen zijn.
 - opening_line: één zin in het Nederlands voor een eerste mail of belscript, gebaseerd op precies één signaal uit de input (meestal de vacature). Informeel maar zakelijk (je en jij), maximaal 30 woorden, geen begroeting, geen prijzen, percentages of garanties, geen gedachtestreepjes, en nooit "eigen team in Bangalore". Bij NO_GO mag het een lege string zijn.
 
 Geef alleen JSON terug volgens het schema.`;
@@ -69,7 +69,7 @@ export const qualifySchema = z.object({
   decision: z.enum(["GO", "NO_GO", "REVIEW"]),
   segment: z.enum(["saas", "productie", "agency_automation", "agency_overig"]).nullable(),
   score: z.number().int().min(0).max(100),
-  reason: z.string().describe("Maximaal twee zinnen, Nederlands."),
+  reason: z.string().describe("Maximaal twee zinnen, Engels."),
   client_contact_risk: z.boolean(),
   red_flags: z.array(z.string()),
   opening_line: z.string().describe("Eén Nederlandse zin op basis van één signaal, of leeg bij NO_GO."),
@@ -139,9 +139,9 @@ export function ruleBasedDecision(company: { employees: number | null }): Qualif
       decision: "NO_GO",
       segment: null,
       score: 0,
-      reason: `Minder dan 5 medewerkers (${company.employees}), geen ruimte om iemand in te werken.`,
+      reason: `Fewer than 5 employees (${company.employees}), no room to onboard someone.`,
       client_contact_risk: false,
-      red_flags: ["minder dan 5 medewerkers"],
+      red_flags: ["fewer than 5 employees"],
       opening_line: "",
     };
   }

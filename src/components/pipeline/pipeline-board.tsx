@@ -18,7 +18,7 @@ import {
 } from "@dnd-kit/core";
 import { arrayMove, sortableKeyboardCoordinates } from "@dnd-kit/sortable";
 import { Handshake, Plus, X } from "lucide-react";
-import { moveApplication, reorderStage } from "@/app/dashboard/vacatures/[id]/pipeline/actions";
+import { moveApplication, reorderStage } from "@/app/dashboard/vacancies/[id]/pipeline/actions";
 import type { PipelineApplication } from "@/lib/data/applications";
 import type { CandidateOption } from "@/lib/data/candidates";
 import type { ApplicationStage } from "@/lib/database.types";
@@ -251,20 +251,20 @@ export function PipelineBoard({
   }
 
   const announcements: Announcements = {
-    onDragStart: ({ active }) => `Je pakt ${cardById(active.id)?.candidate.full_name ?? "de kaart"} op.`,
+    onDragStart: ({ active }) => `You picked up ${cardById(active.id)?.candidate.full_name ?? "the card"}.`,
     onDragOver: ({ active, over }) => {
-      const name = cardById(active.id)?.candidate.full_name ?? "De kaart";
-      if (!over) return `${name} is niet boven een kolom.`;
+      const name = cardById(active.id)?.candidate.full_name ?? "The card";
+      if (!over) return `${name} is not over a column.`;
       const stage = findStage(over.id);
-      return stage ? `${name} is boven ${stageLabel(stage)}.` : undefined;
+      return stage ? `${name} is over ${stageLabel(stage)}.` : undefined;
     },
     onDragEnd: ({ active, over }) => {
-      const name = cardById(active.id)?.candidate.full_name ?? "De kaart";
+      const name = cardById(active.id)?.candidate.full_name ?? "The card";
       const stage = over ? findStage(over.id) : undefined;
-      return stage ? `${name} staat nu in ${stageLabel(stage)}.` : `${name} is teruggezet.`;
+      return stage ? `${name} is now in ${stageLabel(stage)}.` : `${name} was put back.`;
     },
     onDragCancel: ({ active }) =>
-      `Verplaatsen geannuleerd. ${cardById(active.id)?.candidate.full_name ?? "De kaart"} staat weer op de oude plek.`,
+      `Move cancelled. ${cardById(active.id)?.candidate.full_name ?? "The card"} is back in its old place.`,
   };
 
   const activeCard = cardById(activeId);
@@ -277,12 +277,12 @@ export function PipelineBoard({
         <div className="flex items-center gap-3">
           {saving && (
             <span className="text-sm text-muted max-sm:order-last" role="status">
-              Opslaan...
+              Saving...
             </span>
           )}
           <Button onClick={() => setAdding(true)} className="max-sm:flex-1">
             <Plus aria-hidden="true" />
-            Kandidaat toevoegen
+            Add candidate
           </Button>
         </div>
       </div>
@@ -295,7 +295,7 @@ export function PipelineBoard({
           <button
             type="button"
             onClick={() => setError(undefined)}
-            aria-label="Melding sluiten"
+            aria-label="Close message"
             className="flex size-9 items-center justify-center rounded-lg text-muted hover:bg-brand-50 active:bg-brand-50 pointer-coarse:size-11"
           >
             <X className="size-4" aria-hidden="true" />
@@ -310,12 +310,12 @@ export function PipelineBoard({
         >
           <Handshake className="hidden size-6 shrink-0 text-emerald-700 sm:block" aria-hidden="true" />
           <p className="flex-1 text-sm text-emerald-900">
-            <strong>{placed.candidate.full_name}</strong> is geplaatst. Leg nu de plaatsing vast, dan starten
-            contract, payroll en de garantieperiode.
+            <strong>{placed.candidate.full_name}</strong> is placed. Record the placement now to start
+            the contract, payroll and the guarantee period.
           </p>
           <div className="flex gap-2 max-sm:*:flex-1">
-            <ButtonLink href={`/dashboard/plaatsingen/nieuw?application=${placed.id}`} size="sm">
-              Plaatsing vastleggen
+            <ButtonLink href={`/dashboard/placements/new?application=${placed.id}`} size="sm">
+              Record placement
             </ButtonLink>
             <Button variant="ghost" size="sm" onClick={() => setPlaced(null)}>
               Later
@@ -326,12 +326,12 @@ export function PipelineBoard({
 
       {allCards.length === 0 && (
         <p className="rounded-2xl border border-dashed border-brand-200 bg-card px-4 py-3 text-sm text-muted">
-          Nog niemand op dit bord. Voeg een kandidaat toe om de selectie te starten.
+          Nobody on this board yet. Add a candidate to start the selection.
         </p>
       )}
 
       {/* Until lg the board scrolls sideways: jump straight to a stage. */}
-      <nav aria-label="Naar fase" className="-mx-4 sm:-mx-6 lg:hidden">
+      <nav aria-label="Go to stage" className="-mx-4 sm:-mx-6 lg:hidden">
         <ul className="flex snap-strip scrollbar-none gap-2 px-4 py-0.5 sm:px-6">
           {applicationStages.map((s) => (
             <li key={s.value} className="shrink-0 snap-start scroll-ml-4">
@@ -354,7 +354,7 @@ export function PipelineBoard({
         </ul>
       </nav>
       <p className="text-xs text-muted sm:hidden">
-        Houd een kaart ingedrukt om hem naar een andere fase te slepen, of kies Verplaats naar.
+        Press and hold a card to drag it to another stage, or choose Move to.
       </p>
 
       <DndContext
@@ -369,7 +369,7 @@ export function PipelineBoard({
           announcements,
           screenReaderInstructions: {
             draggable:
-              "Druk op spatie of enter om de kaart op te pakken. Verplaats met de pijltjestoetsen, ook naar een andere kolom. Druk nogmaals op spatie of enter om neer te zetten, of op escape om te annuleren.",
+              "Press space or enter to pick up the card. Move it with the arrow keys, also to another column. Press space or enter again to drop it, or escape to cancel.",
           },
         }}
       >
@@ -437,8 +437,8 @@ function PresentedCounter({ count }: { count: number }) {
         ))}
       </div>
       <p className="text-sm font-medium text-ink">
-        {count} van {PRESENTED_TARGET} voorgesteld
-        {count > PRESENTED_TARGET && <span className="text-muted"> (meer dan beloofd)</span>}
+        {count} of {PRESENTED_TARGET} presented
+        {count > PRESENTED_TARGET && <span className="text-muted"> (more than promised)</span>}
       </p>
     </div>
   );

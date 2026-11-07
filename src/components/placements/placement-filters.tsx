@@ -25,14 +25,14 @@ export function PlacementFilters({
     if (nextClient) params.set("klant", nextClient);
     const query = params.toString();
     startTransition(() => {
-      router.replace(`/dashboard/plaatsingen${query ? `?${query}` : ""}`, { scroll: false });
+      router.replace(`/dashboard/placements${query ? `?${query}` : ""}`, { scroll: false });
     });
   }
 
   return (
     <div
       role="search"
-      aria-label="Plaatsingen filteren"
+      aria-label="Filter placements"
       aria-busy={pending}
       className="mb-5 grid grid-cols-[minmax(0,1fr)] gap-3 sm:grid-cols-2 lg:max-w-2xl"
     >
@@ -71,10 +71,10 @@ export function PlacementFilters({
       </div>
       <div>
         <label htmlFor="filter-client" className="sr-only">
-          Klant
+          Client
         </label>
         <Select id="filter-client" value={clientId} onChange={(e) => update({ klant: e.target.value })}>
-          <option value="">Alle klanten</option>
+          <option value="">All clients</option>
           {clients.map((client) => (
             <option key={client.id} value={client.id}>
               {client.name}

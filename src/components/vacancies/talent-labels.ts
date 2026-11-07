@@ -3,9 +3,9 @@ import type { Tone } from "@/lib/labels";
 
 /** Where a vacancy came from (vacancies.source). */
 export const vacancySources: { value: VacancySource; label: string; tone: Tone }[] = [
-  { value: "klant_eigen", label: "Vacature van de klant", tone: "neutral" },
-  { value: "samen_opgesteld", label: "Samen opgesteld", tone: "brand" },
-  { value: "gescrapet", label: "Gescrapet", tone: "neutral" },
+  { value: "klant_eigen", label: "Client's own vacancy", tone: "neutral" },
+  { value: "samen_opgesteld", label: "Written together", tone: "brand" },
+  { value: "gescrapet", label: "Scraped", tone: "neutral" },
 ];
 
 export function sourceLabel(value: VacancySource | null) {

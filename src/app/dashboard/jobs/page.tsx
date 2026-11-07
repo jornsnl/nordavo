@@ -39,7 +39,7 @@ export const maxDuration = 300;
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
 function formatDuration(ms: number | null) {
-  if (ms === null) return "Loopt nog";
+  if (ms === null) return "Still running";
   const seconds = Math.round(ms / 1000);
   if (seconds < 60) return `${seconds} s`;
   const minutes = Math.floor(seconds / 60);
@@ -47,13 +47,13 @@ function formatDuration(ms: number | null) {
 }
 
 function StatusBadge({ run }: { run: JobRunItem | undefined }) {
-  if (!run) return <Badge tone="neutral">Nog nooit gedraaid</Badge>;
+  if (!run) return <Badge tone="neutral">Never run</Badge>;
   const option = optionFor(jobStatuses, run.status);
   return <Badge tone={option.tone}>{option.label}</Badge>;
 }
 
 function triggerLabel(triggeredBy: string) {
-  return triggeredBy.startsWith("user:") ? "Handmatig" : triggeredBy === "schedule" ? "Schema" : triggeredBy;
+  return triggeredBy.startsWith("user:") ? "Manual" : triggeredBy === "schedule" ? "Schedule" : triggeredBy;
 }
 
 /** Log of one run, folded away. */
@@ -61,7 +61,7 @@ function RunLog({ run }: { run: JobRunItem }) {
   return (
     <details className="group">
       <summary className="cursor-pointer text-sm font-medium text-brand-700 hover:underline focus-visible:outline-2 focus-visible:outline-brand-500 max-md:flex max-md:min-h-11 max-md:items-center">
-        Log bekijken ({run.log.length} regels)
+        View log ({run.log.length} {run.log.length === 1 ? "line" : "lines"})
       </summary>
       <pre className="mt-2 max-h-80 overflow-auto overscroll-contain rounded-xl bg-brand-950 p-3 text-xs leading-relaxed whitespace-pre-wrap text-brand-50">
         {run.log.join("\n")}
@@ -75,9 +75,9 @@ export default function Page({ searchParams }: PageProps<"/dashboard/jobs">) {
   return (
     <>
       <PageHeader
-        eyebrow="Beheer"
+        eyebrow="Admin"
         title="Jobs"
-        description="De geplande scripts van de salesflow. Elke run komt in de historie; bij een fout krijgt Julius een mail."
+        description="The scheduled scripts of the sales flow. Every run is logged in the history; Julius gets an email when one fails."
       />
       <Suspense fallback={<ListSkeleton rows={8} />}>
         <JobsOverview />
@@ -97,7 +97,7 @@ async function JobsOverview() {
     needsVacancy ? listVacancyOptions() : Promise.resolve([]),
   ]);
   const dbReady = hasJobDb();
-  const noDbReason = dbReady ? null : "SUPABASE_SECRET_KEY ontbreekt";
+  const noDbReason = dbReady ? null : "SUPABASE_SECRET_KEY is missing";
 
   return (
     <div className="mb-8 space-y-6">
@@ -108,22 +108,22 @@ async function JobsOverview() {
         >
           <TriangleAlert className="mt-0.5 size-5 shrink-0" aria-hidden="true" />
           <p>
-            <strong className="font-semibold">SUPABASE_SECRET_KEY ontbreekt op de server.</strong> Jobs schrijven met de
-            service role en kunnen zonder deze sleutel niet draaien, ook niet vanaf deze pagina. Zet hem in de omgeving
-            van de app en van GitHub Actions.
+            <strong className="font-semibold">SUPABASE_SECRET_KEY is missing on the server.</strong> Jobs write with the
+            service role and cannot run without this key, not even from this page. Set it in the environment of the app
+            and of GitHub Actions.
           </p>
         </div>
       )}
       {!hasMail() && (
         <p className="flex items-start gap-3 rounded-2xl border border-amber-600/20 bg-amber-50 px-5 py-4 text-sm text-amber-900">
           <KeyRound className="mt-0.5 size-5 shrink-0" aria-hidden="true" />
-          RESEND_API_KEY ontbreekt: foutmeldingen en het weekrapport worden niet gemaild. Kijk hier dus zelf of de jobs
-          gelukt zijn.
+          RESEND_API_KEY is missing: error alerts and the weekly report are not emailed. So check here yourself whether
+          the jobs succeeded.
         </p>
       )}
 
       <Card>
-        <CardHeader title="Ketens" description="Draaien op schema via GitHub Actions. Een keten draait de jobs na elkaar." />
+        <CardHeader title="Chains" description="Run on a schedule through GitHub Actions. A chain runs its jobs one after the other." />
         <ul className="divide-y divide-border">
           {Object.entries(chains).map(([name, chain]) => (
             <li key={name} className="flex flex-col gap-3 px-5 py-4 lg:flex-row lg:items-start lg:justify-between">
@@ -132,12 +132,12 @@ async function JobsOverview() {
                 <p className="text-sm text-muted">{chain.description}</p>
                 <p className="text-xs text-muted">
                   {chain.jobs.join(", ")}
-                  {chain.stopOnFailure ? ". Stopt bij de eerste fout." : ". Gaat door na een fout."}
+                  {chain.stopOnFailure ? ". Stops at the first failure." : ". Continues after a failure."}
                 </p>
               </div>
               <div className="shrink-0">
                 <RunJobForm
-                  label="Keten draaien"
+                  label="Run chain"
                   action={runJobAction.bind(null, name)}
                   disabledReason={noDbReason}
                 />
@@ -148,7 +148,7 @@ async function JobsOverview() {
       </Card>
 
       <Card>
-        <CardHeader title="Losse jobs" description="Laatste run per job, en ontbrekende sleutels." />
+        <CardHeader title="Single jobs" description="Last run per job, and missing keys." />
         <ul className="divide-y divide-border">
           {names.map((name) => {
             const job = jobs[name];
@@ -165,14 +165,14 @@ async function JobsOverview() {
                   <p className="text-sm text-muted">{job.description}</p>
                   {run && (
                     <p className="text-xs text-muted">
-                      Laatst {formatRelativeDays(run.startedAt)} om {formatDateTime(run.startedAt)}, {run.recordsIn} in,{" "}
-                      {run.recordsOut} uit, {formatDuration(run.durationMs)}
-                      {run.status === "failed" && run.errorFirstLine ? `. Fout: ${run.errorFirstLine}` : ""}
+                      Last run {formatRelativeDays(run.startedAt)} at {formatDateTime(run.startedAt)}, {run.recordsIn} in,{" "}
+                      {run.recordsOut} out, {formatDuration(run.durationMs)}
+                      {run.status === "failed" && run.errorFirstLine ? `. Error: ${run.errorFirstLine}` : ""}
                     </p>
                   )}
                   {missing.required.length > 0 && (
                     <p className="flex flex-wrap items-center gap-1.5 text-xs text-danger">
-                      <span className="font-medium">Ontbreekt:</span>
+                      <span className="font-medium">Missing:</span>
                       {missing.required.map((n) => (
                         <code key={n} className="rounded bg-danger-bg px-1.5 py-0.5">
                           {n}
@@ -182,7 +182,7 @@ async function JobsOverview() {
                   )}
                   {missing.optional.length > 0 && (
                     <p className="flex flex-wrap items-center gap-1.5 text-xs text-muted">
-                      <span className="font-medium">Optioneel, niet gezet:</span>
+                      <span className="font-medium">Optional, not set:</span>
                       {missing.optional.map((n) => (
                         <code key={n} className="rounded bg-surface px-1.5 py-0.5">
                           {n}
@@ -193,13 +193,13 @@ async function JobsOverview() {
                 </div>
                 <div className="shrink-0">
                   <RunJobForm
-                    label="Nu draaien"
+                    label="Run now"
                     action={runJobAction.bind(null, name)}
                     vacancies={required?.name === "vacancy" ? vacancies : undefined}
                     showLimit={!required}
                     disabledReason={
                       noDbReason ??
-                      (missing.required.length > 0 ? `Ontbreekt: ${missing.required.join(", ")}` : null)
+                      (missing.required.length > 0 ? `Missing: ${missing.required.join(", ")}` : null)
                     }
                   />
                 </div>
@@ -223,21 +223,21 @@ async function RunHistory({ searchParams }: { searchParams: SearchParams }) {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h2 id="history-title" className="font-display text-lg font-semibold text-brand-900">
-            Historie
+            History
           </h2>
-          <p className="text-sm text-muted">De laatste 100 runs, nieuwste eerst.</p>
+          <p className="text-sm text-muted">The last 100 runs, newest first.</p>
         </div>
         <Form action="/dashboard/jobs" className="flex items-center gap-2 max-md:justify-between">
           <p className="text-sm text-muted md:hidden">
-            {[jobName, status ? optionFor(jobStatuses, status).label : null].filter(Boolean).join(", ") || "Alle runs"}
+            {[jobName, status ? optionFor(jobStatuses, status).label : null].filter(Boolean).join(", ") || "All runs"}
           </p>
-          <FilterSheet activeCount={[jobName, status].filter(Boolean).length} resetHref="/dashboard/jobs" title="Runs filteren">
+          <FilterSheet activeCount={[jobName, status].filter(Boolean).length} resetHref="/dashboard/jobs" title="Filter runs">
             <div className="flex flex-col gap-2 md:flex-row md:items-center">
               <label htmlFor="history-job" className="sr-only max-md:not-sr-only max-md:text-sm max-md:font-medium max-md:text-ink">
                 Job
               </label>
               <Select id="history-job" name="job" defaultValue={jobName ?? ""} className="md:w-56">
-                <option value="">Alle jobs</option>
+                <option value="">All jobs</option>
                 {Object.keys(jobs).map((n) => (
                   <option key={n} value={n}>
                     {n}
@@ -248,7 +248,7 @@ async function RunHistory({ searchParams }: { searchParams: SearchParams }) {
                 Status
               </label>
               <Select id="history-status" name="status" defaultValue={status ?? ""} className="md:w-40">
-                <option value="">Elke status</option>
+                <option value="">Any status</option>
                 {jobStatuses.map((o) => (
                   <option key={o.value} value={o.value}>
                     {o.label}
@@ -256,7 +256,7 @@ async function RunHistory({ searchParams }: { searchParams: SearchParams }) {
                 ))}
               </Select>
               <Button type="submit" variant="secondary" className="max-md:hidden">
-                Filteren
+                Filter
               </Button>
             </div>
           </FilterSheet>
@@ -266,11 +266,11 @@ async function RunHistory({ searchParams }: { searchParams: SearchParams }) {
       {runs.length === 0 ? (
         <EmptyState
           icon={jobName || status ? History : Workflow}
-          title={jobName || status ? "Geen runs gevonden" : "Nog geen runs"}
+          title={jobName || status ? "No runs found" : "No runs yet"}
           description={
             jobName || status
-              ? "Geen runs met dit filter."
-              : "Zodra een job draait, op schema of met Nu draaien, staat hij hier."
+              ? "No runs match this filter."
+              : "As soon as a job runs, on schedule or with Run now, it appears here."
           }
         />
       ) : (
@@ -283,7 +283,7 @@ async function RunHistory({ searchParams }: { searchParams: SearchParams }) {
                   key={run.id}
                   title={<span className="font-mono text-sm">{run.jobName}</span>}
                   subtitle={`${formatDateTime(run.startedAt)}, ${formatDuration(run.durationMs)}`}
-                  meta={`${triggerLabel(run.triggeredBy)}, ${run.recordsIn} in, ${run.recordsOut} uit`}
+                  meta={`${triggerLabel(run.triggeredBy)}, ${run.recordsIn} in, ${run.recordsOut} out`}
                   trailing={<Badge tone={option.tone}>{option.label}</Badge>}
                 >
                   {run.errorFirstLine && <p className="mb-1 text-sm break-words text-danger">{run.errorFirstLine}</p>}
@@ -297,10 +297,10 @@ async function RunHistory({ searchParams }: { searchParams: SearchParams }) {
               <tr>
                 <TH>Job</TH>
                 <TH>Status</TH>
-                <TH>Gestart</TH>
-                <TH>Duur</TH>
+                <TH>Started</TH>
+                <TH>Duration</TH>
                 <TH className="text-right">In</TH>
-                <TH className="text-right">Uit</TH>
+                <TH className="text-right">Out</TH>
                 <TH>Details</TH>
               </tr>
             </THead>
@@ -327,7 +327,7 @@ async function RunHistory({ searchParams }: { searchParams: SearchParams }) {
                       {run.log.length > 0 || run.error ? (
                         <RunLog run={run} />
                       ) : (
-                        !run.errorFirstLine && <span className="text-sm text-muted">Geen log</span>
+                        !run.errorFirstLine && <span className="text-sm text-muted">No log</span>
                       )}
                     </TD>
                   </TR>

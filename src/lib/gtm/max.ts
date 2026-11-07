@@ -92,8 +92,8 @@ export function parseMaxCsv(text: string): MaxRow[] {
   const headers = parsed.meta.fields ?? [];
   const keys = new Map<string, string>();
   for (const h of headers) if (!keys.has(headerKey(h))) keys.set(headerKey(h), h);
-  if (!LINKEDIN_HEADERS.some((k) => keys.has(k))) throw new Error("Geen kolom met de LinkedIn URL van de persoon gevonden (verwacht: person linkedin).");
-  if (!PHONE_HEADERS.some((k) => keys.has(k))) throw new Error("Geen kolom met een telefoonnummer gevonden (verwacht: phone of mobile).");
+  if (!LINKEDIN_HEADERS.some((k) => keys.has(k))) throw new Error("No column with the person's LinkedIn URL found (expected: person linkedin).");
+  if (!PHONE_HEADERS.some((k) => keys.has(k))) throw new Error("No column with a phone number found (expected: phone or mobile).");
 
   return parsed.data.map((row, i) => {
     const phone = normalizePhone(pick(row, keys, PHONE_HEADERS));
@@ -125,7 +125,7 @@ export async function importMaxCsv(db: Db, text: string): Promise<MaxImportResul
   const contacts = new Map<string, { id: string; company_id: string; phone: string | null }>();
   for (const ids of chunk(urls, 100)) {
     const { data, error } = await db.from("contacts").select("id, company_id, phone, linkedin_url").in("linkedin_url", ids);
-    if (error) throw new Error(`Contacten zoeken mislukt: ${error.message}`);
+    if (error) throw new Error(`Could not look up contacts: ${error.message}`);
     for (const c of data) if (c.linkedin_url) contacts.set(c.linkedin_url, c);
   }
 
@@ -133,7 +133,7 @@ export async function importMaxCsv(db: Db, text: string): Promise<MaxImportResul
     const contact = row.linkedin ? contacts.get(row.linkedin) : undefined;
     if (!contact) {
       result.unmatched += 1;
-      if (result.unmatchedSamples.length < 10) result.unmatchedSamples.push(row.linkedin ?? `regel ${row.line}`);
+      if (result.unmatchedSamples.length < 10) result.unmatchedSamples.push(row.linkedin ?? `line ${row.line}`);
       continue;
     }
     result.matched += 1;

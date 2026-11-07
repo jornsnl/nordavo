@@ -24,13 +24,13 @@ export function GuaranteeBadge({
   if (!guaranteeUntil || status === "ended") return null;
   if (today > guaranteeUntil) return null;
   if (today < startDate) {
-    return <Badge tone="neutral">Garantie start {formatShortDate(startDate)}</Badge>;
+    return <Badge tone="neutral">Guarantee starts {formatShortDate(startDate)}</Badge>;
   }
   const daysLeft = diffDays(today, guaranteeUntil);
   return (
     <Badge tone={daysLeft <= 7 ? "warning" : "brand"}>
       <ShieldCheck className="size-3.5" aria-hidden="true" />
-      Garantie tot {formatShortDate(guaranteeUntil)}
+      Guarantee until {formatShortDate(guaranteeUntil)}
     </Badge>
   );
 }
@@ -45,13 +45,13 @@ export function CheckinDate({
   status: PlacementStatus;
   today: string;
 }) {
-  if (!date || status === "ended") return <span className="text-muted">Niet gepland</span>;
+  if (!date || status === "ended") return <span className="text-muted">Not planned</span>;
   const overdue = date < today;
   return (
     <span className={overdue ? "font-semibold text-danger" : undefined}>
       {formatShortDate(date)}
-      {overdue && <span className="ml-1 text-xs font-medium">(te laat)</span>}
-      {date === today && <span className="ml-1 text-xs font-medium text-accent-600">(vandaag)</span>}
+      {overdue && <span className="ml-1 text-xs font-medium">(overdue)</span>}
+      {date === today && <span className="ml-1 text-xs font-medium text-accent-600">(today)</span>}
     </span>
   );
 }

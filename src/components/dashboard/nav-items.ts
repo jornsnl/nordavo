@@ -33,37 +33,37 @@ export type NavSection = {
 export const navSections: NavSection[] = [
   {
     items: [
-      { label: "Overzicht", href: "/dashboard", icon: LayoutDashboard },
-      { label: "Taken", href: "/dashboard/taken", icon: CheckSquare },
-      { label: "Work (takentool)", href: "/work", icon: KanbanSquare },
+      { label: "Overview", href: "/dashboard", icon: LayoutDashboard },
+      { label: "Tasks", href: "/dashboard/tasks", icon: CheckSquare },
+      { label: "Work (task tool)", href: "/work", icon: KanbanSquare },
     ],
   },
   {
     label: "Sales",
     items: [
       { label: "Leads", href: "/dashboard/leads", icon: Radar },
-      { label: "Contacten", href: "/dashboard/contacten", icon: Contact },
-      { label: "Lijsten", href: "/dashboard/lijsten", icon: ListChecks },
-      { label: "Campagnes", href: "/dashboard/campagnes", icon: Megaphone },
-      { label: "Rapport", href: "/dashboard/rapport", icon: BarChart3 },
+      { label: "Contacts", href: "/dashboard/contacts", icon: Contact },
+      { label: "Lists", href: "/dashboard/lists", icon: ListChecks },
+      { label: "Campaigns", href: "/dashboard/campaigns", icon: Megaphone },
+      { label: "Report", href: "/dashboard/report", icon: BarChart3 },
     ],
   },
   {
-    label: "Werving",
+    label: "Recruitment",
     items: [
-      { label: "Klanten", href: "/dashboard/klanten", icon: Building2 },
-      { label: "Vacatures", href: "/dashboard/vacatures", icon: Briefcase },
-      { label: "Kandidaten", href: "/dashboard/kandidaten", icon: Users },
-      { label: "Plaatsingen", href: "/dashboard/plaatsingen", icon: Handshake },
+      { label: "Clients", href: "/dashboard/clients", icon: Building2 },
+      { label: "Vacancies", href: "/dashboard/vacancies", icon: Briefcase },
+      { label: "Candidates", href: "/dashboard/candidates", icon: Users },
+      { label: "Placements", href: "/dashboard/placements", icon: Handshake },
     ],
   },
   {
-    label: "Beheer",
+    label: "Admin",
     items: [
       { label: "Import", href: "/dashboard/import", icon: Upload },
-      { label: "Uitsluitingen", href: "/dashboard/uitsluitingen", icon: ShieldOff },
+      { label: "Suppressions", href: "/dashboard/suppressions", icon: ShieldOff },
       { label: "Jobs", href: "/dashboard/jobs", icon: Workflow },
-      { label: "Instellingen", href: "/dashboard/instellingen", icon: Settings },
+      { label: "Settings", href: "/dashboard/settings", icon: Settings },
     ],
   },
 ];

@@ -32,15 +32,15 @@ type Option<T extends string> = { value: T; label: string; tone: Tone };
 
 export const clientStatuses: Option<ClientStatus>[] = [
   { value: "lead", label: "Lead", tone: "accent" },
-  { value: "active", label: "Actief", tone: "success" },
-  { value: "inactive", label: "Inactief", tone: "neutral" },
+  { value: "active", label: "Active", tone: "success" },
+  { value: "inactive", label: "Inactive", tone: "neutral" },
 ];
 
 export const vacancyStatuses: Option<VacancyStatus>[] = [
   { value: "open", label: "Open", tone: "brand" },
   { value: "on_hold", label: "On hold", tone: "warning" },
-  { value: "filled", label: "Ingevuld", tone: "success" },
-  { value: "closed", label: "Gesloten", tone: "neutral" },
+  { value: "filled", label: "Filled", tone: "success" },
+  { value: "closed", label: "Closed", tone: "neutral" },
 ];
 
 export const seniorities: Option<Seniority>[] = [
@@ -50,53 +50,53 @@ export const seniorities: Option<Seniority>[] = [
 ];
 
 export const candidateStatuses: Option<CandidateStatus>[] = [
-  { value: "available", label: "Beschikbaar", tone: "success" },
-  { value: "in_process", label: "In proces", tone: "brand" },
-  { value: "placed", label: "Geplaatst", tone: "accent" },
-  { value: "unavailable", label: "Niet beschikbaar", tone: "neutral" },
+  { value: "available", label: "Available", tone: "success" },
+  { value: "in_process", label: "In process", tone: "brand" },
+  { value: "placed", label: "Placed", tone: "accent" },
+  { value: "unavailable", label: "Unavailable", tone: "neutral" },
 ];
 
 /** Pipeline columns, in order. "rejected" is shown apart from the flow. */
 export const applicationStages: Option<ApplicationStage>[] = [
-  { value: "sourced", label: "Gesourcet", tone: "neutral" },
+  { value: "sourced", label: "Sourced", tone: "neutral" },
   { value: "screening", label: "Screening", tone: "neutral" },
-  { value: "technical_test", label: "Technische test", tone: "brand" },
-  { value: "english_interview", label: "Engels interview", tone: "brand" },
-  { value: "presented", label: "Voorgesteld aan klant", tone: "accent" },
-  { value: "final_interview", label: "Eindgesprek", tone: "accent" },
-  { value: "placed", label: "Geplaatst", tone: "success" },
-  { value: "rejected", label: "Afgewezen", tone: "danger" },
+  { value: "technical_test", label: "Technical test", tone: "brand" },
+  { value: "english_interview", label: "English interview", tone: "brand" },
+  { value: "presented", label: "Presented to client", tone: "accent" },
+  { value: "final_interview", label: "Final interview", tone: "accent" },
+  { value: "placed", label: "Placed", tone: "success" },
+  { value: "rejected", label: "Rejected", tone: "danger" },
 ];
 
 export const clientDecisions: Option<ClientDecision>[] = [
-  { value: "pending", label: "Wacht op klant", tone: "warning" },
-  { value: "approved", label: "Akkoord", tone: "success" },
-  { value: "rejected", label: "Afgewezen", tone: "danger" },
+  { value: "pending", label: "Awaiting client", tone: "warning" },
+  { value: "approved", label: "Approved", tone: "success" },
+  { value: "rejected", label: "Rejected", tone: "danger" },
 ];
 
 export const placementStatuses: Option<PlacementStatus>[] = [
-  { value: "active", label: "Actief", tone: "success" },
-  { value: "notice", label: "Opgezegd", tone: "warning" },
-  { value: "ended", label: "Beëindigd", tone: "neutral" },
+  { value: "active", label: "Active", tone: "success" },
+  { value: "notice", label: "Notice given", tone: "warning" },
+  { value: "ended", label: "Ended", tone: "neutral" },
 ];
 
 export const taskStatuses: Option<TaskStatus>[] = [
-  { value: "todo", label: "Te doen", tone: "neutral" },
-  { value: "in_progress", label: "Bezig", tone: "brand" },
-  { value: "done", label: "Klaar", tone: "success" },
+  { value: "todo", label: "To do", tone: "neutral" },
+  { value: "in_progress", label: "In progress", tone: "brand" },
+  { value: "done", label: "Done", tone: "success" },
 ];
 
 export const taskPriorities: Option<TaskPriority>[] = [
-  { value: "low", label: "Laag", tone: "neutral" },
-  { value: "normal", label: "Normaal", tone: "brand" },
-  { value: "high", label: "Hoog", tone: "danger" },
+  { value: "low", label: "Low", tone: "neutral" },
+  { value: "normal", label: "Normal", tone: "brand" },
+  { value: "high", label: "High", tone: "danger" },
 ];
 
 export const profileRoles: Option<ProfileRole>[] = [
-  { value: "admin", label: "Beheerder", tone: "accent" },
-  { value: "member", label: "Teamlid", tone: "brand" },
-  { value: "client", label: "Klant", tone: "neutral" },
-  { value: "external", label: "Alleen Work", tone: "neutral" },
+  { value: "admin", label: "Admin", tone: "accent" },
+  { value: "member", label: "Member", tone: "brand" },
+  { value: "client", label: "Client", tone: "neutral" },
+  { value: "external", label: "Work only", tone: "neutral" },
 ];
 
 // ---------------------------------------------------------------------------
@@ -105,9 +105,9 @@ export const profileRoles: Option<ProfileRole>[] = [
 
 export const segments: Option<Segment>[] = [
   { value: "saas", label: "SaaS", tone: "brand" },
-  { value: "productie", label: "Productie", tone: "neutral" },
+  { value: "productie", label: "Manufacturing", tone: "neutral" },
   { value: "agency_automation", label: "Automation agency", tone: "accent" },
-  { value: "agency_overig", label: "Overige agency", tone: "neutral" },
+  { value: "agency_overig", label: "Other agency", tone: "neutral" },
 ];
 
 export const icpDecisions: Option<IcpDecision>[] = [
@@ -117,123 +117,123 @@ export const icpDecisions: Option<IcpDecision>[] = [
 ];
 
 export const companyStatuses: Option<CompanyStatus>[] = [
-  { value: "nieuw", label: "Nieuw", tone: "neutral" },
-  { value: "actief", label: "Actief", tone: "brand" },
-  { value: "klant", label: "Klant", tone: "success" },
-  { value: "verloren", label: "Verloren", tone: "neutral" },
-  { value: "uitgesloten", label: "Uitgesloten", tone: "danger" },
+  { value: "nieuw", label: "New", tone: "neutral" },
+  { value: "actief", label: "Active", tone: "brand" },
+  { value: "klant", label: "Client", tone: "success" },
+  { value: "verloren", label: "Lost", tone: "neutral" },
+  { value: "uitgesloten", label: "Suppressed", tone: "danger" },
 ];
 
 export const contactStatuses: Option<ContactStatus>[] = [
-  { value: "nieuw", label: "Nieuw", tone: "neutral" },
-  { value: "gekwalificeerd", label: "Gekwalificeerd", tone: "brand" },
-  { value: "verrijkt", label: "Verrijkt", tone: "brand" },
-  { value: "op_bellijst", label: "Op bellijst", tone: "accent" },
-  { value: "in_mailcampagne", label: "In mailcampagne", tone: "accent" },
-  { value: "bereikt", label: "Bereikt", tone: "brand" },
-  { value: "afspraak", label: "Afspraak", tone: "success" },
-  { value: "kans", label: "Kans", tone: "success" },
-  { value: "klant", label: "Klant", tone: "success" },
-  { value: "verloren", label: "Verloren", tone: "neutral" },
-  { value: "uitgesloten", label: "Uitgesloten", tone: "danger" },
+  { value: "nieuw", label: "New", tone: "neutral" },
+  { value: "gekwalificeerd", label: "Qualified", tone: "brand" },
+  { value: "verrijkt", label: "Enriched", tone: "brand" },
+  { value: "op_bellijst", label: "On call list", tone: "accent" },
+  { value: "in_mailcampagne", label: "In mail campaign", tone: "accent" },
+  { value: "bereikt", label: "Reached", tone: "brand" },
+  { value: "afspraak", label: "Meeting", tone: "success" },
+  { value: "kans", label: "Opportunity", tone: "success" },
+  { value: "klant", label: "Client", tone: "success" },
+  { value: "verloren", label: "Lost", tone: "neutral" },
+  { value: "uitgesloten", label: "Suppressed", tone: "danger" },
 ];
 
 /** Contact tiers: who to approach first. */
 export const contactTiers: Option<"1" | "2" | "3">[] = [
-  { value: "1", label: "Tier 1: CTO, Head of Engineering of Data", tone: "accent" },
-  { value: "2", label: "Tier 2: eigenaar of directeur", tone: "brand" },
-  { value: "3", label: "Tier 3: recruiter of HR", tone: "neutral" },
+  { value: "1", label: "Tier 1: CTO, Head of Engineering or Data", tone: "accent" },
+  { value: "2", label: "Tier 2: owner or director", tone: "brand" },
+  { value: "3", label: "Tier 3: recruiter or HR", tone: "neutral" },
 ];
 
 export const emailStatuses: Option<EmailStatus>[] = [
-  { value: "valid", label: "Geverifieerd", tone: "success" },
+  { value: "valid", label: "Verified", tone: "success" },
   { value: "catch_all", label: "Catch-all", tone: "warning" },
-  { value: "unknown", label: "Onbekend", tone: "neutral" },
-  { value: "invalid", label: "Ongeldig", tone: "danger" },
+  { value: "unknown", label: "Unknown", tone: "neutral" },
+  { value: "invalid", label: "Invalid", tone: "danger" },
 ];
 
 export const signalTypes: Option<SignalType>[] = [
-  { value: "vacature", label: "Vacature", tone: "brand" },
-  { value: "lang_open", label: "Lang open", tone: "accent" },
-  { value: "meerdere_rollen", label: "Meerdere rollen", tone: "accent" },
-  { value: "remote_extern", label: "Remote of extern team", tone: "accent" },
-  { value: "freelance", label: "Freelance opdracht", tone: "neutral" },
+  { value: "vacature", label: "Vacancy", tone: "brand" },
+  { value: "lang_open", label: "Open for long", tone: "accent" },
+  { value: "meerdere_rollen", label: "Multiple roles", tone: "accent" },
+  { value: "remote_extern", label: "Remote or external team", tone: "accent" },
+  { value: "freelance", label: "Freelance assignment", tone: "neutral" },
   { value: "funding", label: "Funding", tone: "success" },
-  { value: "nieuwe_cto", label: "Nieuwe CTO", tone: "success" },
-  { value: "overig", label: "Overig", tone: "neutral" },
+  { value: "nieuwe_cto", label: "New CTO", tone: "success" },
+  { value: "overig", label: "Other", tone: "neutral" },
 ];
 
 export const activityChannels: Option<ActivityChannel>[] = [
-  { value: "bellen", label: "Bellen", tone: "brand" },
+  { value: "bellen", label: "Call", tone: "brand" },
   { value: "mail", label: "Mail", tone: "brand" },
   { value: "linkedin", label: "LinkedIn", tone: "brand" },
   { value: "meeting", label: "Meeting", tone: "success" },
 ];
 
 export const activityOutcomes: Option<ActivityOutcome>[] = [
-  { value: "verstuurd", label: "Verstuurd", tone: "neutral" },
-  { value: "geen_gehoor", label: "Geen gehoor", tone: "neutral" },
-  { value: "bereikt", label: "Bereikt", tone: "brand" },
-  { value: "terugbellen", label: "Terugbellen", tone: "warning" },
-  { value: "afspraak", label: "Afspraak gepland", tone: "success" },
-  { value: "afspraak_goedgekeurd", label: "Afspraak goedgekeurd", tone: "success" },
-  { value: "afspraak_afgekeurd", label: "Afspraak afgekeurd", tone: "danger" },
-  { value: "niet_geinteresseerd", label: "Niet geïnteresseerd", tone: "neutral" },
-  { value: "reply_positief", label: "Positieve reply", tone: "success" },
-  { value: "reply_neutraal", label: "Neutrale reply", tone: "brand" },
-  { value: "reply_negatief", label: "Negatieve reply", tone: "neutral" },
+  { value: "verstuurd", label: "Sent", tone: "neutral" },
+  { value: "geen_gehoor", label: "No answer", tone: "neutral" },
+  { value: "bereikt", label: "Reached", tone: "brand" },
+  { value: "terugbellen", label: "Call back", tone: "warning" },
+  { value: "afspraak", label: "Meeting booked", tone: "success" },
+  { value: "afspraak_goedgekeurd", label: "Meeting approved", tone: "success" },
+  { value: "afspraak_afgekeurd", label: "Meeting rejected", tone: "danger" },
+  { value: "niet_geinteresseerd", label: "Not interested", tone: "neutral" },
+  { value: "reply_positief", label: "Positive reply", tone: "success" },
+  { value: "reply_neutraal", label: "Neutral reply", tone: "brand" },
+  { value: "reply_negatief", label: "Negative reply", tone: "neutral" },
   { value: "bounce", label: "Bounce", tone: "danger" },
-  { value: "afgemeld", label: "Afgemeld", tone: "danger" },
-  { value: "gesprek_gehad", label: "Gesprek gehad", tone: "success" },
-  { value: "gewonnen", label: "Gewonnen", tone: "success" },
-  { value: "verloren", label: "Verloren", tone: "neutral" },
-  { value: "notitie", label: "Notitie", tone: "neutral" },
+  { value: "afgemeld", label: "Unsubscribed", tone: "danger" },
+  { value: "gesprek_gehad", label: "Call held", tone: "success" },
+  { value: "gewonnen", label: "Won", tone: "success" },
+  { value: "verloren", label: "Lost", tone: "neutral" },
+  { value: "notitie", label: "Note", tone: "neutral" },
 ];
 
 export const suppressionReasons: Option<SuppressionReason>[] = [
-  { value: "afgemeld", label: "Afgemeld", tone: "danger" },
-  { value: "bezwaar", label: "Bezwaar", tone: "danger" },
-  { value: "klant", label: "Is klant", tone: "success" },
-  { value: "lopend_gesprek", label: "Lopend gesprek", tone: "brand" },
-  { value: "niet_bellen", label: "Niet bellen", tone: "warning" },
+  { value: "afgemeld", label: "Unsubscribed", tone: "danger" },
+  { value: "bezwaar", label: "Objection", tone: "danger" },
+  { value: "klant", label: "Is a client", tone: "success" },
+  { value: "lopend_gesprek", label: "Ongoing conversation", tone: "brand" },
+  { value: "niet_bellen", label: "Do not call", tone: "warning" },
 ];
 
 export const suppressionScopes: Option<SuppressionScope>[] = [
-  { value: "alle_kanalen", label: "Alle kanalen", tone: "danger" },
-  { value: "alleen_bellen", label: "Alleen bellen", tone: "warning" },
-  { value: "alleen_mail", label: "Alleen mail", tone: "warning" },
+  { value: "alle_kanalen", label: "All channels", tone: "danger" },
+  { value: "alleen_bellen", label: "Calls only", tone: "warning" },
+  { value: "alleen_mail", label: "Mail only", tone: "warning" },
 ];
 
 export const jobStatuses: Option<JobStatus>[] = [
-  { value: "running", label: "Bezig", tone: "brand" },
-  { value: "success", label: "Gelukt", tone: "success" },
-  { value: "failed", label: "Mislukt", tone: "danger" },
+  { value: "running", label: "Running", tone: "brand" },
+  { value: "success", label: "Succeeded", tone: "success" },
+  { value: "failed", label: "Failed", tone: "danger" },
 ];
 
 export const talentStages: Option<TalentStage>[] = [
   { value: "intake", label: "Intake", tone: "neutral" },
-  { value: "zoeken", label: "Zoeken", tone: "brand" },
-  { value: "profielen_verstuurd", label: "Profielen verstuurd", tone: "accent" },
-  { value: "gesprekken", label: "Gesprekken", tone: "accent" },
-  { value: "geplaatst", label: "Geplaatst", tone: "success" },
-  { value: "gesloten", label: "Gesloten", tone: "neutral" },
+  { value: "zoeken", label: "Searching", tone: "brand" },
+  { value: "profielen_verstuurd", label: "Profiles sent", tone: "accent" },
+  { value: "gesprekken", label: "Interviews", tone: "accent" },
+  { value: "geplaatst", label: "Placed", tone: "success" },
+  { value: "gesloten", label: "Closed", tone: "neutral" },
 ];
 
 export const matchStatuses: Option<MatchStatus>[] = [
-  { value: "voorgesteld", label: "Voorgesteld", tone: "neutral" },
-  { value: "goedgekeurd", label: "Goedgekeurd", tone: "brand" },
-  { value: "verstuurd", label: "Verstuurd", tone: "accent" },
-  { value: "gesprek", label: "Gesprek", tone: "accent" },
-  { value: "aangenomen", label: "Aangenomen", tone: "success" },
-  { value: "afgewezen", label: "Afgewezen", tone: "danger" },
+  { value: "voorgesteld", label: "Suggested", tone: "neutral" },
+  { value: "goedgekeurd", label: "Approved", tone: "brand" },
+  { value: "verstuurd", label: "Sent", tone: "accent" },
+  { value: "gesprek", label: "Interview", tone: "accent" },
+  { value: "aangenomen", label: "Hired", tone: "success" },
+  { value: "afgewezen", label: "Rejected", tone: "danger" },
 ];
 
 export const entityTypes: Record<EntityType, { label: string; href: (id: string) => string }> = {
-  client: { label: "Klant", href: (id) => `/dashboard/klanten/${id}` },
-  vacancy: { label: "Vacature", href: (id) => `/dashboard/vacatures/${id}` },
-  candidate: { label: "Kandidaat", href: (id) => `/dashboard/kandidaten/${id}` },
-  application: { label: "Sollicitatie", href: (id) => `/dashboard/kandidaten?application=${id}` },
-  placement: { label: "Plaatsing", href: (id) => `/dashboard/plaatsingen/${id}` },
+  client: { label: "Client", href: (id) => `/dashboard/clients/${id}` },
+  vacancy: { label: "Vacancy", href: (id) => `/dashboard/vacancies/${id}` },
+  candidate: { label: "Candidate", href: (id) => `/dashboard/candidates/${id}` },
+  application: { label: "Application", href: (id) => `/dashboard/candidates?application=${id}` },
+  placement: { label: "Placement", href: (id) => `/dashboard/placements/${id}` },
   company: { label: "Lead", href: (id) => `/dashboard/leads/${id}` },
 };
 

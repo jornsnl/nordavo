@@ -14,17 +14,17 @@ import { hasOnePage, pushContactToCrm } from "@/lib/integrations/onepage";
 import { createClient } from "@/lib/supabase/server";
 
 const idSchema = z.guid();
-const CHECK_FIELDS = "Controleer de gemarkeerde velden.";
+const CHECK_FIELDS = "Check the highlighted fields.";
 
 const segmentSchema = z.enum(["saas", "productie", "agency_automation", "agency_overig"], {
-  error: "Kies een segment.",
+  error: "Choose a segment.",
 });
 
 function revalidateLead(companyId: string) {
   revalidatePath("/dashboard/leads");
   revalidatePath("/dashboard/leads/review");
   revalidatePath(`/dashboard/leads/${companyId}`);
-  revalidatePath("/dashboard/contacten");
+  revalidatePath("/dashboard/contacts");
 }
 
 // ---------------------------------------------------------------------------
@@ -32,8 +32,8 @@ function revalidateLead(companyId: string) {
 // ---------------------------------------------------------------------------
 
 const reviewSchema = z.object({
-  decision: z.enum(["GO", "NO_GO"], { error: "Kies GO of No go." }),
-  note: z.string().max(2000, "Gebruik maximaal 2000 tekens.").optional(),
+  decision: z.enum(["GO", "NO_GO"], { error: "Choose GO or No go." }),
+  note: z.string().max(2000, "Use at most 2000 characters.").optional(),
   client_contact_risk: z.literal("on").optional(),
   segment: segmentSchema.optional(),
 });
@@ -60,7 +60,7 @@ export async function reviewDecisionAction(
   // Rule 9: the database forces NO_GO when there is client contact risk.
   const decision = risk ? "NO_GO" : parsed.data.decision;
   const note = parsed.data.note
-    ? `Review door ${user.name} op ${formatDate(new Date().toISOString())}: ${parsed.data.note}`
+    ? `Review by ${user.name} on ${formatDate(new Date().toISOString())}: ${parsed.data.note}`
     : null;
   const reason = [company.icp_reason, note].filter(Boolean).join("\n\n") || null;
 
@@ -83,8 +83,8 @@ export async function reviewDecisionAction(
     ok: true,
     message:
       risk && parsed.data.decision === "GO"
-        ? `${company.name} staat op No go: er is risico op klantcontact.`
-        : `${company.name} staat op ${label}.`,
+        ? `${company.name} is set to No go: there is a client contact risk.`
+        : `${company.name} is set to ${label}.`,
   };
 }
 
@@ -92,24 +92,24 @@ export async function reviewDecisionAction(
 // Company basics
 // ---------------------------------------------------------------------------
 
-const optionalText = (max: number) => z.string().max(max, `Gebruik maximaal ${max} tekens.`).optional();
+const optionalText = (max: number) => z.string().max(max, `Use at most ${max} characters.`).optional();
 
 const companySchema = z.object({
-  name: z.string({ error: "Vul een naam in." }).min(1, "Vul een naam in.").max(200, "Gebruik maximaal 200 tekens."),
+  name: z.string({ error: "Enter a name." }).min(1, "Enter a name.").max(200, "Use at most 200 characters."),
   legal_form: optionalText(100),
   employees: z.coerce
-    .number({ error: "Vul een getal in." })
-    .int("Vul een heel getal in.")
-    .min(0, "Vul 0 of meer in.")
-    .max(1_000_000, "Dat is wel erg veel.")
+    .number({ error: "Enter a number." })
+    .int("Enter a whole number.")
+    .min(0, "Enter 0 or more.")
+    .max(1_000_000, "That is a lot, check the number.")
     .optional(),
   sector: optionalText(200),
   city: optionalText(200),
   segment: segmentSchema.optional(),
-  status: z.enum(["nieuw", "actief", "klant", "verloren", "uitgesloten"], { error: "Kies een status." }),
+  status: z.enum(["nieuw", "actief", "klant", "verloren", "uitgesloten"], { error: "Choose a status." }),
   kvk_number: z
     .string()
-    .regex(/^\d{8}$/, "Een KvK-nummer heeft 8 cijfers.")
+    .regex(/^\d{8}$/, "A KvK number has 8 digits.")
     .optional(),
   linkedin_url: optionalText(300),
 });
@@ -143,7 +143,7 @@ export async function updateCompanyAction(
   if (error) return { error: GENERIC_ERROR };
 
   revalidateLead(companyId);
-  return { ok: true, message: "Bedrijf bijgewerkt." };
+  return { ok: true, message: "Company updated." };
 }
 
 // ---------------------------------------------------------------------------
@@ -153,7 +153,7 @@ export async function updateCompanyAction(
 const activitySchema = z
   .object({
     contact_id: z.guid().optional(),
-    channel: z.enum(["bellen", "mail", "linkedin", "meeting"], { error: "Kies een kanaal." }),
+    channel: z.enum(["bellen", "mail", "linkedin", "meeting"], { error: "Choose a channel." }),
     outcome: z.enum(
       [
         "verstuurd",
@@ -174,15 +174,15 @@ const activitySchema = z
         "verloren",
         "notitie",
       ],
-      { error: "Kies een uitkomst." },
+      { error: "Choose an outcome." },
     ),
-    date: z.iso.date({ error: "Kies een geldige datum." }).optional(),
+    date: z.iso.date({ error: "Choose a valid date." }).optional(),
     notes: optionalText(5000),
     next_action: optionalText(300),
-    next_action_date: z.iso.date({ error: "Kies een geldige datum." }).optional(),
+    next_action_date: z.iso.date({ error: "Choose a valid date." }).optional(),
   })
   .refine((d) => !d.next_action_date || d.next_action, {
-    message: "Beschrijf de volgende actie bij deze datum.",
+    message: "Describe the next action for this date.",
     path: ["next_action"],
   });
 
@@ -205,7 +205,7 @@ export async function logActivityAction(
       .eq("id", d.contact_id)
       .eq("company_id", companyId)
       .maybeSingle();
-    if (!contact) return { error: "Dit contact hoort niet bij dit bedrijf." };
+    if (!contact) return { error: "This contact does not belong to this company." };
   }
 
   // A date without time: keep the current time when it is today, else noon.
@@ -231,8 +231,8 @@ export async function logActivityAction(
     ok: true,
     message:
       d.outcome === "afgemeld"
-        ? "Activiteit vastgelegd. De afmelding staat direct in de uitsluitingen."
-        : "Activiteit vastgelegd.",
+        ? "Activity logged. The unsubscribe is added to the suppressions straight away."
+        : "Activity logged.",
   };
 }
 
@@ -241,9 +241,9 @@ export async function logActivityAction(
 // ---------------------------------------------------------------------------
 
 const suppressionSchema = z.object({
-  target: z.string({ error: "Kies wie je uitsluit." }).min(1, "Kies wie je uitsluit."),
-  reason: z.enum(["afgemeld", "bezwaar", "klant", "lopend_gesprek", "niet_bellen"], { error: "Kies een reden." }),
-  scope: z.enum(["alle_kanalen", "alleen_bellen", "alleen_mail"], { error: "Kies voor welke kanalen." }),
+  target: z.string({ error: "Choose who to suppress." }).min(1, "Choose who to suppress."),
+  reason: z.enum(["afgemeld", "bezwaar", "klant", "lopend_gesprek", "niet_bellen"], { error: "Choose a reason." }),
+  scope: z.enum(["alle_kanalen", "alleen_bellen", "alleen_mail"], { error: "Choose the channels." }),
   notes: optionalText(1000),
 });
 
@@ -268,7 +268,7 @@ export async function suppressAction(
       .eq("id", d.target)
       .eq("company_id", companyId)
       .maybeSingle();
-    if (!contact) return { error: "Dit contact hoort niet bij dit bedrijf." };
+    if (!contact) return { error: "This contact does not belong to this company." };
     contactId = contact.id;
   }
 
@@ -283,10 +283,10 @@ export async function suppressAction(
   if (error) return { error: GENERIC_ERROR };
 
   revalidateLead(companyId);
-  revalidatePath("/dashboard/uitsluitingen");
+  revalidatePath("/dashboard/suppressions");
   return {
     ok: true,
-    message: contactId ? "Contact uitgesloten." : "Bedrijf uitgesloten. Geen enkel contact van dit bedrijf wordt nog benaderd via deze kanalen.",
+    message: contactId ? "Contact suppressed." : "Company suppressed. No contact at this company is approached through these channels any more.",
   };
 }
 
@@ -296,12 +296,12 @@ export async function suppressAction(
 
 const crmSchema = z
   .object({
-    reason: z.string({ error: "Vul een reden in." }).min(1, "Vul een reden in.").max(500, "Gebruik maximaal 500 tekens."),
+    reason: z.string({ error: "Enter a reason." }).min(1, "Enter a reason.").max(500, "Use at most 500 characters."),
     next_action: optionalText(300),
-    next_action_date: z.iso.date({ error: "Kies een geldige datum." }).optional(),
+    next_action_date: z.iso.date({ error: "Choose a valid date." }).optional(),
   })
   .refine((d) => Boolean(d.next_action) === Boolean(d.next_action_date), {
-    message: "Vul de volgende actie en de datum allebei in, of laat ze allebei leeg.",
+    message: "Fill in both the next action and the date, or leave both empty.",
     path: ["next_action_date"],
   });
 
@@ -316,7 +316,7 @@ export async function pushToCrmAction(
     return { error: GENERIC_ERROR };
   }
   if (!hasOnePage()) {
-    return { error: "OnePageCRM is nog niet gekoppeld: ONEPAGE_USER_ID en ONEPAGE_API_KEY ontbreken op de server." };
+    return { error: "OnePageCRM is not connected yet: ONEPAGE_USER_ID and ONEPAGE_API_KEY are missing on the server." };
   }
   const parsed = crmSchema.safeParse(formValues(formData));
   if (!parsed.success) return { error: CHECK_FIELDS, fieldErrors: fieldErrorsFrom(parsed.error) };
@@ -328,13 +328,13 @@ export async function pushToCrmAction(
     .eq("id", contactId)
     .eq("company_id", companyId)
     .maybeSingle();
-  if (!contact) return { error: "Dit contact hoort niet bij dit bedrijf." };
+  if (!contact) return { error: "This contact does not belong to this company." };
   // Rule 8: only qualified contacts go into the CRM.
   if (contact.company?.icp_decision !== "GO") {
-    return { error: "Alleen contacten van een GO bedrijf gaan naar het CRM. Kwalificeer het bedrijf eerst." };
+    return { error: "Only contacts of a GO company go to the CRM. Qualify the company first." };
   }
   if (contact.status === "uitgesloten" || contact.status === "verloren") {
-    return { error: "Dit contact is uitgesloten of verloren en gaat niet naar het CRM." };
+    return { error: "This contact is suppressed or lost and does not go to the CRM." };
   }
 
   try {
@@ -346,7 +346,7 @@ export async function pushToCrmAction(
           : undefined,
     });
     revalidateLead(companyId);
-    return { ok: true, message: `Contact staat in OnePageCRM (id ${onepageId}).` };
+    return { ok: true, message: `Contact is in OnePageCRM (id ${onepageId}).` };
   } catch (error) {
     return { error: error instanceof Error && error.message ? error.message : GENERIC_ERROR };
   }
@@ -357,10 +357,10 @@ export async function pushToCrmAction(
 // ---------------------------------------------------------------------------
 
 const linkSchema = z.discriminatedUnion("mode", [
-  z.object({ mode: z.literal("existing"), client_id: z.guid({ error: "Kies een klant." }) }),
+  z.object({ mode: z.literal("existing"), client_id: z.guid({ error: "Choose a client." }) }),
   z.object({
     mode: z.literal("new"),
-    name: z.string({ error: "Vul een naam in." }).min(1, "Vul een naam in.").max(200, "Gebruik maximaal 200 tekens."),
+    name: z.string({ error: "Enter a name." }).min(1, "Enter a name.").max(200, "Use at most 200 characters."),
   }),
 ]);
 
@@ -408,7 +408,7 @@ export async function linkClientAction(
   if (error) return { error: GENERIC_ERROR };
 
   revalidateLead(companyId);
-  revalidatePath("/dashboard/klanten");
-  revalidatePath(`/dashboard/klanten/${clientId}`);
-  return { ok: true, message: "Gekoppeld aan de klant. Het bedrijf staat nu op klant." };
+  revalidatePath("/dashboard/clients");
+  revalidatePath(`/dashboard/clients/${clientId}`);
+  return { ok: true, message: "Linked to the client. The company now has the status client." };
 }

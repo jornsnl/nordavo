@@ -81,7 +81,7 @@ function ReviewForm({
   const [state, formAction, pending] = useActionState(async (prev: ActionState, formData: FormData) => {
     const result = await action(prev, formData);
     if (result?.ok) {
-      onDone(result.message ?? "Opgeslagen.");
+      onDone(result.message ?? "Saved.");
       router.replace(nextHref, { scroll: false });
     }
     return result ?? prev;
@@ -136,12 +136,12 @@ function ReviewForm({
           >
             {item.domain}
             <ExternalLink className="size-3.5" aria-hidden="true" />
-            <span className="sr-only">(opent in een nieuw tabblad)</span>
+            <span className="sr-only">(opens in a new tab)</span>
           </a>
         }
         actions={
           <span className="text-sm text-muted tabular-nums">
-            {position} van {total}
+            {position} of {total}
           </span>
         }
       />
@@ -149,15 +149,15 @@ function ReviewForm({
         <DetailList
           items={[
             { label: "Segment", value: <SegmentBadge segment={item.segment} /> },
-            { label: "Medewerkers", value: item.employees ?? null },
+            { label: "Employees", value: item.employees ?? null },
             { label: "Sector", value: item.sector },
-            { label: "Rechtsvorm", value: item.legalForm },
-            { label: "Plaats", value: item.city },
+            { label: "Legal form", value: item.legalForm },
+            { label: "City", value: item.city },
             {
               label: "Detail",
               value: (
                 <Link href={`/dashboard/leads/${item.id}`} className="text-brand-700 hover:underline">
-                  Open de leadpagina
+                  Open the lead page
                 </Link>
               ),
             },
@@ -166,11 +166,11 @@ function ReviewForm({
 
         <section aria-labelledby="review-reason" className="space-y-2">
           <h3 id="review-reason" className="text-xs font-medium tracking-wide text-muted uppercase">
-            Reden van Claude
+            Reason from Claude
           </h3>
-          <p className="text-sm whitespace-pre-line text-ink">{item.icpReason || "Claude gaf geen reden."}</p>
+          <p className="text-sm whitespace-pre-line text-ink">{item.icpReason || "Claude gave no reason."}</p>
           {item.redFlags.length > 0 && (
-            <ul className="flex flex-wrap gap-2" aria-label="Rode vlaggen">
+            <ul className="flex flex-wrap gap-2" aria-label="Red flags">
               {item.redFlags.map((flag) => (
                 <li key={flag}>
                   <Badge tone="danger">
@@ -183,17 +183,17 @@ function ReviewForm({
           )}
           {item.openingLine && (
             <p className="text-sm text-muted">
-              <span className="font-medium text-ink">Openingszin:</span> {item.openingLine}
+              <span className="font-medium text-ink">Opening line:</span> {item.openingLine}
             </p>
           )}
         </section>
 
         <section aria-labelledby="review-signals" className="space-y-2">
           <h3 id="review-signals" className="text-xs font-medium tracking-wide text-muted uppercase">
-            Signalen
+            Signals
           </h3>
           {item.signals.length === 0 ? (
-            <p className="text-sm text-muted">Geen signalen bij dit bedrijf.</p>
+            <p className="text-sm text-muted">No signals for this company.</p>
           ) : (
             <ul className="divide-y divide-border rounded-xl border border-border">
               {item.signals.map((s) => (
@@ -208,17 +208,17 @@ function ReviewForm({
                           rel="noopener noreferrer"
                           className="inline-flex min-w-0 items-center gap-1 text-sm font-medium text-brand-700 hover:underline"
                         >
-                          <span className="truncate">{s.title || "Vacature"}</span>
+                          <span className="truncate">{s.title || "Vacancy"}</span>
                           <ExternalLink className="size-3.5 shrink-0" aria-hidden="true" />
-                          <span className="sr-only">(opent in een nieuw tabblad)</span>
+                          <span className="sr-only">(opens in a new tab)</span>
                         </a>
                       ) : (
-                        <span className="text-sm font-medium">{s.title || "Zonder titel"}</span>
+                        <span className="text-sm font-medium">{s.title || "Untitled"}</span>
                       )}
                     </div>
                   </div>
                   <p className="shrink-0 text-xs text-muted">
-                    {formatDate(s.firstSeenAt)} tot {formatDate(s.lastSeenAt)}
+                    {formatDate(s.firstSeenAt)} to {formatDate(s.lastSeenAt)}
                   </p>
                 </li>
               ))}
@@ -241,7 +241,7 @@ function ReviewForm({
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Segment" htmlFor="review-segment" error={state.fieldErrors?.segment}>
               <Select id="review-segment" name="segment" defaultValue={item.segment ?? ""}>
-                <option value="">Geen segment</option>
+                <option value="">No segment</option>
                 {segments.map((o) => (
                   <option key={o.value} value={o.value}>
                     {o.label}
@@ -259,31 +259,31 @@ function ReviewForm({
                   className="mt-0.5 size-4 rounded border-border accent-brand-700 pointer-coarse:size-5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500"
                 />
                 <span>
-                  Risico op klantcontact
+                  Risk of client contact
                   <span className="block text-xs text-muted">
-                    De developer zou direct met klanten van de klant werken. Dit is altijd No go.
+                    The developer would work directly with the client&apos;s own customers. This is always No go.
                   </span>
                 </span>
               </label>
             </div>
           </div>
           <Field
-            label="Notitie"
+            label="Note"
             htmlFor="review-note"
-            hint="Optioneel. Komt onder de reden van Claude te staan."
+            hint="Optional. Shown below the reason from Claude."
             error={state.fieldErrors?.note}
           >
             <Textarea id="review-note" name="note" rows={3} />
           </Field>
           {risk && (
             <p className="rounded-xl border border-amber-600/20 bg-amber-50 px-4 py-3 text-sm text-amber-900" role="status">
-              Met risico op klantcontact zet de database dit bedrijf altijd op No go. GO kan daarom niet.
+              With a risk of client contact the database always sets this company to No go, so GO is not possible.
             </p>
           )}
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-xs text-muted max-lg:hidden">
-              Sneltoetsen: <kbd className="font-semibold">G</kbd> voor GO, <kbd className="font-semibold">N</kbd> voor
-              No go, <kbd className="font-semibold">S</kbd> om over te slaan.
+              Shortcuts: <kbd className="font-semibold">G</kbd> for GO, <kbd className="font-semibold">N</kbd> for
+              No go, <kbd className="font-semibold">S</kbd> to skip.
             </p>
             {/* Phones and tablets: a bar above the tab bar, so you can decide with one thumb. */}
             <div className="flex gap-2 max-lg:fixed max-lg:inset-x-0 max-lg:bottom-[calc(4.5rem+env(safe-area-inset-bottom))] max-lg:z-20 max-lg:border-t max-lg:border-border max-lg:bg-white/95 max-lg:py-3 max-lg:pr-[max(1rem,env(safe-area-inset-right))] max-lg:pl-[max(1rem,env(safe-area-inset-left))] max-lg:shadow-[0_-4px_16px_rgb(10_26_47/0.06)] max-lg:backdrop-blur-lg">
@@ -294,7 +294,7 @@ function ReviewForm({
                   className="inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold text-brand-700 transition hover:bg-brand-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500 active:bg-brand-50 max-lg:min-h-12 max-lg:px-3"
                 >
                   <SkipForward className="size-[18px]" aria-hidden="true" />
-                  <span className="max-sm:sr-only">Overslaan</span>
+                  <span className="max-sm:sr-only">Skip</span>
                 </Link>
               )}
               <Button

@@ -34,6 +34,8 @@ export type VacancyListItem = {
   /** GTM prospect, for vacancies of a company that is not a client yet. */
   companyId: string | null;
   companyName: string | null;
+  /** No client or prospect yet: no clock, not in dashboard or report. */
+  isTalentPool: boolean;
   talentStage: TalentStage;
   leadTime: LeadTime;
   seniority: Seniority;
@@ -48,11 +50,14 @@ export async function listVacancies({
   statuses,
   clientId,
   talentStage,
+  talentPool,
 }: {
   q?: string;
   statuses?: VacancyStatus[];
   clientId?: string;
   talentStage?: TalentStage;
+  /** True: only talent pool vacancies. False: only linked ones. Unset: all. */
+  talentPool?: boolean;
 }): Promise<VacancyListItem[]> {
   await requireStaff();
   const supabase = await createClient();
@@ -60,7 +65,7 @@ export async function listVacancies({
   let query = supabase
     .from("vacancies")
     .select(
-      "id, title, client_id, company_id, seniority, status, stack, opened_at, closed_at, talent_stage, intake_at, profiles_sent_at, client:clients(name), company:companies(name), applications(stage)",
+      "id, title, client_id, company_id, is_talent_pool, seniority, status, stack, opened_at, closed_at, talent_stage, intake_at, profiles_sent_at, client:clients(name), company:companies(name), applications(stage)",
     )
     .order("opened_at", { ascending: true });
 
@@ -68,9 +73,10 @@ export async function listVacancies({
   if (statuses && statuses.length > 0) query = query.in("status", statuses);
   if (clientId && isUuid(clientId)) query = query.eq("client_id", clientId);
   if (talentStage) query = query.eq("talent_stage", talentStage);
+  if (talentPool !== undefined) query = query.eq("is_talent_pool", talentPool);
 
   const { data, error } = await query;
-  if (error) throw new Error(`Vacatures laden mislukt: ${error.message}`);
+  if (error) throw new Error(`Could not load vacancies: ${error.message}`);
 
   return data.map((v) => ({
     id: v.id,
@@ -79,6 +85,7 @@ export async function listVacancies({
     clientName: v.client?.name ?? null,
     companyId: v.company_id,
     companyName: v.company?.name ?? null,
+    isTalentPool: v.is_talent_pool,
     talentStage: v.talent_stage,
     leadTime: leadTime(v),
     seniority: v.seniority,
@@ -100,7 +107,7 @@ export async function getVacancy(id: string) {
     )
     .eq("id", id)
     .maybeSingle();
-  if (error) throw new Error(`Vacature laden mislukt: ${error.message}`);
+  if (error) throw new Error(`Could not load vacancy: ${error.message}`);
   if (!data) return null;
   return { ...data, daysOpen: vacancyDaysOpen(data), leadTime: leadTime(data) };
 }
@@ -118,7 +125,7 @@ export async function listCompanyOptions(selectedId?: string | null): Promise<{ 
     .or("icp_decision.eq.GO,status.in.(actief,klant)")
     .order("name")
     .limit(500);
-  if (error) throw new Error(`Bedrijven laden mislukt: ${error.message}`);
+  if (error) throw new Error(`Could not load companies: ${error.message}`);
   const options = data.map((c) => ({ id: c.id, label: `${c.name} (${c.domain})` }));
   if (selectedId && isUuid(selectedId) && !options.some((o) => o.id === selectedId)) {
     const { data: selected } = await supabase.from("companies").select("id, name, domain").eq("id", selectedId).maybeSingle();
@@ -142,7 +149,7 @@ export async function getVacancyPipelineSummary(vacancyId: string): Promise<Pipe
     .from("applications")
     .select("stage, presented_at")
     .eq("vacancy_id", vacancyId);
-  if (error) throw new Error(`Pipeline laden mislukt: ${error.message}`);
+  if (error) throw new Error(`Could not load pipeline: ${error.message}`);
 
   const counts = new Map<ApplicationStage, number>();
   for (const a of data) counts.set(a.stage, (counts.get(a.stage) ?? 0) + 1);

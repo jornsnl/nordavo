@@ -20,7 +20,7 @@ export async function POST(request: Request) {
 
   const db = createAdminClient();
   if (!db) {
-    return jsonRpcError(503, "De MCP server is niet geconfigureerd: SUPABASE_SECRET_KEY ontbreekt op de server.");
+    return jsonRpcError(503, "The MCP server is not configured: SUPABASE_SECRET_KEY is missing on the server.");
   }
 
   const auth = await authenticateMcpToken(request.headers.get("authorization"), db);
@@ -42,7 +42,7 @@ export async function POST(request: Request) {
     return response;
   } catch (error) {
     console.error("[mcp] request failed:", error instanceof Error ? error.message : error);
-    return jsonRpcError(500, "Interne fout in de MCP server.");
+    return jsonRpcError(500, "Internal error in the MCP server.");
   } finally {
     await server.close().catch(() => {});
   }
@@ -59,7 +59,7 @@ export async function DELETE() {
 }
 
 function methodNotAllowed() {
-  return jsonRpcError(405, "Method not allowed: deze MCP server is stateless en accepteert alleen POST.", {
+  return jsonRpcError(405, "Method not allowed: this MCP server is stateless and only accepts POST.", {
     Allow: "POST",
   });
 }

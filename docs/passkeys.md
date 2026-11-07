@@ -16,7 +16,7 @@ Er zijn twee soorten:
 ## Een passkey toevoegen
 
 1. Log in met je wachtwoord.
-2. Ga naar je beveiligingsinstellingen: teamleden via Instellingen (`/dashboard/instellingen`), klanten via Beveiliging (`/portaal/beveiliging`).
+2. Ga naar je beveiligingsinstellingen: teamleden via Instellingen (`/dashboard/settings`), klanten via Beveiliging (`/portal/security`).
 3. Vul bij Passkeys een naam in die je herkent, bijvoorbeeld "MacBook" of "iPhone".
 4. Klik op **Passkey toevoegen**.
 5. Je browser of wachtwoordmanager vraagt om je vingerafdruk, gezicht of pincode. Bevestig.
@@ -53,7 +53,7 @@ Technisch: Supabase Auth kent zo'n sessie alleen als aal1. Na een geslaagde pass
 | --- | --- |
 | Tabellen `passkeys` en `webauthn_challenges` | `supabase/migrations/20261026000000_security.sql` |
 | Relying party en challenges | `src/lib/security/webauthn.ts` |
-| Passkeys beheren (server actions) | `src/app/dashboard/instellingen/passkey-actions.ts` |
+| Passkeys beheren (server actions) | `src/app/dashboard/settings/passkey-actions.ts` |
 | Passkeys beheren (scherm) | `src/components/settings/security/passkey-*.tsx` |
 | Inloggen met passkey | `src/app/login/passkey-sign-in.tsx`, `src/app/login/passkey-actions.ts` |
 | Passkey-sessie cookie | `src/lib/security/passkey-session.ts` |
@@ -78,7 +78,7 @@ Draai `supabase/migrations/20261026000000_security.sql` in de SQL editor van Sup
 | --- | --- | --- |
 | `SUPABASE_SECRET_KEY` | Ja | Nodig om challenges op te slaan, de passkey bij het inloggen op te zoeken en de sessie aan te maken. Zonder deze sleutel toont het portaal een melding in plaats van het formulier |
 | `WEBAUTHN_RP_ID` | Nee | Het domein waar passkeys bij horen, zonder `https://` en zonder poort, bijvoorbeeld `portaal.nordavo.nl`. Standaard de hostnaam van `NEXT_PUBLIC_SITE_URL` |
-| `WEBAUTHN_ORIGIN` | Nee | De volledige origin waarop het portaal draait, bijvoorbeeld `https://portaal.nordavo.nl`. Standaard de origin van `NEXT_PUBLIC_SITE_URL` |
+| `WEBAUTHN_ORIGIN` | Nee | De volledige origin waarop het portaal draait, bijvoorbeeld `https://portal.nordavo.nl`. Standaard de origin van `NEXT_PUBLIC_SITE_URL` |
 | `PASSKEY_SESSION_SECRET` | Nee | Sleutel om de passkey-sessie cookie te ondertekenen. Standaard `SUPABASE_SECRET_KEY`. Stel een eigen lange, willekeurige waarde in als je die sleutels los van elkaar wilt kunnen vervangen |
 
 Let op: passkeys horen bij het rpID. Verander je het domein van het portaal, dan werken bestaande passkeys niet meer en moeten gebruikers ze opnieuw toevoegen. Vervang je `PASSKEY_SESSION_SECRET` (of `SUPABASE_SECRET_KEY` als die de fallback is), dan tellen lopende passkey-sessies niet meer als tweestapsverificatie tot de volgende passkey-login.

@@ -51,14 +51,14 @@ export function hasApify() {
 
 function requireToken(): string {
   const token = process.env.APIFY_TOKEN;
-  if (!token) throw new Error("APIFY_TOKEN ontbreekt. Zet deze in de omgevingsvariabelen.");
+  if (!token) throw new Error("APIFY_TOKEN is missing. Set it in the environment variables.");
   return token;
 }
 
 /** Actor id from an env var, with a clear Dutch error when it is not set. */
 export function requireActor(envName: "APIFY_LINKEDIN_JOBS_ACTOR" | "APIFY_INDEED_JOBS_ACTOR" | "APIFY_PEOPLE_ACTOR"): string {
   const actor = process.env[envName]?.trim();
-  if (!actor) throw new Error(`${envName} ontbreekt. Zet de Apify actor (gebruiker~actor) in de omgevingsvariabelen.`);
+  if (!actor) throw new Error(`${envName} is missing. Set the Apify actor (user~actor) in the environment variables.`);
   // The API wants user~actor; accept the user/actor form from the Apify console too.
   return actor.replace("/", "~");
 }
@@ -94,14 +94,14 @@ export async function runActorSync(
   if (!response.ok) {
     const body = (await response.text().catch(() => "")).slice(0, 500);
     if (response.status === 408) {
-      throw new Error(`Apify actor ${actorId} duurde langer dan ${timeoutSecs} seconden. Verlaag --limit.`);
+      throw new Error(`Apify actor ${actorId} took longer than ${timeoutSecs} seconds. Lower --limit.`);
     }
-    throw new Error(`Apify actor ${actorId} gaf HTTP ${response.status}: ${body}`);
+    throw new Error(`Apify actor ${actorId} returned HTTP ${response.status}: ${body}`);
   }
 
   const parsed = datasetSchema.safeParse(await response.json());
   if (!parsed.success) {
-    throw new Error(`Apify actor ${actorId} gaf geen lijst met items terug: ${parsed.error.message.slice(0, 300)}`);
+    throw new Error(`Apify actor ${actorId} did not return a list of items: ${parsed.error.message.slice(0, 300)}`);
   }
   return parsed.data;
 }

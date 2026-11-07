@@ -12,7 +12,7 @@ export function DueLabel({ dueDate, today, done }: { dueDate: string | null; tod
   const dayMs = 86_400_000;
   const diff = Math.round((Date.parse(dueDate) - Date.parse(today)) / dayMs);
   const text =
-    diff === 0 ? "Vandaag" : diff === 1 ? "Morgen" : diff === -1 ? "Gisteren" : formatDate(dueDate);
+    diff === 0 ? "Today" : diff === 1 ? "Tomorrow" : diff === -1 ? "Yesterday" : formatDate(dueDate);
   return (
     <span
       className={`inline-flex items-center gap-1 text-xs whitespace-nowrap ${
@@ -21,7 +21,7 @@ export function DueLabel({ dueDate, today, done }: { dueDate: string | null; tod
     >
       <CalendarDays className="size-3.5" aria-hidden="true" />
       <span>
-        {overdue && <span className="sr-only">Te laat: </span>}
+        {overdue && <span className="sr-only">Overdue: </span>}
         {text}
       </span>
     </span>
@@ -38,7 +38,7 @@ export function AssigneeLabel({ name }: { name: string | null }) {
   return (
     <span className="inline-flex min-w-0 items-center gap-1 text-xs text-muted">
       <UserRound className="size-3.5 shrink-0" aria-hidden="true" />
-      <span className="truncate">{name ?? "Niemand"}</span>
+      <span className="truncate">{name ?? "Nobody"}</span>
     </span>
   );
 }
@@ -47,7 +47,7 @@ export function AssigneeLabel({ name }: { name: string | null }) {
 export function RecordChip({ task }: { task: Pick<TaskItem, "entityType" | "record"> }) {
   if (!task.entityType) return null;
   const typeLabel = entityTypes[task.entityType].label;
-  const label = task.record?.label ?? "Verwijderd record";
+  const label = task.record?.label ?? "Deleted record";
   const content = (
     <>
       <Link2 className="size-3 shrink-0" aria-hidden="true" />

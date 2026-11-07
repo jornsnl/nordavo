@@ -4,7 +4,7 @@ import { askJson, hasClaude } from "@/lib/ai/claude";
 import { MATCH_SYSTEM, matchInput, matchResultSchema } from "@/lib/ai/prompts/match";
 import { SEARCH_SYSTEM, searchBriefSchema, searchInput, type SearchBrief } from "@/lib/ai/prompts/search";
 import type { Database, Json, TalentStage, TablesInsert } from "@/lib/database.types";
-import { hasAirtable, listPoolCandidates } from "@/lib/integrations/airtable";
+import { countPool, listPoolCandidates, POOL_LIMIT } from "@/lib/talent/pool";
 import {
   clampScore,
   judgementPayload,
@@ -18,9 +18,10 @@ import {
 
 /**
  * T2 matching and T3 search brief. Used by the t2-match job (service role)
- * and by the "Matchen" button (the user's client, staff RLS). Candidate
- * details stay in memory: only the Airtable id, score, reason, risks,
- * missing must haves and status are written (hard rule 11). Logs carry counts only.
+ * and by the "Match" button (the user's client, staff RLS). The pool is the
+ * portal's candidates table (src/lib/talent/pool.ts). A match stores the
+ * candidate id, score, reason, risks, missing must haves and status. Claude
+ * only sees redacted candidate fields; logs carry counts only.
  */
 
 type Db = SupabaseClient<Database>;
@@ -32,8 +33,8 @@ export type MatchOptions = {
   batchSize?: number;
   /** Also store every candidate scoring at least this; null: top 3 only. */
   keepAbove?: number | null;
-  /** Optional extra Airtable formula. */
-  filterByFormula?: string;
+  /** Cap on the candidates the SQL prefilter returns. */
+  poolLimit?: number;
   log?: (message: string) => void;
 };
 
@@ -59,8 +60,8 @@ async function loadRequirements(db: Db, vacancyId: string) {
     .select("id, title, stack, seniority, hours, timezone_overlap, budget_min, budget_max, client_contact_required, must_haves, nice_to_haves, talent_stage")
     .eq("id", vacancyId)
     .maybeSingle();
-  if (error) throw new Error(`Vacature laden mislukt: ${error.message}`);
-  if (!data) throw new Error("Deze vacature bestaat niet (meer).");
+  if (error) throw new Error(`Could not load the vacancy: ${error.message}`);
+  if (!data) throw new Error("This vacancy no longer exists.");
   return data;
 }
 
@@ -83,21 +84,18 @@ async function mapLimit<T, R>(items: T[], limit: number, fn: (item: T) => Promis
 }
 
 export async function runMatching(db: Db, vacancyId: string, options: MatchOptions = {}): Promise<MatchSummary> {
-  const { topN = 25, batchSize = 5, keepAbove = 50, filterByFormula, log = () => {} } = options;
-  if (!hasAirtable()) {
-    throw new Error("Airtable is niet gekoppeld: zet AIRTABLE_TOKEN, AIRTABLE_BASE_ID en AIRTABLE_CANDIDATES_TABLE.");
-  }
-  if (!hasClaude()) throw new Error("ANTHROPIC_API_KEY ontbreekt: matchen kan niet zonder Claude.");
+  const { topN = 25, batchSize = 5, keepAbove = 50, poolLimit = POOL_LIMIT, log = () => {} } = options;
+  if (!hasClaude()) throw new Error("ANTHROPIC_API_KEY is missing: matching cannot run without Claude.");
 
   const vacancy = await loadRequirements(db, vacancyId);
   if (!hasRequirements(vacancy)) {
-    throw new Error("Deze vacature heeft nog geen vaste eisen. Lees eerst de vacature uit (T1) of vul stack en must haves in.");
+    throw new Error("This vacancy has no fixed requirements yet. Extract the vacancy first (T1) or fill in the stack and must haves.");
   }
 
-  const pool = await listPoolCandidates({ filterByFormula });
-  log(`Pool: ${pool.length} kandidaten.`);
+  const [poolSize, pool] = await Promise.all([countPool(db), listPoolCandidates(db, vacancyId, vacancy, poolLimit)]);
+  log(`Pool: ${poolSize} candidates, ${pool.length} after the SQL prefilter.`);
   const shortlist = prefilterCandidates(vacancy, pool, topN);
-  log(`Na voorselectie: ${shortlist.length} kandidaten naar Claude.`);
+  log(`After the prefilter: ${shortlist.length} candidates go to Claude.`);
 
   const requirements = requirementsPayload(vacancy);
   const refToId = new Map<string, string>();
@@ -117,25 +115,25 @@ export async function runMatching(db: Db, vacancyId: string, options: MatchOptio
       return result.candidates;
     } catch (error) {
       failedBatches += 1;
-      log(`Een batch van ${batch.length} kandidaten kon niet gescoord worden: ${error instanceof Error ? error.message : "onbekende fout"}`);
+      log(`A batch of ${batch.length} candidates could not be scored: ${error instanceof Error ? error.message : "unknown error"}`);
       return [];
     }
   });
   if (batches.length > 0 && failedBatches === batches.length) {
-    throw new Error("Claude kon geen enkele kandidaat scoren. Probeer het later opnieuw.");
+    throw new Error("Claude could not score any candidate. Try again later.");
   }
 
   const scored = batchResults
     .flat()
     .filter((r) => refToId.has(r.ref))
     .map((r) => ({
-      airtableId: refToId.get(r.ref)!,
+      candidateId: refToId.get(r.ref)!,
       score: clampScore(r.score),
       reason: twoSentences(r.reason),
       risks: r.risks.map((x) => x.trim()).filter(Boolean),
       missing: r.missing.map((x) => x.trim()).filter(Boolean),
     }))
-    .filter((r, i, all) => all.findIndex((x) => x.airtableId === r.airtableId) === i);
+    .filter((r, i, all) => all.findIndex((x) => x.candidateId === r.candidateId) === i);
 
   const toStore = selectMatchesToStore(scored, { keepAbove });
   if (toStore.length > 0) {
@@ -143,15 +141,15 @@ export async function runMatching(db: Db, vacancyId: string, options: MatchOptio
     // matches keep the status a recruiter already gave them.
     const rows: TablesInsert<"matches">[] = toStore.map((m) => ({
       vacancy_id: vacancyId,
-      airtable_candidate_id: m.airtableId,
+      candidate_id: m.candidateId,
       score: m.score,
       reason: m.reason,
       risks: m.risks,
       missing: m.missing,
       source: "eigen_pool",
     }));
-    const { error } = await db.from("matches").upsert(rows, { onConflict: "vacancy_id,airtable_candidate_id" });
-    if (error) throw new Error(`Matches opslaan mislukt: ${error.message}`);
+    const { error } = await db.from("matches").upsert(rows, { onConflict: "vacancy_id,candidate_id" });
+    if (error) throw new Error(`Could not save the matches: ${error.message}`);
   }
 
   const strongScores = scored.map((s) => s.score);
@@ -159,18 +157,18 @@ export async function runMatching(db: Db, vacancyId: string, options: MatchOptio
   const stage = advanceStage(vacancy.talent_stage, "zoeken");
   if (stage !== vacancy.talent_stage) {
     const { error } = await db.from("vacancies").update({ talent_stage: stage }).eq("id", vacancyId);
-    if (error) throw new Error(`Fase bijwerken mislukt: ${error.message}`);
+    if (error) throw new Error(`Could not update the stage: ${error.message}`);
   }
 
   let searchBrief = false;
   if (needsSearchBrief(strongScores)) {
-    log(`Minder dan 3 sterke matches (${strong}): zoekopdracht buiten de pool maken.`);
+    log(`Fewer than 3 strong matches (${strong}): making a search brief outside the pool.`);
     await generateSearchBrief(db, vacancyId, { scored: scored.length, strong });
     searchBrief = true;
   }
 
   return {
-    poolSize: pool.length,
+    poolSize,
     prefiltered: shortlist.length,
     scored: scored.length,
     stored: toStore.length,
@@ -187,10 +185,10 @@ export async function generateSearchBrief(
   vacancyId: string,
   context: { scored: number; strong: number } = { scored: 0, strong: 0 },
 ): Promise<StoredSearchBrief> {
-  if (!hasClaude()) throw new Error("ANTHROPIC_API_KEY ontbreekt: een zoekopdracht maken kan niet zonder Claude.");
+  if (!hasClaude()) throw new Error("ANTHROPIC_API_KEY is missing: a search brief cannot be made without Claude.");
   const vacancy = await loadRequirements(db, vacancyId);
   if (!hasRequirements(vacancy)) {
-    throw new Error("Deze vacature heeft nog geen vaste eisen. Lees eerst de vacature uit.");
+    throw new Error("This vacancy has no fixed requirements yet. Extract the vacancy first.");
   }
   const brief = await askJson({
     system: SEARCH_SYSTEM,
@@ -210,7 +208,7 @@ export async function generateSearchBrief(
     .from("vacancies")
     .update({ search_brief: stored as unknown as Json })
     .eq("id", vacancyId);
-  if (error) throw new Error(`Zoekopdracht opslaan mislukt: ${error.message}`);
+  if (error) throw new Error(`Could not save the search brief: ${error.message}`);
   return stored;
 }
 

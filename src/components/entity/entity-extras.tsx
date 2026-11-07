@@ -45,18 +45,18 @@ export async function EntityExtras({ entityType, entityId }: EntityRef) {
 
   return (
     <Card className="overflow-hidden">
-      <h2 className="sr-only">Taken, notities, bijlagen en activiteit</h2>
+      <h2 className="sr-only">Tasks, notes, attachments and activity</h2>
       <ExtrasTabs
-        label="Extra informatie"
+        label="More information"
         tabs={[
           {
             key: "tasks",
-            label: "Taken",
+            label: "Tasks",
             count: openTasks.length,
             content: (
               <div className="space-y-4">
                 {tasks.length === 0 ? (
-                  <p className="text-sm text-muted">Nog geen taken voor dit record.</p>
+                  <p className="text-sm text-muted">No tasks for this record yet.</p>
                 ) : (
                   <ul className="divide-y divide-border">
                     {[...openTasks, ...doneTasks].map((task) => {
@@ -96,13 +96,13 @@ export async function EntityExtras({ entityType, entityId }: EntityRef) {
           },
           {
             key: "notes",
-            label: "Notities",
+            label: "Notes",
             count: notes.length,
             content: (
               <div className="space-y-4">
                 <NoteComposer entityType={entityType} entityId={entityId} />
                 {notes.length === 0 ? (
-                  <p className="text-sm text-muted">Nog geen notities. Leg hier vast wat je bespreekt.</p>
+                  <p className="text-sm text-muted">No notes yet. Write down here what you discuss.</p>
                 ) : (
                   <ul className="divide-y divide-border border-t border-border pt-3">
                     {notes.map((note) => (
@@ -126,13 +126,13 @@ export async function EntityExtras({ entityType, entityId }: EntityRef) {
           },
           {
             key: "files",
-            label: "Bijlagen",
+            label: "Attachments",
             count: attachments.length,
             content: (
               <div className="space-y-4">
                 <AttachmentUploader entityType={entityType} entityId={entityId} maxBytes={MAX_UPLOAD_BYTES} />
                 {attachments.length === 0 ? (
-                  <p className="text-sm text-muted">Nog geen bestanden. Denk aan een cv, contract of functieprofiel.</p>
+                  <p className="text-sm text-muted">No files yet. Think of a CV, contract or job profile.</p>
                 ) : (
                   <ul className="divide-y divide-border">
                     {attachments.map((attachment) => (
@@ -154,7 +154,7 @@ export async function EntityExtras({ entityType, entityId }: EntityRef) {
           },
           {
             key: "activity",
-            label: "Activiteit",
+            label: "Activity",
             content: <ActivityTimeline items={activity} entityType={entityType} entityId={entityId} now={now} />,
           },
         ]}

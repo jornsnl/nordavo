@@ -92,7 +92,7 @@ Schrijftools worden voor een leestoken niet eens aangeboden (ze staan niet in `t
 1. **Migratie:** voer `supabase/migrations/20261026000000_security.sql` uit (tabel `mcp_tokens` met RLS), bijvoorbeeld met `supabase db push`.
 2. **Omgevingsvariabelen:**
    - `SUPABASE_SECRET_KEY`: verplicht. Zonder deze key geeft `/api/mcp` een `503` en is het formulier in Instellingen uitgeschakeld.
-   - `NEXT_PUBLIC_SITE_URL`: de publieke URL van het portaal (bijvoorbeeld `https://portaal.nordavo.nl`). Deze komt in het commando en in de links die de tools teruggeven. Standaard `http://localhost:3000`.
+   - `NEXT_PUBLIC_SITE_URL`: de publieke URL van het portaal (bijvoorbeeld `https://portal.nordavo.nl`). Deze komt in het commando en in de links die de tools teruggeven. Standaard `http://localhost:3000`.
 3. `/api/mcp` staat als publiek pad in de proxy (`src/lib/supabase/proxy.ts`), omdat de route zichzelf met het token authenticeert.
 
 ## Testen

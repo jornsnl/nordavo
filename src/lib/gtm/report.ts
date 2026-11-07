@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { ActivityChannel, ActivityOutcome, Database, Segment, TalentStage } from "@/lib/database.types";
 import { activityChannels, optionFor, segments, signalTypes, talentStages } from "@/lib/labels";
+import { countsInMetrics } from "@/lib/talent/talent-pool";
 
 /**
  * Weekly report (S10): the numbers Julius gets every Friday and sees under
@@ -141,7 +142,7 @@ export function goPerSegment(rows: { segment: Segment | null; icp_decision: stri
 }
 
 function segmentLabel(segment: Segment | null) {
-  return segment ? optionFor(segments, segment).label : "Geen segment";
+  return segment ? optionFor(segments, segment).label : "No segment";
 }
 
 function countBy<T>(rows: T[], key: (row: T) => string, label: (key: string) => string): CountRow[] {
@@ -159,12 +160,12 @@ export function attributionBreakdown(rows: AttributionFact[]) {
     bySignal: countBy(
       rows,
       (r) => r.signal_type ?? "onbekend",
-      (k) => (k === "onbekend" ? "Geen signaal" : (signalTypes.find((s) => s.value === k)?.label ?? k)),
+      (k) => (k === "onbekend" ? "No signal" : (signalTypes.find((s) => s.value === k)?.label ?? k)),
     ),
     bySegment: countBy(
       rows,
       (r) => r.segment ?? "onbekend",
-      (k) => (k === "onbekend" ? "Geen segment" : segmentLabel(k as Segment)),
+      (k) => (k === "onbekend" ? "No segment" : segmentLabel(k as Segment)),
     ),
     byChannel: countBy(
       rows,
@@ -176,10 +177,10 @@ export function attributionBreakdown(rows: AttributionFact[]) {
 
 export function buildFunnel(activity: ActivitySummary, meetings: number): CountRow[] {
   return [
-    { key: "benaderd", label: "Benaderd", count: activity.approached },
-    { key: "bereikt", label: "Bereikt", count: activity.reachedContacts },
+    { key: "benaderd", label: "Contacted", count: activity.approached },
+    { key: "bereikt", label: "Reached", count: activity.reachedContacts },
     { key: "replies", label: "Replies", count: activity.replies },
-    { key: "afspraken", label: "Afspraken", count: meetings },
+    { key: "afspraken", label: "Meetings", count: meetings },
   ];
 }
 
@@ -193,6 +194,8 @@ export type VacancyFact = {
   first_interview_at: string | null;
   start_at: string | null;
   company: string | null;
+  /** Talent pool vacancies have no clock and never count in the report. */
+  is_talent_pool?: boolean;
 };
 
 function wholeDays(from: string, to: Date) {
@@ -202,10 +205,11 @@ function wholeDays(from: string, to: Date) {
 /**
  * Lead time per open vacancy (T6). The clock runs from intake (else the
  * opening date) until profiles are sent: warn from 14 days, alarm from 21.
+ * Talent pool vacancies are left out.
  */
 export function leadTimeRows(vacancies: VacancyFact[], now = new Date()): LeadTimeRow[] {
   return vacancies
-    .filter((v) => v.talent_stage !== "geplaatst" && v.talent_stage !== "gesloten")
+    .filter((v) => countsInMetrics(v) && v.talent_stage !== "geplaatst" && v.talent_stage !== "gesloten")
     .map((v) => {
       const startedAt = v.intake_at ?? v.opened_at;
       const days = wholeDays(startedAt, now);
@@ -243,10 +247,10 @@ export function leadTimeWarnings(rows: LeadTimeRow[]): string[] {
   return rows
     .filter((r) => r.level !== "ok")
     .map((r) => {
-      const who = r.company ? `${r.title} bij ${r.company}` : r.title;
+      const who = r.company ? `${r.title} at ${r.company}` : r.title;
       return r.level === "over"
-        ? `${who} loopt al ${r.days} dagen zonder verstuurde profielen. De belofte van 3 weken is voorbij.`
-        : `${who} loopt ${r.days} dagen zonder verstuurde profielen. Nog ${LEAD_TIME_LIMIT_DAYS - r.days} dagen tot 3 weken.`;
+        ? `${who} has been running for ${r.days} days without profiles sent. The 3-week promise has passed.`
+        : `${who} has been running for ${r.days} days without profiles sent. ${LEAD_TIME_LIMIT_DAYS - r.days} days left until 3 weeks.`;
     });
 }
 
@@ -255,9 +259,9 @@ export function leadTimeWarnings(rows: LeadTimeRow[]): string[] {
 // ---------------------------------------------------------------------------
 
 export const reportPeriods = [
-  { value: "deze-week", label: "Deze week" },
-  { value: "vorige-week", label: "Vorige week" },
-  { value: "30-dagen", label: "Laatste 30 dagen" },
+  { value: "deze-week", label: "This week" },
+  { value: "vorige-week", label: "Last week" },
+  { value: "30-dagen", label: "Last 30 days" },
 ] as const;
 export type ReportPeriodKey = (typeof reportPeriods)[number]["value"];
 
@@ -361,8 +365,9 @@ export async function buildWeeklyReport(db: Db, { from, to }: { from: string; to
       db
         .from("vacancies")
         .select(
-          "id, title, talent_stage, opened_at, intake_at, profiles_sent_at, first_interview_at, start_at, client:clients(name), company:companies(name)",
+          "id, title, talent_stage, opened_at, intake_at, profiles_sent_at, first_interview_at, start_at, is_talent_pool, client:clients(name), company:companies(name)",
         )
+        .eq("is_talent_pool", false)
         .not("talent_stage", "in", "(geplaatst,gesloten)")
         .in("status", ["open", "on_hold"])
         .order("id")
@@ -383,6 +388,7 @@ export async function buildWeeklyReport(db: Db, { from, to }: { from: string; to
       first_interview_at: v.first_interview_at,
       start_at: v.start_at,
       company: v.client?.name ?? v.company?.name ?? null,
+      is_talent_pool: v.is_talent_pool,
     })),
     now,
   );
@@ -416,7 +422,7 @@ function esc(value: string) {
 
 function formatDay(value: string | null) {
   if (!value) return "";
-  return new Intl.DateTimeFormat("nl-NL", { day: "numeric", month: "short", timeZone: "Europe/Amsterdam" }).format(new Date(value));
+  return new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", timeZone: "Europe/Amsterdam" }).format(new Date(value));
 }
 
 function table(head: string[], rows: (string | number)[][], empty: string) {
@@ -440,20 +446,20 @@ function heading(text: string) {
 }
 
 export function reportSubject(report: WeeklyReport) {
-  return `Nordavo weekrapport ${formatDay(report.period.from)} tot ${formatDay(report.period.to)}: ${report.meetings} afspraken`;
+  return `Nordavo weekly report ${formatDay(report.period.from)} to ${formatDay(report.period.to)}: ${report.meetings} meetings`;
 }
 
 /** The weekly report as a mail with inline styles. Warnings first. */
 export function renderReportHtml(report: WeeklyReport, portalUrl?: string): string {
   const a = report.activity;
   const stats: [string, number][] = [
-    ["Nieuwe bedrijven", report.newCompanies],
-    ["Gebeld", a.called],
-    ["Bereikt", a.reached],
-    ["Gemaild", a.mailed],
+    ["New companies", report.newCompanies],
+    ["Called", a.called],
+    ["Reached", a.reached],
+    ["Mailed", a.mailed],
     ["Replies", a.replies],
-    ["Positieve replies", a.positiveReplies],
-    ["Afspraken", report.meetings],
+    ["Positive replies", a.positiveReplies],
+    ["Meetings", report.meetings],
   ];
   const statCells = stats
     .map(
@@ -463,49 +469,49 @@ export function renderReportHtml(report: WeeklyReport, portalUrl?: string): stri
     .join("");
 
   const warnings = report.warnings.length
-    ? `<div style="background:#fdf0dc;border-left:4px solid ${saffronDark};padding:12px 16px;margin:0 0 20px;border-radius:4px"><p style="margin:0 0 6px;font-weight:700;color:${navy}">Let op</p><ul style="margin:0;padding-left:18px;color:${navy};font-size:14px">${report.warnings
+    ? `<div style="background:#fdf0dc;border-left:4px solid ${saffronDark};padding:12px 16px;margin:0 0 20px;border-radius:4px"><p style="margin:0 0 6px;font-weight:700;color:${navy}">Attention</p><ul style="margin:0;padding-left:18px;color:${navy};font-size:14px">${report.warnings
         .map((w) => `<li style="margin:2px 0">${esc(w)}</li>`)
         .join("")}</ul></div>`
     : "";
 
-  return `<!doctype html><html lang="nl"><body style="margin:0;padding:0;background:#f2f6fc;font-family:Arial,Helvetica,sans-serif">
+  return `<!doctype html><html lang="en"><body style="margin:0;padding:0;background:#f2f6fc;font-family:Arial,Helvetica,sans-serif">
 <div style="max-width:680px;margin:0 auto;padding:24px 16px">
 <div style="background:${navy};color:#ffffff;padding:20px 24px;border-radius:12px 12px 0 0;border-bottom:4px solid ${saffron}">
-<p style="margin:0;font-size:12px;letter-spacing:1px;text-transform:uppercase;color:${saffron}">Weekrapport</p>
-<h1 style="margin:4px 0 0;font-size:22px">${esc(formatDay(report.period.from))} tot ${esc(formatDay(report.period.to))}</h1>
+<p style="margin:0;font-size:12px;letter-spacing:1px;text-transform:uppercase;color:${saffron}">Weekly report</p>
+<h1 style="margin:4px 0 0;font-size:22px">${esc(formatDay(report.period.from))} to ${esc(formatDay(report.period.to))}</h1>
 </div>
 <div style="background:#ffffff;padding:24px;border-radius:0 0 12px 12px">
 ${warnings}
 <table role="presentation" cellspacing="6" cellpadding="0" style="width:100%;margin:0 0 8px"><tr>${statCells}</tr></table>
-${a.meetingsApproved || a.meetingsRejected ? `<p style="margin:0 0 8px;font-size:13px;color:${muted}">Na de call: ${a.meetingsApproved} goedgekeurd, ${a.meetingsRejected} afgekeurd.</p>` : ""}
+${a.meetingsApproved || a.meetingsRejected ? `<p style="margin:0 0 8px;font-size:13px;color:${muted}">After the call: ${a.meetingsApproved} approved, ${a.meetingsRejected} rejected.</p>` : ""}
 ${heading("GO percentage per segment")}
 ${table(
-  ["Segment", "Beoordeeld", "GO", "Review", "No go", "GO %"],
+  ["Segment", "Assessed", "GO", "Review", "No go", "GO %"],
   report.goPerSegment.map((s) => [s.label, s.total, s.go, s.review, s.noGo, s.goPct === null ? "" : `${s.goPct}%`]),
-  "Deze week zijn geen bedrijven beoordeeld.",
+  "No companies were assessed this week.",
 )}
 ${heading("Funnel")}
-${table(["Stap", "Aantal"], report.funnel.map((f) => [f.label, f.count]), "Geen activiteit.")}
-${heading("Afspraken per signaal")}
-${table(["Signaal", "Afspraken"], report.attribution.bySignal.map((r) => [r.label, r.count]), "Geen afspraken deze periode.")}
-${heading("Afspraken per segment")}
-${table(["Segment", "Afspraken"], report.attribution.bySegment.map((r) => [r.label, r.count]), "Geen afspraken deze periode.")}
-${heading("Afspraken per kanaal")}
-${table(["Kanaal", "Afspraken"], report.attribution.byChannel.map((r) => [r.label, r.count]), "Geen afspraken deze periode.")}
-${heading("Doorlooptijd open vacatures")}
+${table(["Step", "Count"], report.funnel.map((f) => [f.label, f.count]), "No activity.")}
+${heading("Meetings per signal")}
+${table(["Signal", "Meetings"], report.attribution.bySignal.map((r) => [r.label, r.count]), "No meetings this period.")}
+${heading("Meetings per segment")}
+${table(["Segment", "Meetings"], report.attribution.bySegment.map((r) => [r.label, r.count]), "No meetings this period.")}
+${heading("Meetings per channel")}
+${table(["Channel", "Meetings"], report.attribution.byChannel.map((r) => [r.label, r.count]), "No meetings this period.")}
+${heading("Lead time of open vacancies")}
 ${table(
-  ["Vacature", "Fase", "Dagen", "Profielen", "1e gesprek", "Start"],
+  ["Vacancy", "Stage", "Days", "Profiles", "1st interview", "Start"],
   report.leadTimes.map((v) => [
     v.company ? `${v.title} (${v.company})` : v.title,
     v.stageLabel,
-    v.level === "over" ? `${v.days} (te lang)` : v.level === "bijna" ? `${v.days} (bijna 3 weken)` : v.days,
-    v.profilesSentAt ? formatDay(v.profilesSentAt) : "nog niet",
+    v.level === "over" ? `${v.days} (too long)` : v.level === "bijna" ? `${v.days} (almost 3 weeks)` : v.days,
+    v.profilesSentAt ? formatDay(v.profilesSentAt) : "not yet",
     formatDay(v.firstInterviewAt),
     formatDay(v.startAt),
   ]),
-  "Geen open vacatures.",
+  "No open vacancies.",
 )}
-${portalUrl ? `<p style="margin:24px 0 0"><a href="${esc(portalUrl)}" style="display:inline-block;background:${saffron};color:${navy};padding:10px 18px;border-radius:8px;font-weight:700;text-decoration:none">Bekijk het rapport in de portal</a></p>` : ""}
+${portalUrl ? `<p style="margin:24px 0 0"><a href="${esc(portalUrl)}" style="display:inline-block;background:${saffron};color:${navy};padding:10px 18px;border-radius:8px;font-weight:700;text-decoration:none">View the report in the portal</a></p>` : ""}
 </div>
 </div></body></html>`;
 }

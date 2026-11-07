@@ -42,18 +42,18 @@ export function ContactsCard({
   return (
     <Card>
       <CardHeader
-        title="Contactpersonen"
-        description="Wie je bij deze klant spreekt."
+        title="Contacts"
+        description="Who you talk to at this client."
         actions={
           <Button variant="secondary" size="sm" onClick={() => setEditing(null)}>
             <Plus aria-hidden="true" />
-            Toevoegen
+            Add
           </Button>
         }
       />
       {contacts.length === 0 ? (
         <CardBody>
-          <p className="text-sm text-muted">Nog geen contactpersonen. Voeg de eerste toe.</p>
+          <p className="text-sm text-muted">No contacts yet. Add the first one.</p>
         </CardBody>
       ) : (
         <ul className="divide-y divide-border">
@@ -65,7 +65,7 @@ export function ContactsCard({
                   {contact.is_primary && (
                     <Badge tone="accent">
                       <Star className="size-3" aria-hidden="true" />
-                      Eerste contact
+                      Primary contact
                     </Badge>
                   )}
                 </p>
@@ -96,16 +96,16 @@ export function ContactsCard({
                   variant="ghost"
                   size="sm"
                   onClick={() => setEditing(contact)}
-                  aria-label={`${contact.full_name} bewerken`}
-                  title="Bewerken"
+                  aria-label={`Edit ${contact.full_name}`}
+                  title="Edit"
                 >
                   <Pencil aria-hidden="true" />
                 </Button>
                 <ConfirmDeleteButton
                   iconOnly
-                  label={`${contact.full_name} verwijderen`}
-                  title="Contactpersoon verwijderen"
-                  description={`Weet je zeker dat je ${contact.full_name} wilt verwijderen? Dit kun je niet ongedaan maken.`}
+                  label={`Delete ${contact.full_name}`}
+                  title="Delete contact"
+                  description={`Are you sure you want to delete ${contact.full_name}? You cannot undo this.`}
                   action={deleteAction.bind(null, contact.id)}
                 />
               </div>
@@ -117,7 +117,7 @@ export function ContactsCard({
       <Modal
         open={editing !== undefined}
         onClose={() => setEditing(undefined)}
-        title={editing ? "Contactpersoon bewerken" : "Nieuwe contactpersoon"}
+        title={editing ? "Edit contact" : "New contact"}
       >
         {editing !== undefined && (
           <ContactForm
@@ -165,7 +165,7 @@ function ContactForm({
     >
       {contact && <input type="hidden" name="contact_id" value={contact.id} />}
       <FormMessage error={state.error} />
-      <Field label="Naam" htmlFor="contact-full_name" required error={errors.full_name}>
+      <Field label="Name" htmlFor="contact-full_name" required error={errors.full_name}>
         <Input
           id="contact-full_name"
           name="full_name"
@@ -176,11 +176,11 @@ function ContactForm({
           {...invalid("full_name")}
         />
       </Field>
-      <Field label="Functie" htmlFor="contact-job_title" error={errors.job_title}>
+      <Field label="Job title" htmlFor="contact-job_title" error={errors.job_title}>
         <Input
           id="contact-job_title"
           name="job_title"
-          placeholder="Bijvoorbeeld CTO"
+          placeholder="For example CTO"
           autoComplete="organization-title"
           enterKeyHint="next"
           defaultValue={contact?.job_title ?? ""}
@@ -188,7 +188,7 @@ function ContactForm({
         />
       </Field>
       <div className="grid gap-5 sm:grid-cols-2">
-        <Field label="E-mailadres" htmlFor="contact-email" error={errors.email}>
+        <Field label="Email address" htmlFor="contact-email" error={errors.email}>
           <Input
             id="contact-email"
             name="email"
@@ -201,7 +201,7 @@ function ContactForm({
             {...invalid("email")}
           />
         </Field>
-        <Field label="Telefoon" htmlFor="contact-phone" error={errors.phone}>
+        <Field label="Phone" htmlFor="contact-phone" error={errors.phone}>
           <Input
             id="contact-phone"
             name="phone"
@@ -221,19 +221,19 @@ function ContactForm({
           className="mt-0.5 size-4 rounded border-border accent-brand-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500"
         />
         <span>
-          Eerste contactpersoon
+          Primary contact
           <span className="block text-xs text-muted">
-            Er is maar één eerste contact per klant. Een eventuele andere vervalt.
+            A client has only one primary contact. Any other one is unset.
           </span>
         </span>
       </label>
       <div className="flex gap-2 border-t border-border pt-5 max-sm:*:flex-1 sm:justify-end">
         <Button variant="secondary" onClick={onDone}>
-          Annuleren
+          Cancel
         </Button>
         <Button type="submit" disabled={pending} aria-busy={pending}>
           {pending && <LoaderCircle className="animate-spin" aria-hidden="true" />}
-          {pending ? "Bezig met opslaan" : "Opslaan"}
+          {pending ? "Saving" : "Save"}
         </Button>
       </div>
     </form>

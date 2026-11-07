@@ -6,11 +6,13 @@ export type ActionState = {
   error?: string;
   message?: string;
   fieldErrors?: Record<string, string>;
+  /** Optional link shown with the error, e.g. to the existing record of a duplicate. */
+  link?: { href: string; label: string };
 };
 
 export const initialActionState: ActionState = {};
 
-/** Map zod issues to one Dutch message per field. */
+/** Map zod issues to one message per field. */
 export function fieldErrorsFrom(error: z.ZodError): Record<string, string> {
   const result: Record<string, string> = {};
   for (const issue of error.issues) {
@@ -40,4 +42,4 @@ export function parseList(value: string | undefined): string[] {
     .filter(Boolean);
 }
 
-export const GENERIC_ERROR = "Er ging iets mis. Probeer het opnieuw.";
+export const GENERIC_ERROR = "Something went wrong. Please try again.";

@@ -44,7 +44,7 @@ export function monthsBetween(start: string, end: string) {
   return Math.max(0, months);
 }
 
-const shortFormatter = new Intl.DateTimeFormat("nl-NL", {
+const shortFormatter = new Intl.DateTimeFormat("en-GB", {
   day: "numeric",
   month: "short",
   timeZone: "UTC",

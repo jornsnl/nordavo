@@ -9,13 +9,13 @@ import {
   removePasskey,
   renamePasskey,
   startPasskeyRegistration,
-} from "@/app/dashboard/instellingen/passkey-actions";
+} from "@/app/dashboard/settings/passkey-actions";
 import { PasskeyItem } from "./passkey-item";
 import { PasskeyRegister } from "./passkey-register";
 
 /**
  * Passkeys for the signed-in user, staff and client users alike.
- * Rendered inside a <Suspense> boundary on /dashboard/instellingen and /portaal/beveiliging.
+ * Rendered inside a <Suspense> boundary on /dashboard/settings and /portal/security.
  */
 export async function PasskeySection() {
   const user = await getCurrentUser();
@@ -35,17 +35,17 @@ export async function PasskeySection() {
     <Card>
       <CardHeader
         title="Passkeys"
-        description="Inloggen met je vingerafdruk, gezicht of de pincode van je apparaat. Zonder wachtwoord."
+        description="Sign in with your fingerprint, face or the PIN of your device. No password needed."
       />
       <CardBody className="space-y-5 py-5">
         <div className="space-y-2 text-sm text-muted">
           <p>
-            Een passkey is een sleutel die op je apparaat blijft. Je logt ermee in zonder
-            wachtwoord, en een nepsite kan hem niet gebruiken: passkeys zijn phishingbestendig.
+            A passkey is a key that stays on your device. You sign in with it without a
+            password, and a fake site cannot use it: passkeys are phishing resistant.
           </p>
           <p>
-            Gesynchroniseerde passkeys (iCloud Keychain, Google Password Manager, 1Password) werken
-            op al je apparaten. Inloggen met een passkey telt ook als tweestapsverificatie.
+            Synced passkeys (iCloud Keychain, Google Password Manager, 1Password) work
+            on all your devices. Signing in with a passkey also counts as two-step verification.
           </p>
         </div>
 
@@ -67,7 +67,7 @@ export async function PasskeySection() {
         ) : (
           <p className="flex items-center gap-2 rounded-xl border border-dashed border-border px-4 py-3 text-sm text-muted">
             <KeyRound className="size-4 shrink-0" aria-hidden="true" />
-            Je hebt nog geen passkeys.
+            You have no passkeys yet.
           </p>
         )}
 
@@ -78,8 +78,8 @@ export async function PasskeySection() {
           />
         ) : (
           <p className="rounded-xl border border-amber-600/20 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-            Passkeys werken pas als <code className="font-mono text-xs">SUPABASE_SECRET_KEY</code>{" "}
-            op de server is ingesteld.
+            Passkeys only work once <code className="font-mono text-xs">SUPABASE_SECRET_KEY</code>{" "}
+            is set on the server.
           </p>
         )}
       </CardBody>

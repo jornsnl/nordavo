@@ -56,20 +56,20 @@ export type ListDefinition = {
 export const listDefinitions: Record<ListExportType, ListDefinition> = {
   bellijst: {
     type: "bellijst",
-    label: "Bellijst",
-    description: "GO, mobiel nummer, geen eenmanszaak of vof, niet uitgesloten en 30 dagen niet benaderd.",
+    label: "Call list",
+    description: "GO, mobile number, no sole proprietorship or general partnership, not suppressed and not contacted for 30 days.",
     channel: "bellen",
   },
   mailcampagne: {
     type: "mailcampagne",
-    label: "Mailcampagne",
-    description: "GO, geverifieerd mailadres, niet uitgesloten en 30 dagen niet benaderd. Eén campagne per signaal.",
+    label: "Mail campaign",
+    description: "GO, verified e-mail address, not suppressed and not contacted for 30 days. One campaign per signal.",
     channel: "mail",
   },
   max_verrijking: {
     type: "max_verrijking",
-    label: "Max verrijking",
-    description: "GO contacten met LinkedIn en zonder telefoonnummer, niet uitgesloten. CSV voor Max.",
+    label: "Max enrichment",
+    description: "GO contacts with LinkedIn and without a phone number, not suppressed. CSV for Max.",
     channel: null,
   },
 };
@@ -129,9 +129,9 @@ export function filterToJson(filter: ListFilter, extra: Record<string, Json> = {
   return { ...json, ...extra };
 }
 
-/** "SaaS, Vacature, tier 1, score 60+, max 200" for the export history. */
+/** "SaaS, Vacancy, tier 1, score 60+, max 200" for the export history. */
 export function filterSummary(filterUsed: Json | null | undefined): string {
-  if (!filterUsed || typeof filterUsed !== "object" || Array.isArray(filterUsed)) return "Geen filter";
+  if (!filterUsed || typeof filterUsed !== "object" || Array.isArray(filterUsed)) return "No filter";
   const f = filterUsed as Record<string, Json | undefined>;
   const parts: string[] = [];
   if (typeof f.segment === "string") parts.push(optionFor(segments, f.segment as Segment).label);
@@ -139,7 +139,7 @@ export function filterSummary(filterUsed: Json | null | undefined): string {
   if (typeof f.tier === "number") parts.push(`tier ${f.tier}`);
   if (typeof f.min_score === "number") parts.push(`score ${f.min_score}+`);
   if (typeof f.limit === "number") parts.push(`max ${f.limit}`);
-  return parts.length > 0 ? parts.join(", ") : "Geen filter";
+  return parts.length > 0 ? parts.join(", ") : "No filter";
 }
 
 // ---------------------------------------------------------------------------
@@ -156,7 +156,11 @@ export function fullName(first: string | null, last: string | null): string {
   return [first, last].filter(Boolean).join(" ").trim();
 }
 
-/** A short reason to call: the company's opening line, else one built from the signal. */
+/**
+ * A short reason to call: the company's opening line, else one built from the
+ * signal. Dutch on purpose, like the rest of the call sheet: Web Partners
+ * calls Dutch prospects with it.
+ */
 export function callReason(c: { opening_line: string | null; signal_type: string | null; signal_title: string | null }): string {
   if (c.opening_line?.trim()) return c.opening_line.trim();
   const title = c.signal_title?.trim();
@@ -180,6 +184,29 @@ export function callReason(c: { opening_line: string | null; signal_type: string
   }
 }
 
+/**
+ * Dutch names for what reaches Dutch prospects or the Dutch call partner:
+ * the Web Partners call sheet and the {{signaal}} / {{segment}} variables in
+ * the (Dutch) Instantly mail templates. The portal uses the English labels.
+ */
+const dutchSignalLabels: Record<SignalType, string> = {
+  vacature: "Vacature",
+  lang_open: "Lang open",
+  meerdere_rollen: "Meerdere rollen",
+  remote_extern: "Remote of extern team",
+  freelance: "Freelance opdracht",
+  funding: "Funding",
+  nieuwe_cto: "Nieuwe CTO",
+  overig: "Overig",
+};
+
+const dutchSegmentLabels: Record<Segment, string> = {
+  saas: "SaaS",
+  productie: "Productie",
+  agency_automation: "Automation agency",
+  agency_overig: "Overige agency",
+};
+
 export const CALL_SHEET_HEADER = ["Bedrijf", "Contact", "Functie", "Telefoon", "Signaal", "Reden om te bellen", "Domein", "LinkedIn"];
 
 export function buildCallSheetRows(
@@ -193,7 +220,7 @@ export function buildCallSheetRows(
     fullName(c.first_name, c.last_name),
     c.title ?? "",
     c.phone,
-    [c.signal_type ? optionFor(signalTypes, c.signal_type).label : "", c.signal_title ?? ""].filter(Boolean).join(": "),
+    [c.signal_type ? dutchSignalLabels[c.signal_type] : "", c.signal_title ?? ""].filter(Boolean).join(": "),
     callReason(c),
     c.domain,
     linkedinUrl(c.linkedin_url),
@@ -246,7 +273,7 @@ export function campaignName(signalType: SignalType, segment: Segment | null, va
   return [
     "Nordavo",
     optionFor(signalTypes, signalType).label,
-    segment ? optionFor(segments, segment).label : "Alle segmenten",
+    segment ? optionFor(segments, segment).label : "All segments",
     variant,
   ].join(" · ");
 }
@@ -258,10 +285,10 @@ export const EVALUATE_AFTER = 150;
 /** Briefing rule: one signal per campaign, evaluate after 150 mails. Under 3% rewrite or stop, above 5% scale up. */
 export function evaluateCampaign(sent: number, replies: number): CampaignVerdict {
   const rate = sent > 0 ? replies / sent : null;
-  if (sent < EVALUATE_AFTER) return { rate, verdict: "te_vroeg", label: `Nog ${EVALUATE_AFTER - sent} mails tot evaluatie` };
-  if ((rate ?? 0) < 0.03) return { rate, verdict: "herschrijven", label: "Herschrijven of stoppen" };
-  if ((rate ?? 0) > 0.05) return { rate, verdict: "opschalen", label: "Opschalen" };
-  return { rate, verdict: "doorgaan", label: "Doorgaan en blijven meten" };
+  if (sent < EVALUATE_AFTER) return { rate, verdict: "te_vroeg", label: `${EVALUATE_AFTER - sent} more mails until evaluation` };
+  if ((rate ?? 0) < 0.03) return { rate, verdict: "herschrijven", label: "Rewrite or stop" };
+  if ((rate ?? 0) > 0.05) return { rate, verdict: "opschalen", label: "Scale up" };
+  return { rate, verdict: "doorgaan", label: "Continue and keep measuring" };
 }
 
 export type SuppressionRow = { contact_id: string | null; company_id: string | null; email: string | null; scope: SuppressionScope };
@@ -297,7 +324,7 @@ async function legalForms(db: Db, companyIds: string[]): Promise<Map<string, str
   const map = new Map<string, string | null>();
   for (const ids of chunk([...new Set(companyIds)], 100)) {
     const { data, error } = await db.from("companies").select("id, legal_form").in("id", ids);
-    if (error) throw new Error(`Rechtsvormen laden mislukt: ${error.message}`);
+    if (error) throw new Error(`Could not load legal forms: ${error.message}`);
     for (const row of data) map.set(row.id, row.legal_form);
   }
   return map;
@@ -314,7 +341,7 @@ async function queryCallView(db: Db, filter: ListFilter, limit: number, contactI
     .order("icp_score", { ascending: false, nullsFirst: false })
     .order("tier", { ascending: true, nullsFirst: false })
     .limit(limit);
-  if (error) throw new Error(`Bellijst laden mislukt: ${error.message}`);
+  if (error) throw new Error(`Could not load call list: ${error.message}`);
   return { rows: data, count: count ?? data.length };
 }
 
@@ -329,7 +356,7 @@ async function queryMailView(db: Db, filter: ListFilter, limit: number, contactI
     .order("icp_score", { ascending: false, nullsFirst: false })
     .order("tier", { ascending: true, nullsFirst: false })
     .limit(limit);
-  if (error) throw new Error(`Maillijst laden mislukt: ${error.message}`);
+  if (error) throw new Error(`Could not load mail list: ${error.message}`);
   return { rows: data, count: count ?? data.length };
 }
 
@@ -353,7 +380,7 @@ export async function recheckContactable(db: Db, list: "bellijst" | "mailcampagn
   const view = list === "bellijst" ? "call_list_candidates" : "mail_list_candidates";
   for (const ids of chunk(contactIds, 100)) {
     const { data, error } = await db.from(view).select("contact_id").in("contact_id", ids);
-    if (error) throw new Error(`Controle op uitsluiting mislukt: ${error.message}`);
+    if (error) throw new Error(`Could not check suppressions: ${error.message}`);
     for (const row of data) ok.add(row.contact_id);
   }
   return ok;
@@ -385,7 +412,7 @@ export async function loadSuppressions(db: Db): Promise<SuppressionRow[]> {
       .select("contact_id, company_id, email, scope")
       .order("created_at")
       .range(from, from + 999);
-    if (error) throw new Error(`Uitsluitingen laden mislukt: ${error.message}`);
+    if (error) throw new Error(`Could not load suppressions: ${error.message}`);
     rows.push(...data);
     if (data.length < 1000) break;
   }
@@ -411,7 +438,7 @@ export async function fetchMaxCandidates(db: Db, filter: ListFilter): Promise<Ma
   if (filter.minScore) query = query.gte("company.icp_score", filter.minScore);
   if (filter.tier) query = query.eq("tier", filter.tier);
   const { data, error } = await query.order("tier", { ascending: true, nullsFirst: false }).limit(MAX_LIMIT);
-  if (error) throw new Error(`Max lijst laden mislukt: ${error.message}`);
+  if (error) throw new Error(`Could not load Max list: ${error.message}`);
 
   const suppressions = await loadSuppressions(db);
   const rows: MaxCandidate[] = [];
@@ -553,7 +580,7 @@ export async function recordListExport(
     })
     .select("id")
     .single();
-  if (error) throw new Error(`Export vastleggen mislukt: ${error.message}`);
+  if (error) throw new Error(`Could not record the export: ${error.message}`);
   return data.id;
 }
 
@@ -564,7 +591,7 @@ async function setContactStatus(db: Db, contactIds: string[], status: "op_bellij
       .update({ status })
       .in("id", ids)
       .not("status", "in", "(bereikt,afspraak,kans,klant,verloren,uitgesloten)");
-    if (error) throw new Error(`Status bijwerken mislukt: ${error.message}`);
+    if (error) throw new Error(`Could not update status: ${error.message}`);
   }
 }
 
@@ -587,13 +614,13 @@ export async function exportCallList(
   { filter, deliver, createdBy = null, log = () => {} }: { filter: ListFilter; deliver: "sheet" | "csv"; createdBy?: string | null; log?: Log },
 ): Promise<CallListExport> {
   const candidates = await fetchCallCandidates(db, filter);
-  log(`${candidates.length} kandidaten voor de bellijst.`);
+  log(`${candidates.length} candidates for the call list.`);
   if (candidates.length === 0) return { exportId: null, count: 0, dropped: 0, destination: null, csv: null };
 
   const stillOk = await recheckContactable(db, "bellijst", candidates.map((c) => c.contact_id));
   const rows = candidates.filter((c) => stillOk.has(c.contact_id) && !isExcludedFromCalling(c.legal_form));
   const dropped = candidates.length - rows.length;
-  if (dropped > 0) log(`${dropped} contacten vielen af bij de laatste controle.`);
+  if (dropped > 0) log(`${dropped} contacts dropped out at the final check.`);
   if (rows.length === 0) return { exportId: null, count: 0, dropped, destination: null, csv: null };
 
   const sheetRows = buildCallSheetRows(rows);
@@ -608,7 +635,7 @@ export async function exportCallList(
       shareWith: webPartnersShareWith(),
     });
     destination = sheet.url;
-    log(`Google Sheet gemaakt: ${sheet.url}`);
+    log(`Google Sheet created: ${sheet.url}`);
   } else {
     csv = toCsv(CALL_SHEET_HEADER, sheetRows);
     destination = `csv:nordavo-bellijst-${date}.csv`;
@@ -634,13 +661,13 @@ export async function exportCallList(
         signal_id: r.signal_id,
         outcome: "verstuurd" as const,
         source: "webpartners" as const,
-        notes: `Op bellijst voor Web Partners (export ${exportId}).`,
+        notes: `On call list for Web Partners (export ${exportId}).`,
         external_id: `bellijst:${exportId}:${r.contact_id}`,
         created_by: createdBy,
       })),
       { onConflict: "external_id", ignoreDuplicates: true },
     );
-    if (error) throw new Error(`Activiteiten vastleggen mislukt: ${error.message}`);
+    if (error) throw new Error(`Could not record the activities: ${error.message}`);
   }
 
   return { exportId, count: rows.length, dropped, destination, csv };
@@ -676,13 +703,13 @@ async function ensureCampaign(db: Db, signalType: SignalType, segment: Segment |
     .eq("message_variant", variant);
   query = segment ? query.eq("segment", segment) : query.is("segment", null);
   const { data: existing, error } = await query.order("created_at").limit(1).maybeSingle();
-  if (error) throw new Error(`Campagne zoeken mislukt: ${error.message}`);
+  if (error) throw new Error(`Could not look up the campaign: ${error.message}`);
   if (existing?.external_id) return { id: existing.id, name: existing.name, instantlyId: existing.external_id };
 
   const remote = await findOrCreateCampaign(existing?.name ?? name);
   if (existing) {
     const { error: updateError } = await db.from("campaigns").update({ external_id: remote.id }).eq("id", existing.id);
-    if (updateError) throw new Error(`Campagne bijwerken mislukt: ${updateError.message}`);
+    if (updateError) throw new Error(`Could not update campaign: ${updateError.message}`);
     return { id: existing.id, name: existing.name, instantlyId: remote.id };
   }
 
@@ -704,7 +731,7 @@ async function ensureCampaign(db: Db, signalType: SignalType, segment: Segment |
       const { data: byExternal } = await db.from("campaigns").select("id, name").eq("external_id", remote.id).single();
       if (byExternal) return { id: byExternal.id, name: byExternal.name, instantlyId: remote.id };
     }
-    throw new Error(`Campagne aanmaken mislukt: ${insertError.message}`);
+    throw new Error(`Could not create campaign: ${insertError.message}`);
   }
   return { id: created.id, name, instantlyId: remote.id };
 }
@@ -723,7 +750,7 @@ async function resolveOpeningLine(c: MailCandidate, cache: Map<string, string | 
   if (cache.has(key)) return cache.get(key) ?? null;
   if (!hasClaude()) {
     cache.set(key, null);
-    log(`Geen openingszin voor ${c.company_name}: ANTHROPIC_API_KEY ontbreekt.`);
+    log(`No opening line for ${c.company_name}: ANTHROPIC_API_KEY is missing.`);
     return null;
   }
   try {
@@ -743,13 +770,13 @@ async function resolveOpeningLine(c: MailCandidate, cache: Map<string, string | 
       maxTokens: 2000,
     });
     const line = checkOpeningLine(out.opening_line);
-    if (!line) log(`Openingszin voor ${c.company_name} afgekeurd door de controle.`);
+    if (!line) log(`Opening line for ${c.company_name} rejected by the check.`);
     cache.set(key, line);
     return line;
   } catch (error) {
     if (error instanceof ClaudeRefusalError) {
       cache.set(key, null);
-      log(`Claude weigerde een openingszin voor ${c.company_name}.`);
+      log(`Claude declined to write an opening line for ${c.company_name}.`);
       return null;
     }
     throw error;
@@ -765,11 +792,11 @@ export async function pushMailCampaigns(
     log = () => {},
   }: { filter: ListFilter; variant?: string; createdBy?: string | null; log?: Log },
 ): Promise<MailCampaignResult> {
-  if (!hasInstantly()) throw new Error("INSTANTLY_API_KEY ontbreekt. Zonder Instantly kan er geen mailcampagne gevuld worden.");
+  if (!hasInstantly()) throw new Error("INSTANTLY_API_KEY is missing. Without Instantly no mail campaign can be filled.");
 
   const candidates = await fetchMailCandidates(db, filter);
   const { groups, withoutSignal } = groupBySignalType(candidates);
-  log(`${candidates.length} kandidaten, ${groups.size} signaaltypes, ${withoutSignal.length} zonder signaal overgeslagen.`);
+  log(`${candidates.length} candidates, ${groups.size} signal types, ${withoutSignal.length} without a signal skipped.`);
 
   const cache = new Map<string, string | null>();
   const campaigns: MailCampaignSummary[] = [];
@@ -802,9 +829,9 @@ export async function pushMailCampaigns(
             website: `https://${c.domain}`,
             personalization: line,
             custom_variables: {
-              signaal: optionFor(signalTypes, signalType).label,
+              signaal: dutchSignalLabels[signalType],
               signaal_titel: c.signal_title,
-              segment: c.segment ? optionFor(segments, c.segment).label : null,
+              segment: c.segment ? dutchSegmentLabels[c.segment] : null,
             },
           });
           const { error } = await db.from("activities").upsert(
@@ -816,17 +843,17 @@ export async function pushMailCampaigns(
               signal_id: c.signal_id,
               outcome: "verstuurd",
               source: "instantly",
-              notes: `Toegevoegd aan Instantly campagne ${campaign.name}. Openingszin: ${line}`,
+              notes: `Added to Instantly campaign ${campaign.name}. Opening line: ${line}`,
               external_id: `instantly:lead:${campaign.id}:${c.contact_id}`,
               created_by: createdBy,
             },
             { onConflict: "external_id", ignoreDuplicates: true },
           );
-          if (error) throw new Error(`Activiteit vastleggen mislukt: ${error.message}`);
+          if (error) throw new Error(`Could not record the activity: ${error.message}`);
           pushedIds.push(c.contact_id);
         } catch (error) {
           failed += 1;
-          log(`Fout bij ${c.email}: ${error instanceof Error ? error.message : String(error)}`);
+          log(`Error for ${c.email}: ${error instanceof Error ? error.message : String(error)}`);
         }
       }
     }
@@ -844,7 +871,7 @@ export async function pushMailCampaigns(
         createdBy,
       });
     }
-    log(`${campaign.name}: ${pushedIds.length} toegevoegd, ${skipped} overgeslagen, ${failed} mislukt.`);
+    log(`${campaign.name}: ${pushedIds.length} added, ${skipped} skipped, ${failed} failed.`);
     campaigns.push({ signalType, campaignId: campaign.id, name: campaign.name, pushed: pushedIds.length, skipped, failed, exportId });
   }
 

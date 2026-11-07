@@ -13,29 +13,29 @@ import { Card, CardHeader } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export const metadata: Metadata = {
-  title: "Overzicht",
+  title: "Overview",
 };
 
 const process = [
   {
     step: "01",
-    title: "Functieprofiel",
-    text: "De klant levert de functieomschrijving aan. Wij vertalen die naar een helder profiel.",
+    title: "Job profile",
+    text: "The client provides the job description. We turn it into a clear profile.",
   },
   {
     step: "02",
-    title: "Sourcing en screening",
-    text: "Vakinhoudelijke test door onze specialist en een communicatie-interview in het Engels.",
+    title: "Sourcing and screening",
+    text: "A technical test by our specialist and a communication interview in English.",
   },
   {
     step: "03",
-    title: "Drie kandidaten",
-    text: "Binnen 2 tot 3 weken: drie profielen met video-intro en assessmentuitslagen.",
+    title: "Three candidates",
+    text: "Within 2 to 3 weeks: three profiles with a video intro and assessment results.",
   },
   {
     step: "04",
-    title: "Plaatsing",
-    text: "De klant kiest. Wij regelen contract, payroll en onboarding in Bangalore.",
+    title: "Placement",
+    text: "The client chooses. We arrange the contract, payroll and onboarding in Bangalore.",
   },
 ];
 
@@ -54,14 +54,14 @@ export default function DashboardPage() {
         <div className="min-w-0 space-y-4 sm:space-y-6">
           <Card>
             <CardHeader
-              title="Vacatures die aandacht nodig hebben"
-              description="Binnen 3 weken 3 kandidaten voorstellen. Langst open staat bovenaan."
+              title="Vacancies that need attention"
+              description="Propose 3 candidates within 3 weeks. Longest open is at the top."
               actions={
                 <Link
-                  href="/dashboard/vacatures"
+                  href="/dashboard/vacancies"
                   className="text-sm font-semibold text-brand-600 hover:text-brand-800 pointer-coarse:-my-3 pointer-coarse:inline-flex pointer-coarse:min-h-11 pointer-coarse:items-center"
                 >
-                  Alle vacatures
+                  All vacancies
                 </Link>
               }
             />
@@ -83,8 +83,8 @@ export default function DashboardPage() {
         <div className="min-w-0 space-y-4 sm:space-y-6">
           <Card>
             <CardHeader
-              title="Komende momenten"
-              description="Check-ins, einde garantie en laatste werkdagen."
+              title="Upcoming moments"
+              description="Check-ins, guarantee end dates and last working days."
             />
             <Suspense fallback={<PanelSkeleton />}>
               <UpcomingMoments />
@@ -92,7 +92,7 @@ export default function DashboardPage() {
           </Card>
 
           <Card>
-            <CardHeader title="Pipeline" description="Kandidaten per fase, bij open vacatures." />
+            <CardHeader title="Pipeline" description="Candidates per stage, for open vacancies." />
             <Suspense fallback={<PanelSkeleton />}>
               <PipelineFunnel />
             </Suspense>
@@ -110,18 +110,18 @@ export default function DashboardPage() {
               id="process-heading"
               className="font-display text-xl font-semibold text-brand-900"
             >
-              Zo werkt Nordavo
+              How Nordavo works
             </h2>
             <p className="mt-1 text-sm text-muted">
-              Van vacature tot developer in jouw team. Dit is het proces dat we
-              hier stap voor stap gaan ondersteunen.
+              From vacancy to a developer in your team. This is the process we
+              will support here step by step.
             </p>
           </div>
           <Link
-            href="/dashboard/vacatures"
+            href="/dashboard/vacancies"
             className="inline-flex items-center gap-1.5 self-start text-sm font-semibold text-brand-600 hover:text-brand-800 pointer-coarse:min-h-11"
           >
-            Naar vacatures
+            Go to vacancies
             <ArrowRight className="size-4" aria-hidden="true" />
           </Link>
         </div>
@@ -148,26 +148,26 @@ async function Greeting() {
   const user = await getCurrentUser();
   const firstName = user.name.split(" ")[0];
   const hour = Number(
-    new Intl.DateTimeFormat("nl-NL", {
+    new Intl.DateTimeFormat("en-GB", {
       hour: "numeric",
       hour12: false,
       timeZone: "Europe/Amsterdam",
     }).format(new Date()),
   );
   const greeting =
-    hour < 12 ? "Goedemorgen" : hour < 18 ? "Goedemiddag" : "Goedenavond";
+    hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
 
   return (
     <header className="mb-6 sm:mb-8">
       <p className="mb-1.5 text-xs font-semibold tracking-wider text-accent-600 uppercase">
-        Overzicht
+        Overview
       </p>
       <h1 className="font-display text-2xl font-bold tracking-tight text-brand-900 sm:text-3xl">
         {greeting}, {firstName}
       </h1>
       <p className="mt-2 text-muted max-sm:text-sm">
-        In één oogopslag hoe het ervoor staat met klanten, vacatures,
-        kandidaten en plaatsingen.
+        At a glance: where things stand with clients, vacancies,
+        candidates and placements.
       </p>
     </header>
   );
@@ -175,7 +175,7 @@ async function Greeting() {
 
 function PanelSkeleton() {
   return (
-    <div className="space-y-2 p-5" aria-busy="true" aria-label="Laden">
+    <div className="space-y-2 p-5" aria-busy="true" aria-label="Loading">
       <Skeleton className="h-10 w-full" />
       <Skeleton className="h-10 w-full" />
       <Skeleton className="h-10 w-full" />

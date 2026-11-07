@@ -3,10 +3,10 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { askJson, hasClaude } from "@/lib/ai/claude";
 import { PROFILE_SYSTEM, profileContentSchema, profileInput, type ProfileContent } from "@/lib/ai/prompts/profile";
 import type { Database, Json, MatchStatus } from "@/lib/database.types";
-import { getPoolCandidate, hasAirtable, type PoolCandidate } from "@/lib/integrations/airtable";
 import { addDealNote, hasOnePage, setNextAction } from "@/lib/integrations/onepage";
 import { collectText, findIdentifierLeaks, leakMessage, profileCode, redactIdentifiers, type CandidateIdentifiers } from "@/lib/talent/anonymize";
 import { advanceStage } from "@/lib/talent/match";
+import { getPoolCandidate, type PoolCandidate } from "@/lib/talent/pool";
 import { requirementsPayload } from "@/lib/talent/prefilter";
 import { renderProfilePdf } from "@/lib/talent/profile-pdf";
 import { ATTACHMENTS_BUCKET } from "@/lib/storage";
@@ -15,8 +15,8 @@ import { ATTACHMENTS_BUCKET } from "@/lib/storage";
  * T4 anonymous profile and T5 approval and sending.
  * Rule 12: Claude sees only redacted fields; the code check rejects any
  * profile that still contains a name part, email, phone or employer.
- * Rule 13: sent only with consent (Airtable field, or a staff confirmation
- * while the field does not exist). Rule 14: a human approves before sending;
+ * Rule 13: sent only with consent (the candidate's profile consent field in
+ * the portal, or a staff confirmation while it is unknown). Rule 14: a human approves before sending;
  * the database refuses sent_at without approval and consent.
  */
 
@@ -26,7 +26,8 @@ type Db = SupabaseClient<Database>;
 export type StoredProfileContent = ProfileContent & {
   code: string;
   generated_at: string;
-  consent_source: "airtable" | "staff" | null;
+  /** candidate: the consent field on the candidate; staff: confirmed by a team member. */
+  consent_source: "candidate" | "staff" | null;
   consent_confirmed_by?: string | null;
   consent_confirmed_at?: string | null;
 };
@@ -58,6 +59,10 @@ function profilePayload(c: PoolCandidate) {
   };
 }
 
+function readConsentSource(value: unknown): StoredProfileContent["consent_source"] {
+  return value === "candidate" || value === "staff" ? value : null;
+}
+
 export function readProfileContent(value: Json): StoredProfileContent | null {
   const parsed = profileContentSchema.safeParse(value);
   if (!parsed.success || !value || typeof value !== "object" || Array.isArray(value)) return null;
@@ -66,7 +71,7 @@ export function readProfileContent(value: Json): StoredProfileContent | null {
     ...parsed.data,
     code: typeof v.code === "string" ? v.code : "",
     generated_at: typeof v.generated_at === "string" ? v.generated_at : "",
-    consent_source: v.consent_source === "airtable" || v.consent_source === "staff" ? v.consent_source : null,
+    consent_source: readConsentSource(v.consent_source),
     consent_confirmed_by: typeof v.consent_confirmed_by === "string" ? v.consent_confirmed_by : null,
     consent_confirmed_at: typeof v.consent_confirmed_at === "string" ? v.consent_confirmed_at : null,
   };
@@ -76,31 +81,28 @@ async function loadMatch(db: Db, matchId: string) {
   const { data, error } = await db
     .from("matches")
     .select(
-      "id, vacancy_id, airtable_candidate_id, status, reason, risks, missing, vacancy:vacancies(id, title, stack, seniority, hours, timezone_overlap, budget_min, budget_max, client_contact_required, must_haves, nice_to_haves)",
+      "id, vacancy_id, candidate_id, status, reason, risks, missing, vacancy:vacancies(id, title, stack, seniority, hours, timezone_overlap, budget_min, budget_max, client_contact_required, must_haves, nice_to_haves)",
     )
     .eq("id", matchId)
     .maybeSingle();
-  if (error) throw new Error(`Match laden mislukt: ${error.message}`);
-  if (!data || !data.vacancy) throw new Error("Deze match bestaat niet (meer).");
+  if (error) throw new Error(`Could not load the match: ${error.message}`);
+  if (!data || !data.vacancy) throw new Error("This match no longer exists.");
   return { ...data, vacancy: data.vacancy };
 }
 
-async function liveCandidate(airtableId: string) {
-  if (!hasAirtable()) throw new Error("Airtable is niet gekoppeld, dus de kandidaat kan niet live worden gelezen.");
-  const candidate = await getPoolCandidate(airtableId);
-  if (!candidate) {
-    throw new Error("Deze kandidaat staat niet meer in Airtable, mogelijk verwijderd volgens de AVG-regels. Wijs de match af.");
-  }
+async function loadCandidate(db: Db, candidateId: string) {
+  const candidate = await getPoolCandidate(db, candidateId);
+  if (!candidate) throw new Error("This candidate no longer exists in the portal. Reject the match.");
   return candidate;
 }
 
 export async function generateAnonymousProfile(db: Db, matchId: string): Promise<{ profileId: string; code: string }> {
-  if (!hasClaude()) throw new Error("ANTHROPIC_API_KEY ontbreekt: een profiel maken kan niet zonder Claude.");
+  if (!hasClaude()) throw new Error("ANTHROPIC_API_KEY is missing: a profile cannot be made without Claude.");
   const match = await loadMatch(db, matchId);
   if (!APPROVED_MATCH.includes(match.status)) {
-    throw new Error("Keur de match eerst goed. Pas daarna maak je een anoniem profiel.");
+    throw new Error("Approve the match first. Then make the anonymous profile.");
   }
-  const candidate = await liveCandidate(match.airtable_candidate_id);
+  const candidate = await loadCandidate(db, match.candidate_id);
   const ids = identifiersOf(candidate);
   const vacancy = requirementsPayload(match.vacancy);
   const payload = profilePayload(candidate);
@@ -123,7 +125,7 @@ export async function generateAnonymousProfile(db: Db, matchId: string): Promise
     else leakKinds = [...new Set(leaks.map((l) => l.kind))];
     if (attempt === 1 && !content) throw new Error(leakMessage(leaks));
   }
-  if (!content) throw new Error("Het profiel kon niet worden gemaakt.");
+  if (!content) throw new Error("The profile could not be made.");
 
   const profileId = crypto.randomUUID();
   const code = profileCode(profileId);
@@ -133,7 +135,7 @@ export async function generateAnonymousProfile(db: Db, matchId: string): Promise
     years_experience: content.years_experience === null ? null : Math.max(0, Math.round(content.years_experience)),
     code,
     generated_at: now,
-    consent_source: candidate.consent === true ? "airtable" : null,
+    consent_source: candidate.consent === true ? "candidate" : null,
   };
 
   const pdf = await renderProfilePdf(stored, { code, vacancyTitle: match.vacancy.title, date: now.slice(0, 10) });
@@ -141,7 +143,7 @@ export async function generateAnonymousProfile(db: Db, matchId: string): Promise
   const { error: uploadError } = await db.storage
     .from(ATTACHMENTS_BUCKET)
     .upload(path, pdf, { contentType: "application/pdf", upsert: false });
-  if (uploadError) throw new Error(`PDF opslaan mislukt: ${uploadError.message}`);
+  if (uploadError) throw new Error(`Could not save the PDF: ${uploadError.message}`);
 
   const { error } = await db.from("anonymous_profiles").insert({
     id: profileId,
@@ -152,7 +154,7 @@ export async function generateAnonymousProfile(db: Db, matchId: string): Promise
   });
   if (error) {
     await db.storage.from(ATTACHMENTS_BUCKET).remove([path]);
-    throw new Error(`Profiel opslaan mislukt: ${error.message}`);
+    throw new Error(`Could not save the profile: ${error.message}`);
   }
   return { profileId, code };
 }
@@ -160,35 +162,35 @@ export async function generateAnonymousProfile(db: Db, matchId: string): Promise
 async function loadProfile(db: Db, profileId: string) {
   const { data, error } = await db
     .from("anonymous_profiles")
-    .select("id, match_id, content, consent_confirmed, approved_at, sent_at, match:matches(id, vacancy_id, airtable_candidate_id, status)")
+    .select("id, match_id, content, consent_confirmed, approved_at, sent_at, match:matches(id, vacancy_id, candidate_id, status)")
     .eq("id", profileId)
     .maybeSingle();
-  if (error) throw new Error(`Profiel laden mislukt: ${error.message}`);
-  if (!data || !data.match) throw new Error("Dit profiel bestaat niet (meer).");
+  if (error) throw new Error(`Could not load the profile: ${error.message}`);
+  if (!data || !data.match) throw new Error("This profile no longer exists.");
   return { ...data, match: data.match };
 }
 
 /** Rule 14: a staff member (Floris or the recruiter) approves the profile. */
 export async function approveProfile(db: Db, profileId: string, userId: string) {
   const profile = await loadProfile(db, profileId);
-  if (profile.sent_at) throw new Error("Dit profiel is al verstuurd.");
+  if (profile.sent_at) throw new Error("This profile has already been sent.");
   const { error } = await db
     .from("anonymous_profiles")
     .update({ approved_by: userId, approved_at: new Date().toISOString() })
     .eq("id", profileId);
-  if (error) throw new Error(`Goedkeuren mislukt: ${error.message}`);
+  if (error) throw new Error(`Could not approve: ${error.message}`);
   return profile.match.vacancy_id;
 }
 
 /**
- * Rule 13 fallback while Airtable has no consent value: a staff member
- * confirms the candidate agreed. An explicit "no" in Airtable always wins.
+ * Rule 13 fallback while the candidate's consent is unknown: a staff member
+ * confirms the candidate agreed. An explicit "no" on the candidate always wins.
  */
 export async function confirmConsentByStaff(db: Db, profileId: string, userId: string) {
   const profile = await loadProfile(db, profileId);
-  const candidate = await liveCandidate(profile.match.airtable_candidate_id);
+  const candidate = await loadCandidate(db, profile.match.candidate_id);
   if (candidate.consent === false) {
-    throw new Error("In Airtable staat dat deze kandidaat geen toestemming gaf. Pas dat eerst daar aan als het niet klopt.");
+    throw new Error("The candidate's profile says they did not give consent. Change it on the candidate first if that is wrong.");
   }
   const content = (profile.content && typeof profile.content === "object" && !Array.isArray(profile.content) ? profile.content : {}) as Record<string, Json>;
   const { error } = await db
@@ -197,13 +199,13 @@ export async function confirmConsentByStaff(db: Db, profileId: string, userId: s
       consent_confirmed: true,
       content: {
         ...content,
-        consent_source: candidate.consent === true ? "airtable" : "staff",
+        consent_source: candidate.consent === true ? "candidate" : "staff",
         consent_confirmed_by: userId,
         consent_confirmed_at: new Date().toISOString(),
       },
     })
     .eq("id", profileId);
-  if (error) throw new Error(`Toestemming vastleggen mislukt: ${error.message}`);
+  if (error) throw new Error(`Could not record consent: ${error.message}`);
   return profile.match.vacancy_id;
 }
 
@@ -244,16 +246,16 @@ async function findOnepageContact(db: Db, vacancy: { company_id: string | null; 
 export async function markProfileSent(db: Db, profileId: string): Promise<{ vacancyId: string; warning?: string }> {
   const profile = await loadProfile(db, profileId);
   if (profile.sent_at) return { vacancyId: profile.match.vacancy_id };
-  if (!profile.approved_at) throw new Error("Keur het profiel eerst goed. Een mens kijkt altijd mee voordat iets naar een klant gaat.");
+  if (!profile.approved_at) throw new Error("Approve the profile first. A person always reviews it before anything goes to a client.");
 
-  // Consent is checked live: Airtable is the source.
-  const candidate = await liveCandidate(profile.match.airtable_candidate_id);
+  // Consent is checked at the moment of sending: the candidate's field is the source.
+  const candidate = await loadCandidate(db, profile.match.candidate_id);
   if (candidate.consent === false) {
-    throw new Error("De kandidaat gaf in Airtable geen toestemming om een anoniem profiel te delen.");
+    throw new Error("The candidate did not give consent to share an anonymous profile.");
   }
   const consent = profile.consent_confirmed || candidate.consent === true;
   if (!consent) {
-    throw new Error("Toestemming van de kandidaat is nog niet bevestigd. Vink eerst aan dat de kandidaat toestemming gaf.");
+    throw new Error("The candidate's consent is not confirmed yet. First confirm that the candidate gave consent.");
   }
 
   const now = new Date().toISOString();
@@ -261,7 +263,7 @@ export async function markProfileSent(db: Db, profileId: string): Promise<{ vaca
     .from("anonymous_profiles")
     .update({ sent_at: now, consent_confirmed: true })
     .eq("id", profileId);
-  if (error) throw new Error(`Versturen vastleggen mislukt: ${error.message}`);
+  if (error) throw new Error(`Could not record sending: ${error.message}`);
 
   if (profile.match.status === "goedgekeurd" || profile.match.status === "voorgesteld") {
     await db.from("matches").update({ status: "verstuurd" }).eq("id", profile.match.id);
@@ -286,18 +288,18 @@ export async function markProfileSent(db: Db, profileId: string): Promise<{ vaca
   if (vacancy.onepage_deal_id && hasOnePage()) {
     const code = readProfileContent(profile.content)?.code || profileCode(profileId);
     try {
-      await addDealNote(vacancy.onepage_deal_id, `Anoniem profiel ${code} verstuurd voor ${vacancy.title}.`);
+      await addDealNote(vacancy.onepage_deal_id, `Anonymous profile ${code} sent for ${vacancy.title}.`);
       const contactId = await findOnepageContact(db, vacancy);
       if (contactId) {
-        await setNextAction(contactId, { text: `Feedback vragen op profiel ${code} (${vacancy.title})`, date: addWorkdays(new Date(), 2) });
+        await setNextAction(contactId, { text: `Ask for feedback on profile ${code} (${vacancy.title})`, date: addWorkdays(new Date(), 2) });
       } else {
-        warning = "Notitie staat bij de deal, maar er is geen contact in OnePageCRM gevonden voor de volgende actie. Zet die zelf.";
+        warning = "The note is on the deal, but no OnePageCRM contact was found for the next action. Set it yourself.";
       }
     } catch (crmError) {
-      warning = `Verstuurd vastgelegd, maar OnePageCRM bijwerken lukte niet: ${crmError instanceof Error ? crmError.message : "onbekende fout"}. Werk de deal zelf bij.`;
+      warning = `Recorded as sent, but updating OnePageCRM failed: ${crmError instanceof Error ? crmError.message : "unknown error"}. Update the deal yourself.`;
     }
   } else if (vacancy.onepage_deal_id) {
-    warning = "Verstuurd vastgelegd. OnePageCRM is niet gekoppeld, dus werk de deal zelf bij.";
+    warning = "Recorded as sent. OnePageCRM is not connected, so update the deal yourself.";
   }
 
   return { vacancyId: vacancy.id, warning };

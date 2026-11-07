@@ -2,7 +2,7 @@
 
 import { useActionState, useState } from "react";
 import { Plus } from "lucide-react";
-import { addSuppressionAction } from "@/app/dashboard/uitsluitingen/actions";
+import { addSuppressionAction } from "@/app/dashboard/suppressions/actions";
 import { Button } from "@/components/ui/button";
 import { Field, FormMessage, Input, Select, Textarea } from "@/components/ui/field";
 import { Modal } from "@/components/ui/modal";
@@ -11,9 +11,9 @@ import { initialActionState, type ActionState } from "@/lib/action-state";
 import { suppressionReasons, suppressionScopes } from "@/lib/labels";
 
 const kinds = [
-  { value: "contact", label: "Contact", placeholder: "LinkedIn URL of mailadres van het contact" },
-  { value: "bedrijf", label: "Bedrijf", placeholder: "Domein, bijvoorbeeld bedrijf.nl" },
-  { value: "email", label: "Alleen een mailadres", placeholder: "naam@bedrijf.nl" },
+  { value: "contact", label: "Contact", placeholder: "LinkedIn URL or email address of the contact" },
+  { value: "bedrijf", label: "Company", placeholder: "Domain, for example company.com" },
+  { value: "email", label: "Just an email address", placeholder: "name@company.com" },
 ] as const;
 
 export function AddSuppressionButton() {
@@ -31,7 +31,7 @@ export function AddSuppressionButton() {
     <>
       <Button onClick={() => setOpen(true)}>
         <Plus aria-hidden="true" />
-        Uitsluiten
+        Suppress
       </Button>
       {state.ok && state.message && !open && (
         <p role="status" className="sr-only">
@@ -41,11 +41,11 @@ export function AddSuppressionButton() {
       <Modal
         open={open}
         onClose={() => setOpen(false)}
-        title="Iemand uitsluiten"
-        description="Een uitsluiting geldt direct voor elke bellijst en mailcampagne."
+        title="Suppress someone"
+        description="A suppression applies right away to every call list and mail campaign."
       >
         <form action={formAction} className="space-y-4">
-          <Field label="Wat sluit je uit?" htmlFor="sup-kind" required error={errors.kind}>
+          <Field label="What do you suppress?" htmlFor="sup-kind" required error={errors.kind}>
             <Select id="sup-kind" name="kind" value={kind} onChange={(e) => setKind(e.target.value as typeof kind)}>
               {kinds.map((k) => (
                 <option key={k.value} value={k.value}>
@@ -55,11 +55,11 @@ export function AddSuppressionButton() {
             </Select>
           </Field>
           <Field
-            label={kind === "bedrijf" ? "Domein" : kind === "email" ? "Mailadres" : "LinkedIn URL of mailadres"}
+            label={kind === "bedrijf" ? "Domain" : kind === "email" ? "Email address" : "LinkedIn URL or email address"}
             htmlFor="sup-value"
             required
             error={errors.value}
-            hint={kind === "bedrijf" ? "Geldt voor iedereen bij dit bedrijf." : undefined}
+            hint={kind === "bedrijf" ? "Applies to everyone at this company." : undefined}
           >
             <Input
               id="sup-value"
@@ -77,7 +77,7 @@ export function AddSuppressionButton() {
             />
           </Field>
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Reden" htmlFor="sup-reason" required error={errors.reason}>
+            <Field label="Reason" htmlFor="sup-reason" required error={errors.reason}>
               <Select id="sup-reason" name="reason" defaultValue="bezwaar">
                 {suppressionReasons.map((r) => (
                   <option key={r.value} value={r.value}>
@@ -86,7 +86,7 @@ export function AddSuppressionButton() {
                 ))}
               </Select>
             </Field>
-            <Field label="Kanalen" htmlFor="sup-scope" required error={errors.scope}>
+            <Field label="Channels" htmlFor="sup-scope" required error={errors.scope}>
               <Select id="sup-scope" name="scope" defaultValue="alle_kanalen">
                 {suppressionScopes.map((s) => (
                   <option key={s.value} value={s.value}>
@@ -96,15 +96,15 @@ export function AddSuppressionButton() {
               </Select>
             </Field>
           </div>
-          <Field label="Notitie" htmlFor="sup-notes" error={errors.notes}>
-            <Textarea id="sup-notes" name="notes" rows={3} placeholder="Bijvoorbeeld: gaf telefonisch aan niet gebeld te willen worden." />
+          <Field label="Note" htmlFor="sup-notes" error={errors.notes}>
+            <Textarea id="sup-notes" name="notes" rows={3} placeholder="For example: said on the phone they do not want to be called." />
           </Field>
           <FormMessage error={state.error} />
           <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
             <Button variant="secondary" onClick={() => setOpen(false)}>
-              Annuleren
+              Cancel
             </Button>
-            <SubmitButton pendingLabel="Bezig met opslaan">Uitsluiten</SubmitButton>
+            <SubmitButton pendingLabel="Saving">Suppress</SubmitButton>
           </div>
         </form>
       </Modal>

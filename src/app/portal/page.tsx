@@ -1,0 +1,217 @@
+import { Suspense } from "react";
+import Link from "next/link";
+import { ArrowRight, BriefcaseBusiness, CircleCheck, Handshake } from "lucide-react";
+import { EmptyState } from "@/components/dashboard/empty-state";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardBody, CardHeader } from "@/components/ui/card";
+import { ListSkeleton, Skeleton } from "@/components/ui/skeleton";
+import { ContactCard } from "@/components/portal/contact-card";
+import { VacancyCard } from "@/components/portal/vacancy-card";
+import { portalStageLabels } from "@/components/portal/labels";
+import { requireClient } from "@/lib/auth";
+import {
+  getPendingReviews,
+  getPortalCompany,
+  getPortalPlacements,
+  getPortalVacancies,
+} from "@/lib/data/portal";
+import { formatDate } from "@/lib/format";
+
+export default function PortalOverviewPage() {
+  return (
+    <>
+      <Suspense fallback={<GreetingSkeleton />}>
+        <Greeting />
+      </Suspense>
+
+      <div className="grid grid-cols-1 gap-6 sm:gap-8 lg:grid-cols-3">
+        <div className="min-w-0 space-y-6 sm:space-y-8 lg:col-span-2">
+          <Suspense fallback={<ListSkeleton rows={2} />}>
+            <PendingReviews />
+          </Suspense>
+
+          <section aria-labelledby="vacancies-heading">
+            <h2 id="vacancies-heading" className="mb-3 font-display sm:mb-4 text-lg font-semibold text-brand-900">
+              Your vacancies
+            </h2>
+            <Suspense fallback={<VacancyGridSkeleton />}>
+              <VacancyGrid />
+            </Suspense>
+          </section>
+        </div>
+
+        <aside className="min-w-0 space-y-6">
+          <Suspense fallback={<ListSkeleton rows={3} />}>
+            <PlacementsSummary />
+          </Suspense>
+          <ContactCard />
+        </aside>
+      </div>
+    </>
+  );
+}
+
+async function Greeting() {
+  const [user, company] = await Promise.all([requireClient(), getPortalCompany()]);
+  const firstName = user.name.split(" ")[0];
+  const hour = Number(
+    new Intl.DateTimeFormat("en-GB", { hour: "numeric", hour12: false, timeZone: "Europe/Amsterdam" }).format(
+      new Date(),
+    ),
+  );
+  const greeting = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
+
+  return (
+    <header className="mb-6 sm:mb-8">
+      {company && (
+        <p className="mb-1.5 text-xs font-semibold tracking-wider text-accent-600 uppercase">{company.name}</p>
+      )}
+      <h1 className="font-display text-2xl font-bold tracking-tight text-brand-900 sm:text-3xl">
+        {greeting}, {firstName}
+      </h1>
+      <p className="mt-2 max-w-2xl text-muted">
+        Follow your vacancies and the candidates we selected for you.
+      </p>
+    </header>
+  );
+}
+
+function GreetingSkeleton() {
+  return (
+    <div className="mb-6 space-y-3 sm:mb-8" aria-hidden="true">
+      <Skeleton className="h-3 w-24" />
+      <Skeleton className="h-8 w-64" />
+      <Skeleton className="h-4 w-96 max-w-full" />
+    </div>
+  );
+}
+
+async function PendingReviews() {
+  const pending = await getPendingReviews();
+  if (!pending.length) return null;
+
+  return (
+    <section aria-labelledby="pending-heading" className="rounded-2xl border border-accent-500/40 bg-accent-100/50 p-4 shadow-xs sm:p-5">
+      <h2 id="pending-heading" className="font-display text-lg font-semibold text-brand-900">
+        Waiting for your response
+      </h2>
+      <p className="mt-1 text-sm text-muted">
+        {pending.length === 1
+          ? "One candidate is ready for you. Let us know what you think."
+          : `${pending.length} candidates are ready for you. Let us know what you think.`}
+      </p>
+      <ul className="mt-4 divide-y divide-accent-500/20 overflow-hidden rounded-xl border border-accent-500/20 bg-white">
+        {pending.map((item) => {
+          const stage = portalStageLabels[item.stage];
+          return (
+            <li key={item.applicationId}>
+              <Link
+                href={`/portal/vacancies/${item.vacancyId}#kandidaat-${item.applicationId}`}
+                className="flex min-h-14 items-center gap-3 px-4 py-3 transition hover:bg-brand-50/60 active:bg-brand-50 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-brand-500"
+              >
+                <div className="min-w-0 flex-1">
+                  <p className="truncate font-medium text-brand-900">{item.candidateName}</p>
+                  <p className="truncate text-sm text-muted">
+                    {item.candidateTitle ? `${item.candidateTitle}, for ` : "For "}
+                    {item.vacancyTitle}
+                  </p>
+                </div>
+                <div className="hidden shrink-0 flex-col items-end gap-1 sm:flex">
+                  {stage && <Badge tone={stage.tone}>{stage.label}</Badge>}
+                  {item.presentedAt && <span className="text-xs text-muted">{formatDate(item.presentedAt)}</span>}
+                </div>
+                <ArrowRight className="size-4 shrink-0 text-muted" aria-hidden="true" />
+              </Link>
+            </li>
+          );
+        })}
+      </ul>
+    </section>
+  );
+}
+
+async function VacancyGrid() {
+  const vacancies = await getPortalVacancies();
+
+  if (!vacancies.length) {
+    return (
+      <EmptyState
+        icon={BriefcaseBusiness}
+        title="No vacancies yet"
+        description="Once we have drawn up the job profile together, the vacancy shows up here. Within 2 to 3 weeks we present three candidates to you, with a video intro and assessment results."
+      />
+    );
+  }
+
+  return (
+    <ul className="grid gap-3 sm:grid-cols-2 sm:gap-4">
+      {vacancies.map((vacancy) => (
+        <li key={vacancy.id}>
+          <VacancyCard vacancy={vacancy} />
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function VacancyGridSkeleton() {
+  return (
+    <div className="grid gap-4 sm:grid-cols-2" aria-busy="true" aria-label="Loading">
+      <Skeleton className="h-44" />
+      <Skeleton className="h-44" />
+    </div>
+  );
+}
+
+async function PlacementsSummary() {
+  const placements = await getPortalPlacements();
+  const current = placements.filter((p) => p.status !== "ended");
+
+  return (
+    <Card>
+      <CardHeader
+        title="Placements"
+        description={
+          current.length === 1
+            ? "1 developer now works in your team."
+            : current.length > 1
+              ? `${current.length} developers now work in your team.`
+              : undefined
+        }
+      />
+      <CardBody>
+        {current.length === 0 ? (
+          <div className="flex items-start gap-3 text-sm text-muted">
+            <Handshake className="mt-0.5 size-5 shrink-0 text-brand-600" aria-hidden="true" />
+            <p>
+              No current placements yet. Once you choose a candidate, we arrange the contract, payroll and onboarding.
+            </p>
+          </div>
+        ) : (
+          <ul className="space-y-3">
+            {current.slice(0, 4).map((p) => (
+              <li key={p.id} className="flex items-start gap-3">
+                <CircleCheck className="mt-0.5 size-4 shrink-0 text-emerald-600" aria-hidden="true" />
+                <div className="min-w-0 text-sm">
+                  <p className="truncate font-medium text-brand-900">{p.candidateName ?? "Developer"}</p>
+                  <p className="truncate text-muted">
+                    {p.status === "notice" ? "Notice given" : `Started on ${formatDate(p.startDate)}`}
+                  </p>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+        {placements.length > 0 && (
+          <Link
+            href="/portal/placements"
+            className="mt-4 inline-flex items-center gap-1.5 text-sm font-semibold text-brand-600 hover:text-brand-800 active:text-brand-800 max-sm:-mb-2 max-sm:min-h-11"
+          >
+            All placements
+            <ArrowRight className="size-4" aria-hidden="true" />
+          </Link>
+        )}
+      </CardBody>
+    </Card>
+  );
+}

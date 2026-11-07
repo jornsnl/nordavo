@@ -38,7 +38,7 @@ export async function listExportHistory(limit = 30): Promise<ListExportItem[]> {
     )
     .order("created_at", { ascending: false })
     .limit(limit);
-  if (error) throw new Error(`Exports laden mislukt: ${error.message}`);
+  if (error) throw new Error(`Could not load exports: ${error.message}`);
   return data.map((row) => {
     const campaign = Array.isArray(row.campaign) ? row.campaign[0] : row.campaign;
     const creator = Array.isArray(row.creator) ? row.creator[0] : row.creator;

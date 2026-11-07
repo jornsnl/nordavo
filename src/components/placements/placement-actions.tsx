@@ -33,33 +33,33 @@ export function PlacementActions({
   const close = () => setDialog(null);
 
   return (
-    // Phones: Bewerken on its own row, the status changes share the next one.
+    // Phones: Edit on its own row, the status changes share the next one.
     <div className="flex flex-wrap gap-2 max-sm:w-full">
-      <ButtonLink href={`/dashboard/plaatsingen/${placementId}/bewerken`} variant="secondary" className="max-sm:basis-full">
+      <ButtonLink href={`/dashboard/placements/${placementId}/edit`} variant="secondary" className="max-sm:basis-full">
         <Pencil aria-hidden="true" />
-        Bewerken
+        Edit
       </ButtonLink>
       {status === "active" && (
         <Button variant="secondary" onClick={() => setDialog("notice")} className="max-sm:flex-1">
           <LogOut aria-hidden="true" />
-          Opzeggen
+          Give notice
         </Button>
       )}
       {status !== "ended" && (
         <Button variant="secondary" onClick={() => setDialog("end")} className="max-sm:flex-1">
           <CircleStop aria-hidden="true" />
-          Beëindigen
+          End
         </Button>
       )}
-      <Button variant="ghost" onClick={() => setDialog("delete")} aria-label="Plaatsing verwijderen">
+      <Button variant="ghost" onClick={() => setDialog("delete")} aria-label="Delete placement">
         <Trash2 aria-hidden="true" />
       </Button>
 
       <Modal
         open={dialog === "notice"}
         onClose={close}
-        title="Plaatsing opzeggen"
-        description="De opzegtermijn is één maand. Pas de laatste werkdag aan als jullie iets anders afspreken."
+        title="Give notice on placement"
+        description="The notice period is one month. Change the last working day if you agree on something else."
       >
         <NoticeForm action={giveNotice} onDone={close} />
       </Modal>
@@ -67,13 +67,13 @@ export function PlacementActions({
       <Modal
         open={dialog === "end"}
         onClose={close}
-        title="Plaatsing beëindigen"
-        description="De plaatsing stopt en verdwijnt uit de lopende plaatsingen."
+        title="End placement"
+        description="The placement stops and disappears from the running placements."
       >
         <EndForm action={end} defaultEnd={endDate ?? todayIso()} onDone={close} />
       </Modal>
 
-      <Modal open={dialog === "delete"} onClose={close} title="Plaatsing verwijderen">
+      <Modal open={dialog === "delete"} onClose={close} title="Delete placement">
         <DeleteConfirm remove={remove} onCancel={close} />
       </Modal>
     </div>
@@ -97,7 +97,7 @@ function NoticeForm({ action, onDone }: { action: FormAction; onDone: () => void
   return (
     <form onSubmit={submitWithoutReset(formAction)} className="space-y-5" noValidate>
       <FormMessage error={state.error} />
-      <Field label="Opgezegd op" htmlFor="notice_given_at" required error={errors.notice_given_at}>
+      <Field label="Notice given on" htmlFor="notice_given_at" required error={errors.notice_given_at}>
         <Input
           id="notice_given_at"
           name="notice_given_at"
@@ -112,11 +112,11 @@ function NoticeForm({ action, onDone }: { action: FormAction; onDone: () => void
         />
       </Field>
       <Field
-        label="Laatste werkdag"
+        label="Last working day"
         htmlFor="end_date"
         required
         error={errors.end_date}
-        hint="Standaard één maand na de opzegging."
+        hint="By default one month after the notice."
       >
         <Input
           id="end_date"
@@ -132,10 +132,10 @@ function NoticeForm({ action, onDone }: { action: FormAction; onDone: () => void
       </Field>
       <div className="flex justify-end gap-2 max-sm:*:flex-1">
         <Button variant="secondary" onClick={onDone}>
-          Annuleren
+          Cancel
         </Button>
-        <PendingSubmit pending={pending} pendingLabel="Bezig">
-          Opzeggen
+        <PendingSubmit pending={pending} pendingLabel="Working">
+          Give notice
         </PendingSubmit>
       </div>
     </form>
@@ -158,15 +158,15 @@ function EndForm({
   return (
     <form onSubmit={submitWithoutReset(formAction)} className="space-y-5" noValidate>
       <FormMessage error={state.error} />
-      <Field label="Einddatum" htmlFor="end_end_date" required error={errors.end_date}>
+      <Field label="End date" htmlFor="end_end_date" required error={errors.end_date}>
         <Input id="end_end_date" name="end_date" type="date" required defaultValue={defaultEnd} />
       </Field>
       <div className="flex justify-end gap-2 max-sm:*:flex-1">
         <Button variant="secondary" onClick={onDone}>
-          Annuleren
+          Cancel
         </Button>
-        <PendingSubmit pending={pending} pendingLabel="Bezig">
-          Beëindigen
+        <PendingSubmit pending={pending} pendingLabel="Working">
+          End
         </PendingSubmit>
       </div>
     </form>
@@ -187,12 +187,12 @@ function DeleteConfirm({
     <div className="space-y-5">
       <FormMessage error={error} />
       <p className="text-sm text-muted">
-        Je verwijdert de plaatsing, alle check-ins en de gekoppelde taken. Dit kun je niet
-        terugdraaien. Is de samenwerking gestopt? Kies dan liever voor beëindigen.
+        This deletes the placement, all check-ins and the linked tasks. You cannot
+        undo this. Has the collaboration stopped? Then choose End instead.
       </p>
       <div className="flex justify-end gap-2 max-sm:*:flex-1">
         <Button variant="secondary" onClick={onCancel}>
-          Annuleren
+          Cancel
         </Button>
         <Button
           variant="danger"
@@ -205,7 +205,7 @@ function DeleteConfirm({
           }
         >
           <Trash2 aria-hidden="true" />
-          {pending ? "Bezig met verwijderen" : "Verwijderen"}
+          {pending ? "Deleting" : "Delete"}
         </Button>
       </div>
     </div>

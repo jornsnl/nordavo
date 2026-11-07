@@ -26,7 +26,7 @@ function ActiveNavList(props: Props) {
 
 function NavList({ onNavigate, pathname }: Props & { pathname: string | null }) {
   return (
-    <nav aria-label="Hoofdmenu" className="space-y-6">
+    <nav aria-label="Main menu" className="space-y-6">
       {navSections.map((section, index) => (
         <div key={section.label ?? index}>
           {section.label && (

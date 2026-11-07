@@ -24,14 +24,14 @@ import {
  */
 export const s9OnepagePull = defineJob({
   name: "s9-onepage-pull",
-  description: "S9: uitkomsten uit OnePageCRM terughalen",
+  description: "S9: fetch outcomes back from OnePageCRM",
   run: async (ctx) => {
     requireOnePage();
 
     let since: Date;
     if (ctx.params.since) {
       since = new Date(ctx.params.since);
-      if (Number.isNaN(since.getTime())) throw new Error(`Ongeldige datum voor --since: ${ctx.params.since}`);
+      if (Number.isNaN(since.getTime())) throw new Error(`Invalid date for --since: ${ctx.params.since}`);
     } else {
       const { data: lastRun, error } = await ctx.db
         .from("job_runs")
@@ -45,7 +45,7 @@ export const s9OnepagePull = defineJob({
       // Overlap by an hour: changes saved during the last run are not missed.
       since = lastRun ? new Date(new Date(lastRun.started_at).getTime() - 3_600_000) : new Date(Date.now() - 7 * 86_400_000);
     }
-    ctx.log(`Wijzigingen sinds ${since.toISOString()}.`);
+    ctx.log(`Changes since ${since.toISOString()}.`);
 
     const map = dealStageMap();
     const { deals, actions } = await listRecentChanges(since);
@@ -100,7 +100,7 @@ export const s9OnepagePull = defineJob({
           .limit(1);
         if (meeting && meeting.length > 0) {
           outcome = "notitie";
-          notes = `${notes} (afspraak stond al geregistreerd)`;
+          notes = `${notes} (meeting was already recorded)`;
         }
       }
 
@@ -131,6 +131,6 @@ export const s9OnepagePull = defineJob({
     ctx.meta.completed_actions = actions.length;
     ctx.meta.logged = logged;
     ctx.meta.unknown_contacts = unknown as Json;
-    ctx.log(`${logged} activiteiten vastgelegd, ${unknown} wijzigingen bij contacten die niet uit Supabase komen.`);
+    ctx.log(`${logged} activities recorded, ${unknown} changes on contacts that do not come from Supabase.`);
   },
 });

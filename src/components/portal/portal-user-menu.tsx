@@ -14,11 +14,11 @@ export async function PortalUserMenu() {
         <p className="max-w-40 truncate text-xs text-muted">{user.email}</p>
       </div>
       <Link
-        href="/portaal/beveiliging"
+        href="/portal/security"
         // On phones Beveiliging is a tab in the bottom bar.
         className="flex size-9 items-center max-md:hidden justify-center rounded-lg text-muted transition hover:bg-brand-50 hover:text-brand-900 focus-visible:outline-2 focus-visible:outline-brand-500"
-        aria-label="Beveiliging"
-        title="Beveiliging"
+        aria-label="Security"
+        title="Security"
       >
         <ShieldCheck className="size-[18px]" aria-hidden="true" />
       </Link>
@@ -26,8 +26,8 @@ export async function PortalUserMenu() {
         <button
           type="submit"
           className="flex size-9 items-center justify-center rounded-lg text-muted transition hover:bg-brand-50 hover:text-brand-900 active:bg-brand-50 pointer-coarse:size-11 focus-visible:outline-2 focus-visible:outline-brand-500"
-          aria-label="Uitloggen"
-          title="Uitloggen"
+          aria-label="Sign out"
+          title="Sign out"
         >
           <LogOut className="size-[18px]" aria-hidden="true" />
         </button>

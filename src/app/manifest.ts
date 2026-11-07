@@ -5,8 +5,8 @@ export default function manifest(): MetadataRoute.Manifest {
   return {
     name: "Nordavo Portal",
     short_name: "Nordavo",
-    description: "Het portaal van Nordavo: klanten, vacatures, kandidaten en plaatsingen.",
-    lang: "nl",
+    description: "The Nordavo portal: clients, vacancies, candidates and placements.",
+    lang: "en",
     start_url: "/dashboard",
     scope: "/",
     display: "standalone",

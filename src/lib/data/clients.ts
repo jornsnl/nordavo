@@ -52,7 +52,7 @@ export async function listClients({
   if (status) query = query.eq("status", status);
 
   const { data, error } = await query;
-  if (error) throw new Error(`Klanten laden mislukt: ${error.message}`);
+  if (error) throw new Error(`Could not load clients: ${error.message}`);
 
   return data.map((c) => ({
     id: c.id,
@@ -74,7 +74,7 @@ export async function getClient(id: string) {
     .select("*, owner:profiles!clients_owner_id_fkey(id, full_name, email)")
     .eq("id", id)
     .maybeSingle();
-  if (error) throw new Error(`Klant laden mislukt: ${error.message}`);
+  if (error) throw new Error(`Could not load client: ${error.message}`);
   return data;
 }
 
@@ -87,7 +87,7 @@ export async function getClientContacts(clientId: string) {
     .eq("client_id", clientId)
     .order("is_primary", { ascending: false })
     .order("full_name");
-  if (error) throw new Error(`Contactpersonen laden mislukt: ${error.message}`);
+  if (error) throw new Error(`Could not load contacts: ${error.message}`);
   return data;
 }
 
@@ -107,7 +107,7 @@ export async function getClientVacancies(clientId: string): Promise<ClientVacanc
     .select("id, title, status, opened_at, closed_at")
     .eq("client_id", clientId)
     .order("opened_at", { ascending: false });
-  if (error) throw new Error(`Vacatures laden mislukt: ${error.message}`);
+  if (error) throw new Error(`Could not load vacancies: ${error.message}`);
   return data.map((v) => ({
     id: v.id,
     title: v.title,
@@ -133,10 +133,10 @@ export async function getClientPlacements(clientId: string): Promise<ClientPlace
     .select("id, start_date, status, candidate:candidates(full_name), vacancy:vacancies(title)")
     .eq("client_id", clientId)
     .order("start_date", { ascending: false });
-  if (error) throw new Error(`Plaatsingen laden mislukt: ${error.message}`);
+  if (error) throw new Error(`Could not load placements: ${error.message}`);
   return data.map((p) => ({
     id: p.id,
-    candidateName: p.candidate?.full_name ?? "Onbekende kandidaat",
+    candidateName: p.candidate?.full_name ?? "Unknown candidate",
     vacancyTitle: p.vacancy?.title ?? null,
     startDate: p.start_date,
     status: p.status,
@@ -154,8 +154,8 @@ export async function listStaffOptions(): Promise<Option[]> {
     .select("id, full_name, email")
     .in("role", ["admin", "member"])
     .order("full_name");
-  if (error) throw new Error(`Teamleden laden mislukt: ${error.message}`);
-  return data.map((p) => ({ id: p.id, label: p.full_name || p.email || "Teamlid" }));
+  if (error) throw new Error(`Could not load team members: ${error.message}`);
+  return data.map((p) => ({ id: p.id, label: p.full_name || p.email || "Team member" }));
 }
 
 /** All clients as picker options. */
@@ -163,6 +163,6 @@ export async function listClientOptions(): Promise<Option[]> {
   await requireStaff();
   const supabase = await createClient();
   const { data, error } = await supabase.from("clients").select("id, name").order("name");
-  if (error) throw new Error(`Klanten laden mislukt: ${error.message}`);
+  if (error) throw new Error(`Could not load clients: ${error.message}`);
   return data.map((c) => ({ id: c.id, label: c.name }));
 }

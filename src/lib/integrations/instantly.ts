@@ -37,7 +37,7 @@ export function hasInstantly() {
 
 function apiKey() {
   const key = process.env.INSTANTLY_API_KEY;
-  if (!key) throw new Error("INSTANTLY_API_KEY ontbreekt. Zet de API key van Instantly (v2) in de omgeving.");
+  if (!key) throw new Error("INSTANTLY_API_KEY is missing. Set the Instantly (v2) API key in the environment.");
   return key;
 }
 
@@ -52,7 +52,7 @@ async function instantlyFetch(path: string, init: { method?: string; json?: unkn
   });
   const text = await response.text();
   if (!response.ok) {
-    throw new Error(`Instantly ${response.status} bij ${path.split("?")[0]}: ${text.slice(0, 300)}`);
+    throw new Error(`Instantly ${response.status} at ${path.split("?")[0]}: ${text.slice(0, 300)}`);
   }
   return text ? JSON.parse(text) : {};
 }
@@ -96,7 +96,7 @@ export function defaultCampaignBody(name: string) {
     campaign_schedule: {
       schedules: [
         {
-          name: "Werkdagen",
+          name: "Weekdays",
           timing: { from: "09:00", to: "17:00" },
           days: { "0": false, "1": true, "2": true, "3": true, "4": true, "5": true, "6": false },
           timezone: "Europe/Amsterdam",

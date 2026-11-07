@@ -33,14 +33,14 @@ export function InviteForm({
     <form ref={formRef} onSubmit={submitWithoutReset(formAction)} className="space-y-5" noValidate>
       {!enabled && (
         <p className="rounded-xl border border-amber-600/20 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-          Uitnodigen vanuit het portaal werkt pas als <code className="font-mono text-xs">SUPABASE_SECRET_KEY</code>{" "}
-          op de server is ingesteld. Tot die tijd nodig je gebruikers uit via het Supabase dashboard
-          onder Authentication, Users. Daarna pas je hier de rol aan.
+          Inviting from the portal only works once <code className="font-mono text-xs">SUPABASE_SECRET_KEY</code>{" "}
+          is set on the server. Until then, invite users through the Supabase dashboard
+          under Authentication, Users. Then change their role here.
         </p>
       )}
       <FormMessage error={state.error} success={state.ok ? state.message : undefined} />
       <div className="grid gap-5 sm:grid-cols-2">
-        <Field label="E-mailadres" htmlFor="invite_email" required error={errors.email}>
+        <Field label="Email address" htmlFor="invite_email" required error={errors.email}>
           <Input
             id="invite_email"
             name="email"
@@ -53,12 +53,12 @@ export function InviteForm({
             enterKeyHint="next"
             required
             disabled={!enabled}
-            placeholder="naam@bedrijf.nl"
+            placeholder="name@company.com"
             aria-invalid={Boolean(errors.email)}
             aria-describedby={describedBy("email")}
           />
         </Field>
-        <Field label="Naam" htmlFor="invite_full_name" required error={errors.full_name}>
+        <Field label="Name" htmlFor="invite_full_name" required error={errors.full_name}>
           <Input
             id="invite_full_name"
             name="full_name"
@@ -71,7 +71,7 @@ export function InviteForm({
             aria-describedby={describedBy("full_name")}
           />
         </Field>
-        <Field label="Rol" htmlFor="invite_role" required error={errors.role}>
+        <Field label="Role" htmlFor="invite_role" required error={errors.role}>
           <Select
             id="invite_role"
             name="role"
@@ -88,11 +88,11 @@ export function InviteForm({
         </Field>
         {role === "client" && (
           <Field
-            label="Klant"
+            label="Client"
             htmlFor="invite_client_id"
             required
             error={errors.client_id}
-            hint="Dit account ziet alleen de vacatures en kandidaten van deze klant."
+            hint="This account only sees the vacancies and candidates of this client."
           >
             <Select
               id="invite_client_id"
@@ -102,7 +102,7 @@ export function InviteForm({
               aria-invalid={Boolean(errors.client_id)}
               aria-describedby={describedBy("client_id")}
             >
-              <option value="">Kies een klant</option>
+              <option value="">Pick a client</option>
               {clients.map((client) => (
                 <option key={client.id} value={client.id}>
                   {client.name}
@@ -113,9 +113,9 @@ export function InviteForm({
         )}
       </div>
       <div className="flex justify-end max-sm:*:w-full">
-        <PendingSubmit pending={pending} disabled={!enabled} pendingLabel="Bezig met versturen">
+        <PendingSubmit pending={pending} disabled={!enabled} pendingLabel="Sending">
           <Send aria-hidden="true" />
-          Uitnodiging versturen
+          Send invite
         </PendingSubmit>
       </div>
     </form>

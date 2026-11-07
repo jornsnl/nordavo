@@ -14,10 +14,10 @@ import { SidebarNav } from "./sidebar-nav";
 
 // The most used modules as tabs on phones; everything else sits under "Meer".
 const tabs: TabItem[] = [
-  { label: "Overzicht", href: "/dashboard", icon: LayoutDashboard, match: (path) => path === "/dashboard" },
-  { label: "Taken", href: "/dashboard/taken", icon: CheckSquare },
+  { label: "Overview", href: "/dashboard", icon: LayoutDashboard, match: (path) => path === "/dashboard" },
+  { label: "Tasks", href: "/dashboard/tasks", icon: CheckSquare },
   { label: "Leads", href: "/dashboard/leads", icon: Radar },
-  { label: "Vacatures", href: "/dashboard/vacatures", icon: Briefcase },
+  { label: "Vacancies", href: "/dashboard/vacancies", icon: Briefcase },
 ];
 
 /**
@@ -83,11 +83,11 @@ export function AppShell({
       </header>
 
       <TabBar
-        label="Snelmenu"
+        label="Quick menu"
         items={tabs}
         extra={
           <TabButton
-            label="Meer"
+            label="More"
             icon={Menu}
             onClick={() => setOpen(true)}
             active={open}
@@ -123,7 +123,7 @@ export function AppShell({
             type="button"
             onClick={() => setOpen(false)}
             className="absolute top-[calc(1.25rem+env(safe-area-inset-top))] right-3 flex size-10 items-center justify-center rounded-lg text-brand-100 hover:bg-white/10"
-            aria-label="Menu sluiten"
+            aria-label="Close menu"
           >
             <X className="size-5" aria-hidden="true" />
           </button>

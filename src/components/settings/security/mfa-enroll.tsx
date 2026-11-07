@@ -11,7 +11,7 @@ import {
   cancelMfaEnrollment,
   startMfaEnrollment,
   verifyMfaEnrollment,
-} from "@/app/dashboard/instellingen/mfa-actions";
+} from "@/app/dashboard/settings/mfa-actions";
 
 /** "App toevoegen": name, then QR code and secret, then the first code from the app. */
 export function MfaEnroll({ hasFactors }: { hasFactors: boolean }) {
@@ -30,13 +30,13 @@ export function MfaEnroll({ hasFactors }: { hasFactors: boolean }) {
           }}
         >
           <Plus aria-hidden="true" />
-          {hasFactors ? "Nog een app toevoegen" : "Tweestapsverificatie aanzetten"}
+          {hasFactors ? "Add another app" : "Turn on two-step verification"}
         </Button>
       </div>
     );
   }
 
-  return <EnrollFlow key={attempt} defaultName={hasFactors ? "" : "Telefoon"} onClose={() => setOpen(false)} />;
+  return <EnrollFlow key={attempt} defaultName={hasFactors ? "" : "Phone"} onClose={() => setOpen(false)} />;
 }
 
 function EnrollFlow({ defaultName, onClose }: { defaultName: string; onClose: () => void }) {
@@ -65,7 +65,7 @@ function EnrollFlow({ defaultName, onClose }: { defaultName: string; onClose: ()
         <FormMessage success={verifyState.message} />
         <div className="flex justify-end max-sm:*:w-full">
           <Button variant="secondary" onClick={onClose}>
-            Klaar
+            Done
           </Button>
         </div>
       </div>
@@ -83,11 +83,11 @@ function EnrollFlow({ defaultName, onClose }: { defaultName: string; onClose: ()
       >
         <FormMessage error={enrollState.error} />
         <Field
-          label="Naam van de app of telefoon"
+          label="Name of the app or phone"
           htmlFor="mfa_friendly_name"
           required
           error={errors.friendly_name}
-          hint="Bijvoorbeeld: iPhone of 1Password."
+          hint="For example: iPhone or 1Password."
         >
           <Input
             id="mfa_friendly_name"
@@ -103,10 +103,10 @@ function EnrollFlow({ defaultName, onClose }: { defaultName: string; onClose: ()
         </Field>
         <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
           <Button variant="secondary" onClick={cancel} disabled={enrolling}>
-            Annuleren
+            Cancel
           </Button>
-          <PendingSubmit pending={enrolling} pendingLabel="Bezig">
-            Volgende
+          <PendingSubmit pending={enrolling} pendingLabel="Working">
+            Next
           </PendingSubmit>
         </div>
       </form>
@@ -119,9 +119,9 @@ function EnrollFlow({ defaultName, onClose }: { defaultName: string; onClose: ()
     <form action={verifyAction} className="space-y-5 rounded-xl border border-border p-4" noValidate>
       <input type="hidden" name="factor_id" value={factorId} />
       <ol className="list-decimal space-y-1 pl-5 text-sm text-ink">
-        <li>Open je authenticator app en kies voor een nieuw account of het plusje.</li>
-        <li>Scan de QR-code hieronder. Lukt scannen niet, vul dan de sleutel handmatig in.</li>
-        <li>Vul de code van 6 cijfers in die de app nu laat zien.</li>
+        <li>Open your authenticator app and choose a new account or the plus sign.</li>
+        <li>Scan the QR code below. If scanning does not work, enter the key by hand.</li>
+        <li>Enter the 6 digit code the app shows now.</li>
       </ol>
 
       <div className="flex flex-col items-center gap-5 sm:flex-row sm:items-start">
@@ -129,24 +129,24 @@ function EnrollFlow({ defaultName, onClose }: { defaultName: string; onClose: ()
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={enrollState.qrCode}
-          alt={`QR-code voor ${enrollState.friendlyName ?? "je authenticator app"}`}
+          alt={`QR code for ${enrollState.friendlyName ?? "your authenticator app"}`}
           width={176}
           height={176}
           className="size-44 shrink-0 rounded-xl border border-border bg-white p-2 max-sm:size-48"
         />
         <div className="min-w-0 space-y-1.5">
-          <p className="text-sm font-medium text-ink">Sleutel voor handmatig invoeren</p>
+          <p className="text-sm font-medium text-ink">Key for manual entry</p>
           <code className="block rounded-lg bg-surface px-3 py-2 font-mono text-sm break-all text-ink select-all">
             {enrollState.secret?.match(/.{1,4}/g)?.join(" ")}
           </code>
           <p className="text-xs text-muted">
-            Kies in de app voor een tijdgebaseerde code. De spaties mag je weglaten.
+            Choose a time-based code in the app. You can leave out the spaces.
           </p>
         </div>
       </div>
 
       <FormMessage error={verifyState.error} />
-      <Field label="Code uit de app" htmlFor="mfa_code" required error={errors.code}>
+      <Field label="Code from the app" htmlFor="mfa_code" required error={errors.code}>
         <Input
           id="mfa_code"
           name="code"
@@ -167,10 +167,10 @@ function EnrollFlow({ defaultName, onClose }: { defaultName: string; onClose: ()
 
       <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
         <Button variant="secondary" onClick={cancel} disabled={verifying || cancelling}>
-          Annuleren
+          Cancel
         </Button>
-        <PendingSubmit pending={verifying} disabled={cancelling} pendingLabel="Bezig met controleren">
-          Bevestigen en aanzetten
+        <PendingSubmit pending={verifying} disabled={cancelling} pendingLabel="Checking">
+          Confirm and turn on
         </PendingSubmit>
       </div>
     </form>

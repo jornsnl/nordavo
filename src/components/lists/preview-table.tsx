@@ -8,8 +8,8 @@ import type { ListPreview, PreviewRow } from "@/lib/gtm/lists";
 import { optionFor, segments, signalTypes } from "@/lib/labels";
 
 const reachLabel: Record<ListExportType, string> = {
-  bellijst: "Telefoon",
-  mailcampagne: "E-mail",
+  bellijst: "Phone",
+  mailcampagne: "Email",
   max_verrijking: "LinkedIn",
 };
 
@@ -18,19 +18,19 @@ export function PreviewTable({ type, preview }: { type: ListExportType; preview:
     return (
       <EmptyState
         icon={ListChecks}
-        title="Niemand op deze lijst"
-        description="Met dit filter is er niemand die we nu mogen benaderen. Pas het filter aan of wacht op nieuwe signalen en verrijking."
+        title="Nobody on this list"
+        description="With this filter there is nobody we may contact right now. Change the filter or wait for new signals and enrichment."
       />
     );
   }
   return (
     <>
-      <MobileList label="Voorbeeld" className="md:hidden">
+      <MobileList label="Preview" className="md:hidden">
         {preview.rows.map((row) => (
           <MobileListItem
             key={row.contactId}
-            title={row.name || "Naam onbekend"}
-            subtitle={[row.title, row.companyName].filter(Boolean).join(" bij ")}
+            title={row.name || "Name unknown"}
+            subtitle={[row.title, row.companyName].filter(Boolean).join(" at ")}
             meta={[row.tier ? `Tier ${row.tier}` : null, row.score !== null ? `score ${row.score}` : null, row.signalTitle]
               .filter(Boolean)
               .join(", ")}
@@ -42,10 +42,10 @@ export function PreviewTable({ type, preview }: { type: ListExportType; preview:
         <THead>
           <tr>
             <TH>Contact</TH>
-            <TH>Bedrijf</TH>
+            <TH>Company</TH>
             <TH>Segment</TH>
             <TH className="text-right">Score</TH>
-            <TH>Signaal</TH>
+            <TH>Signal</TH>
             <TH>{reachLabel[type]}</TH>
           </tr>
         </THead>
@@ -53,9 +53,9 @@ export function PreviewTable({ type, preview }: { type: ListExportType; preview:
           {preview.rows.map((row) => (
             <TR key={row.contactId}>
               <TD>
-                <div className="font-medium text-brand-900">{row.name || "Naam onbekend"}</div>
+                <div className="font-medium text-brand-900">{row.name || "Name unknown"}</div>
                 <div className="text-xs text-muted">
-                  {[row.title, row.tier ? `tier ${row.tier}` : null].filter(Boolean).join(", ") || "Functie onbekend"}
+                  {[row.title, row.tier ? `tier ${row.tier}` : null].filter(Boolean).join(", ") || "Title unknown"}
                 </div>
               </TD>
               <TD>
@@ -66,7 +66,7 @@ export function PreviewTable({ type, preview }: { type: ListExportType; preview:
                 {row.segment ? (
                   <Badge tone={optionFor(segments, row.segment).tone}>{optionFor(segments, row.segment).label}</Badge>
                 ) : (
-                  <span className="text-muted">Onbekend</span>
+                  <span className="text-muted">Unknown</span>
                 )}
               </TD>
               <TD className="text-right tabular-nums">{row.score ?? "?"}</TD>
@@ -77,7 +77,7 @@ export function PreviewTable({ type, preview }: { type: ListExportType; preview:
                     {row.signalTitle && <div className="mt-1 max-w-56 truncate text-xs text-muted">{row.signalTitle}</div>}
                   </div>
                 ) : (
-                  <span className="text-muted">Geen</span>
+                  <span className="text-muted">None</span>
                 )}
               </TD>
               <TD className="max-w-60 truncate text-muted">{row.reach}</TD>
@@ -97,20 +97,20 @@ function ReachAction({ type, row }: { type: ListExportType; row: PreviewRow }) {
   const name = row.name || "contact";
   if (type === "bellijst") {
     return (
-      <a href={`tel:${row.reach.replace(/[^\d+]/g, "")}`} className={className} aria-label={`${name} bellen, ${row.reach}`}>
+      <a href={`tel:${row.reach.replace(/[^\d+]/g, "")}`} className={className} aria-label={`Call ${name}, ${row.reach}`}>
         <Phone className="size-5" aria-hidden="true" />
       </a>
     );
   }
   if (type === "mailcampagne") {
     return (
-      <a href={`mailto:${row.reach}`} className={className} aria-label={`${name} mailen, ${row.reach}`}>
+      <a href={`mailto:${row.reach}`} className={className} aria-label={`Email ${name}, ${row.reach}`}>
         <Mail className="size-5" aria-hidden="true" />
       </a>
     );
   }
   return (
-    <a href={row.reach} target="_blank" rel="noopener noreferrer" className={className} aria-label={`LinkedIn van ${name} (opent in een nieuw tabblad)`}>
+    <a href={row.reach} target="_blank" rel="noopener noreferrer" className={className} aria-label={`LinkedIn of ${name} (opens in a new tab)`}>
       <Link2 className="size-5" aria-hidden="true" />
     </a>
   );

@@ -55,7 +55,7 @@ export function SortableCard(props: CardProps) {
             ref={setActivatorNodeRef}
             {...attributes}
             onKeyDown={onKeyDown as HTMLAttributes<HTMLButtonElement>["onKeyDown"]}
-            aria-label={`Verplaats ${card.candidate.full_name}`}
+            aria-label={`Move ${card.candidate.full_name}`}
             className="-m-1 flex size-8 shrink-0 cursor-grab items-center justify-center rounded-lg text-muted hover:bg-brand-50 hover:text-brand-700 active:bg-brand-50 focus-visible:outline-2 focus-visible:outline-brand-500 active:cursor-grabbing"
           >
             <GripVertical className="size-4" aria-hidden="true" />
@@ -112,8 +112,8 @@ function CardBody({
             {candidate.full_name}
           </button>
           <p className="truncate text-xs text-muted">
-            {candidate.current_title ?? "Functie onbekend"}
-            {candidate.years_experience !== null && `, ${candidate.years_experience} jr`}
+            {candidate.current_title ?? "Title unknown"}
+            {candidate.years_experience !== null && `, ${candidate.years_experience} yrs`}
           </p>
         </div>
         {handle}
@@ -135,32 +135,32 @@ function CardBody({
       )}
 
       <dl className="mt-2 grid grid-cols-2 gap-2 text-xs">
-        <Score label="Techniek" value={card.technical_score} />
-        <Score label="Engels" value={card.english_score} />
+        <Score label="Technical" value={card.technical_score} />
+        <Score label="English" value={card.english_score} />
       </dl>
 
       <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
         <span className="inline-flex items-center gap-1 text-xs text-muted">
           <Clock className="size-3.5" aria-hidden="true" />
-          {card.daysInPipeline === 1 ? "1 dag" : `${card.daysInPipeline} dagen`}
+          {card.daysInPipeline === 1 ? "1 day" : `${card.daysInPipeline} days`}
         </span>
         {presented && <Badge tone={decision.tone}>{decision.label}</Badge>}
       </div>
 
       {card.stage === "placed" && !lifted && (
         <Link
-          href={`/dashboard/plaatsingen/nieuw?application=${card.id}`}
+          href={`/dashboard/placements/new?application=${card.id}`}
           className="mt-2 inline-flex items-center gap-1.5 rounded text-xs font-semibold text-emerald-700 hover:underline pointer-coarse:min-h-9 focus-visible:outline-2 focus-visible:outline-brand-500"
         >
           <Handshake className="size-3.5" aria-hidden="true" />
-          Plaatsing vastleggen
+          Record placement
         </Link>
       )}
 
       {onMoveTo && (
         <div className="mt-3 border-t border-border pt-2">
           <label htmlFor={selectId} className="sr-only">
-            Verplaats {candidate.full_name} naar
+            Move {candidate.full_name} to
           </label>
           <select
             id={selectId}
@@ -175,7 +175,7 @@ function CardBody({
             }}
             className="w-full rounded-lg border border-transparent bg-surface px-2 py-1 text-xs text-muted pointer-coarse:min-h-10 hover:border-border focus:border-brand-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-100"
           >
-            <option value="">Verplaats naar...</option>
+            <option value="">Move to...</option>
             {applicationStages
               .filter((s) => s.value !== card.stage)
               .map((s) => (
@@ -196,7 +196,7 @@ function Score({ label, value }: { label: string; value: number | null }) {
   return (
     <div className="rounded-lg bg-surface px-2 py-1">
       <dt className="text-[11px] text-muted">{label}</dt>
-      <dd className={`font-semibold tabular-nums ${tone}`}>{value ?? "nvt"}</dd>
+      <dd className={`font-semibold tabular-nums ${tone}`}>{value ?? "n/a"}</dd>
     </div>
   );
 }

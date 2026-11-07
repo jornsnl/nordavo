@@ -1,0 +1,25 @@
+import { redirect } from "next/navigation";
+import { requireStaff } from "@/lib/auth";
+import { getProfileFile } from "@/lib/data/matches";
+import { createSignedUrl } from "@/lib/storage";
+
+/** Opens an anonymous profile PDF through a fresh, short-lived signed URL. */
+export async function GET(_request: Request, { params }: RouteContext<"/dashboard/vacancies/[id]/profiles/[profileId]">) {
+  await requireStaff();
+  const { id, profileId } = await params;
+  const file = await getProfileFile(profileId, id);
+  if (!file) {
+    return new Response("Profile not found.", {
+      status: 404,
+      headers: { "content-type": "text/plain; charset=utf-8" },
+    });
+  }
+  const url = await createSignedUrl(file.path, 60);
+  if (!url) {
+    return new Response("The profile could not be opened. Please try again later.", {
+      status: 502,
+      headers: { "content-type": "text/plain; charset=utf-8" },
+    });
+  }
+  redirect(url);
+}

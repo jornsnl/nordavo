@@ -12,9 +12,9 @@ import { PendingSubmit, submitWithoutReset } from "./form-utils";
 
 type CheckinState = ActionState & { suggestedNext?: string };
 
-const RATING_LABELS = ["", "Slecht", "Matig", "Voldoende", "Goed", "Uitstekend"];
+const RATING_LABELS = ["", "Poor", "Fair", "Sufficient", "Good", "Excellent"];
 
-/** "Check-in toevoegen" button with a modal; afterwards offers to plan the next one. */
+/** "Add check-in" button with a modal; afterwards offers to plan the next one. */
 export function AddCheckin({
   addCheckin,
   setNextCheckin,
@@ -39,13 +39,13 @@ export function AddCheckin({
         }}
       >
         <Plus aria-hidden="true" />
-        Check-in toevoegen
+        Add check-in
       </Button>
       <Modal
         open={open}
         onClose={() => setOpen(false)}
-        title="Check-in vastleggen"
-        description="Hoe gaat het volgens de klant? Kort en concreet is genoeg."
+        title="Record check-in"
+        description="How is it going according to the client? Short and concrete is enough."
       >
         <CheckinFlow
           key={formKey}
@@ -86,24 +86,24 @@ function CheckinFlow({
   return (
     <form onSubmit={submitWithoutReset(formAction)} className="space-y-5" noValidate>
       <FormMessage error={state.error} />
-      <Field label="Datum" htmlFor="checkin_date" required error={errors.checkin_date}>
+      <Field label="Date" htmlFor="checkin_date" required error={errors.checkin_date}>
         <Input id="checkin_date" name="checkin_date" type="date" required defaultValue={todayIso()} />
       </Field>
       <StarInput error={errors.rating} />
-      <Field label="Notities" htmlFor="checkin_notes" error={errors.notes}>
+      <Field label="Notes" htmlFor="checkin_notes" error={errors.notes}>
         <Textarea
           id="checkin_notes"
           name="notes"
           rows={4}
-          placeholder="Wat gaat goed, wat kan beter, afspraken."
+          placeholder="What goes well, what can be better, agreements."
         />
       </Field>
       <div className="flex justify-end gap-2 max-sm:*:flex-1">
         <Button variant="secondary" onClick={onDone}>
-          Annuleren
+          Cancel
         </Button>
-        <PendingSubmit pending={pending} pendingLabel="Bezig met opslaan">
-          Opslaan
+        <PendingSubmit pending={pending} pendingLabel="Saving">
+          Save
         </PendingSubmit>
       </div>
     </form>
@@ -135,7 +135,7 @@ function StarInput({ error }: { error?: string }) {
                 className="sr-only"
               />
               <span className="sr-only">
-                {n} van 5, {RATING_LABELS[n].toLowerCase()}
+                {n} of 5, {RATING_LABELS[n].toLowerCase()}
               </span>
               <Star
                 aria-hidden="true"
@@ -147,7 +147,7 @@ function StarInput({ error }: { error?: string }) {
           ))}
         </div>
         <span className="text-sm text-muted" aria-live="polite">
-          {shown ? RATING_LABELS[shown] : "Nog geen score"}
+          {shown ? RATING_LABELS[shown] : "No score yet"}
         </span>
       </div>
       {error && <p className="mt-1.5 text-xs font-medium text-danger">{error}</p>}
@@ -170,9 +170,9 @@ function NextCheckinForm({
   if (state.ok) {
     return (
       <div className="space-y-5">
-        <FormMessage success="Check-in opgeslagen en de volgende staat gepland." />
+        <FormMessage success="Check-in saved and the next one is planned." />
         <div className="flex justify-end max-sm:*:flex-1">
-          <Button onClick={onDone}>Sluiten</Button>
+          <Button onClick={onDone}>Close</Button>
         </div>
       </div>
     );
@@ -180,12 +180,12 @@ function NextCheckinForm({
 
   return (
     <form onSubmit={submitWithoutReset(formAction)} className="space-y-5" noValidate>
-      <FormMessage success="Check-in opgeslagen." error={state.error} />
+      <FormMessage success="Check-in saved." error={state.error} />
       <div className="flex items-start gap-3 rounded-xl bg-brand-50 px-4 py-3 text-sm text-brand-800">
         <CalendarCheck className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-        <p>Plan meteen de volgende check-in. Wij stellen {formatShortDate(suggested)} voor, over een maand.</p>
+        <p>Plan the next check-in right away. We suggest {formatShortDate(suggested)}, in a month.</p>
       </div>
-      <Field label="Volgende check-in" htmlFor="next_checkin_at" required error={errors.next_checkin_at}>
+      <Field label="Next check-in" htmlFor="next_checkin_at" required error={errors.next_checkin_at}>
         <Input id="next_checkin_at" name="next_checkin_at" type="date" required defaultValue={suggested} />
       </Field>
       <label className="flex cursor-pointer items-center gap-2 text-sm text-ink pointer-coarse:min-h-11">
@@ -195,14 +195,14 @@ function NextCheckinForm({
           defaultChecked
           className="size-4 rounded border-border accent-brand-700"
         />
-        Maak er een taak voor mij van
+        Make it a task for me
       </label>
       <div className="flex justify-end gap-2 max-sm:*:flex-1">
         <Button variant="secondary" onClick={onDone}>
-          Niet nu
+          Not now
         </Button>
-        <PendingSubmit pending={pending} pendingLabel="Bezig met plannen">
-          Plannen
+        <PendingSubmit pending={pending} pendingLabel="Planning">
+          Plan
         </PendingSubmit>
       </div>
     </form>

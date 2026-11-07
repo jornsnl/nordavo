@@ -21,13 +21,13 @@ const JOB_ENV: Record<string, { required: string[]; optional?: string[] }> = {
   "s9-onepage-pull": { required: ["ONEPAGE_USER_ID", "ONEPAGE_API_KEY"] },
   "s10-weekly-report": { required: ["RESEND_API_KEY", "REPORT_EMAIL_TO"] },
   "t2-match": {
-    required: ["AIRTABLE_TOKEN", "AIRTABLE_BASE_ID", "AIRTABLE_CANDIDATES_TABLE", "ANTHROPIC_API_KEY"],
+    required: ["ANTHROPIC_API_KEY"],
   },
 };
 
 /** Jobs that cannot run without a parameter. */
 export const JOB_REQUIRED_PARAMS: Record<string, { name: string; label: string }> = {
-  "t2-match": { name: "vacancy", label: "Vacature" },
+  "t2-match": { name: "vacancy", label: "Vacancy" },
 };
 
 function isSet(name: string) {
@@ -128,7 +128,7 @@ export async function listJobRuns({
   if (status) query = query.eq("status", status);
 
   const { data, error } = await query;
-  if (error) throw new Error(`Jobhistorie laden mislukt: ${error.message}`);
+  if (error) throw new Error(`Could not load job history: ${error.message}`);
   return data.map(toRun);
 }
 
@@ -145,7 +145,7 @@ export async function getLastRuns(jobNames: string[]): Promise<Record<string, Jo
         .order("started_at", { ascending: false })
         .limit(1)
         .maybeSingle();
-      if (error) throw new Error(`Jobstatus laden mislukt: ${error.message}`);
+      if (error) throw new Error(`Could not load job status: ${error.message}`);
       return [name, data] as const;
     }),
   );
@@ -166,7 +166,7 @@ export async function listVacancyOptions(): Promise<{ id: string; label: string 
     .in("status", ["open", "on_hold"])
     .order("opened_at", { ascending: false })
     .limit(100);
-  if (error) throw new Error(`Vacatures laden mislukt: ${error.message}`);
+  if (error) throw new Error(`Could not load vacancies: ${error.message}`);
   return data.map((v) => ({
     id: v.id,
     label: [v.title, v.client?.name ?? v.company?.name].filter(Boolean).join(", "),

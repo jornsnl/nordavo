@@ -2,7 +2,7 @@
 
 import { useActionState, useState } from "react";
 import { Check, Pencil, X } from "lucide-react";
-import { reviewApplication } from "@/app/portaal/vacatures/[id]/actions";
+import { reviewApplication } from "@/app/portal/vacancies/[id]/actions";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Field, FormMessage, Textarea } from "@/components/ui/field";
@@ -44,7 +44,7 @@ export function ReviewForm({
     return (
       <div className="space-y-3">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="text-sm font-medium text-ink">Jouw reactie:</span>
+          <span className="text-sm font-medium text-ink">Your response:</span>
           <Badge tone={decisionLabel.tone}>{decisionLabel.label}</Badge>
           {decidedAtLabel && decision !== "pending" && (
             <span className="text-xs text-muted">{decidedAtLabel}</span>
@@ -64,7 +64,7 @@ export function ReviewForm({
             onClick={() => setEditing(true)}
           >
             <Pencil aria-hidden="true" />
-            Reactie wijzigen
+            Change response
           </Button>
         )}
       </div>
@@ -72,12 +72,12 @@ export function ReviewForm({
   }
 
   return (
-    <form action={formAction} className="space-y-3" aria-label={`Reactie op ${candidateName}`}>
+    <form action={formAction} className="space-y-3" aria-label={`Response to ${candidateName}`}>
       <input type="hidden" name="applicationId" value={applicationId} />
       <Field
-        label="Feedback (optioneel)"
+        label="Feedback (optional)"
         htmlFor={feedbackId}
-        hint="Wat sprak je aan, of wat mis je? Daarmee verfijnen we de selectie."
+        hint="What appealed to you, or what is missing? This helps us refine the selection."
         error={state.fieldErrors?.feedback}
       >
         <Textarea
@@ -95,15 +95,15 @@ export function ReviewForm({
       <div className="flex flex-wrap gap-2 max-sm:*:flex-1">
         <SubmitButton name="decision" value="approved">
           <Check aria-hidden="true" />
-          Akkoord
+          Approve
         </SubmitButton>
         <SubmitButton name="decision" value="rejected" variant="secondary">
           <X aria-hidden="true" />
-          Afwijzen
+          Reject
         </SubmitButton>
         {decision !== "pending" && (
           <Button variant="ghost" onClick={() => setEditing(false)}>
-            Annuleren
+            Cancel
           </Button>
         )}
       </div>

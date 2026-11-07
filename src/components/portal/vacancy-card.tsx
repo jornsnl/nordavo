@@ -14,8 +14,8 @@ export function daysOpen(openedAt: string, closedAt: string | null) {
 
 export function presentedLabel(count: number) {
   return count > CANDIDATES_PER_VACANCY
-    ? `${count} kandidaten voorgesteld`
-    : `${count} van ${CANDIDATES_PER_VACANCY} kandidaten voorgesteld`;
+    ? `${count} candidates presented`
+    : `${count} of ${CANDIDATES_PER_VACANCY} candidates presented`;
 }
 
 export function VacancyCard({ vacancy }: { vacancy: PortalVacancySummary }) {
@@ -25,7 +25,7 @@ export function VacancyCard({ vacancy }: { vacancy: PortalVacancySummary }) {
 
   return (
     <Link
-      href={`/portaal/vacatures/${vacancy.id}`}
+      href={`/portal/vacancies/${vacancy.id}`}
       className="group flex h-full flex-col rounded-2xl border border-border bg-card p-4 shadow-xs transition hover:border-brand-200 hover:shadow-md active:scale-[0.99] active:bg-brand-50/50 focus-visible sm:p-5:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500"
     >
       <div className="flex items-start justify-between gap-3">
@@ -34,8 +34,8 @@ export function VacancyCard({ vacancy }: { vacancy: PortalVacancySummary }) {
       </div>
       <p className="mt-2 flex items-center gap-1.5 text-xs text-muted">
         <CalendarDays className="size-3.5" aria-hidden="true" />
-        Geopend op {formatDate(vacancy.openedAt)}
-        {isOpen ? `, ${days} ${days === 1 ? "dag" : "dagen"} open` : ""}
+        Opened on {formatDate(vacancy.openedAt)}
+        {isOpen ? `, ${days} ${days === 1 ? "day" : "days"} open` : ""}
       </p>
 
       <div className="mt-4">
@@ -53,10 +53,10 @@ export function VacancyCard({ vacancy }: { vacancy: PortalVacancySummary }) {
       <div className="mt-auto flex items-center justify-between gap-3 pt-4">
         {vacancy.pendingCount > 0 ? (
           <span className="rounded-full bg-accent-100 px-2.5 py-1 text-xs font-semibold text-accent-600">
-            {vacancy.pendingCount} {vacancy.pendingCount === 1 ? "wacht" : "wachten"} op jouw reactie
+            {vacancy.pendingCount} {vacancy.pendingCount === 1 ? "awaits" : "await"} your response
           </span>
         ) : (
-          <span className="text-xs text-muted">Geen actie nodig</span>
+          <span className="text-xs text-muted">No action needed</span>
         )}
         <ArrowRight className="size-4 text-muted transition group-hover:translate-x-0.5 group-hover:text-brand-700" aria-hidden="true" />
       </div>

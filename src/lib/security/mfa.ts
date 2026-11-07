@@ -6,7 +6,7 @@ import { PASSKEY_SESSION_COOKIE, isPasskeySession } from "@/lib/security/passkey
  * proxy and the Data Access Layer.
  *
  * A session that only did the first step (aal1) while the user has a verified
- * app must finish /login/verificatie first. A passkey sign-in counts as two
+ * app must finish /login/verify first. A passkey sign-in counts as two
  * factors, see passkey-session.ts.
  *
  * The factor list inside the session cookie is not signed, so a user could
@@ -15,7 +15,7 @@ import { PASSKEY_SESSION_COOKIE, isPasskeySession } from "@/lib/security/passkey
  * cookie tied to the session id. Uses Web Crypto only, so it runs in the proxy.
  */
 
-export const MFA_VERIFY_PATH = "/login/verificatie";
+export const MFA_VERIFY_PATH = "/login/verify";
 
 /** Remembers that this session's user has no authenticator app. */
 export const MFA_CHECK_COOKIE = "nordavo-mfa-check";

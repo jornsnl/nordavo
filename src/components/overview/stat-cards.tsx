@@ -4,17 +4,17 @@ import { Briefcase, Building2, Handshake, Users } from "lucide-react";
 import { getOverviewStats } from "@/lib/data/stats";
 
 const cards = [
-  { key: "activeClients", label: "Actieve klanten", hint: "Status actief", icon: Building2, href: "/dashboard/klanten" },
-  { key: "openVacancies", label: "Open vacatures", hint: "Nog niet ingevuld", icon: Briefcase, href: "/dashboard/vacatures" },
-  { key: "candidatesInSelection", label: "Kandidaten in selectie", hint: "Nog niet geplaatst of afgewezen", icon: Users, href: "/dashboard/kandidaten" },
-  { key: "activePlacements", label: "Lopende plaatsingen", hint: "Actief of in opzegtermijn", icon: Handshake, href: "/dashboard/plaatsingen" },
+  { key: "activeClients", label: "Active clients", hint: "Status active", icon: Building2, href: "/dashboard/clients" },
+  { key: "openVacancies", label: "Open vacancies", hint: "Not filled yet", icon: Briefcase, href: "/dashboard/vacancies" },
+  { key: "candidatesInSelection", label: "Candidates in selection", hint: "Not placed or rejected yet", icon: Users, href: "/dashboard/candidates" },
+  { key: "activePlacements", label: "Running placements", hint: "Active or serving notice", icon: Handshake, href: "/dashboard/placements" },
 ] as const;
 
 function CardGrid({ children }: { children: ReactNode }) {
   return (
     <section aria-labelledby="stats-heading" className="mb-8 sm:mb-10">
       <h2 id="stats-heading" className="sr-only">
-        Kerncijfers
+        Key figures
       </h2>
       {/* Two columns on phones too, like a native dashboard. */}
       <ul className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">{children}</ul>

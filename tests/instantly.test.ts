@@ -150,7 +150,7 @@ test("client errors include status and path but never the key", () =>
     globalThis.fetch = async () => new Response("Unauthorized", { status: 401 });
     await assert.rejects(
       () => addLeadToCampaign("camp-1", { email: "a@a.nl" }),
-      (error: Error) => /Instantly 401 bij \/leads/.test(error.message) && !error.message.includes("test-key"),
+      (error: Error) => /Instantly 401 at \/leads/.test(error.message) && !error.message.includes("test-key"),
     );
   }));
 
@@ -160,9 +160,9 @@ test("listCampaigns validates the response shape", () =>
     await assert.rejects(() => listCampaigns());
   }));
 
-test("calls without a key fail with a clear Dutch message", async () => {
+test("calls without a key fail with a clear message", async () => {
   const before = process.env.INSTANTLY_API_KEY;
   delete process.env.INSTANTLY_API_KEY;
-  await assert.rejects(() => listCampaigns(), /INSTANTLY_API_KEY ontbreekt/);
+  await assert.rejects(() => listCampaigns(), /INSTANTLY_API_KEY is missing/);
   if (before !== undefined) process.env.INSTANTLY_API_KEY = before;
 });

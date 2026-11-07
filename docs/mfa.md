@@ -18,7 +18,7 @@ Tweestapsverificatie is per gebruiker en staat standaard uit. Teamleden en klant
 ## Aanzetten
 
 1. Log in met je wachtwoord.
-2. Ga naar je beveiligingsinstellingen: teamleden via Instellingen (`/dashboard/instellingen`), klanten via Beveiliging (`/portaal/beveiliging`, het schildje rechtsboven).
+2. Ga naar je beveiligingsinstellingen: teamleden via Instellingen (`/dashboard/settings`), klanten via Beveiliging (`/portal/security`, het schildje rechtsboven).
 3. Klik bij Tweestapsverificatie op **Tweestapsverificatie aanzetten**.
 4. Geef de app een naam die je herkent, bijvoorbeeld "iPhone" of "1Password", en klik op **Volgende**.
 5. Open je authenticator app, kies voor een nieuw account (vaak een plusje) en scan de QR-code. Lukt scannen niet, typ dan de sleutel onder de QR-code over en kies voor een tijdgebaseerde code.
@@ -32,7 +32,7 @@ Je kunt meer apps toevoegen (bijvoorbeeld een tweede telefoon of je wachtwoordma
 ## Inloggen
 
 1. Vul op `/login` je e-mailadres en wachtwoord in.
-2. Staat tweestapsverificatie aan, dan ga je naar `/login/verificatie`.
+2. Staat tweestapsverificatie aan, dan ga je naar `/login/verify`.
 3. Vul de code uit je app in. Heb je meer apps, kies dan eerst welke je gebruikt (standaard de eerste).
 4. Teamleden komen op het dashboard (of de pagina waar ze heen wilden), klanten in het klantportaal.
 
@@ -52,7 +52,7 @@ Er zijn geen herstelcodes. Ben je je telefoon kwijt of heb je een nieuwe, vraag 
 
 Voor beheerders:
 
-1. Ga naar Instellingen (`/dashboard/instellingen`), naar de lijst met gebruikers.
+1. Ga naar Instellingen (`/dashboard/settings`), naar de lijst met gebruikers.
 2. In de kolom **2FA** staat per gebruiker **Aan** of **Uit**.
 3. Klik bij de gebruiker op **2FA resetten** en bevestig. Alle authenticator apps van die gebruiker worden verwijderd.
 4. De gebruiker logt daarna in met alleen een wachtwoord en kan meteen een nieuwe app toevoegen.
@@ -71,8 +71,8 @@ Supabase Auth regelt de factoren (de apps), de QR-code, de controle van codes en
 | Afdwingen per request | `src/lib/supabase/proxy.ts` |
 | Afdwingen in de Data Access Layer | `getCurrentUser()` in `src/lib/auth.ts` |
 | Doorsturen na het wachtwoord | `src/app/login/actions.ts` |
-| Codepagina bij het inloggen | `src/app/login/verificatie/*` |
-| Aanzetten, verwijderen, resetten (server actions) | `src/app/dashboard/instellingen/mfa-actions.ts` |
+| Codepagina bij het inloggen | `src/app/login/verify/*` |
+| Aanzetten, verwijderen, resetten (server actions) | `src/app/dashboard/settings/mfa-actions.ts` |
 | Instellingen (scherm) | `src/components/settings/security/mfa-*.tsx` |
 
 Zo beslist het portaal of een ingelogde sessie nog een code nodig heeft (`checkSecondStep`):
@@ -88,11 +88,11 @@ Kan Supabase Auth niet worden bereikt, dan geldt de sessie als niet geverifieerd
 
 Een sessie die nog een code nodig heeft, mag alleen naar:
 
-- `/login/verificatie`
+- `/login/verify`
 - `/auth/signout` en `/auth/confirm` (de landingspagina van e-maillinks; die wisselt alleen tokens en stuurt door)
 - `/api/webhooks` en `/api/mcp`, die zichzelf met handtekeningen en tokens beveiligen
 
-Alles anders stuurt de proxy naar `/login/verificatie?next=<pagina>`. `getCurrentUser()` doet dezelfde controle nog een keer, voor server actions en als tweede verdedigingslinie. `/api/jobs` accepteert ook een sessie van een teamlid en valt daarom onder de controle.
+Alles anders stuurt de proxy naar `/login/verify?next=<pagina>`. `getCurrentUser()` doet dezelfde controle nog een keer, voor server actions en als tweede verdedigingslinie. `/api/jobs` accepteert ook een sessie van een teamlid en valt daarom onder de controle.
 
 Voegt iemand op een ander apparaat een app toe, dan geldt die voor al zijn andere sessies binnen tien minuten.
 

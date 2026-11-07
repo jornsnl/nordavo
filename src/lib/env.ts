@@ -1,7 +1,7 @@
 function required(name: string, value: string | undefined): string {
   if (!value) {
     throw new Error(
-      `Omgevingsvariabele ${name} ontbreekt. Kopieer .env.example naar .env.local en vul de waarden in.`,
+      `Environment variable ${name} is missing. Copy .env.example to .env.local and fill in the values.`,
     );
   }
   return value;

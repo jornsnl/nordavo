@@ -11,7 +11,7 @@ import type {
 import { createClient } from "@/lib/supabase/server";
 
 /**
- * Data access for the client portal (/portaal).
+ * Data access for the client portal (/portal).
  *
  * Every function calls requireClient() and filters by the client id itself,
  * on top of RLS. Candidate contact details, owners and internal fields
@@ -190,7 +190,7 @@ export const getPendingReviews = cache(async (): Promise<PendingReview[]> => {
       applicationId: row.id,
       presentedAt: row.presented_at,
       stage: row.stage,
-      candidateName: row.candidate?.full_name ?? "Kandidaat",
+      candidateName: row.candidate?.full_name ?? "Candidate",
       candidateTitle: row.candidate?.current_title ?? null,
       vacancyId: row.vacancy.id,
       vacancyTitle: row.vacancy.title,

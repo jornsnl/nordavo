@@ -22,7 +22,7 @@ export default function DashboardLayout({
   );
 }
 
-/** Sends client portal users to /portaal. Page data is protected by RLS as well. */
+/** Sends client portal users to /portal. Page data is protected by RLS as well. */
 async function StaffGate() {
   await requireStaff();
   return null;

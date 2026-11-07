@@ -12,7 +12,7 @@ const IMPORT_CHUNK_SIZE = 500;
 const column = z.string().min(1).max(200).optional();
 
 const mappingSchema = z.object({
-  domain: z.string({ error: "Kies de kolom met het domein." }).min(1, "Kies de kolom met het domein.").max(200),
+  domain: z.string({ error: "Choose the column with the domain." }).min(1, "Choose the column with the domain.").max(200),
   company_name: column,
   legal_form: column,
   employees: column,
@@ -34,10 +34,10 @@ const mappingSchema = z.object({
 const inputSchema = z.object({
   rows: z
     .array(z.record(z.string().max(200), z.string().max(5000)))
-    .min(1, "Geen rijen om te importeren.")
-    .max(IMPORT_CHUNK_SIZE, `Stuur maximaal ${IMPORT_CHUNK_SIZE} rijen per keer.`),
+    .min(1, "No rows to import.")
+    .max(IMPORT_CHUNK_SIZE, `Send at most ${IMPORT_CHUNK_SIZE} rows at a time.`),
   mapping: mappingSchema,
-  source: z.string().trim().min(1, "Geef de bron een naam.").max(200, "Gebruik maximaal 200 tekens."),
+  source: z.string().trim().min(1, "Give the source a name.").max(200, "Use at most 200 characters."),
   /** Number of data rows in the file before this chunk. */
   offset: z.number().int().min(0),
 });
@@ -55,7 +55,7 @@ export async function importChunkAction(input: ImportChunkInput): Promise<Import
   await requireStaff();
   const parsed = inputSchema.safeParse(input);
   if (!parsed.success) {
-    return { ok: false, error: parsed.error.issues[0]?.message ?? "De import is niet geldig." };
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "The import is not valid." };
   }
   const { rows, mapping, source, offset } = parsed.data;
 
@@ -63,7 +63,7 @@ export async function importChunkAction(input: ImportChunkInput): Promise<Import
     const supabase = await createClient();
     const result = await importLeadRows(supabase, rows, mapping, source);
     revalidatePath("/dashboard/leads");
-    revalidatePath("/dashboard/contacten");
+    revalidatePath("/dashboard/contacts");
     return {
       ok: true,
       result: { ...result, skipped: result.skipped.map((s) => ({ ...s, row: s.row + offset })) },
@@ -71,7 +71,7 @@ export async function importChunkAction(input: ImportChunkInput): Promise<Import
   } catch (error) {
     return {
       ok: false,
-      error: error instanceof Error && error.message ? error.message : "Er ging iets mis bij het importeren.",
+      error: error instanceof Error && error.message ? error.message : "Something went wrong while importing.",
     };
   }
 }

@@ -62,7 +62,7 @@ export function FilterSheet({
             type="button"
             onClick={() => ref.current?.close()}
             className="flex size-11 items-center justify-center rounded-lg text-muted active:bg-brand-50"
-            aria-label="Sluiten"
+            aria-label="Close"
           >
             <X className="size-5" aria-hidden="true" />
           </button>
@@ -70,10 +70,10 @@ export function FilterSheet({
         <div className="max-md:px-5 max-md:py-5">{children}</div>
         <div className="sticky bottom-0 flex gap-2 border-t border-border bg-card px-5 py-3 md:hidden">
           <Link href={resetHref} onClick={() => ref.current?.close()} className={buttonClasses({ variant: "secondary", className: "flex-1" })}>
-            Wissen
+            Clear
           </Link>
           <button type="submit" className={buttonClasses({ className: "flex-1" })}>
-            Toon resultaten
+            Show results
           </button>
         </div>
       </dialog>
@@ -94,7 +94,7 @@ function FilterButton({ activeCount, onClick }: { activeCount: number; onClick: 
       {activeCount > 0 && (
         <span className="flex min-w-5 items-center justify-center rounded-full bg-brand-700 px-1.5 text-xs text-white tabular-nums">
           {activeCount}
-          <span className="sr-only"> actief</span>
+          <span className="sr-only"> active</span>
         </span>
       )}
     </button>

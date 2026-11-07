@@ -13,7 +13,7 @@ import { Field, FormMessage, Input } from "@/components/ui/field";
 import { PendingSubmit } from "@/components/placements/form-utils";
 import { useWebAuthnSupport } from "./passkey-support";
 
-/** "Passkey toevoegen": a name, then the browser's own passkey prompt. */
+/** "Add passkey": a name, then the browser's own passkey prompt. */
 export function PasskeyRegister({
   startAction,
   finishAction,
@@ -60,8 +60,8 @@ export function PasskeyRegister({
   if (!supported) {
     return (
       <p className="rounded-xl border border-border bg-surface px-4 py-3 text-sm text-muted">
-        Deze browser ondersteunt geen passkeys. Gebruik een recente versie van Safari, Chrome, Edge
-        of Firefox om een passkey toe te voegen.
+        This browser does not support passkeys. Use a recent version of Safari, Chrome, Edge
+        or Firefox to add a passkey.
       </p>
     );
   }
@@ -71,11 +71,11 @@ export function PasskeyRegister({
       <FormMessage error={state.error} success={state.ok ? state.message : undefined} />
       <div className="grid gap-5 sm:grid-cols-2">
         <Field
-          label="Naam van de passkey"
+          label="Passkey name"
           htmlFor="passkey_name"
           required
           error={nameError}
-          hint="Bijvoorbeeld MacBook, iPhone of 1Password."
+          hint="For example MacBook, iPhone or 1Password."
         >
           <Input
             id="passkey_name"
@@ -91,9 +91,9 @@ export function PasskeyRegister({
         </Field>
       </div>
       <div className="flex justify-end max-sm:*:w-full">
-        <PendingSubmit pending={pending} pendingLabel="Wacht op je apparaat">
+        <PendingSubmit pending={pending} pendingLabel="Waiting for your device">
           <Plus aria-hidden="true" />
-          Passkey toevoegen
+          Add passkey
         </PendingSubmit>
       </div>
     </form>
@@ -102,10 +102,10 @@ export function PasskeyRegister({
 
 function registrationErrorMessage(error: unknown) {
   if (error instanceof WebAuthnError && error.code === "ERROR_AUTHENTICATOR_PREVIOUSLY_REGISTERED") {
-    return "Dit apparaat heeft al een passkey voor je account.";
+    return "This device already has a passkey for your account.";
   }
   if (error instanceof Error && (error.name === "NotAllowedError" || error.name === "AbortError")) {
-    return "Je hebt het toevoegen geannuleerd, of het duurde te lang. Probeer het opnieuw.";
+    return "You cancelled adding it, or it took too long. Try again.";
   }
-  return "De passkey is niet toegevoegd. Probeer het opnieuw.";
+  return "The passkey was not added. Try again.";
 }

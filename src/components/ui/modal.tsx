@@ -60,7 +60,7 @@ export function Modal({
               type="button"
               onClick={onClose}
               className="flex size-10 shrink-0 items-center justify-center rounded-lg text-muted hover:bg-brand-50 hover:text-ink sm:size-9"
-              aria-label="Sluiten"
+              aria-label="Close"
             >
               <X className="size-5" aria-hidden="true" />
             </button>

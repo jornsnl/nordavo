@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import type { PoolCandidate } from "@/lib/integrations/airtable";
+import { mapPortalCandidate, type PoolCandidate, type PoolCandidateRow } from "@/lib/talent/pool";
 import {
   collectText,
   employerTerms,
@@ -17,6 +17,7 @@ import {
   judgementPayload,
   needsSearchBrief,
   normalizeSkill,
+  poolPatterns,
   prefilterCandidates,
   selectMatchesToStore,
   seniorityFits,
@@ -26,7 +27,7 @@ import {
 
 function candidate(overrides: Partial<PoolCandidate> = {}): PoolCandidate {
   return {
-    id: "recA",
+    id: "00000000-0000-4000-8000-00000000000a",
     name: "Priya Raghavan",
     nameParts: ["Priya", "Raghavan"],
     email: "priya.r@example.com",
@@ -44,6 +45,7 @@ function candidate(overrides: Partial<PoolCandidate> = {}): PoolCandidate {
     englishLevel: "C1",
     availability: "30 dagen",
     location: "Bangalore",
+    status: "available",
     consent: null,
     ...overrides,
   };
@@ -118,7 +120,7 @@ test("redactIdentifiers removes identifiers before text goes to Claude", () => {
 test("collectText flattens profile JSON and leakMessage names kinds only", () => {
   assert.equal(collectText({ a: "x", b: ["y", { c: "z" }], n: 3 }), "x\ny\nz\n3");
   const message = leakMessage([{ kind: "naam", match: "Priya" }]);
-  assert.ok(message.includes("naam"));
+  assert.ok(message.includes("a name"));
   assert.ok(!message.includes("Priya"));
 });
 
@@ -168,6 +170,93 @@ test("prefilter drops juniors and candidates without overlap, ranks by overlap",
   const result = prefilterCandidates(vacancy, pool, 25);
   assert.deepEqual(result.map((r) => r.candidate.id), ["recStrong", "recText", "recSome"]);
   assert.equal(prefilterCandidates(vacancy, pool, 1).length, 1);
+});
+
+// ---------------------------------------------------------------------------
+// Portal candidates as the pool
+// ---------------------------------------------------------------------------
+
+function portalRow(overrides: Partial<PoolCandidateRow> = {}): PoolCandidateRow {
+  return {
+    id: "00000000-0000-4000-8000-0000000000b1",
+    full_name: "Priya Raghavan",
+    email: "priya.r@example.com",
+    phone: " +91 98450 12345 ",
+    location: "Bangalore",
+    current_title: "Senior Data Engineer",
+    years_experience: 6,
+    skills: ["Python", "python", " dbt ", ""],
+    cv_path: "candidate/x/cv.pdf",
+    summary: "  ",
+    status: "available",
+    seniority: "senior",
+    employers: ["Flipkart", "Infosys Limited"],
+    project_types: ["Data platforms"],
+    sectors: ["E-commerce"],
+    cv_text: "Built pipelines with Airflow.",
+    english_level: "C1",
+    availability: "30 days notice",
+    profile_consent: null,
+    ...overrides,
+  };
+}
+
+test("mapPortalCandidate maps every field the matcher and the profile use", () => {
+  const c = mapPortalCandidate(portalRow());
+  assert.equal(c.name, "Priya Raghavan");
+  assert.deepEqual(c.nameParts, ["Priya", "Raghavan"]);
+  assert.equal(c.phone, "+91 98450 12345");
+  assert.deepEqual(c.skills, ["Python", "dbt"], "trimmed, no empties, no case duplicates");
+  assert.equal(c.seniority, "senior");
+  assert.deepEqual(c.employers, ["Flipkart", "Infosys Limited"]);
+  assert.equal(c.summary, null, "blank text reads as missing");
+  assert.equal(c.cvText, "Built pipelines with Airflow.");
+  assert.equal(c.hasCvAttachment, true);
+  assert.equal(c.englishLevel, "C1");
+  assert.equal(c.availability, "30 days notice");
+  assert.equal(c.consent, null);
+  assert.equal(mapPortalCandidate(portalRow({ profile_consent: false })).consent, false);
+  assert.equal(mapPortalCandidate(portalRow({ cv_path: null })).hasCvAttachment, false);
+});
+
+test("a mapped portal candidate goes through the prefilter and stays anonymous for Claude", () => {
+  const c = mapPortalCandidate(portalRow({ skills: ["Python", "Snowflake", "Airflow", "dbt"], summary: "Priya worked at Flipkart." }));
+  assert.equal(prefilterCandidates(vacancy, [c]).length, 1);
+  const payload = JSON.stringify(judgementPayload(c, "K1"));
+  assert.deepEqual(findIdentifierLeaks(payload, { nameParts: c.nameParts, email: c.email, phone: c.phone, employers: c.employers, skills: c.skills }), []);
+});
+
+test("poolPatterns: one weighted pattern per wanted skill, aliases included", () => {
+  const { patterns, weights } = poolPatterns({ stack: ["Node.js", "Postgres"], must_haves: ["Kubernetes", "5 jaar ervaring met data pipelines"] });
+  assert.equal(patterns.length, 3, "long must haves are not skills");
+  assert.deepEqual(weights, [10, 10, 4]);
+  const match = (i: number, text: string) => new RegExp(patterns[i]).test(text);
+  assert.ok(match(0, "nodejs , react"));
+  assert.ok(match(0, "node.js (backend)"));
+  assert.ok(!match(0, "nodemon"));
+  assert.ok(match(1, "aws , postgresql"));
+  assert.ok(match(1, "worked with psql daily"));
+  assert.ok(match(2, "k8s"));
+  assert.deepEqual(poolPatterns({ stack: [], must_haves: [] }), { patterns: [], weights: [] });
+});
+
+test("poolPatterns never drop a candidate the exact prefilter keeps", () => {
+  const stack = ["C#", ".NET", "Power BI", "Vue.js", "Go"];
+  const { patterns } = poolPatterns({ stack, must_haves: [] });
+  const req: VacancyRequirements = { ...vacancy, stack, must_haves: [] };
+  const pool = [
+    candidate({ skills: ["csharp"], summary: null }),
+    candidate({ skills: ["dotnet"], summary: null }),
+    candidate({ skills: ["PowerBI"], summary: null }),
+    candidate({ skills: ["VueJS"], summary: null }),
+    candidate({ skills: ["Golang"], summary: null }),
+    candidate({ skills: [], summary: "Builds services in Go and C#." }),
+  ];
+  for (const c of pool) {
+    assert.equal(prefilterCandidates(req, [c]).length, 1, `exact prefilter keeps ${c.skills.join(",") || c.summary}`);
+    const hay = [c.skills.join(" , "), c.summary, c.cvText].filter(Boolean).join(" ").toLowerCase();
+    assert.ok(patterns.some((p) => new RegExp(p).test(hay)), `SQL patterns keep ${hay}`);
+  }
 });
 
 test("judgementPayload never contains name, email, phone or employers", () => {
