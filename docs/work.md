@@ -49,6 +49,15 @@ Eén persoon kan in meerdere workspaces zitten met verschillende rollen, bijvoor
 | Andere mensen zien | ja | ja | alleen mensen in zijn projecten (en admins) |
 | Exporteren | ja | nee | nee |
 
+### Gasten en freelancers zien alleen Work
+
+Iedereen die je in Work uitnodigt, als admin, member of guest, krijgt in het portaal de rol `external`. Daarmee zie je alleen `/work`: niet het dashboard, niet de klanten, kandidaten, leads of vacatures, en geen andere workspaces. Dat staat niet alleen in de interface, maar wordt afgedwongen in de database (RLS), dus ook via een directe link of de API kom je er niet bij.
+
+- Freelancer op één project: nodig uit als **Guest** bij dat project.
+- Freelancer op de hele workspace: nodig uit als **Member**. Die ziet alle open projecten van die workspace, en verder niets.
+
+De test [supabase/tests/work_guest_isolation.test.sql](../supabase/tests/work_guest_isolation.test.sql) zet in elke portaaltabel een rij en controleert dat een guest en een member van een workspace er geen enkele kunnen lezen, en alleen hun eigen workspace zien.
+
 Een workspace aanmaken kan alleen een beheerder van het Nordavo portaal (`profiles.role = 'admin'`), via **New workspace** in de sidebar. Die wordt de eerste admin.
 
 ### Statussen en review
@@ -74,6 +83,7 @@ De acceptatiecriteria van fase 1 staan als test in [supabase/tests/work_rls.test
 
 ```bash
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/tests/work_rls.test.sql
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/tests/work_guest_isolation.test.sql
 ```
 
 ## Inrichten

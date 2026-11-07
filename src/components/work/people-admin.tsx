@@ -10,6 +10,14 @@ import { Modal } from "@/components/ui/modal";
 import { PendingSubmit, submitWithoutReset } from "@/components/placements/form-utils";
 import { useWorkAction, type WorkAction } from "@/components/work/forms";
 
+// Nobody invited here gets the Nordavo portal or another workspace: that is
+// enforced in the database (supabase/tests/work_guest_isolation.test.sql).
+const roleHints: Record<WorkRole, string> = {
+  admin: "Manages this workspace. No access to the portal or other workspaces.",
+  member: "Sees every open project in this workspace, nothing else. Good for a freelancer on the whole workspace.",
+  guest: "Sees only the projects you add them to, nothing else in the portal or Work.",
+};
+
 export function InviteForm({
   action,
   projects,
@@ -35,7 +43,7 @@ export function InviteForm({
         <Field label="Name" htmlFor="invite_name" hint="For a new account">
           <Input id="invite_name" name="full_name" autoComplete="off" />
         </Field>
-        <Field label="Role" htmlFor="invite_role" required>
+        <Field label="Role" htmlFor="invite_role" required hint={roleHints[role]}>
           <Select id="invite_role" name="role" value={role} onChange={(e) => setRole(e.target.value as WorkRole)}>
             {workRoles
               .filter((r) => roles.includes(r.value))
