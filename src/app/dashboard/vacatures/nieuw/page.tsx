@@ -10,16 +10,16 @@ import { listCompanyOptions } from "@/lib/data/vacancies";
 import { createVacancyAction } from "../actions";
 
 export const metadata: Metadata = {
-  title: "Nieuwe vacature",
+  title: "New vacancy",
 };
 
 export default function Page({ searchParams }: PageProps<"/dashboard/vacatures/nieuw">) {
   return (
     <>
       <PageHeader
-        eyebrow="Vacatures"
-        title="Nieuwe vacature"
-        description="Leg het functieprofiel vast. Vanaf vandaag loopt de klok richting drie kandidaten."
+        eyebrow="Vacancies"
+        title="New vacancy"
+        description="Capture the job profile. For a client or prospect the clock towards three candidates starts today; a talent pool vacancy has no clock until it is linked to a client."
       />
       <Card className="max-w-3xl">
         <CardBody className="py-6">
@@ -58,7 +58,7 @@ async function NewVacancyForm({
       cancelHref={
         clientId ? `/dashboard/klanten/${clientId}` : companyId ? `/dashboard/leads/${companyId}` : "/dashboard/vacatures"
       }
-      submitLabel="Vacature toevoegen"
+      submitLabel="Add vacancy"
     />
   );
 }

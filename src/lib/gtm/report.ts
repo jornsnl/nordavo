@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { ActivityChannel, ActivityOutcome, Database, Segment, TalentStage } from "@/lib/database.types";
 import { activityChannels, optionFor, segments, signalTypes, talentStages } from "@/lib/labels";
+import { countsInMetrics } from "@/lib/talent/talent-pool";
 
 /**
  * Weekly report (S10): the numbers Julius gets every Friday and sees under
@@ -193,6 +194,8 @@ export type VacancyFact = {
   first_interview_at: string | null;
   start_at: string | null;
   company: string | null;
+  /** Talent pool vacancies have no clock and never count in the report. */
+  is_talent_pool?: boolean;
 };
 
 function wholeDays(from: string, to: Date) {
@@ -202,10 +205,11 @@ function wholeDays(from: string, to: Date) {
 /**
  * Lead time per open vacancy (T6). The clock runs from intake (else the
  * opening date) until profiles are sent: warn from 14 days, alarm from 21.
+ * Talent pool vacancies are left out.
  */
 export function leadTimeRows(vacancies: VacancyFact[], now = new Date()): LeadTimeRow[] {
   return vacancies
-    .filter((v) => v.talent_stage !== "geplaatst" && v.talent_stage !== "gesloten")
+    .filter((v) => countsInMetrics(v) && v.talent_stage !== "geplaatst" && v.talent_stage !== "gesloten")
     .map((v) => {
       const startedAt = v.intake_at ?? v.opened_at;
       const days = wholeDays(startedAt, now);
@@ -361,8 +365,9 @@ export async function buildWeeklyReport(db: Db, { from, to }: { from: string; to
       db
         .from("vacancies")
         .select(
-          "id, title, talent_stage, opened_at, intake_at, profiles_sent_at, first_interview_at, start_at, client:clients(name), company:companies(name)",
+          "id, title, talent_stage, opened_at, intake_at, profiles_sent_at, first_interview_at, start_at, is_talent_pool, client:clients(name), company:companies(name)",
         )
+        .eq("is_talent_pool", false)
         .not("talent_stage", "in", "(geplaatst,gesloten)")
         .in("status", ["open", "on_hold"])
         .order("id")
@@ -383,6 +388,7 @@ export async function buildWeeklyReport(db: Db, { from, to }: { from: string; to
       first_interview_at: v.first_interview_at,
       start_at: v.start_at,
       company: v.client?.name ?? v.company?.name ?? null,
+      is_talent_pool: v.is_talent_pool,
     })),
     now,
   );

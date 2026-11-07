@@ -19,10 +19,14 @@ import type { TalentStage, VacancyStatus } from "@/lib/database.types";
 import { isUuid, listClientOptions } from "@/lib/data/clients";
 import { isTalentStage, isVacancyStatus, listVacancies } from "@/lib/data/vacancies";
 import { optionFor, seniorities, talentStages, vacancyStatuses } from "@/lib/labels";
+import { TALENT_POOL_LABEL } from "@/lib/talent/talent-pool";
 
 export const metadata: Metadata = {
-  title: "Vacatures",
+  title: "Vacancies",
 };
+
+/** Value of the client filter that shows only talent pool vacancies. */
+const TALENT_POOL_FILTER = "talent-pool";
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
@@ -32,7 +36,8 @@ function readFilters(params: Record<string, string | string[] | undefined>) {
   const q = typeof params.q === "string" ? params.q.trim() : "";
   const rawStatus = typeof params.status === "string" ? params.status : "";
   const status = rawStatus === "all" || isVacancyStatus(rawStatus) ? rawStatus : "";
-  const client = isUuid(params.client) ? params.client : "";
+  const rawClient = typeof params.client === "string" ? params.client : "";
+  const client = rawClient === TALENT_POOL_FILTER || isUuid(rawClient) ? rawClient : "";
   const rawStage = params.stage;
   const stage: TalentStage | "" = isTalentStage(rawStage) ? rawStage : "";
   const statuses: VacancyStatus[] | undefined =
@@ -44,13 +49,13 @@ export default function Page({ searchParams }: { searchParams: SearchParams }) {
   return (
     <>
       <PageHeader
-        eyebrow="Werving"
-        title="Vacatures"
-        description="Openstaande functieprofielen, van eerste vraag tot drie kandidaten binnen drie weken."
+        eyebrow="Recruitment"
+        title="Vacancies"
+        description="Open job profiles, from first request to three candidates within three weeks. Talent pool vacancies have no client yet and no clock."
         actions={
           <ButtonLink href="/dashboard/vacatures/nieuw">
             <Plus aria-hidden="true" />
-            Nieuwe vacature
+            New vacancy
           </ButtonLink>
         }
       />
@@ -86,7 +91,7 @@ async function Filters({ searchParams }: { searchParams: SearchParams }) {
           aria-hidden="true"
         />
         <label htmlFor="vacancy-q" className="sr-only">
-          Zoek op functietitel
+          Search by job title
         </label>
         <Input
           id="vacancy-q"
@@ -95,18 +100,18 @@ async function Filters({ searchParams }: { searchParams: SearchParams }) {
           enterKeyHint="search"
           autoComplete="off"
           defaultValue={q}
-          placeholder="Zoek op functietitel"
+          placeholder="Search by job title"
           className="pl-10"
         />
       </div>
-      {/* Phones: status as chips, klant and fase apply as soon as they change. */}
+      {/* Phones: status as chips, client and stage apply as soon as they change. */}
       <FilterChips
         label="Status"
         className="sm:hidden"
         chips={[
-          statusChip("Open en on hold", ""),
+          statusChip("Open and on hold", ""),
           ...vacancyStatuses.map((s) => statusChip(s.label, s.value)),
-          statusChip("Alle", "all"),
+          statusChip("All", "all"),
         ]}
       />
       <div className="max-sm:hidden lg:w-48">
@@ -114,8 +119,8 @@ async function Filters({ searchParams }: { searchParams: SearchParams }) {
           Status
         </label>
         <Select id="vacancy-status" name="status" defaultValue={status}>
-          <option value="">Open en on hold</option>
-          <option value="all">Alle statussen</option>
+          <option value="">Open and on hold</option>
+          <option value="all">All statuses</option>
           {vacancyStatuses.map((s) => (
             <option key={s.value} value={s.value}>
               {s.label}
@@ -125,10 +130,11 @@ async function Filters({ searchParams }: { searchParams: SearchParams }) {
       </div>
       <AutoSubmitSelects className="grid grid-cols-2 gap-3 *:min-w-0 sm:contents">
         <label htmlFor="vacancy-client" className="sr-only">
-          Klant
+          Client
         </label>
         <Select id="vacancy-client" name="client" defaultValue={client} className="lg:w-56">
-          <option value="">Alle klanten</option>
+          <option value="">All clients</option>
+          <option value={TALENT_POOL_FILTER}>{TALENT_POOL_LABEL}</option>
           {clients.map((c) => (
             <option key={c.id} value={c.id}>
               {c.label}
@@ -136,10 +142,10 @@ async function Filters({ searchParams }: { searchParams: SearchParams }) {
           ))}
         </Select>
         <label htmlFor="vacancy-stage" className="sr-only">
-          Fase talent
+          Talent stage
         </label>
         <Select id="vacancy-stage" name="stage" defaultValue={stage} className="lg:w-48">
-          <option value="">Alle fases</option>
+          <option value="">All stages</option>
           {talentStages.map((s) => (
             <option key={s.value} value={s.value}>
               {s.label}
@@ -148,7 +154,7 @@ async function Filters({ searchParams }: { searchParams: SearchParams }) {
         </Select>
       </AutoSubmitSelects>
       <Button type="submit" variant="secondary" className="max-sm:hidden sm:col-span-2 lg:col-span-1">
-        Filteren
+        Filter
       </Button>
     </Form>
   );
@@ -159,8 +165,9 @@ async function VacancyTable({ searchParams }: { searchParams: SearchParams }) {
   const vacancies = await listVacancies({
     q: q || undefined,
     statuses,
-    clientId: client || undefined,
+    clientId: client && client !== TALENT_POOL_FILTER ? client : undefined,
     talentStage: stage || undefined,
+    talentPool: client === TALENT_POOL_FILTER ? true : undefined,
   });
 
   if (vacancies.length === 0) {
@@ -168,11 +175,11 @@ async function VacancyTable({ searchParams }: { searchParams: SearchParams }) {
     return (
       <EmptyState
         icon={Briefcase}
-        title={filtered ? "Geen vacatures gevonden" : "Geen lopende vacatures"}
+        title={filtered ? "No vacancies found" : "No running vacancies"}
         description={
           filtered
-            ? "Niets gevonden met deze filters. Pas je zoekterm, status, klant of fase aan."
-            : "Er staan geen vacatures open of on hold. Voeg een nieuwe vacature toe of bekijk alle statussen."
+            ? "Nothing found with these filters. Change your search, status, client or stage."
+            : "No vacancies are open or on hold. Add a new vacancy or look at all statuses."
         }
       />
     );
@@ -180,11 +187,13 @@ async function VacancyTable({ searchParams }: { searchParams: SearchParams }) {
 
   return (
     <>
-      <MobileList label="Vacatures" className="md:hidden">
+      <MobileList label="Vacancies" className="md:hidden">
         {vacancies.map((v) => {
           const statusOption = optionFor(vacancyStatuses, v.status);
           const stageOption = optionFor(talentStages, v.talentStage);
-          const owner = v.clientName ?? (v.companyName ? `${v.companyName} (prospect)` : "Onbekend");
+          const owner = v.isTalentPool
+            ? TALENT_POOL_LABEL
+            : (v.clientName ?? (v.companyName ? `${v.companyName} (prospect)` : "Unknown"));
           return (
             <MobileListItem
               key={v.id}
@@ -195,10 +204,11 @@ async function VacancyTable({ searchParams }: { searchParams: SearchParams }) {
             >
               {/* Badges under the text, so long titles keep the full width. */}
               <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1.5 text-xs">
+                {v.isTalentPool && <Badge tone="accent">{TALENT_POOL_LABEL}</Badge>}
                 <Badge tone={statusOption.tone}>{statusOption.label}</Badge>
                 <Badge tone={stageOption.tone}>{stageOption.label}</Badge>
                 <span className="w-1" aria-hidden="true" />
-                <DaysOpen days={v.daysOpen} status={v.status} />
+                <DaysOpen days={v.daysOpen} status={v.status} talentPool={v.isTalentPool} />
               </div>
             </MobileListItem>
           );
@@ -207,15 +217,15 @@ async function VacancyTable({ searchParams }: { searchParams: SearchParams }) {
       <Table className="hidden md:block">
         <THead>
           <tr>
-            <TH>Functie</TH>
-            <TH>Klant of prospect</TH>
-            <TH>Senioriteit</TH>
+            <TH>Role</TH>
+            <TH>Client or prospect</TH>
+            <TH>Seniority</TH>
             <TH>Status</TH>
-            <TH>Fase</TH>
+            <TH>Stage</TH>
             <TH>Stack</TH>
             <TH className="text-right">In pipeline</TH>
-            <TH>Dagen open</TH>
-            <TH>Doorlooptijd</TH>
+            <TH>Days open</TH>
+            <TH>Lead time</TH>
           </tr>
         </THead>
         <TBody>
@@ -235,9 +245,11 @@ async function VacancyTable({ searchParams }: { searchParams: SearchParams }) {
                   </Link>
                 </TD>
                 <TD>
-                  {v.clientId ? (
+                  {v.isTalentPool ? (
+                    <Badge tone="accent">{TALENT_POOL_LABEL}</Badge>
+                  ) : v.clientId ? (
                     <Link href={`/dashboard/klanten/${v.clientId}`} className="text-ink hover:text-brand-700 hover:underline">
-                      {v.clientName ?? "Klant"}
+                      {v.clientName ?? "Client"}
                     </Link>
                   ) : v.companyId ? (
                     <span className="inline-flex flex-wrap items-center gap-1.5">
@@ -247,7 +259,7 @@ async function VacancyTable({ searchParams }: { searchParams: SearchParams }) {
                       <Badge tone="accent">Prospect</Badge>
                     </span>
                   ) : (
-                    <span className="text-muted">Onbekend</span>
+                    <span className="text-muted">Unknown</span>
                   )}
                 </TD>
                 <TD className="text-muted">{seniority.label}</TD>
@@ -259,7 +271,7 @@ async function VacancyTable({ searchParams }: { searchParams: SearchParams }) {
                 </TD>
                 <TD>
                   {v.stack.length === 0 ? (
-                    <span className="text-muted">Niet ingevuld</span>
+                    <span className="text-muted">Not filled in</span>
                   ) : (
                     <div className="flex flex-wrap gap-1">
                       {v.stack.slice(0, 3).map((item, i) => (
@@ -271,7 +283,7 @@ async function VacancyTable({ searchParams }: { searchParams: SearchParams }) {
                 </TD>
                 <TD className="text-right tabular-nums">{v.inPipeline}</TD>
                 <TD>
-                  <DaysOpen days={v.daysOpen} status={v.status} />
+                  <DaysOpen days={v.daysOpen} status={v.status} talentPool={v.isTalentPool} />
                 </TD>
                 <TD>
                   <LeadTimeSignal leadTime={v.leadTime} />
@@ -282,8 +294,9 @@ async function VacancyTable({ searchParams }: { searchParams: SearchParams }) {
         </TBody>
       </Table>
       <p className="mt-3 text-xs text-muted">
-        Dagen open bij status Open: groen onder 14 dagen, oranje van 14 tot 21 dagen, rood boven 21 dagen. Doorlooptijd telt
-        vanaf de intake tot de eerste verstuurde profielen, met dezelfde kleuren.
+        Days open for status Open: green under 14 days, amber from 14 to 21 days, red over 21 days. Lead time counts from the
+        intake to the first profiles sent, with the same colours. Talent pool vacancies have no clock and do not count on the
+        dashboard or in the report.
       </p>
     </>
   );

@@ -7,6 +7,7 @@ import { EntityExtras } from "@/components/entity/entity-extras";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { ConfirmDeleteButton } from "@/components/clients/confirm-delete-button";
 import { DaysOpen } from "@/components/vacancies/days-open";
+import { LinkClientCard } from "@/components/vacancies/link-client-card";
 import { PipelineSummary } from "@/components/vacancies/pipeline-summary";
 import { sourceLabel } from "@/components/vacancies/talent-labels";
 import { MatchesSection } from "@/components/talent/matches-section";
@@ -19,10 +20,12 @@ import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
 import { Card, CardBody, CardHeader, DetailList } from "@/components/ui/card";
 import { ListSkeleton, Skeleton } from "@/components/ui/skeleton";
-import { getVacancy, getVacancyPipelineSummary, PRESENTED_TARGET } from "@/lib/data/vacancies";
+import { listClientOptions } from "@/lib/data/clients";
+import { getVacancy, getVacancyPipelineSummary, listCompanyOptions, PRESENTED_TARGET } from "@/lib/data/vacancies";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { optionFor, seniorities, talentStages, vacancyStatuses } from "@/lib/labels";
-import { deleteVacancyAction } from "../actions";
+import { TALENT_POOL_LABEL } from "@/lib/talent/talent-pool";
+import { deleteVacancyAction, linkTalentPoolVacancyAction } from "../actions";
 
 // Claude calls (matching, opening lines) run inside server actions on this page.
 export const maxDuration = 300;
@@ -75,6 +78,7 @@ async function VacancyDetail({ params }: { params: Params }) {
         }
         description={
           <span className="flex flex-wrap items-center gap-x-4 gap-y-1">
+            {vacancy.is_talent_pool && <Badge tone="accent">{TALENT_POOL_LABEL}</Badge>}
             {vacancy.client && (
               <Link
                 href={`/dashboard/klanten/${vacancy.client.id}`}
@@ -96,7 +100,7 @@ async function VacancyDetail({ params }: { params: Params }) {
             )}
             <span className="inline-flex items-center gap-1.5 text-sm">
               <span className="text-muted">Open:</span>
-              <DaysOpen days={vacancy.daysOpen} status={vacancy.status} showHint />
+              <DaysOpen days={vacancy.daysOpen} status={vacancy.status} talentPool={vacancy.is_talent_pool} showHint />
             </span>
           </span>
         }
@@ -122,6 +126,11 @@ async function VacancyDetail({ params }: { params: Params }) {
 
       <div className="grid grid-cols-1 gap-4 sm:gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
         <div className="min-w-0 space-y-4 sm:space-y-6">
+          {vacancy.is_talent_pool && (
+            <Suspense fallback={<ListSkeleton rows={2} />}>
+              <LinkClient vacancyId={vacancy.id} />
+            </Suspense>
+          )}
           <TimelineCard vacancy={vacancy} leadTime={vacancy.leadTime} />
           <RequirementsCard vacancy={vacancy} />
           <Suspense fallback={<ListSkeleton rows={4} />}>
@@ -138,9 +147,11 @@ async function VacancyDetail({ params }: { params: Params }) {
             <CardBody>
               <DetailList
                 items={[
-                  vacancy.client || !vacancy.company
-                    ? { label: "Klant", value: vacancy.client?.name }
-                    : { label: "Prospect", value: vacancy.company.name },
+                  vacancy.is_talent_pool
+                    ? { label: "Klant", value: TALENT_POOL_LABEL }
+                    : vacancy.client || !vacancy.company
+                      ? { label: "Klant", value: vacancy.client?.name }
+                      : { label: "Prospect", value: vacancy.company.name },
                   { label: "Bron", value: sourceLabel(vacancy.source) },
                   { label: "Deal in OnePageCRM", value: vacancy.onepage_deal_id },
                   { label: "Senioriteit", value: seniority.label },
@@ -197,6 +208,17 @@ async function VacancyDetail({ params }: { params: Params }) {
         </div>
       </div>
     </>
+  );
+}
+
+async function LinkClient({ vacancyId }: { vacancyId: string }) {
+  const [clients, companies] = await Promise.all([listClientOptions(), listCompanyOptions()]);
+  return (
+    <LinkClientCard
+      action={linkTalentPoolVacancyAction.bind(null, vacancyId)}
+      clients={clients}
+      companies={companies}
+    />
   );
 }
 

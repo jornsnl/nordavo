@@ -1,13 +1,14 @@
 /**
- * T6 doorlooptijd: days from intake to profiles sent, against the promise
- * "3 kandidaten binnen 3 weken". Pure, used in the list, detail and tests.
+ * T6 lead time: days from intake to profiles sent, against the promise
+ * "3 candidates within 3 weeks". Pure, used in the list, detail and tests.
+ * Talent pool vacancies have no clock.
  */
 
-export type LeadTimeLevel = "none" | "ok" | "warning" | "danger" | "done" | "closed";
+export type LeadTimeLevel = "none" | "ok" | "warning" | "danger" | "done" | "closed" | "talent_pool";
 
 export type LeadTime = {
   level: LeadTimeLevel;
-  /** Days since intake (open) or from intake to profiles sent (done). */
+  /** Days since intake (open) or from intake to profiles sent (done). Null without a clock. */
   days: number | null;
   label: string;
 };
@@ -20,25 +21,26 @@ function wholeDays(from: string, to: Date) {
 }
 
 function plural(days: number) {
-  return days === 1 ? "1 dag" : `${days} dagen`;
+  return days === 1 ? "1 day" : `${days} days`;
 }
 
 export function leadTime(
-  v: { intake_at: string | null; profiles_sent_at: string | null; talent_stage: string },
+  v: { intake_at: string | null; profiles_sent_at: string | null; talent_stage: string; is_talent_pool?: boolean },
   now: Date = new Date(),
 ): LeadTime {
-  if (!v.intake_at) return { level: "none", days: null, label: "Geen intake" };
+  if (v.is_talent_pool) return { level: "talent_pool", days: null, label: "No clock (talent pool)" };
+  if (!v.intake_at) return { level: "none", days: null, label: "No intake" };
   if (v.profiles_sent_at) {
     const days = wholeDays(v.intake_at, new Date(v.profiles_sent_at));
     return {
       level: days > LEAD_TIME_LIMIT_DAYS ? "warning" : "done",
       days,
-      label: `Profielen na ${plural(days)}`,
+      label: `Profiles after ${plural(days)}`,
     };
   }
   const days = wholeDays(v.intake_at, now);
-  if (v.talent_stage === "gesloten") return { level: "closed", days, label: `Gesloten na ${plural(days)}` };
-  if (days > LEAD_TIME_LIMIT_DAYS) return { level: "danger", days, label: `${plural(days)}, over de 3 weken` };
-  if (days >= LEAD_TIME_WARNING_DAYS) return { level: "warning", days, label: `${plural(days)}, richting 3 weken` };
-  return { level: "ok", days, label: `${plural(days)} sinds intake` };
+  if (v.talent_stage === "gesloten") return { level: "closed", days, label: `Closed after ${plural(days)}` };
+  if (days > LEAD_TIME_LIMIT_DAYS) return { level: "danger", days, label: `${plural(days)}, past 3 weeks` };
+  if (days >= LEAD_TIME_WARNING_DAYS) return { level: "warning", days, label: `${plural(days)}, nearing 3 weeks` };
+  return { level: "ok", days, label: `${plural(days)} since intake` };
 }

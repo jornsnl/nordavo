@@ -1,6 +1,6 @@
 "use client";
 
-import { startTransition, useActionState, useState } from "react";
+import { startTransition, useActionState } from "react";
 import { LoaderCircle } from "lucide-react";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { Field, FormMessage, Input, Select, Textarea } from "@/components/ui/field";
@@ -8,11 +8,14 @@ import { FormActions } from "@/components/entity/form-actions";
 import { initialActionState, type ActionState } from "@/lib/action-state";
 import type { Seniority, TalentStage, VacancySource, VacancyStatus } from "@/lib/database.types";
 import { seniorities, talentStages, vacancyStatuses } from "@/lib/labels";
+import { ownerTypeOf } from "@/lib/talent/talent-pool";
+import { OwnerPicker } from "./owner-picker";
 import { vacancySources } from "./talent-labels";
 
 export type VacancyFormValues = {
   client_id: string;
   company_id: string;
+  is_talent_pool: boolean;
   talent_stage: TalentStage;
   source: VacancySource | null;
   onepage_deal_id: string | null;
@@ -44,6 +47,7 @@ export function VacancyForm({
   staff,
   cancelHref,
   submitLabel,
+  allowTalentPool = true,
 }: {
   action: (prev: ActionState, formData: FormData) => Promise<ActionState>;
   defaults?: Partial<VacancyFormValues>;
@@ -53,14 +57,16 @@ export function VacancyForm({
   staff: Option[];
   cancelHref: string;
   submitLabel: string;
+  /**
+   * Offer the talent pool as owner. Off when editing a vacancy that is
+   * already linked: a linked vacancy does not move back to the pool.
+   */
+  allowTalentPool?: boolean;
 }) {
   const [state, formAction, pending] = useActionState(action, initialActionState);
   const errors = state.fieldErrors ?? {};
   const invalid = (name: string) =>
     errors[name] ? { "aria-invalid": true, "aria-describedby": `${name}-error` } : {};
-  const [ownerType, setOwnerType] = useState<"client" | "company">(
-    defaults?.company_id && !defaults?.client_id ? "company" : "client",
-  );
   const contactDefault =
     defaults?.client_contact_required === true ? "ja" : defaults?.client_contact_required === false ? "nee" : "";
 
@@ -78,74 +84,25 @@ export function VacancyForm({
       <FormMessage error={state.error} />
 
       <div className="grid gap-5 sm:grid-cols-2">
-        <fieldset className="space-y-3 sm:col-span-2">
-          <legend className="text-sm font-medium text-ink">
-            Voor wie is deze vacature<span className="ml-0.5 text-danger" aria-hidden="true">*</span>
-          </legend>
-          <div className="flex flex-wrap gap-4 text-sm">
-            <label className="inline-flex cursor-pointer items-center gap-2 pointer-coarse:min-h-11">
-              <input
-                type="radio"
-                name="owner_type"
-                value="client"
-                checked={ownerType === "client"}
-                onChange={() => setOwnerType("client")}
-                className="size-4 accent-brand-700"
-              />
-              Bestaande klant
-            </label>
-            <label className="inline-flex cursor-pointer items-center gap-2 pointer-coarse:min-h-11">
-              <input
-                type="radio"
-                name="owner_type"
-                value="company"
-                checked={ownerType === "company"}
-                onChange={() => setOwnerType("company")}
-                className="size-4 accent-brand-700"
-              />
-              Prospect uit sales
-            </label>
-          </div>
-          {ownerType === "client" ? (
-            <Field label="Klant" htmlFor="client_id" required error={errors.client_id}>
-              <Select id="client_id" name="client_id" required defaultValue={defaults?.client_id ?? ""} {...invalid("client_id")}>
-                <option value="" disabled>
-                  Kies een klant
-                </option>
-                {clients.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.label}
-                  </option>
-                ))}
-              </Select>
-            </Field>
-          ) : (
-            <Field
-              label="Bedrijf"
-              htmlFor="company_id"
-              required
-              error={errors.company_id}
-              hint="GO prospects en actieve bedrijven uit sales. Staat het bedrijf er niet bij, open dan de vacature vanuit de lead."
-            >
-              <Select id="company_id" name="company_id" required defaultValue={defaults?.company_id ?? ""} {...invalid("company_id")}>
-                <option value="" disabled>
-                  Kies een bedrijf
-                </option>
-                {companies.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.label}
-                  </option>
-                ))}
-              </Select>
-            </Field>
-          )}
-        </fieldset>
-        <Field label="Functietitel" htmlFor="title" required error={errors.title}>
+        <OwnerPicker
+          clients={clients}
+          companies={companies}
+          defaultOwnerType={ownerTypeOf({
+            is_talent_pool: defaults?.is_talent_pool,
+            client_id: defaults?.client_id,
+            company_id: defaults?.company_id,
+          })}
+          defaultClientId={defaults?.client_id}
+          defaultCompanyId={defaults?.company_id}
+          allowTalentPool={allowTalentPool}
+          errors={errors}
+        />
+        <Field label="Job title" htmlFor="title" required error={errors.title}>
           <Input
             id="title"
             name="title"
             required
-            placeholder="Bijvoorbeeld Senior Data Engineer"
+            placeholder="For example Senior Data Engineer"
             autoComplete="off"
             enterKeyHint="next"
             defaultValue={defaults?.title}
@@ -153,10 +110,10 @@ export function VacancyForm({
           />
         </Field>
         <Field
-          label="Functieprofiel"
+          label="Job profile"
           htmlFor="description"
           error={errors.description}
-          hint="Wat de developer gaat doen, het team en wat de klant belangrijk vindt."
+          hint="What the developer will do, the team and what the client cares about."
           className="sm:col-span-2"
         >
           <Textarea id="description" name="description" rows={8} defaultValue={defaults?.description ?? ""} {...invalid("description")} />
@@ -165,12 +122,12 @@ export function VacancyForm({
           label="Stack"
           htmlFor="stack"
           error={errors.stack}
-          hint="Scheid met komma's, bijvoorbeeld Python, dbt, Snowflake"
+          hint="Separate with commas, for example Python, dbt, Snowflake"
           className="sm:col-span-2"
         >
           <Input id="stack" name="stack" autoComplete="off" spellCheck={false} enterKeyHint="next" defaultValue={defaults?.stack?.join(", ") ?? ""} {...invalid("stack")} />
         </Field>
-        <Field label="Senioriteit" htmlFor="seniority" required error={errors.seniority}>
+        <Field label="Seniority" htmlFor="seniority" required error={errors.seniority}>
           <Select id="seniority" name="seniority" defaultValue={defaults?.seniority ?? "senior"} {...invalid("seniority")}>
             {seniorities.map((s) => (
               <option key={s.value} value={s.value}>
@@ -184,7 +141,7 @@ export function VacancyForm({
           htmlFor="status"
           required
           error={errors.status}
-          hint="Bij Ingevuld of Gesloten zetten we de sluitdatum op vandaag."
+          hint="Filled or Closed sets the closing date to today."
         >
           <Select id="status" name="status" defaultValue={defaults?.status ?? "open"} {...invalid("status")}>
             {vacancyStatuses.map((s) => (
@@ -194,7 +151,7 @@ export function VacancyForm({
             ))}
           </Select>
         </Field>
-        <Field label="Budget per maand (EUR)" htmlFor="monthly_budget" error={errors.monthly_budget}>
+        <Field label="Budget per month (EUR)" htmlFor="monthly_budget" error={errors.monthly_budget}>
           <Input
             id="monthly_budget"
             name="monthly_budget"
@@ -205,7 +162,7 @@ export function VacancyForm({
             {...invalid("monthly_budget")}
           />
         </Field>
-        <Field label="Gewenste startdatum" htmlFor="desired_start_date" error={errors.desired_start_date}>
+        <Field label="Desired start date" htmlFor="desired_start_date" error={errors.desired_start_date}>
           <Input
             id="desired_start_date"
             name="desired_start_date"
@@ -214,7 +171,7 @@ export function VacancyForm({
             {...invalid("desired_start_date")}
           />
         </Field>
-        <Field label="Fase talent" htmlFor="talent_stage" required error={errors.talent_stage}>
+        <Field label="Talent stage" htmlFor="talent_stage" required error={errors.talent_stage}>
           <Select id="talent_stage" name="talent_stage" defaultValue={defaults?.talent_stage ?? "intake"} {...invalid("talent_stage")}>
             {talentStages.map((s) => (
               <option key={s.value} value={s.value}>
@@ -223,9 +180,9 @@ export function VacancyForm({
             ))}
           </Select>
         </Field>
-        <Field label="Bron" htmlFor="source" error={errors.source}>
+        <Field label="Source" htmlFor="source" error={errors.source}>
           <Select id="source" name="source" defaultValue={defaults?.source ?? ""} {...invalid("source")}>
-            <option value="">Onbekend</option>
+            <option value="">Unknown</option>
             {vacancySources.map((s) => (
               <option key={s.value} value={s.value}>
                 {s.label}
@@ -237,7 +194,7 @@ export function VacancyForm({
           label="Deal in OnePageCRM"
           htmlFor="onepage_deal_id"
           error={errors.onepage_deal_id}
-          hint="De deal-id, zodat verstuurde profielen bij de deal komen."
+          hint="The deal id, so sent profiles end up on the deal."
         >
           <Input
             id="onepage_deal_id"
@@ -250,9 +207,9 @@ export function VacancyForm({
             {...invalid("onepage_deal_id")}
           />
         </Field>
-        <Field label="Eigenaar" htmlFor="owner_id" error={errors.owner_id} hint="Wie bij Nordavo deze vacature trekt">
+        <Field label="Owner" htmlFor="owner_id" error={errors.owner_id} hint="Who at Nordavo runs this vacancy">
           <Select id="owner_id" name="owner_id" defaultValue={defaults?.owner_id ?? ""} {...invalid("owner_id")}>
-            <option value="">Geen eigenaar</option>
+            <option value="">No owner</option>
             {staff.map((p) => (
               <option key={p.id} value={p.id}>
                 {p.label}
@@ -263,46 +220,46 @@ export function VacancyForm({
       </div>
 
       <fieldset className="grid gap-5 border-t border-border pt-5 sm:grid-cols-2">
-        <legend className="sr-only">Vaste eisen</legend>
+        <legend className="sr-only">Fixed requirements</legend>
         <div className="sm:col-span-2">
-          <h3 className="font-display text-base font-semibold text-brand-900">Vaste eisen</h3>
-          <p className="mt-0.5 text-sm text-muted">Vul je liever niet zelf in? Lees de vacature uit op de detailpagina.</p>
+          <h3 className="font-display text-base font-semibold text-brand-900">Fixed requirements</h3>
+          <p className="mt-0.5 text-sm text-muted">Rather not fill this in yourself? Extract it from the vacancy text on the detail page.</p>
         </div>
-        <Field label="Uren per week" htmlFor="hours" error={errors.hours}>
+        <Field label="Hours per week" htmlFor="hours" error={errors.hours}>
           <Input id="hours" name="hours" inputMode="numeric" enterKeyHint="next" placeholder="40" defaultValue={defaults?.hours ?? ""} {...invalid("hours")} />
         </Field>
-        <Field label="Overlap tijdzone" htmlFor="timezone_overlap" error={errors.timezone_overlap}>
+        <Field label="Time zone overlap" htmlFor="timezone_overlap" error={errors.timezone_overlap}>
           <Input
             id="timezone_overlap"
             name="timezone_overlap"
-            placeholder="Bijvoorbeeld 4 uur overlap per dag"
+            placeholder="For example 4 hours overlap per day"
             defaultValue={defaults?.timezone_overlap ?? ""}
             {...invalid("timezone_overlap")}
           />
         </Field>
-        <Field label="Budget minimaal per maand (EUR)" htmlFor="budget_min" error={errors.budget_min}>
+        <Field label="Minimum budget per month (EUR)" htmlFor="budget_min" error={errors.budget_min}>
           <Input id="budget_min" name="budget_min" inputMode="decimal" enterKeyHint="next" defaultValue={defaults?.budget_min ?? ""} {...invalid("budget_min")} />
         </Field>
-        <Field label="Budget maximaal per maand (EUR)" htmlFor="budget_max" error={errors.budget_max}>
+        <Field label="Maximum budget per month (EUR)" htmlFor="budget_max" error={errors.budget_max}>
           <Input id="budget_max" name="budget_max" inputMode="decimal" enterKeyHint="next" defaultValue={defaults?.budget_max ?? ""} {...invalid("budget_max")} />
         </Field>
         <Field
-          label="Direct contact met klanten van de klant"
+          label="Direct contact with the client's customers"
           htmlFor="client_contact_required"
           error={errors.client_contact_required}
-          hint="Ja is een no go voor Nordavo."
+          hint="Yes is a no go for Nordavo."
           className="sm:col-span-2"
         >
           <Select id="client_contact_required" name="client_contact_required" defaultValue={contactDefault}>
-            <option value="">Nog onbekend</option>
-            <option value="nee">Nee</option>
-            <option value="ja">Ja</option>
+            <option value="">Not known yet</option>
+            <option value="nee">No</option>
+            <option value="ja">Yes</option>
           </Select>
         </Field>
-        <Field label="Must haves" htmlFor="must_haves" error={errors.must_haves} hint="Eén eis per regel">
+        <Field label="Must haves" htmlFor="must_haves" error={errors.must_haves} hint="One requirement per line">
           <Textarea id="must_haves" name="must_haves" rows={5} defaultValue={defaults?.must_haves?.join("\n") ?? ""} {...invalid("must_haves")} />
         </Field>
-        <Field label="Nice to haves" htmlFor="nice_to_haves" error={errors.nice_to_haves} hint="Eén punt per regel">
+        <Field label="Nice to haves" htmlFor="nice_to_haves" error={errors.nice_to_haves} hint="One point per line">
           <Textarea
             id="nice_to_haves"
             name="nice_to_haves"
@@ -311,18 +268,18 @@ export function VacancyForm({
             {...invalid("nice_to_haves")}
           />
         </Field>
-        <Field label="Nog navragen" htmlFor="unclear" error={errors.unclear} hint="Eén vraag per regel" className="sm:col-span-2">
+        <Field label="Still to ask" htmlFor="unclear" error={errors.unclear} hint="One question per line" className="sm:col-span-2">
           <Textarea id="unclear" name="unclear" rows={3} defaultValue={defaults?.unclear?.join("\n") ?? ""} {...invalid("unclear")} />
         </Field>
       </fieldset>
 
       <FormActions>
         <ButtonLink href={cancelHref} variant="secondary">
-          Annuleren
+          Cancel
         </ButtonLink>
         <Button type="submit" disabled={pending} aria-busy={pending}>
           {pending && <LoaderCircle className="animate-spin" aria-hidden="true" />}
-          {pending ? "Bezig met opslaan" : submitLabel}
+          {pending ? "Saving" : submitLabel}
         </Button>
       </FormActions>
     </form>

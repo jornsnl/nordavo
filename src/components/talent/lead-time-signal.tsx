@@ -3,13 +3,14 @@ import type { LeadTime } from "@/lib/talent/lead-time";
 const styles: Record<LeadTime["level"], { dot: string; text: string }> = {
   none: { dot: "bg-slate-300", text: "text-muted" },
   closed: { dot: "bg-slate-300", text: "text-muted" },
+  talent_pool: { dot: "bg-slate-300", text: "text-muted" },
   ok: { dot: "bg-emerald-500", text: "text-emerald-700" },
   done: { dot: "bg-emerald-500", text: "text-emerald-700" },
   warning: { dot: "bg-amber-500", text: "text-amber-800" },
   danger: { dot: "bg-danger", text: "text-danger" },
 };
 
-/** T6: days since intake against "3 kandidaten binnen 3 weken". */
+/** T6: days since intake against "3 candidates within 3 weeks". */
 export function LeadTimeSignal({ leadTime }: { leadTime: LeadTime }) {
   const { dot, text } = styles[leadTime.level];
   return (

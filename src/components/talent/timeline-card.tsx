@@ -15,13 +15,17 @@ function dateInput(value: string | null) {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Amsterdam" }).format(new Date(value));
 }
 
-/** T6 doorlooptijd: intake, profiles sent, first interview and start. */
+/**
+ * T6 lead time: intake, profiles sent, first interview and start. A talent
+ * pool vacancy has no three-week clock, so it shows no promise or warning;
+ * the dates can still be kept.
+ */
 export function TimelineCard({ vacancy, leadTime }: { vacancy: Vacancy; leadTime: LeadTime }) {
   const stage = optionFor(talentStages, vacancy.talent_stage);
   const steps = [
     { label: "Intake", date: vacancy.intake_at },
-    { label: "Profielen verstuurd", date: vacancy.profiles_sent_at },
-    { label: "Eerste gesprek", date: vacancy.first_interview_at },
+    { label: "Profiles sent", date: vacancy.profiles_sent_at },
+    { label: "First interview", date: vacancy.first_interview_at },
     { label: "Start", date: vacancy.start_at },
   ];
   const sinceIntake = (date: string | null) =>
@@ -30,8 +34,12 @@ export function TimelineCard({ vacancy, leadTime }: { vacancy: Vacancy; leadTime
   return (
     <Card>
       <CardHeader
-        title="Doorlooptijd"
-        description="Belofte: drie kandidaten binnen drie weken na de intake."
+        title="Lead time"
+        description={
+          vacancy.is_talent_pool
+            ? "Talent pool: no three-week clock. It starts when the vacancy is linked to a client."
+            : "Promise: three candidates within three weeks after the intake."
+        }
         actions={<Badge tone={stage.tone}>{stage.label}</Badge>}
       />
       <CardBody className="space-y-5">
@@ -47,8 +55,8 @@ export function TimelineCard({ vacancy, leadTime }: { vacancy: Vacancy; leadTime
           >
             <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
             {leadTime.level === "danger"
-              ? `Al meer dan ${LEAD_TIME_LIMIT_DAYS} dagen na de intake en nog geen profielen verstuurd. Bespreek met Floris wat er nodig is.`
-              : "Deze vacature loopt richting de 3 weken zonder verstuurde profielen. Tijd om op te schalen."}
+              ? `More than ${LEAD_TIME_LIMIT_DAYS} days since the intake and no profiles sent yet. Discuss with Floris what is needed.`
+              : "This vacancy is nearing 3 weeks without profiles sent. Time to scale up."}
           </p>
         )}
         <ol className="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -61,9 +69,9 @@ export function TimelineCard({ vacancy, leadTime }: { vacancy: Vacancy; leadTime
               >
                 <span className="block text-xs text-muted">{step.label}</span>
                 <span className={`mt-0.5 block text-sm font-semibold ${step.date ? "text-brand-900" : "text-muted"}`}>
-                  {formatDate(step.date, "Nog niet")}
+                  {formatDate(step.date, "Not yet")}
                 </span>
-                {days !== null && <span className="block text-xs text-muted">dag {days}</span>}
+                {days !== null && <span className="block text-xs text-muted">day {days}</span>}
               </li>
             );
           })}

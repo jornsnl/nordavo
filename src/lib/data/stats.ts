@@ -11,16 +11,26 @@ export const PROMISED_DAYS = 21;
 
 const PRESENTED_STAGES: ApplicationStage[] = ["presented", "final_interview", "placed"];
 
+/**
+ * Dashboard numbers. Talent pool vacancies (no client yet) never count:
+ * not as open vacancies, not in the attention list and not with their
+ * pipeline (see countsInMetrics in lib/talent/talent-pool).
+ */
 export async function getOverviewStats() {
   await requireStaff();
   const supabase = await createClient();
 
   const [clients, vacancies, applications, placements] = await Promise.all([
     supabase.from("clients").select("id", { count: "exact", head: true }).eq("status", "active"),
-    supabase.from("vacancies").select("id", { count: "exact", head: true }).eq("status", "open"),
+    supabase
+      .from("vacancies")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "open")
+      .eq("is_talent_pool", false),
     supabase
       .from("applications")
-      .select("id", { count: "exact", head: true })
+      .select("id, vacancies!inner(is_talent_pool)", { count: "exact", head: true })
+      .eq("vacancies.is_talent_pool", false)
       .not("stage", "in", "(placed,rejected)"),
     supabase
       .from("placements")
@@ -50,6 +60,7 @@ export async function getVacanciesNeedingAttention(limit = 6) {
     .from("vacancies")
     .select("id, title, opened_at, client:clients(id, name), applications(stage, presented_at)")
     .eq("status", "open")
+    .eq("is_talent_pool", false)
     .order("opened_at", { ascending: true });
 
   if (error) throw new Error(`Vacatures laden mislukt: ${error.message}`);
@@ -142,15 +153,16 @@ export async function getUpcomingMoments() {
   return moments.sort((a, b) => a.date.localeCompare(b.date));
 }
 
-/** Number of applications per stage, across open vacancies. */
+/** Number of applications per stage, across open vacancies (talent pool left out). */
 export async function getPipelineFunnel() {
   await requireStaff();
   const supabase = await createClient();
 
   const { data, error } = await supabase
     .from("applications")
-    .select("stage, vacancies!inner(status)")
-    .eq("vacancies.status", "open");
+    .select("stage, vacancies!inner(status, is_talent_pool)")
+    .eq("vacancies.status", "open")
+    .eq("vacancies.is_talent_pool", false);
 
   if (error) throw new Error(`Pipeline laden mislukt: ${error.message}`);
 
