@@ -11,7 +11,7 @@ type Checkin = {
 
 export function Stars({ rating }: { rating: number }) {
   return (
-    <span className="inline-flex items-center" role="img" aria-label={`${rating} van 5 sterren`}>
+    <span className="inline-flex items-center" role="img" aria-label={`${rating} of 5 stars`}>
       {[1, 2, 3, 4, 5].map((n) => (
         <Star
           key={n}
@@ -27,7 +27,7 @@ export function CheckinList({ checkins }: { checkins: Checkin[] }) {
   if (checkins.length === 0) {
     return (
       <p className="text-sm text-muted">
-        Nog geen check-ins. Plan de eerste rond twee weken na de start, dan weet je snel of het klikt.
+        No check-ins yet. Plan the first one about two weeks after the start, so you know quickly whether it clicks.
       </p>
     );
   }
@@ -41,10 +41,10 @@ export function CheckinList({ checkins }: { checkins: Checkin[] }) {
             {checkin.rating ? (
               <Stars rating={checkin.rating} />
             ) : (
-              <span className="text-xs text-muted">Geen score</span>
+              <span className="text-xs text-muted">No score</span>
             )}
             {checkin.author?.full_name && (
-              <span className="text-xs text-muted">door {checkin.author.full_name}</span>
+              <span className="text-xs text-muted">by {checkin.author.full_name}</span>
             )}
           </div>
           {checkin.notes && (

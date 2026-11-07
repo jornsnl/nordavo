@@ -18,9 +18,9 @@ export type McpTokenRow = {
 };
 
 const statusBadge = {
-  active: { label: "Actief", tone: "success" },
-  expired: { label: "Verlopen", tone: "warning" },
-  revoked: { label: "Ingetrokken", tone: "neutral" },
+  active: { label: "Active", tone: "success" },
+  expired: { label: "Expired", tone: "warning" },
+  revoked: { label: "Revoked", tone: "neutral" },
 } as const;
 
 /** Tokens of the signed-in user, as rows on phones. Dates arrive formatted from the server. */
@@ -32,24 +32,24 @@ export function McpTokenList({
   revokeAction: (tokenId: string) => Promise<ActionState>;
 }) {
   if (tokens.length === 0) {
-    return <p className="text-sm text-muted">Je hebt nog geen tokens. Maak er hieronder een aan.</p>;
+    return <p className="text-sm text-muted">You have no tokens yet. Create one below.</p>;
   }
 
   return (
     <>
-      <MobileList label="Je tokens" className="md:hidden">
+      <MobileList label="Your tokens" className="md:hidden">
         {tokens.map((token) => {
           const status = statusBadge[token.status];
           return (
             <MobileListItem
               key={token.id}
               title={token.name}
-              subtitle={token.access === "write" ? "Lezen en schrijven" : "Lezen"}
-              meta={`${token.prefix}… · verloopt ${token.expiresAt}`}
+              subtitle={token.access === "write" ? "Read and write" : "Read"}
+              meta={`${token.prefix}… · expires ${token.expiresAt}`}
               trailing={<Badge tone={status.tone}>{status.label}</Badge>}
             >
               <p className="text-xs text-muted">
-                Aangemaakt {token.createdAt} · laatst gebruikt {token.lastUsedAt.toLowerCase()}
+                Created {token.createdAt} · last used {token.lastUsedAt.toLowerCase()}
               </p>
               {token.status === "active" && (
                 <div className="mt-2 pointer-coarse:[&_button]:min-h-11">
@@ -64,14 +64,14 @@ export function McpTokenList({
       <Table className="hidden md:block">
         <THead>
           <tr>
-            <TH>Naam</TH>
-            <TH>Rechten</TH>
-            <TH>Aangemaakt</TH>
-            <TH>Laatst gebruikt</TH>
-            <TH>Verloopt</TH>
+            <TH>Name</TH>
+            <TH>Access</TH>
+            <TH>Created</TH>
+            <TH>Last used</TH>
+            <TH>Expires</TH>
             <TH>Status</TH>
             <TH>
-              <span className="sr-only">Acties</span>
+              <span className="sr-only">Actions</span>
             </TH>
           </tr>
         </THead>
@@ -86,7 +86,7 @@ export function McpTokenList({
                 </TD>
                 <TD>
                   <Badge tone={token.access === "write" ? "accent" : "brand"}>
-                    {token.access === "write" ? "Lezen en schrijven" : "Lezen"}
+                    {token.access === "write" ? "Read and write" : "Read"}
                   </Badge>
                 </TD>
                 <TD className="text-muted">{token.createdAt}</TD>
@@ -118,12 +118,12 @@ function RevokeButton({
     <ConfirmButton
       size="sm"
       variant="ghost"
-      title="Token intrekken?"
-      description={`Claude Code kan met "${token.name}" daarna niet meer bij Nordavo. Dit kun je niet ongedaan maken.`}
-      confirmLabel="Intrekken"
+      title="Revoke token?"
+      description={`Claude Code can no longer reach Nordavo with "${token.name}". You cannot undo this.`}
+      confirmLabel="Revoke"
       action={() => revokeAction(token.id)}
     >
-      Intrekken
+      Revoke
     </ConfirmButton>
   );
 }

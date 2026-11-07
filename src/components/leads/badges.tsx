@@ -22,7 +22,7 @@ import {
 
 export function IcpBadge({ decision, score }: { decision: IcpDecision | null; score?: number | null }) {
   if (!decision) {
-    return <Badge tone="neutral">Nog niet beoordeeld</Badge>;
+    return <Badge tone="neutral">Not reviewed yet</Badge>;
   }
   const option = optionFor(icpDecisions, decision);
   return (
@@ -40,7 +40,7 @@ export function IcpBadge({ decision, score }: { decision: IcpDecision | null; sc
 }
 
 export function SegmentBadge({ segment }: { segment: Segment | null }) {
-  if (!segment) return <span className="text-muted">Geen segment</span>;
+  if (!segment) return <span className="text-muted">No segment</span>;
   const option = optionFor(segments, segment);
   return <Badge tone={option.tone}>{option.label}</Badge>;
 }
@@ -61,7 +61,7 @@ export function SignalTypeBadge({ type }: { type: SignalType }) {
 }
 
 export function EmailStatusBadge({ status }: { status: EmailStatus | null }) {
-  if (!status) return <Badge tone="neutral">Niet gecontroleerd</Badge>;
+  if (!status) return <Badge tone="neutral">Not checked</Badge>;
   const option = optionFor(emailStatuses, status);
   return <Badge tone={option.tone}>{option.label}</Badge>;
 }
@@ -73,7 +73,7 @@ export function OutcomeBadge({ outcome }: { outcome: ActivityOutcome }) {
 
 /** "Tier 1" with the full description as tooltip. */
 export function TierBadge({ tier }: { tier: number | null }) {
-  if (!tier) return <span className="text-muted">Geen tier</span>;
+  if (!tier) return <span className="text-muted">No tier</span>;
   const option = optionFor(contactTiers, String(tier) as "1" | "2" | "3");
   return (
     <span title={option.label}>

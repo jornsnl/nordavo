@@ -47,7 +47,7 @@ export function PasskeyItem({
         >
           <input type="hidden" name="id" value={id} />
           <label htmlFor={`passkey-name-${id}`} className="sr-only">
-            Nieuwe naam voor {name}
+            New name for {name}
           </label>
           <Input
             id={`passkey-name-${id}`}
@@ -60,11 +60,11 @@ export function PasskeyItem({
             aria-invalid={Boolean(error)}
             aria-describedby={error ? `passkey-name-${id}-error` : undefined}
           />
-          <PendingSubmit size="sm" variant="secondary" pending={pending} pendingLabel="Bezig">
-            Opslaan
+          <PendingSubmit size="sm" variant="secondary" pending={pending} pendingLabel="Saving">
+            Save
           </PendingSubmit>
           <Button size="sm" variant="ghost" onClick={() => setOpenedWith(null)} disabled={pending}>
-            Annuleren
+            Cancel
           </Button>
           {error && (
             <p id={`passkey-name-${id}-error`} role="alert" className="w-full text-xs font-medium text-danger">
@@ -78,28 +78,28 @@ export function PasskeyItem({
             <p className="flex flex-wrap items-center gap-2 font-medium text-ink">
               <span className="truncate">{name}</span>
               <Badge tone={synced ? "success" : "neutral"}>
-                {synced ? "Gesynchroniseerd" : "Op één apparaat"}
+                {synced ? "Synced" : "On one device"}
               </Badge>
             </p>
             <p className="mt-0.5 text-xs text-muted">
-              Toegevoegd {createdAt} · {lastUsedAt ? `laatst gebruikt ${lastUsedAt}` : "nog niet gebruikt"}
+              Added {createdAt} · {lastUsedAt ? `last used ${lastUsedAt}` : "not used yet"}
             </p>
           </div>
           {/* 44px tap targets on touch screens, also for the confirm dialog. */}
           <div className="flex items-center gap-2 pointer-coarse:[&_button]:min-h-11 max-sm:w-full max-sm:*:flex-1">
-            <Button size="sm" variant="ghost" onClick={() => setOpenedWith(state)} aria-label={`${name} hernoemen`}>
+            <Button size="sm" variant="ghost" onClick={() => setOpenedWith(state)} aria-label={`Rename ${name}`}>
               <Pencil aria-hidden="true" />
-              Hernoemen
+              Rename
             </Button>
             <ConfirmButton
               size="sm"
               variant="ghost"
-              title="Passkey intrekken?"
-              description={`Met "${name}" kun je daarna niet meer inloggen. Op het apparaat zelf blijft de passkey bestaan; die kun je daar verwijderen.`}
-              confirmLabel="Intrekken"
+              title="Revoke passkey?"
+              description={`You can no longer sign in with "${name}". The passkey stays on the device itself; you can delete it there.`}
+              confirmLabel="Revoke"
               action={() => removeAction(id)}
             >
-              Intrekken
+              Revoke
             </ConfirmButton>
           </div>
         </>

@@ -50,7 +50,7 @@ export function TaskList({
         <details className="group">
           <summary className="mb-2 flex w-fit cursor-pointer list-none items-center gap-2 rounded-lg font-display pointer-coarse:min-h-11 text-sm font-semibold text-muted hover:text-brand-900 focus-visible:outline-2 focus-visible:outline-brand-500">
             <ChevronDown className="size-4 transition group-open:rotate-180" aria-hidden="true" />
-            Afgerond
+            Done
             <span className="rounded-full bg-white px-2 py-0.5 text-xs font-medium ring-1 ring-border">{done.length}</span>
           </summary>
           <TaskRows tasks={done} today={today} onEdit={setEditing} />

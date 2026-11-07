@@ -6,7 +6,7 @@ export function ScoreMeter({ id, label, value }: { id: string; label: string; va
         <span id={id} className="font-medium text-muted">
           {label}
         </span>
-        <span className="font-semibold text-brand-900">{value === null ? "Nog niet getest" : `${value}/100`}</span>
+        <span className="font-semibold text-brand-900">{value === null ? "Not tested yet" : `${value}/100`}</span>
       </div>
       <div
         role="meter"
@@ -14,7 +14,7 @@ export function ScoreMeter({ id, label, value }: { id: string; label: string; va
         aria-valuemin={0}
         aria-valuemax={100}
         aria-valuenow={value ?? undefined}
-        aria-valuetext={value === null ? "Nog niet getest" : `${value} van 100`}
+        aria-valuetext={value === null ? "Not tested yet" : `${value} of 100`}
         className="h-2 overflow-hidden rounded-full bg-brand-100"
       >
         <div

@@ -17,7 +17,7 @@ export function TaskCheckbox({ taskId, title, done }: { taskId: string; title: s
         className="peer absolute inset-0 cursor-pointer opacity-0"
         checked={optimisticDone}
         aria-busy={pending}
-        aria-label={optimisticDone ? `${title} weer openzetten` : `${title} afvinken`}
+        aria-label={optimisticDone ? `Reopen ${title}` : `Mark ${title} as done`}
         onChange={(event) => {
           const next = event.target.checked;
           startTransition(async () => {

@@ -12,7 +12,7 @@ export async function PipelineFunnel() {
   if (total === 0 && rejected === 0) {
     return (
       <p className="px-5 py-6 text-sm text-muted">
-        Nog geen kandidaten in de pipeline van open vacatures.
+        No candidates in the pipeline of open vacancies yet.
       </p>
     );
   }
@@ -38,7 +38,7 @@ export async function PipelineFunnel() {
       </dl>
       {rejected > 0 && (
         <p className="mt-4 border-t border-border pt-3 text-xs text-muted">
-          {rejected} afgewezen bij open vacatures.
+          {rejected} rejected on open vacancies.
         </p>
       )}
     </div>

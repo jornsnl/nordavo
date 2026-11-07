@@ -36,11 +36,11 @@ export type EditableCompany = {
 export function EditCompanyButton({ company, action }: { company: EditableCompany; action: FormAction }) {
   return (
     <ActionModal
-      label="Bewerken"
+      label="Edit"
       icon={Pencil}
       size="md"
-      title="Bedrijf bewerken"
-      description="Het domein is de sleutel van het bedrijf en kun je hier niet wijzigen."
+      title="Edit company"
+      description="The domain is the key of the company and cannot be changed here."
       action={action}
       modalSize="lg"
     >
@@ -48,13 +48,13 @@ export function EditCompanyButton({ company, action }: { company: EditableCompan
         const e = state.fieldErrors ?? {};
         return (
           <>
-            <Field label="Naam" htmlFor="name" required error={e.name}>
+            <Field label="Name" htmlFor="name" required error={e.name}>
               <Input id="name" name="name" required defaultValue={company.name} {...invalidProps(state, "name")} />
             </Field>
             <div className="grid gap-5 sm:grid-cols-2">
               <Field label="Segment" htmlFor="segment" error={e.segment}>
                 <Select id="segment" name="segment" defaultValue={company.segment ?? ""}>
-                  <option value="">Geen segment</option>
+                  <option value="">No segment</option>
                   {segments.map((o) => (
                     <option key={o.value} value={o.value}>
                       {o.label}
@@ -72,20 +72,20 @@ export function EditCompanyButton({ company, action }: { company: EditableCompan
                 </Select>
               </Field>
               <Field
-                label="Rechtsvorm"
+                label="Legal form"
                 htmlFor="legal_form"
-                hint="Eenmanszaak en vof komen nooit op een bellijst."
+                hint="An eenmanszaak or vof never goes on a call list."
                 error={e.legal_form}
               >
                 <Input
                   id="legal_form"
                   name="legal_form"
-                  placeholder="Bijvoorbeeld bv"
+                  placeholder="For example bv"
                   defaultValue={company.legalForm ?? ""}
                   {...invalidProps(state, "legal_form")}
                 />
               </Field>
-              <Field label="Medewerkers" htmlFor="employees" error={e.employees}>
+              <Field label="Employees" htmlFor="employees" error={e.employees}>
                 <Input
                   id="employees"
                   name="employees"
@@ -99,10 +99,10 @@ export function EditCompanyButton({ company, action }: { company: EditableCompan
               <Field label="Sector" htmlFor="sector" error={e.sector}>
                 <Input id="sector" name="sector" defaultValue={company.sector ?? ""} {...invalidProps(state, "sector")} />
               </Field>
-              <Field label="Plaats" htmlFor="city" error={e.city}>
+              <Field label="City" htmlFor="city" error={e.city}>
                 <Input id="city" name="city" defaultValue={company.city ?? ""} {...invalidProps(state, "city")} />
               </Field>
-              <Field label="KvK-nummer" htmlFor="kvk_number" error={e.kvk_number}>
+              <Field label="KvK number" htmlFor="kvk_number" error={e.kvk_number}>
                 <Input
                   id="kvk_number"
                   name="kvk_number"
@@ -112,7 +112,7 @@ export function EditCompanyButton({ company, action }: { company: EditableCompan
                   {...invalidProps(state, "kvk_number")}
                 />
               </Field>
-              <Field label="LinkedIn bedrijfspagina" htmlFor="linkedin_url" error={e.linkedin_url}>
+              <Field label="LinkedIn company page" htmlFor="linkedin_url" error={e.linkedin_url}>
                 <Input
                   id="linkedin_url"
                   name="linkedin_url"
@@ -136,10 +136,10 @@ export function EditCompanyButton({ company, action }: { company: EditableCompan
 export function LogActivityButton({ contacts, action }: { contacts: ContactOption[]; action: FormAction }) {
   return (
     <ActionModal
-      label="Activiteit vastleggen"
+      label="Log activity"
       icon={Plus}
-      title="Activiteit vastleggen"
-      description="Een belletje, mail, LinkedIn bericht of meeting. Dit telt mee voor de 30 dagen regel."
+      title="Log activity"
+      description="A call, email, LinkedIn message or meeting. This counts towards the 30 day rule."
       action={action}
       modalSize="lg"
     >
@@ -149,7 +149,7 @@ export function LogActivityButton({ contacts, action }: { contacts: ContactOptio
           <>
             <Field label="Contact" htmlFor="contact_id" error={e.contact_id}>
               <Select id="contact_id" name="contact_id" defaultValue={contacts[0]?.id ?? ""}>
-                <option value="">Het bedrijf, geen specifiek contact</option>
+                <option value="">The company, no specific contact</option>
                 {contacts.map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.name}
@@ -158,7 +158,7 @@ export function LogActivityButton({ contacts, action }: { contacts: ContactOptio
               </Select>
             </Field>
             <div className="grid gap-5 sm:grid-cols-3">
-              <Field label="Kanaal" htmlFor="channel" required error={e.channel}>
+              <Field label="Channel" htmlFor="channel" required error={e.channel}>
                 <Select id="channel" name="channel" defaultValue="bellen">
                   {activityChannels.map((o) => (
                     <option key={o.value} value={o.value}>
@@ -167,7 +167,7 @@ export function LogActivityButton({ contacts, action }: { contacts: ContactOptio
                   ))}
                 </Select>
               </Field>
-              <Field label="Uitkomst" htmlFor="outcome" required error={e.outcome}>
+              <Field label="Outcome" htmlFor="outcome" required error={e.outcome}>
                 <Select id="outcome" name="outcome" defaultValue="bereikt">
                   {activityOutcomes.map((o) => (
                     <option key={o.value} value={o.value}>
@@ -176,23 +176,23 @@ export function LogActivityButton({ contacts, action }: { contacts: ContactOptio
                   ))}
                 </Select>
               </Field>
-              <Field label="Datum" htmlFor="date" error={e.date}>
+              <Field label="Date" htmlFor="date" error={e.date}>
                 <Input id="date" name="date" type="date" defaultValue={todayIso()} max={todayIso()} />
               </Field>
             </div>
-            <Field label="Notities" htmlFor="notes" error={e.notes}>
+            <Field label="Notes" htmlFor="notes" error={e.notes}>
               <Textarea id="notes" name="notes" rows={3} {...invalidProps(state, "notes")} />
             </Field>
             <div className="grid gap-5 sm:grid-cols-[minmax(0,1fr)_180px]">
-              <Field label="Volgende actie" htmlFor="next_action" error={e.next_action}>
+              <Field label="Next action" htmlFor="next_action" error={e.next_action}>
                 <Input
                   id="next_action"
                   name="next_action"
-                  placeholder="Bijvoorbeeld terugbellen over profielen"
+                  placeholder="For example call back about profiles"
                   {...invalidProps(state, "next_action")}
                 />
               </Field>
-              <Field label="Datum volgende actie" htmlFor="next_action_date" error={e.next_action_date}>
+              <Field label="Next action date" htmlFor="next_action_date" error={e.next_action_date}>
                 <Input
                   id="next_action_date"
                   name="next_action_date"
@@ -224,21 +224,21 @@ export function SuppressButton({
 }) {
   return (
     <ActionModal
-      label="Uitsluiten"
+      label="Suppress"
       icon={Ban}
-      title="Uitsluiten"
-      description="Wie uitgesloten is, komt niet meer op een bellijst of in een mailcampagne."
+      title="Suppress"
+      description="Whoever is suppressed no longer goes on a call list or into a mail campaign."
       action={action}
-      submitLabel="Uitsluiten"
-      pendingLabel="Bezig met uitsluiten"
+      submitLabel="Suppress"
+      pendingLabel="Suppressing"
     >
       {(state) => {
         const e = state.fieldErrors ?? {};
         return (
           <>
-            <Field label="Wie" htmlFor="target" required error={e.target}>
+            <Field label="Who" htmlFor="target" required error={e.target}>
               <Select id="target" name="target" defaultValue={defaultTarget}>
-                <option value="company">Het hele bedrijf, alle contacten</option>
+                <option value="company">The whole company, all contacts</option>
                 {contacts.map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.name}
@@ -247,7 +247,7 @@ export function SuppressButton({
               </Select>
             </Field>
             <div className="grid gap-5 sm:grid-cols-2">
-              <Field label="Reden" htmlFor="reason" required error={e.reason}>
+              <Field label="Reason" htmlFor="reason" required error={e.reason}>
                 <Select id="reason" name="reason" defaultValue="bezwaar">
                   {suppressionReasons.map((o) => (
                     <option key={o.value} value={o.value}>
@@ -256,7 +256,7 @@ export function SuppressButton({
                   ))}
                 </Select>
               </Field>
-              <Field label="Kanalen" htmlFor="scope" required error={e.scope}>
+              <Field label="Channels" htmlFor="scope" required error={e.scope}>
                 <Select id="scope" name="scope" defaultValue="alle_kanalen">
                   {suppressionScopes.map((o) => (
                     <option key={o.value} value={o.value}>
@@ -266,7 +266,7 @@ export function SuppressButton({
                 </Select>
               </Field>
             </div>
-            <Field label="Toelichting" htmlFor="suppress-notes" error={e.notes}>
+            <Field label="Explanation" htmlFor="suppress-notes" error={e.notes}>
               <Textarea id="suppress-notes" name="notes" rows={2} />
             </Field>
           </>
@@ -292,14 +292,14 @@ export function PushToCrmButton({
 }) {
   return (
     <ActionModal
-      label="Naar CRM"
+      label="To CRM"
       icon={Send}
-      ariaLabel={`${contactName} naar OnePageCRM`}
-      title="Naar OnePageCRM"
-      description={`${contactName} en het bedrijf komen in OnePageCRM, met een volgende actie.`}
+      ariaLabel={`${contactName} to OnePageCRM`}
+      title="To OnePageCRM"
+      description={`${contactName} and the company go into OnePageCRM, with a next action.`}
       action={action}
-      submitLabel="Naar CRM"
-      pendingLabel="Bezig met versturen"
+      submitLabel="To CRM"
+      pendingLabel="Sending"
     >
       {(state) => {
         const e = state.fieldErrors ?? {};
@@ -311,19 +311,19 @@ export function PushToCrmButton({
               </p>
             )}
             <Field
-              label="Reden"
+              label="Reason"
               htmlFor="crm-reason"
               required
-              hint="Bijvoorbeeld positieve reply of afspraak via Web Partners."
+              hint="For example a positive reply or a meeting via Web Partners."
               error={e.reason}
             >
               <Input id="crm-reason" name="reason" required {...invalidProps(state, "reason", "crm-reason")} />
             </Field>
             <div className="grid gap-5 sm:grid-cols-[minmax(0,1fr)_180px]">
-              <Field label="Volgende actie" htmlFor="crm-next" error={e.next_action}>
-                <Input id="crm-next" name="next_action" placeholder="Bijvoorbeeld intake plannen" />
+              <Field label="Next action" htmlFor="crm-next" error={e.next_action}>
+                <Input id="crm-next" name="next_action" placeholder="For example plan an intake" />
               </Field>
-              <Field label="Datum" htmlFor="crm-next-date" error={e.next_action_date}>
+              <Field label="Date" htmlFor="crm-next-date" error={e.next_action_date}>
                 <Input
                   id="crm-next-date"
                   name="next_action_date"
@@ -355,13 +355,13 @@ export function LinkClientButton({
 }) {
   return (
     <ActionModal
-      label="Klant geworden"
+      label="Became a client"
       icon={Building2}
-      title="Koppelen aan een klant"
-      description="Het bedrijf gaat op klant en krijgt een klantrecord voor vacatures en plaatsingen."
+      title="Link to a client"
+      description="The company becomes a client and gets a client record for vacancies and placements."
       action={action}
-      submitLabel="Koppelen"
-      pendingLabel="Bezig met koppelen"
+      submitLabel="Link"
+      pendingLabel="Linking"
     >
       {(state) => <LinkClientFields clients={clients} defaultName={defaultName} errors={state.fieldErrors ?? {}} />}
     </ActionModal>
@@ -382,7 +382,7 @@ function LinkClientFields({
   return (
     <>
       <fieldset className="space-y-2">
-        <legend className="text-sm font-medium text-ink">Klant</legend>
+        <legend className="text-sm font-medium text-ink">Client</legend>
         <label className="flex items-center gap-3 text-sm">
           <input
             type="radio"
@@ -392,7 +392,7 @@ function LinkClientFields({
             onChange={() => setMode("new")}
             className="size-4 accent-brand-700"
           />
-          Nieuwe klant aanmaken
+          Create new client
         </label>
         <label className="flex items-center gap-3 text-sm">
           <input
@@ -404,18 +404,18 @@ function LinkClientFields({
             disabled={clients.length === 0}
             className="size-4 accent-brand-700"
           />
-          Bestaande klant kiezen
+          Choose existing client
         </label>
       </fieldset>
       {mode === "new" ? (
-        <Field label="Naam van de klant" htmlFor="client-name" required error={errors.name}>
+        <Field label="Client name" htmlFor="client-name" required error={errors.name}>
           <Input id="client-name" name="name" required defaultValue={defaultName} />
         </Field>
       ) : (
-        <Field label="Bestaande klant" htmlFor="client-id" required error={errors.client_id}>
+        <Field label="Existing client" htmlFor="client-id" required error={errors.client_id}>
           <Select id="client-id" name="client_id" defaultValue={match?.id ?? ""}>
             <option value="" disabled>
-              Kies een klant
+              Pick a client
             </option>
             {clients.map((c) => (
               <option key={c.id} value={c.id}>

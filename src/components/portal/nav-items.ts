@@ -1,6 +1,6 @@
 export const portalNavItems = [
-  { label: "Overzicht", href: "/portal" },
-  { label: "Plaatsingen", href: "/portal/placements" },
+  { label: "Overview", href: "/portal" },
+  { label: "Placements", href: "/portal/placements" },
 ] as const;
 
 export function isActivePortalPath(pathname: string, href: string) {

@@ -6,16 +6,16 @@ import { diffDays, formatShortDate } from "@/components/placements/dates";
 
 const kinds: Record<MomentKind, { label: string; icon: typeof CalendarCheck }> = {
   checkin: { label: "Check-in", icon: CalendarCheck },
-  guarantee: { label: "Einde garantie", icon: ShieldCheck },
-  notice: { label: "Laatste werkdag", icon: LogOut },
+  guarantee: { label: "Guarantee ends", icon: ShieldCheck },
+  notice: { label: "Last working day", icon: LogOut },
 };
 
 function when(date: string, today: string) {
   const days = diffDays(today, date);
-  if (days === 0) return "vandaag";
-  if (days === 1) return "morgen";
-  if (days < 0) return `${-days} ${days === -1 ? "dag" : "dagen"} te laat`;
-  return `over ${days} dagen`;
+  if (days === 0) return "today";
+  if (days === 1) return "tomorrow";
+  if (days < 0) return `${-days} ${days === -1 ? "day" : "days"} overdue`;
+  return `in ${days} days`;
 }
 
 /** Check-ins, guarantee ends and notice ends coming up. */
@@ -27,7 +27,7 @@ export async function UpcomingMoments() {
     return (
       <div className="flex items-center gap-3 px-5 py-6 text-sm text-muted">
         <CalendarCheck className="size-5 shrink-0 text-brand-200" aria-hidden="true" />
-        Niets gepland voor de komende twee weken.
+        Nothing planned for the next two weeks.
       </div>
     );
   }

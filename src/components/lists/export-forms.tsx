@@ -51,7 +51,7 @@ function ExportResult({ state }: { state: ExportActionState }) {
           rel="noreferrer"
           className="inline-flex items-center gap-1.5 text-sm font-semibold text-brand-700 hover:underline max-md:min-h-11"
         >
-          Open de Google Sheet
+          Open the Google Sheet
           <ExternalLink className="size-4" aria-hidden="true" />
         </a>
       )}
@@ -61,7 +61,7 @@ function ExportResult({ state }: { state: ExportActionState }) {
           onClick={() => downloadCsv(state.csv!, state.filename!)}
           className="inline-flex items-center gap-1.5 text-sm font-semibold text-brand-700 hover:underline max-md:min-h-11"
         >
-          Download opnieuw
+          Download again
           <Download className="size-4" aria-hidden="true" />
         </button>
       )}
@@ -77,9 +77,9 @@ export function CallListExportForm({ filter, sheetsEnabled, disabled }: { filter
       <FilterFields filter={filter} />
       <div className="flex flex-wrap gap-2">
         {sheetsEnabled && (
-          <SubmitButton name="deliver" value="sheet" size="sm" className="max-sm:w-full pointer-coarse:min-h-11" disabled={disabled} pendingLabel="Bezig">
+          <SubmitButton name="deliver" value="sheet" size="sm" className="max-sm:w-full pointer-coarse:min-h-11" disabled={disabled} pendingLabel="Working">
             <FileSpreadsheet aria-hidden="true" />
-            Google Sheet voor Web Partners
+            Google Sheet for Web Partners
           </SubmitButton>
         )}
         <SubmitButton name="deliver" value="csv" size="sm" className="max-sm:w-full pointer-coarse:min-h-11" variant={sheetsEnabled ? "secondary" : "primary"} disabled={disabled}>
@@ -87,7 +87,7 @@ export function CallListExportForm({ filter, sheetsEnabled, disabled }: { filter
           Download CSV
         </SubmitButton>
       </div>
-      {!sheetsEnabled && <p className="text-xs text-muted">Google Sheets is niet ingesteld, daarom alleen CSV.</p>}
+      {!sheetsEnabled && <p className="text-xs text-muted">Google Sheets is not set up, so CSV only.</p>}
       <ExportResult state={state} />
     </form>
   );
@@ -99,9 +99,9 @@ export function MaxExportForm({ filter, disabled }: { filter: ListFilter; disabl
   return (
     <form action={formAction} className="space-y-3">
       <FilterFields filter={filter} omit={["signal"]} />
-      <SubmitButton size="sm" className="max-sm:w-full pointer-coarse:min-h-11" disabled={disabled} pendingLabel="Bezig">
+      <SubmitButton size="sm" className="max-sm:w-full pointer-coarse:min-h-11" disabled={disabled} pendingLabel="Working">
         <Download aria-hidden="true" />
-        CSV voor Max
+        CSV for Max
       </SubmitButton>
       <ExportResult state={state} />
     </form>
@@ -124,9 +124,9 @@ export function MailPushForm({
     <form action={formAction} className="space-y-3">
       <FilterFields filter={filter} omit={["signal", "limit"]} />
       <div className="grid gap-3 sm:grid-cols-2">
-        <Field label="Campagne" htmlFor="mail-signal" hint="Eén campagne per signaal.">
+        <Field label="Campaign" htmlFor="mail-signal" hint="One campaign per signal.">
           <Select id="mail-signal" name="signal" defaultValue={filter.signalType ?? ""} disabled={!instantlyEnabled}>
-            <option value="">Alle signalen, elk een eigen campagne</option>
+            <option value="">All signals, each its own campaign</option>
             {signalOptions.map((s) => (
               <option key={s.value} value={s.value}>
                 {s.label}
@@ -134,15 +134,15 @@ export function MailPushForm({
             ))}
           </Select>
         </Field>
-        <Field label="Aantal contacten" htmlFor="mail-limit" hint="Per keer maximaal 200.">
+        <Field label="Number of contacts" htmlFor="mail-limit" hint="At most 200 at a time.">
           <Input id="mail-limit" name="limit" type="number" min={1} max={200} inputMode="numeric" enterKeyHint="done" defaultValue={Math.min(filter.limit, 50)} disabled={!instantlyEnabled} />
         </Field>
       </div>
-      <SubmitButton size="sm" className="max-sm:w-full pointer-coarse:min-h-11" disabled={disabled || !instantlyEnabled} pendingLabel="Bezig met openingszinnen en Instantly">
+      <SubmitButton size="sm" className="max-sm:w-full pointer-coarse:min-h-11" disabled={disabled || !instantlyEnabled} pendingLabel="Writing opening lines and sending to Instantly">
         <Send aria-hidden="true" />
-        Naar Instantly
+        Send to Instantly
       </SubmitButton>
-      {!instantlyEnabled && <p className="text-xs text-muted">Instantly is niet ingesteld: zet INSTANTLY_API_KEY in de omgeving.</p>}
+      {!instantlyEnabled && <p className="text-xs text-muted">Instantly is not set up: set INSTANTLY_API_KEY in the environment.</p>}
       <FormMessage error={state.error} success={state.ok ? state.message : undefined} />
     </form>
   );

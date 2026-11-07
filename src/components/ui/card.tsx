@@ -40,7 +40,7 @@ export function DetailList({ items }: { items: { label: string; value: ReactNode
       {items.map(({ label, value }) => (
         <div key={label} className="min-w-0">
           <dt className="text-xs font-medium tracking-wide text-muted uppercase">{label}</dt>
-          <dd className="mt-1 text-sm break-words text-ink">{value ?? <span className="text-muted">Niet ingevuld</span>}</dd>
+          <dd className="mt-1 text-sm break-words text-ink">{value ?? <span className="text-muted">Not filled in</span>}</dd>
         </div>
       ))}
     </dl>

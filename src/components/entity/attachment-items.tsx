@@ -32,11 +32,11 @@ export function AttachmentUploader({
     setError(undefined);
     setMessage(undefined);
     if (file.size > maxBytes) {
-      setError(`${file.name} is te groot. Het maximum is ${maxMb} MB.`);
+      setError(`${file.name} is too large. The maximum is ${maxMb} MB.`);
       return;
     }
     if (file.size === 0) {
-      setError(`${file.name} is leeg.`);
+      setError(`${file.name} is empty.`);
       return;
     }
 
@@ -52,7 +52,7 @@ export function AttachmentUploader({
         .from(BUCKET)
         .uploadToSignedUrl(target.path, target.token, file, { contentType: file.type || undefined });
       if (uploadError) {
-        setError("Uploaden is niet gelukt. Probeer het opnieuw.");
+        setError("Upload failed. Try again.");
         return;
       }
       const result = await saveAttachment({
@@ -67,9 +67,9 @@ export function AttachmentUploader({
         setError(result.error);
         return;
       }
-      setMessage(`${file.name} is toegevoegd.`);
+      setMessage(`${file.name} was added.`);
     } catch {
-      setError("Uploaden is niet gelukt. Controleer je verbinding en probeer het opnieuw.");
+      setError("Upload failed. Check your connection and try again.");
     } finally {
       setBusy(false);
       if (input.current) input.current.value = "";
@@ -87,7 +87,7 @@ export function AttachmentUploader({
       <div className="flex gap-2 sm:hidden">
         <label htmlFor={`${id}-camera`} className={phoneButton}>
           <Camera className="size-[18px] text-brand-600" aria-hidden="true" />
-          Foto maken
+          Take photo
           <input
             ref={cameraInput}
             id={`${id}-camera`}
@@ -108,10 +108,10 @@ export function AttachmentUploader({
           ) : (
             <FolderOpen className="size-[18px] text-brand-600" aria-hidden="true" />
           )}
-          {busy ? "Bezig" : "Bestand kiezen"}
+          {busy ? "Working" : "Choose file"}
         </label>
       </div>
-      <p className="text-center text-xs text-muted sm:hidden">Maximaal {maxMb} MB</p>
+      <p className="text-center text-xs text-muted sm:hidden">Max {maxMb} MB</p>
       <label
         htmlFor={`${id}-file`}
         className={`flex cursor-pointer flex-col max-sm:hidden items-center gap-1 rounded-xl border border-dashed border-brand-200 bg-surface/60 px-4 py-5 text-center transition hover:border-brand-500 hover:bg-brand-50 has-focus-visible:outline-2 has-focus-visible:outline-brand-500 ${
@@ -123,8 +123,8 @@ export function AttachmentUploader({
         ) : (
           <Upload className="size-5 text-brand-600" aria-hidden="true" />
         )}
-        <span className="text-sm font-medium text-brand-900">{busy ? "Bezig met uploaden" : "Bestand uploaden"}</span>
-        <span className="text-xs text-muted">Maximaal {maxMb} MB</span>
+        <span className="text-sm font-medium text-brand-900">{busy ? "Uploading" : "Upload file"}</span>
+        <span className="text-xs text-muted">Max {maxMb} MB</span>
         <input
           ref={input}
           id={`${id}-file`}
@@ -181,7 +181,7 @@ export function AttachmentRow({
         <span className="flex shrink-0">
           {downloading ? (
             <span className="flex size-8 items-center justify-center pointer-coarse:size-10">
-              <LoaderCircle className="size-3.5 animate-spin text-muted" aria-label="Bezig met downloaden" />
+              <LoaderCircle className="size-3.5 animate-spin text-muted" aria-label="Downloading" />
             </span>
           ) : (
             <span className="flex size-8 items-center justify-center text-muted pointer-coarse:size-10" aria-hidden="true">
@@ -192,15 +192,15 @@ export function AttachmentRow({
             type="button"
             onClick={() => setConfirming(true)}
             className="flex size-8 items-center justify-center rounded-lg text-muted hover:bg-danger-bg hover:text-danger active:bg-danger-bg active:text-danger pointer-coarse:size-10 focus-visible:outline-2 focus-visible:outline-brand-500"
-            aria-label={`${attachment.fileName} verwijderen`}
+            aria-label={`Delete ${attachment.fileName}`}
           >
             <Trash2 className="size-3.5" aria-hidden="true" />
           </button>
         </span>
       </div>
       {confirming && (
-        <div className="mt-2 ml-6 flex flex-wrap items-center gap-2 rounded-xl bg-danger-bg px-3 py-2 text-sm" role="group" aria-label="Verwijderen bevestigen">
-          <span className="text-danger">Bestand definitief verwijderen?</span>
+        <div className="mt-2 ml-6 flex flex-wrap items-center gap-2 rounded-xl bg-danger-bg px-3 py-2 text-sm" role="group" aria-label="Confirm delete">
+          <span className="text-danger">Delete file permanently?</span>
           <Button
             variant="danger"
             size="sm"
@@ -213,10 +213,10 @@ export function AttachmentRow({
               })
             }
           >
-            Verwijderen
+            Delete
           </Button>
           <Button variant="ghost" size="sm" onClick={() => setConfirming(false)}>
-            Annuleren
+            Cancel
           </Button>
         </div>
       )}

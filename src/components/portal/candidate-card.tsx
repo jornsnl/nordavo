@@ -38,7 +38,7 @@ export function CandidateCard({ item }: { item: PortalCandidate }) {
               </span>
               {candidate.yearsExperience !== null && (
                 <span>
-                  {candidate.yearsExperience} jaar ervaring
+                  {candidate.yearsExperience} years of experience
                 </span>
               )}
             </p>
@@ -61,11 +61,11 @@ export function CandidateCard({ item }: { item: PortalCandidate }) {
             {candidate.summary ? (
               <p className="text-sm leading-relaxed whitespace-pre-line text-ink">{candidate.summary}</p>
             ) : (
-              <p className="text-sm text-muted">Nog geen samenvatting toegevoegd.</p>
+              <p className="text-sm text-muted">No summary added yet.</p>
             )}
 
             {candidate.skills.length > 0 && (
-              <ul className="flex flex-wrap gap-1.5" aria-label="Vaardigheden">
+              <ul className="flex flex-wrap gap-1.5" aria-label="Skills">
                 {candidate.skills.map((skill) => (
                   <li key={skill}>
                     <Badge tone="brand">{skill}</Badge>
@@ -84,8 +84,8 @@ export function CandidateCard({ item }: { item: PortalCandidate }) {
                   className={buttonClasses({ variant: "secondary", size: "sm", className: "max-sm:min-h-11!" })}
                 >
                   <PlayCircle aria-hidden="true" />
-                  Video intro bekijken
-                  <span className="sr-only"> (opent in nieuw tabblad)</span>
+                  Watch video intro
+                  <span className="sr-only"> (opens in a new tab)</span>
                 </a>
               )}
               {candidate.hasCv && (
@@ -96,20 +96,20 @@ export function CandidateCard({ item }: { item: PortalCandidate }) {
                   className={buttonClasses({ variant: "secondary", size: "sm", className: "max-sm:min-h-11!" })}
                 >
                   <Download aria-hidden="true" />
-                  CV downloaden
-                  <span className="sr-only"> van {candidate.fullName} (opent in nieuw tabblad)</span>
+                  Download CV
+                  <span className="sr-only"> of {candidate.fullName} (opens in a new tab)</span>
                 </a>
               )}
             </div>
             {item.presentedAt && (
-              <p className="text-xs text-muted">Voorgesteld op {formatDate(item.presentedAt)}</p>
+              <p className="text-xs text-muted">Presented on {formatDate(item.presentedAt)}</p>
             )}
           </div>
 
           <div className="space-y-3 rounded-xl bg-surface p-4">
             <p className="text-xs font-semibold tracking-wide text-muted uppercase">Assessment</p>
-            <ScoreMeter id={`tech-${item.applicationId}`} label="Technische test" value={item.technicalScore} />
-            <ScoreMeter id={`eng-${item.applicationId}`} label="Engels" value={item.englishScore} />
+            <ScoreMeter id={`tech-${item.applicationId}`} label="Technical test" value={item.technicalScore} />
+            <ScoreMeter id={`eng-${item.applicationId}`} label="English" value={item.englishScore} />
           </div>
         </div>
 

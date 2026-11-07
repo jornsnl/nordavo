@@ -24,9 +24,9 @@ export async function MfaSection() {
   return (
     <Card>
       <CardHeader
-        title="Tweestapsverificatie"
-        description="Na je wachtwoord vragen we om een code uit een app op je telefoon. Zo komt niemand binnen met alleen je wachtwoord."
-        actions={<Badge tone={enabled ? "success" : "neutral"}>{enabled ? "Aan" : "Uit"}</Badge>}
+        title="Two-step verification"
+        description="After your password we ask for a code from an app on your phone. That way nobody gets in with just your password."
+        actions={<Badge tone={enabled ? "success" : "neutral"}>{enabled ? "On" : "Off"}</Badge>}
       />
       <CardBody className="space-y-5 py-5">
         {enabled ? (
@@ -44,21 +44,21 @@ export async function MfaSection() {
                     </span>
                     <div className="min-w-0">
                       <p className="truncate text-sm font-medium text-ink">{name}</p>
-                      <p className="text-xs text-muted">Toegevoegd op {formatDate(factor.created_at)}</p>
+                      <p className="text-xs text-muted">Added on {formatDate(factor.created_at)}</p>
                     </div>
                   </div>
                   <ConfirmButton
                     size="sm"
-                    title="App verwijderen?"
+                    title="Remove app?"
                     description={
                       factors.length > 1
-                        ? `Na het verwijderen werken codes uit "${name}" niet meer. Je andere app blijft werken.`
-                        : `Na het verwijderen werken codes uit "${name}" niet meer en log je weer in met alleen je wachtwoord.`
+                        ? `After removing it, codes from "${name}" no longer work. Your other app keeps working.`
+                        : `After removing it, codes from "${name}" no longer work and you sign in with just your password again.`
                     }
-                    confirmLabel="Verwijderen"
+                    confirmLabel="Remove"
                     action={removeMfaFactor.bind(null, factor.id)}
                   >
-                    Verwijderen
+                    Remove
                   </ConfirmButton>
                 </li>
               );
@@ -66,20 +66,20 @@ export async function MfaSection() {
           </ul>
         ) : (
           <p className="text-sm text-muted">
-            Tweestapsverificatie staat uit. Je logt nu in met alleen je wachtwoord.
+            Two-step verification is off. You now sign in with just your password.
           </p>
         )}
 
         <div className="space-y-1.5 rounded-xl bg-surface px-4 py-3 text-sm text-muted">
           <p>
-            Werkt met elke authenticator app, zoals Google Authenticator, Microsoft Authenticator,
-            1Password of Authy.
+            Works with any authenticator app, such as Google Authenticator, Microsoft Authenticator,
+            1Password or Authy.
           </p>
           <p>
-            Staat het aan, dan vul je na je wachtwoord voortaan een code van 6 cijfers uit de app in.
-            Log je in met een passkey, dan is dat niet nodig.
+            Once it is on, you enter a 6 digit code from the app after your password.
+            When you sign in with a passkey, that is not needed.
           </p>
-          <p>Telefoon kwijt of nieuw? Vraag een beheerder om je tweestapsverificatie te resetten.</p>
+          <p>Lost your phone or got a new one? Ask an admin to reset your two-step verification.</p>
         </div>
 
         <MfaEnroll hasFactors={enabled} />

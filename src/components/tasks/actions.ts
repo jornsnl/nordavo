@@ -18,19 +18,19 @@ const taskSchema = z
   .object({
     id: z.guid().optional(),
     title: z
-      .string({ error: "Geef de taak een titel." })
-      .min(1, "Geef de taak een titel.")
-      .max(200, "Houd de titel korter dan 200 tekens."),
-    description: z.string().max(5000, "De omschrijving is te lang.").optional(),
+      .string({ error: "Give the task a title." })
+      .min(1, "Give the task a title.")
+      .max(200, "Keep the title under 200 characters."),
+    description: z.string().max(5000, "The description is too long.").optional(),
     status: statusSchema.default("todo"),
     priority: z.enum(["low", "normal", "high"]).default("normal"),
-    due_date: z.iso.date("Kies een geldige datum.").optional(),
-    assignee_id: z.guid("Kies een teamlid.").optional(),
+    due_date: z.iso.date("Choose a valid date.").optional(),
+    assignee_id: z.guid("Choose a team member.").optional(),
     entity_type: entityTypeSchema.optional(),
-    entity_id: z.guid("Kies een record.").optional(),
+    entity_id: z.guid("Choose a record.").optional(),
   })
   .refine((v) => Boolean(v.entity_type) === Boolean(v.entity_id), {
-    message: "Kies een record of haal de koppeling weg.",
+    message: "Choose a record or remove the link.",
     path: ["entity_id"],
   });
 
@@ -43,7 +43,7 @@ export async function saveTask(_prev: ActionState, formData: FormData): Promise<
     entity_id: values.entity_type ? values.entity_id : undefined,
   });
   if (!parsed.success) {
-    return { error: "Controleer de gemarkeerde velden.", fieldErrors: fieldErrorsFrom(parsed.error) };
+    return { error: "Check the highlighted fields.", fieldErrors: fieldErrorsFrom(parsed.error) };
   }
 
   const { id, ...task } = parsed.data;
@@ -66,7 +66,7 @@ export async function saveTask(_prev: ActionState, formData: FormData): Promise<
 
   if (error) return { error: GENERIC_ERROR };
   refresh();
-  return { ok: true, message: id ? "Taak opgeslagen." : "Taak toegevoegd." };
+  return { ok: true, message: id ? "Task saved." : "Task added." };
 }
 
 /** Tick a task off, or open it again. */
@@ -131,5 +131,5 @@ export async function deleteTask(taskId: string): Promise<ActionState> {
   const { error } = await supabase.from("tasks").delete().eq("id", id.data);
   if (error) return { error: GENERIC_ERROR };
   refresh();
-  return { ok: true, message: "Taak verwijderd." };
+  return { ok: true, message: "Task deleted." };
 }

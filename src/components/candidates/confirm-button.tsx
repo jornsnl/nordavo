@@ -55,7 +55,7 @@ export function ConfirmButton({
           <FormMessage error={error} />
           <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
             <Button variant="secondary" onClick={() => setOpen(false)} disabled={pending}>
-              Annuleren
+              Cancel
             </Button>
             <Button variant="danger" onClick={confirm} disabled={pending} aria-busy={pending}>
               {pending && <LoaderCircle className="animate-spin" aria-hidden="true" />}

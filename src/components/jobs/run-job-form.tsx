@@ -39,11 +39,11 @@ export function RunJobForm({
         {vacancies && (
           <>
             <label htmlFor={`${id}-vacancy`} className="sr-only">
-              Vacature
+              Vacancy
             </label>
             <Select id={`${id}-vacancy`} name="vacancy" defaultValue="" className="sm:w-64" disabled={pending}>
               <option value="" disabled>
-                {noVacancies ? "Geen open vacatures" : "Kies een vacature"}
+                {noVacancies ? "No open vacancies" : "Pick a vacancy"}
               </option>
               {vacancies.map((v) => (
                 <option key={v.id} value={v.id}>
@@ -56,7 +56,7 @@ export function RunJobForm({
         {showLimit && (
           <>
             <label htmlFor={`${id}-limit`} className="sr-only">
-              Limiet
+              Limit
             </label>
             <Input
               id={`${id}-limit`}
@@ -65,7 +65,7 @@ export function RunJobForm({
               min={1}
               max={5000}
               inputMode="numeric"
-              placeholder="Limiet, optioneel"
+              placeholder="Limit, optional"
               enterKeyHint="go"
               className="sm:w-40"
               disabled={pending}
@@ -81,12 +81,12 @@ export function RunJobForm({
           className="pointer-coarse:min-h-11"
         >
           {pending ? <LoaderCircle className="animate-spin" aria-hidden="true" /> : <Play aria-hidden="true" />}
-          {pending ? "Draait" : label}
+          {pending ? "Running" : label}
         </Button>
       </div>
       {pending && (
         <p className="text-xs text-muted" role="status">
-          Dit kan een paar minuten duren. Laat de pagina open.
+          This can take a few minutes. Keep the page open.
         </p>
       )}
       {!pending && <FormMessage error={state.error} success={state.ok ? state.message : undefined} />}

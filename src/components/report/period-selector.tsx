@@ -1,12 +1,12 @@
 import Link from "next/link";
 import { reportPeriods, type ReportPeriodKey } from "@/lib/gtm/report";
 
-const shortLabels: Partial<Record<ReportPeriodKey, string>> = { "30-dagen": "30 dagen" };
+const shortLabels: Partial<Record<ReportPeriodKey, string>> = { "30-dagen": "30 days" };
 
 /** Segmented control as plain links, so it works without JavaScript. Full width on phones. */
 export function PeriodSelector({ current }: { current: ReportPeriodKey }) {
   return (
-    <nav aria-label="Periode" className="inline-flex rounded-xl border border-border bg-card p-1 shadow-xs max-sm:flex max-sm:w-full">
+    <nav aria-label="Period" className="inline-flex rounded-xl border border-border bg-card p-1 shadow-xs max-sm:flex max-sm:w-full">
       {reportPeriods.map((period) => {
         const active = period.value === current;
         return (

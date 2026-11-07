@@ -25,32 +25,32 @@ export async function McpSection() {
   return (
     <Card>
       <CardHeader
-        title="Claude Code koppelen (MCP)"
-        description="Laat Claude Code met jouw rechten klanten, vacatures, kandidaten en taken in Nordavo opzoeken."
+        title="Connect Claude Code (MCP)"
+        description="Let Claude Code look up clients, vacancies, candidates and tasks in Nordavo with your permissions."
       />
       <CardBody className="space-y-6 py-5">
         {!enabled && (
           <p className="rounded-xl border border-amber-600/20 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-            De MCP server werkt pas als <code className="font-mono text-xs">SUPABASE_SECRET_KEY</code> op de
-            server is ingesteld. Vraag een beheerder om die toe te voegen.
+            The MCP server only works once <code className="font-mono text-xs">SUPABASE_SECRET_KEY</code> is set on the
+            server. Ask an admin to add it.
           </p>
         )}
         {error && (
           <p role="alert" className="rounded-xl border border-danger/20 bg-danger-bg px-4 py-3 text-sm text-danger">
-            Je tokens konden niet worden geladen. Is de migratie voor mcp_tokens uitgevoerd?
+            Your tokens could not be loaded. Has the migration for mcp_tokens been run?
           </p>
         )}
 
         <section aria-labelledby="mcp-tokens-heading" className="space-y-3">
           <h3 id="mcp-tokens-heading" className="text-sm font-semibold text-brand-900">
-            Je tokens
+            Your tokens
           </h3>
           <McpTokenList tokens={tokens} revokeAction={revokeMcpToken} />
         </section>
 
         <section aria-labelledby="mcp-new-heading" className="space-y-3">
           <h3 id="mcp-new-heading" className="text-sm font-semibold text-brand-900">
-            Nieuw token
+            New token
           </h3>
           <McpTokenForm action={createMcpToken} endpoint={endpoint} enabled={enabled} />
         </section>
@@ -79,8 +79,8 @@ async function loadTokens(userId: string): Promise<{ tokens: McpTokenRow[]; erro
     prefix: t.token_prefix,
     access: t.access === "write" ? "write" : "read",
     createdAt: formatDate(t.created_at),
-    lastUsedAt: t.last_used_at ? formatDateTime(t.last_used_at) : "Nog niet",
-    expiresAt: t.expires_at ? formatDate(t.expires_at) : "Nooit",
+    lastUsedAt: t.last_used_at ? formatDateTime(t.last_used_at) : "Not yet",
+    expiresAt: t.expires_at ? formatDate(t.expires_at) : "Never",
     status: t.revoked_at
       ? "revoked"
       : t.expires_at && new Date(t.expires_at).getTime() <= now

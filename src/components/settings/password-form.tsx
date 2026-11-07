@@ -18,11 +18,11 @@ export function PasswordForm({
       <FormMessage error={state.error} success={state.ok ? state.message : undefined} />
       <div className="grid gap-5 sm:grid-cols-2">
         <Field
-          label="Nieuw wachtwoord"
+          label="New password"
           htmlFor="new_password"
           required
           error={errors.password}
-          hint="Minimaal 8 tekens."
+          hint="At least 8 characters."
         >
           <Input
             id="new_password"
@@ -37,7 +37,7 @@ export function PasswordForm({
             aria-describedby={errors.password ? "new_password-error" : undefined}
           />
         </Field>
-        <Field label="Herhaal wachtwoord" htmlFor="confirm_password" required error={errors.confirm}>
+        <Field label="Repeat password" htmlFor="confirm_password" required error={errors.confirm}>
           <Input
             id="confirm_password"
             name="confirm"
@@ -52,7 +52,7 @@ export function PasswordForm({
         </Field>
       </div>
       <div className="flex justify-end max-sm:*:w-full">
-        <SubmitButton pendingLabel="Bezig met wijzigen">Wachtwoord wijzigen</SubmitButton>
+        <SubmitButton pendingLabel="Changing">Change password</SubmitButton>
       </div>
     </form>
   );

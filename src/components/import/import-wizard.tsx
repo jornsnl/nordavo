@@ -27,29 +27,29 @@ type Row = Record<string, string>;
 type MappingKey = keyof LeadImportMapping;
 
 const FIELDS: { key: MappingKey; label: string; hint?: string; group: "bedrijf" | "contact" | "historie" }[] = [
-  { key: "domain", label: "Domein of website", hint: "Verplicht. Rijen zonder domein worden overgeslagen.", group: "bedrijf" },
-  { key: "company_name", label: "Bedrijfsnaam", group: "bedrijf" },
-  { key: "legal_form", label: "Rechtsvorm", group: "bedrijf" },
-  { key: "employees", label: "Medewerkers", group: "bedrijf" },
+  { key: "domain", label: "Domain or website", hint: "Required. Rows without a domain are skipped.", group: "bedrijf" },
+  { key: "company_name", label: "Company name", group: "bedrijf" },
+  { key: "legal_form", label: "Legal form", group: "bedrijf" },
+  { key: "employees", label: "Employees", group: "bedrijf" },
   { key: "sector", label: "Sector", group: "bedrijf" },
-  { key: "city", label: "Plaats", group: "bedrijf" },
-  { key: "company_linkedin", label: "LinkedIn bedrijf", group: "bedrijf" },
-  { key: "full_name", label: "Volledige naam", hint: "Of gebruik voornaam en achternaam.", group: "contact" },
-  { key: "first_name", label: "Voornaam", group: "contact" },
-  { key: "last_name", label: "Achternaam", group: "contact" },
-  { key: "title", label: "Functie", group: "contact" },
-  { key: "person_linkedin", label: "LinkedIn persoon", group: "contact" },
-  { key: "email", label: "Mailadres", group: "contact" },
-  { key: "phone", label: "Telefoon", group: "contact" },
-  { key: "last_contacted_at", label: "Laatst benaderd op", hint: "Wordt een activiteit, telt mee voor de 30 dagen regel.", group: "historie" },
-  { key: "contact_channel", label: "Kanaal", hint: "Bellen of mail. Leeg is bellen.", group: "historie" },
-  { key: "contact_outcome", label: "Uitkomst", hint: "Komt als notitie bij de activiteit.", group: "historie" },
+  { key: "city", label: "City", group: "bedrijf" },
+  { key: "company_linkedin", label: "LinkedIn company", group: "bedrijf" },
+  { key: "full_name", label: "Full name", hint: "Or use first name and last name.", group: "contact" },
+  { key: "first_name", label: "First name", group: "contact" },
+  { key: "last_name", label: "Last name", group: "contact" },
+  { key: "title", label: "Job title", group: "contact" },
+  { key: "person_linkedin", label: "LinkedIn person", group: "contact" },
+  { key: "email", label: "Email address", group: "contact" },
+  { key: "phone", label: "Phone", group: "contact" },
+  { key: "last_contacted_at", label: "Last contacted on", hint: "Becomes an activity and counts towards the 30 day rule.", group: "historie" },
+  { key: "contact_channel", label: "Channel", hint: "Call or mail. Empty means call.", group: "historie" },
+  { key: "contact_outcome", label: "Outcome", hint: "Added as a note on the activity.", group: "historie" },
 ];
 
 const GROUPS = [
-  { id: "bedrijf", title: "Bedrijf" },
+  { id: "bedrijf", title: "Company" },
   { id: "contact", title: "Contact" },
-  { id: "historie", title: "Eerder benaderd" },
+  { id: "historie", title: "Contacted before" },
 ] as const;
 
 type Totals = Omit<LeadImportResult, "skipped">;
@@ -104,7 +104,7 @@ export function ImportWizard() {
         const headers = (result.meta.fields ?? []).filter(Boolean);
         if (headers.length === 0 || result.data.length === 0) {
           setParsing(false);
-          setParseError("Dit bestand heeft geen kopregel of geen rijen. Exporteer de Sheet als CSV met kolomnamen op de eerste regel.");
+          setParseError("This file has no header row or no rows. Export the Sheet as CSV with column names on the first row.");
           return;
         }
         let guess: Partial<LeadImportMapping> = {};
@@ -124,7 +124,7 @@ export function ImportWizard() {
       },
       error: (error) => {
         setParsing(false);
-        setParseError(`Het bestand kon niet gelezen worden: ${error.message}`);
+        setParseError(`The file could not be read: ${error.message}`);
       },
     });
   }
@@ -183,7 +183,7 @@ export function ImportWizard() {
       try {
         response = await importChunkAction({ rows, mapping: fullMapping, source: source.trim(), offset });
       } catch {
-        response = { ok: false, error: "De verbinding met de server viel weg." };
+        response = { ok: false, error: "The connection to the server was lost." };
       }
       if (!response.ok) {
         state = { ...state, status: "failed", error: response.error };
@@ -218,8 +218,8 @@ export function ImportWizard() {
     <div className="space-y-6">
       <Card>
         <CardHeader
-          title="1. Kies een CSV"
-          description="Exporteer de Google Sheet via Bestand, Downloaden, CSV. De eerste regel moet de kolomnamen bevatten."
+          title="1. Choose a CSV"
+          description="Export the Google Sheet via File, Download, CSV. The first row must contain the column names."
         />
         <CardBody className="space-y-4">
           <label
@@ -227,10 +227,10 @@ export function ImportWizard() {
             className="flex cursor-pointer flex-col items-center gap-2 rounded-2xl border border-dashed border-brand-200 bg-surface/50 px-6 py-8 text-center text-sm text-muted transition hover:border-brand-400 focus-within:outline-2 focus-within:outline-brand-500 active:bg-brand-50"
           >
             <Upload className="size-6 text-brand-600" aria-hidden="true" />
-            <span className="font-medium text-ink">{parsed ? parsed.fileName : "Kies een CSV bestand"}</span>
+            <span className="font-medium text-ink">{parsed ? parsed.fileName : "Choose a CSV file"}</span>
             {parsed && (
               <span>
-                {parsed.rows.length} rijen, {parsed.headers.length} kolommen
+                {parsed.rows.length} rows, {parsed.headers.length} columns
               </span>
             )}
             <input
@@ -245,13 +245,13 @@ export function ImportWizard() {
           {parsing && (
             <p className="flex items-center gap-2 text-sm text-muted" role="status">
               <LoaderCircle className="size-4 animate-spin" aria-hidden="true" />
-              Bestand lezen
+              Read file
             </p>
           )}
           <FormMessage error={parseError ?? undefined} />
           {parsed && (
             <div>
-              <h3 className="text-xs font-medium tracking-wide text-muted uppercase">Kolommen in dit bestand</h3>
+              <h3 className="text-xs font-medium tracking-wide text-muted uppercase">Columns in this file</h3>
               <ul className="mt-2 flex flex-wrap gap-1.5">
                 {parsed.headers.map((h) => (
                   <li key={h}>
@@ -267,15 +267,15 @@ export function ImportWizard() {
       {parsed && (
         <Card>
           <CardHeader
-            title="2. Koppel de kolommen"
-            description="Vooraf ingevuld op basis van de kolomnamen. Controleer het en vul aan waar nodig."
+            title="2. Map the columns"
+            description="Prefilled from the column names. Check it and fill in where needed."
           />
           <CardBody className="space-y-6">
             <Field
-              label="Bron"
+              label="Source"
               htmlFor="import-source"
               required
-              hint="Komt bij elk bedrijf en contact te staan, zodat je weet uit welke lijst het kwam."
+              hint="Stored on every company and contact, so you know which list it came from."
             >
               <Input
                 id="import-source"
@@ -297,7 +297,7 @@ export function ImportWizard() {
                       htmlFor={`map-${f.key}`}
                       hint={f.hint}
                       required={f.key === "domain"}
-                      error={f.key === "domain" && !mapping.domain ? "Kies de kolom met het domein." : undefined}
+                      error={f.key === "domain" && !mapping.domain ? "Choose the column with the domain." : undefined}
                     >
                       <Select
                         id={`map-${f.key}`}
@@ -308,7 +308,7 @@ export function ImportWizard() {
                           setMapping((m) => ({ ...m, [f.key]: e.target.value || undefined }))
                         }
                       >
-                        <option value="">Niet importeren</option>
+                        <option value="">Do not import</option>
                         {parsed.headers.map((h) => (
                           <option key={h} value={h}>
                             {h}
@@ -328,27 +328,27 @@ export function ImportWizard() {
         <section aria-labelledby="preview-title" className="space-y-3">
           <div>
             <h2 id="preview-title" className="font-display text-base font-semibold text-brand-900">
-              3. Voorbeeld
+              3. Preview
             </h2>
             <p className="text-sm text-muted">
-              De eerste {Math.min(PREVIEW_ROWS, parsed.rows.length)} rijen zoals ze worden opgeslagen: domein, mail,
-              telefoon en LinkedIn genormaliseerd.
+              The first {Math.min(PREVIEW_ROWS, parsed.rows.length)} rows as they will be saved: domain, email,
+              phone and LinkedIn normalized.
             </p>
           </div>
-          <MobileList label="Voorbeeld van de import" className="md:hidden">
+          <MobileList label="Import preview" className="md:hidden">
             {preview.map((p, i) => (
               <MobileListItem
                 key={i}
-                title={p.domain ?? <Badge tone="danger">Geen domein, wordt overgeslagen</Badge>}
-                subtitle={[p.company, p.contact, p.title].filter(Boolean).join(", ") || "Geen bedrijf of contact"}
+                title={p.domain ?? <Badge tone="danger">No domain, will be skipped</Badge>}
+                subtitle={[p.company, p.contact, p.title].filter(Boolean).join(", ") || "No company or contact"}
                 meta={
                   [p.email, p.phone ? `${p.phone}${p.phoneType ? ` (${p.phoneType})` : ""}` : null].filter(Boolean).join(", ") ||
-                  "Geen mail of telefoon"
+                  "No email or phone"
                 }
               >
                 {(p.linkedin || p.lastContacted) && (
                   <p className="text-xs break-all text-muted">
-                    {[p.linkedin, p.lastContacted ? `laatst benaderd ${p.lastContacted}` : null].filter(Boolean).join(", ")}
+                    {[p.linkedin, p.lastContacted ? `last contacted ${p.lastContacted}` : null].filter(Boolean).join(", ")}
                   </p>
                 )}
               </MobileListItem>
@@ -357,25 +357,25 @@ export function ImportWizard() {
           <Table className="hidden md:block">
             <THead>
               <tr>
-                <TH>Domein</TH>
-                <TH>Bedrijf</TH>
+                <TH>Domain</TH>
+                <TH>Company</TH>
                 <TH>Contact</TH>
-                <TH>Mail</TH>
-                <TH>Telefoon</TH>
+                <TH>Email</TH>
+                <TH>Phone</TH>
                 <TH>LinkedIn</TH>
-                <TH>Laatst benaderd</TH>
+                <TH>Last contacted</TH>
               </tr>
             </THead>
             <TBody>
               {preview.map((p, i) => (
                 <TR key={i}>
-                  <TD>{p.domain ?? <Badge tone="danger">Geen domein, wordt overgeslagen</Badge>}</TD>
-                  <TD>{p.company || <span className="text-muted">Leeg</span>}</TD>
+                  <TD>{p.domain ?? <Badge tone="danger">No domain, will be skipped</Badge>}</TD>
+                  <TD>{p.company || <span className="text-muted">Empty</span>}</TD>
                   <TD>
-                    {p.contact || <span className="text-muted">Geen contact</span>}
+                    {p.contact || <span className="text-muted">No contact</span>}
                     {p.title && <p className="text-xs text-muted">{p.title}</p>}
                   </TD>
-                  <TD className="break-all">{p.email ?? <span className="text-muted">Geen</span>}</TD>
+                  <TD className="break-all">{p.email ?? <span className="text-muted">None</span>}</TD>
                   <TD className="whitespace-nowrap">
                     {p.phone ? (
                       <>
@@ -383,11 +383,11 @@ export function ImportWizard() {
                         {p.phoneType && <span className="ml-1 text-xs text-muted">({p.phoneType})</span>}
                       </>
                     ) : (
-                      <span className="text-muted">Geen</span>
+                      <span className="text-muted">None</span>
                     )}
                   </TD>
-                  <TD className="break-all">{p.linkedin ?? <span className="text-muted">Geen</span>}</TD>
-                  <TD>{p.lastContacted || <span className="text-muted">Nooit</span>}</TD>
+                  <TD className="break-all">{p.linkedin ?? <span className="text-muted">None</span>}</TD>
+                  <TD>{p.lastContacted || <span className="text-muted">Never</span>}</TD>
                 </TR>
               ))}
             </TBody>
@@ -398,21 +398,21 @@ export function ImportWizard() {
       {parsed && (
         <Card>
           <CardHeader
-            title="4. Importeren"
-            description={`Dubbele bedrijven en contacten worden aangevuld, niet opnieuw aangemaakt. Verwerking in blokken van ${CHUNK_SIZE} rijen.`}
+            title="4. Import"
+            description={`Duplicate companies and contacts are filled in, not created again. Processed in batches of ${CHUNK_SIZE} rows.`}
           />
           <CardBody className="space-y-4">
             {run.status !== "idle" && (
               <div className="space-y-2">
                 <div className="flex justify-between text-sm">
                   <span className="text-ink">
-                    {run.processed} van {total} rijen verwerkt
+                    {run.processed} of {total} rows processed
                   </span>
                   <span className="text-muted tabular-nums">{percent}%</span>
                 </div>
                 <div
                   role="progressbar"
-                  aria-label="Voortgang van de import"
+                  aria-label="Import progress"
                   aria-valuemin={0}
                   aria-valuemax={total}
                   aria-valuenow={run.processed}
@@ -425,23 +425,23 @@ export function ImportWizard() {
 
             {run.status === "failed" && (
               <FormMessage
-                error={`De import stopte na ${run.processed} verwerkte rijen: ${run.error ?? "onbekende fout"}. Wat al verwerkt is, blijft staan.`}
+                error={`The import stopped after ${run.processed} processed rows: ${run.error ?? "unknown error"}. What was already processed stays.`}
               />
             )}
             {run.status === "stopped" && (
-              <FormMessage error={`Gestopt na ${run.processed} rijen. Wat al verwerkt is, blijft staan.`} />
+              <FormMessage error={`Stopped after ${run.processed} rows. What was already processed stays.`} />
             )}
-            {run.status === "done" && <FormMessage success={`Klaar. Alle ${total} rijen zijn verwerkt.`} />}
+            {run.status === "done" && <FormMessage success={`Done. All ${total} rows have been processed.`} />}
 
             {run.status !== "idle" && (
               <dl className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6" aria-live="polite">
                 {[
-                  { label: "Rijen", value: run.totals.rows },
-                  { label: "Nieuwe bedrijven", value: run.totals.companiesCreated },
-                  { label: "Bedrijven aangevuld", value: run.totals.companiesUpdated },
-                  { label: "Nieuwe contacten", value: run.totals.contactsCreated },
-                  { label: "Contacten aangevuld", value: run.totals.contactsUpdated },
-                  { label: "Activiteiten", value: run.totals.activitiesCreated },
+                  { label: "Rows", value: run.totals.rows },
+                  { label: "New companies", value: run.totals.companiesCreated },
+                  { label: "Companies updated", value: run.totals.companiesUpdated },
+                  { label: "New contacts", value: run.totals.contactsCreated },
+                  { label: "Contacts updated", value: run.totals.contactsUpdated },
+                  { label: "Activities", value: run.totals.activitiesCreated },
                 ].map((s) => (
                   <div key={s.label} className="rounded-xl border border-border bg-surface/50 px-3 py-2">
                     <dt className="text-xs text-muted">{s.label}</dt>
@@ -455,30 +455,30 @@ export function ImportWizard() {
               {running ? (
                 <Button variant="secondary" onClick={() => (stopRef.current = true)}>
                   <Square aria-hidden="true" />
-                  Stoppen na dit blok
+                  Stop after this batch
                 </Button>
               ) : run.status === "failed" || run.status === "stopped" ? (
                 <>
                   <Button onClick={() => start(run.processed)} disabled={!canStart}>
                     <RotateCcw aria-hidden="true" />
-                    Verder met de overige {total - run.processed} rijen
+                    Continue with the remaining {total - run.processed} rows
                   </Button>
                   <Button variant="secondary" onClick={() => start(0)} disabled={!canStart}>
-                    Opnieuw vanaf het begin
+                    Start over
                   </Button>
                 </>
               ) : run.status === "done" ? (
-                <ButtonLink href="/dashboard/leads">Naar de leads</ButtonLink>
+                <ButtonLink href="/dashboard/leads">Go to leads</ButtonLink>
               ) : (
                 <Button onClick={() => start(0)} disabled={!canStart}>
                   <Play aria-hidden="true" />
-                  {total} rijen importeren
+                  Import {total} rows
                 </Button>
               )}
               {running && (
                 <p className="flex items-center gap-2 text-sm text-muted" role="status">
                   <LoaderCircle className="size-4 animate-spin" aria-hidden="true" />
-                  Bezig met importeren. Laat dit tabblad open.
+                  Importing. Keep this tab open.
                 </p>
               )}
             </div>
@@ -489,13 +489,13 @@ export function ImportWizard() {
       {run.skipped.length > 0 && (
         <Card>
           <CardHeader
-            title={`Overgeslagen rijen (${run.skipped.length})`}
-            description="Deze rijen zijn niet geïmporteerd. Het rijnummer is zoals in de Sheet, met de kopregel als rij 1. Pas ze aan en importeer opnieuw; dubbelingen worden aangevuld."
+            title={`Skipped rows (${run.skipped.length})`}
+            description="These rows were not imported. The row number matches the Sheet, with the header row as row 1. Fix them and import again; duplicates are filled in."
           />
           <ul className="max-h-96 divide-y divide-border overflow-y-auto overscroll-contain">
             {run.skipped.slice(0, 1000).map((s, i) => (
               <li key={`${s.row}-${i}`} className="flex gap-3 px-5 py-2 text-sm">
-                <span className="w-20 shrink-0 text-muted tabular-nums max-sm:w-16">Rij {s.row}</span>
+                <span className="w-20 shrink-0 text-muted tabular-nums max-sm:w-16">Row {s.row}</span>
                 <span className="text-ink">{s.reason}</span>
               </li>
             ))}
@@ -503,7 +503,7 @@ export function ImportWizard() {
           {run.skipped.length > 1000 && (
             <CardBody className="border-t border-border text-sm text-muted">
               <FileSpreadsheet className="mr-1 inline size-4" aria-hidden="true" />
-              Alleen de eerste 1000 worden getoond.
+              Only the first 1000 are shown.
             </CardBody>
           )}
         </Card>

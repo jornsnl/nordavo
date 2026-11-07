@@ -15,7 +15,7 @@ const dotTone: Record<ActivityItem["action"], string> = {
 export function ActivityRecord({ item }: { item: ActivityItem }) {
   // The stored summary starts with the name at the time, useful once a record is gone.
   const fallback = item.summary.replace(new RegExp(`\\s*${item.verb}$`), "").trim();
-  const label = item.record?.label ?? (fallback || "onbekend record");
+  const label = item.record?.label ?? (fallback || "unknown record");
   if (!item.record?.href) return <span className="font-medium text-ink">{label}</span>;
   return (
     <Link
@@ -43,7 +43,7 @@ export function ActivityTimeline({
   now: Date;
 }) {
   if (items.length === 0) {
-    return <p className="text-sm text-muted">Nog geen activiteit vastgelegd.</p>;
+    return <p className="text-sm text-muted">No activity recorded yet.</p>;
   }
 
   return (
@@ -68,7 +68,7 @@ export function ActivityTimeline({
             </p>
             {item.detail && <p className="mt-0.5 text-xs break-words text-muted">{item.detail}</p>}
             <p className="mt-0.5 text-xs text-muted">
-              {item.actorName ?? "Systeem"},{" "}
+              {item.actorName ?? "System"},{" "}
               <time dateTime={item.createdAt} title={formatDateTime(item.createdAt)}>
                 {timeAgo(item.createdAt, now)}
               </time>

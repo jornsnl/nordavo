@@ -29,9 +29,9 @@ export function ActionModal({
   title,
   description,
   action,
-  submitLabel = "Opslaan",
-  pendingLabel = "Bezig met opslaan",
-  cancelLabel = "Annuleren",
+  submitLabel = "Save",
+  pendingLabel = "Saving",
+  cancelLabel = "Cancel",
   modalSize = "md",
   children,
 }: {
@@ -115,7 +115,7 @@ function ModalForm({
 }) {
   const [state, formAction, pending] = useActionState(async (prev: ActionState, formData: FormData) => {
     const result = await action(prev, formData);
-    if (result?.ok) onDone(result.message ?? "Opgeslagen.");
+    if (result?.ok) onDone(result.message ?? "Saved.");
     return result ?? prev;
   }, initialActionState);
 

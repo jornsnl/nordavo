@@ -61,11 +61,11 @@ export function RecordPicker({ initial, error }: { initial: PickedRecord | null;
 
   return (
     <fieldset className="space-y-3 rounded-xl border border-border p-4">
-      <legend className="px-1 text-sm font-medium text-ink">Koppelen aan</legend>
+      <legend className="px-1 text-sm font-medium text-ink">Link to</legend>
       {picked && <input type="hidden" name="entity_type" value={picked.type} />}
       {picked && <input type="hidden" name="entity_id" value={picked.id} />}
 
-      <Field label="Soort record" htmlFor={`${id}-type`}>
+      <Field label="Record type" htmlFor={`${id}-type`}>
         <Select
           id={`${id}-type`}
           value={type}
@@ -76,7 +76,7 @@ export function RecordPicker({ initial, error }: { initial: PickedRecord | null;
             runSearch(next, query);
           }}
         >
-          <option value="">Geen koppeling</option>
+          <option value="">No link</option>
           {typeOptions.map((t) => (
             <option key={t} value={t}>
               {entityTypes[t].label}
@@ -95,7 +95,7 @@ export function RecordPicker({ initial, error }: { initial: PickedRecord | null;
             type="button"
             onClick={() => setPicked(null)}
             className="flex size-8 shrink-0 items-center justify-center rounded-lg text-muted hover:bg-white hover:text-ink active:bg-white pointer-coarse:-my-1.5 pointer-coarse:size-11 focus-visible:outline-2 focus-visible:outline-brand-500"
-            aria-label="Koppeling weghalen"
+            aria-label="Remove link"
           >
             <X className="size-4" aria-hidden="true" />
           </button>
@@ -103,7 +103,7 @@ export function RecordPicker({ initial, error }: { initial: PickedRecord | null;
       )}
 
       {type !== "" && !picked && (
-        <Field label={`Zoek ${entityTypes[type].label.toLowerCase()}`} htmlFor={`${id}-query`} error={error}>
+        <Field label={`Search ${entityTypes[type].label.toLowerCase()}`} htmlFor={`${id}-query`} error={error}>
           <div className="relative">
             <Search
               className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted"
@@ -114,7 +114,7 @@ export function RecordPicker({ initial, error }: { initial: PickedRecord | null;
               type="search"
               autoComplete="off"
               enterKeyHint="search"
-              placeholder="Typ minstens 2 letters"
+              placeholder="Type at least 2 letters"
               className="pl-9"
               value={query}
               role="combobox"
@@ -168,7 +168,7 @@ export function RecordPicker({ initial, error }: { initial: PickedRecord | null;
                 </li>
               ))}
               {!loading && hits.length === 0 && (
-                <li className="px-3 py-2 text-sm text-muted">Niets gevonden.</li>
+                <li className="px-3 py-2 text-sm text-muted">Nothing found.</li>
               )}
             </ul>
           )}

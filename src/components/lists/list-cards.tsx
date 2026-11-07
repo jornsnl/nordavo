@@ -43,14 +43,14 @@ export async function ListCards({ filter, selected }: { filter: ListFilter; sele
                     {count}
                     {capped ? "+" : ""}
                   </span>
-                  <span className="ml-1.5 text-sm text-muted">{count === 1 ? "contact" : "contacten"}</span>
+                  <span className="ml-1.5 text-sm text-muted">{count === 1 ? "contact" : "contacts"}</span>
                 </p>
                 <Link
                   href={`/dashboard/lists?${filterQuery(filter, { lijst: type })}#voorbeeld`}
                   aria-current={active ? "true" : undefined}
                   className="text-sm font-semibold text-brand-600 hover:text-brand-800 max-md:inline-flex max-md:min-h-11 max-md:items-center max-md:active:text-brand-800"
                 >
-                  {active ? "Voorbeeld hieronder" : "Bekijk voorbeeld"}
+                  {active ? "Preview below" : "View preview"}
                 </Link>
               </div>
               {type === "bellijst" && <CallListExportForm filter={filter} sheetsEnabled={sheetsEnabled} disabled={count === 0} />}
@@ -73,7 +73,7 @@ export async function ListCards({ filter, selected }: { filter: ListFilter; sele
 
 export function ListCardsSkeleton() {
   return (
-    <div className="mb-8 grid gap-4 lg:grid-cols-3" aria-busy="true" aria-label="Laden">
+    <div className="mb-8 grid gap-4 lg:grid-cols-3" aria-busy="true" aria-label="Loading">
       {[0, 1, 2].map((i) => (
         <Skeleton key={i} className="h-64 w-full rounded-2xl" />
       ))}

@@ -20,14 +20,14 @@ export function NoteComposer({ entityType, entityId }: { entityType: EntityType;
       <input type="hidden" name="entityType" value={entityType} />
       <input type="hidden" name="entityId" value={entityId} />
       <label htmlFor={`${id}-body`} className="sr-only">
-        Nieuwe notitie
+        New note
       </label>
       <Textarea
         id={`${id}-body`}
         name="body"
         rows={3}
         required
-        placeholder="Schrijf een notitie, bijvoorbeeld wat je met de klant hebt besproken."
+        placeholder="Write a note, for example what you discussed with the client."
         aria-invalid={error ? true : undefined}
         aria-describedby={error ? `${id}-error` : undefined}
       />
@@ -37,8 +37,8 @@ export function NoteComposer({ entityType, entityId }: { entityType: EntityType;
         </p>
       )}
       <div className="flex justify-end max-sm:*:flex-1">
-        <SubmitButton size="sm" pendingLabel="Opslaan">
-          Notitie opslaan
+        <SubmitButton size="sm" pendingLabel="Saving">
+          Save note
         </SubmitButton>
       </div>
     </form>
@@ -77,7 +77,7 @@ export function NoteItem({
           <span className="font-medium text-ink">{note.authorName}</span>{" "}
           <time className="text-muted" title={note.createdAtTitle}>
             {note.timeAgo}
-            {note.edited && " (bewerkt)"}
+            {note.edited && " (edited)"}
           </time>
         </div>
         {note.isOwn && !editing && (
@@ -86,7 +86,7 @@ export function NoteItem({
               type="button"
               onClick={() => setEditing(true)}
               className="flex size-8 items-center justify-center rounded-lg text-muted hover:bg-brand-50 hover:text-ink active:bg-brand-50 pointer-coarse:size-10 focus-visible:outline-2 focus-visible:outline-brand-500"
-              aria-label="Notitie bewerken"
+              aria-label="Edit note"
             >
               <Pencil className="size-3.5" aria-hidden="true" />
             </button>
@@ -94,7 +94,7 @@ export function NoteItem({
               type="button"
               onClick={() => setConfirming(true)}
               className="flex size-8 items-center justify-center rounded-lg text-muted hover:bg-danger-bg hover:text-danger active:bg-danger-bg active:text-danger pointer-coarse:size-10 focus-visible:outline-2 focus-visible:outline-brand-500"
-              aria-label="Notitie verwijderen"
+              aria-label="Delete note"
             >
               <Trash2 className="size-3.5" aria-hidden="true" />
             </button>
@@ -106,15 +106,15 @@ export function NoteItem({
         <form action={formAction} className="mt-2 space-y-2">
           <input type="hidden" name="id" value={note.id} />
           <label htmlFor={`${id}-edit`} className="sr-only">
-            Notitie bewerken
+            Edit note
           </label>
           <Textarea id={`${id}-edit`} name="body" rows={4} defaultValue={note.body} required />
           <FormMessage error={state.fieldErrors?.body ?? state.error} />
           <div className="flex justify-end gap-2 max-sm:*:flex-1">
             <Button variant="ghost" size="sm" onClick={() => setEditing(false)}>
-              Annuleren
+              Cancel
             </Button>
-            <SubmitButton size="sm">Opslaan</SubmitButton>
+            <SubmitButton size="sm">Save</SubmitButton>
           </div>
         </form>
       ) : (
@@ -122,8 +122,8 @@ export function NoteItem({
       )}
 
       {confirming && (
-        <div className="mt-2 ml-9 flex flex-wrap items-center gap-2 rounded-xl bg-danger-bg px-3 py-2 text-sm" role="group" aria-label="Verwijderen bevestigen">
-          <span className="text-danger">Notitie verwijderen?</span>
+        <div className="mt-2 ml-9 flex flex-wrap items-center gap-2 rounded-xl bg-danger-bg px-3 py-2 text-sm" role="group" aria-label="Confirm delete">
+          <span className="text-danger">Delete note?</span>
           <Button
             variant="danger"
             size="sm"
@@ -136,10 +136,10 @@ export function NoteItem({
               })
             }
           >
-            Verwijderen
+            Delete
           </Button>
           <Button variant="ghost" size="sm" onClick={() => setConfirming(false)}>
-            Annuleren
+            Cancel
           </Button>
         </div>
       )}

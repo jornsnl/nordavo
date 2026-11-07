@@ -10,8 +10,8 @@ type Dates = { intake_at: string; profiles_sent_at: string; first_interview_at: 
 
 const fields: { name: keyof Dates; label: string; hint?: string }[] = [
   { name: "intake_at", label: "Intake" },
-  { name: "profiles_sent_at", label: "Profielen verstuurd" },
-  { name: "first_interview_at", label: "Eerste gesprek", hint: "Zet de fase op Gesprekken als die nog eerder stond." },
+  { name: "profiles_sent_at", label: "Profiles sent" },
+  { name: "first_interview_at", label: "First interview", hint: "Moves the stage to Interviews if it was still earlier." },
   { name: "start_at", label: "Start" },
 ];
 
@@ -36,7 +36,7 @@ export function TimelineForm({
       <div className="space-y-2">
         <Button variant="secondary" size="sm" onClick={() => setOpen(true)}>
           <CalendarDays aria-hidden="true" />
-          Datums aanpassen
+          Edit dates
         </Button>
         {state.message && <FormMessage success={state.message} />}
       </div>
@@ -70,11 +70,11 @@ export function TimelineForm({
       </div>
       <div className="flex gap-2 max-sm:*:flex-1 sm:justify-end">
         <Button variant="secondary" size="sm" onClick={() => setOpen(false)}>
-          Annuleren
+          Cancel
         </Button>
         <Button type="submit" size="sm" disabled={pending} aria-busy={pending}>
           {pending && <LoaderCircle className="animate-spin" aria-hidden="true" />}
-          {pending ? "Bezig met opslaan" : "Datums opslaan"}
+          {pending ? "Saving" : "Save dates"}
         </Button>
       </div>
     </form>

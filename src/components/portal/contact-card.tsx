@@ -4,7 +4,7 @@ import { Card, CardBody, CardHeader } from "@/components/ui/card";
 export function ContactCard() {
   return (
     <Card>
-      <CardHeader title="Vragen of iets bespreken?" description="We denken graag mee, ook over je volgende vacature." />
+      <CardHeader title="Questions or something to discuss?" description="We are happy to think along, also about your next vacancy." />
       <CardBody className="space-y-3 text-sm pointer-coarse:space-y-0">
         <p className="font-display font-semibold text-brand-900">Nordavo</p>
         <a

@@ -13,8 +13,8 @@ export function ConfirmDeleteButton({
   action,
   title,
   description,
-  label = "Verwijderen",
-  confirmLabel = "Ja, verwijder",
+  label = "Delete",
+  confirmLabel = "Yes, delete",
   iconOnly = false,
   size = "md",
 }: {
@@ -58,9 +58,9 @@ export function ConfirmDeleteButton({
           <FormMessage error={state.error} />
           <div className="flex gap-2 max-sm:*:flex-1 sm:justify-end">
             <Button variant="secondary" onClick={() => setOpen(false)}>
-              Annuleren
+              Cancel
             </Button>
-            <SubmitButton variant="danger" pendingLabel="Bezig met verwijderen">
+            <SubmitButton variant="danger" pendingLabel="Deleting">
               {confirmLabel}
             </SubmitButton>
           </div>

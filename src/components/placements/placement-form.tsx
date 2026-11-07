@@ -70,12 +70,12 @@ export function PlacementForm({
       {locked && (
         <p className="flex items-start gap-2 rounded-xl bg-brand-50 px-4 py-3 text-sm text-brand-800">
           <Lock className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-          Klant, kandidaat en vacature komen uit de pipeline en liggen vast.
+          Client, candidate and vacancy come from the pipeline and are fixed.
         </p>
       )}
 
       <div className="grid gap-5 sm:grid-cols-2">
-        <Field label="Klant" htmlFor="client_id" required error={errors.client_id}>
+        <Field label="Client" htmlFor="client_id" required error={errors.client_id}>
           {locked && <input type="hidden" name="client_id" value={clientId} />}
           <Select
             id="client_id"
@@ -90,7 +90,7 @@ export function PlacementForm({
               setVacancyId("");
             }}
           >
-            <option value="">Kies een klant</option>
+            <option value="">Pick a client</option>
             {options.clients.map((client) => (
               <option key={client.id} value={client.id}>
                 {client.name}
@@ -99,7 +99,7 @@ export function PlacementForm({
           </Select>
         </Field>
 
-        <Field label="Kandidaat" htmlFor="candidate_id" required error={errors.candidate_id}>
+        <Field label="Candidate" htmlFor="candidate_id" required error={errors.candidate_id}>
           {locked && <input type="hidden" name="candidate_id" value={defaults.candidate_id ?? ""} />}
           <Select
             id="candidate_id"
@@ -110,7 +110,7 @@ export function PlacementForm({
             aria-invalid={Boolean(errors.candidate_id)}
             aria-describedby={describedBy("candidate_id")}
           >
-            <option value="">Kies een kandidaat</option>
+            <option value="">Pick a candidate</option>
             {options.candidates.map((candidate) => (
               <option key={candidate.id} value={candidate.id}>
                 {candidate.full_name}
@@ -122,10 +122,10 @@ export function PlacementForm({
         </Field>
 
         <Field
-          label="Vacature"
+          label="Vacancy"
           htmlFor="vacancy_id"
           error={errors.vacancy_id}
-          hint={clientId ? undefined : "Kies eerst een klant."}
+          hint={clientId ? undefined : "Pick a client first."}
           className="sm:col-span-2"
         >
           {locked && <input type="hidden" name="vacancy_id" value={vacancyId} />}
@@ -138,7 +138,7 @@ export function PlacementForm({
             aria-describedby={describedBy("vacancy_id")}
             onChange={(event) => setVacancyId(event.target.value)}
           >
-            <option value="">Geen vacature</option>
+            <option value="">No vacancy</option>
             {clientVacancies.map((vacancy) => (
               <option key={vacancy.id} value={vacancy.id}>
                 {vacancy.title}
@@ -149,7 +149,7 @@ export function PlacementForm({
           </Select>
         </Field>
 
-        <Field label="Startdatum" htmlFor="start_date" required error={errors.start_date}>
+        <Field label="Start date" htmlFor="start_date" required error={errors.start_date}>
           <Input
             id="start_date"
             name="start_date"
@@ -167,10 +167,10 @@ export function PlacementForm({
         </Field>
 
         <Field
-          label="Maandtarief"
+          label="Monthly rate"
           htmlFor="monthly_rate"
           error={errors.monthly_rate}
-          hint="In euro, exclusief btw."
+          hint="In euros, excluding VAT."
         >
           <Input
             id="monthly_rate"
@@ -185,10 +185,10 @@ export function PlacementForm({
         </Field>
 
         <Field
-          label="Eerste check-in"
+          label="First check-in"
           htmlFor="next_checkin_at"
           error={errors.next_checkin_at}
-          hint={mode === "create" ? "Standaard 14 dagen na de start." : undefined}
+          hint={mode === "create" ? "By default 14 days after the start." : undefined}
         >
           <Input
             id="next_checkin_at"
@@ -206,10 +206,10 @@ export function PlacementForm({
 
         {mode === "edit" && (
           <Field
-            label="Einddatum"
+            label="End date"
             htmlFor="end_date"
             error={errors.end_date}
-            hint="Laat leeg zolang de plaatsing doorloopt."
+            hint="Leave empty while the placement is running."
           >
             <Input
               id="end_date"
@@ -222,23 +222,23 @@ export function PlacementForm({
           </Field>
         )}
 
-        <Field label="Notities" htmlFor="notes" error={errors.notes} className="sm:col-span-2">
+        <Field label="Notes" htmlFor="notes" error={errors.notes} className="sm:col-span-2">
           <Textarea
             id="notes"
             name="notes"
             rows={4}
             defaultValue={defaults.notes ?? ""}
-            placeholder="Afspraken over onboarding, hardware, werktijden."
+            placeholder="Agreements on onboarding, hardware, working hours."
           />
         </Field>
       </div>
 
       <FormActions>
         <ButtonLink href={cancelHref} variant="secondary">
-          Annuleren
+          Cancel
         </ButtonLink>
-        <PendingSubmit pending={pending} pendingLabel="Bezig met opslaan">
-          {mode === "create" ? "Plaatsing aanmaken" : "Wijzigingen opslaan"}
+        <PendingSubmit pending={pending} pendingLabel="Saving">
+          {mode === "create" ? "Create placement" : "Save changes"}
         </PendingSubmit>
       </FormActions>
     </form>

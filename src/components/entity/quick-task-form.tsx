@@ -32,7 +32,7 @@ export function QuickTaskForm({
     return (
       <Button variant="secondary" size="sm" className="w-full" onClick={() => setOpen(true)}>
         <Plus aria-hidden="true" />
-        Taak toevoegen
+        Add task
       </Button>
     );
   }
@@ -43,7 +43,7 @@ export function QuickTaskForm({
       <input type="hidden" name="entity_id" value={entityId} />
       <FormMessage error={state.error && !state.fieldErrors ? state.error : undefined} />
 
-      <Field label="Taak" htmlFor={`${id}-title`} required error={errors.title}>
+      <Field label="Task" htmlFor={`${id}-title`} required error={errors.title}>
         <Input
           id={`${id}-title`}
           name="title"
@@ -52,17 +52,17 @@ export function QuickTaskForm({
           autoFocus
           autoComplete="off"
           enterKeyHint="done"
-          placeholder="Wat moet er gebeuren?"
+          placeholder="What needs to happen?"
           aria-invalid={errors.title ? true : undefined}
         />
       </Field>
-      <Field label="Voor" htmlFor={`${id}-assignee`}>
+      <Field label="For" htmlFor={`${id}-assignee`}>
         <Select id={`${id}-assignee`} name="assignee_id" defaultValue={currentUserId}>
-          <option value="">Niemand</option>
+          <option value="">Nobody</option>
           {staff.map((member) => (
             <option key={member.id} value={member.id}>
               {member.name}
-              {member.id === currentUserId ? " (jij)" : ""}
+              {member.id === currentUserId ? " (you)" : ""}
             </option>
           ))}
         </Select>
@@ -71,7 +71,7 @@ export function QuickTaskForm({
         <Field label="Deadline" htmlFor={`${id}-due`} error={errors.due_date}>
           <Input id={`${id}-due`} name="due_date" type="date" className="px-2.5" />
         </Field>
-        <Field label="Prioriteit" htmlFor={`${id}-priority`}>
+        <Field label="Priority" htmlFor={`${id}-priority`}>
           <Select id={`${id}-priority`} name="priority" defaultValue="normal">
             {taskPriorities.map((p) => (
               <option key={p.value} value={p.value}>
@@ -83,10 +83,10 @@ export function QuickTaskForm({
       </div>
       <div className="flex justify-end gap-2 max-sm:*:flex-1">
         <Button variant="ghost" size="sm" onClick={() => setOpen(false)}>
-          Klaar
+          Done
         </Button>
-        <SubmitButton size="sm" pendingLabel="Toevoegen">
-          Toevoegen
+        <SubmitButton size="sm" pendingLabel="Adding">
+          Add
         </SubmitButton>
       </div>
     </form>
