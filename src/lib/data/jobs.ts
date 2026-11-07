@@ -21,7 +21,7 @@ const JOB_ENV: Record<string, { required: string[]; optional?: string[] }> = {
   "s9-onepage-pull": { required: ["ONEPAGE_USER_ID", "ONEPAGE_API_KEY"] },
   "s10-weekly-report": { required: ["RESEND_API_KEY", "REPORT_EMAIL_TO"] },
   "t2-match": {
-    required: ["AIRTABLE_TOKEN", "AIRTABLE_BASE_ID", "AIRTABLE_CANDIDATES_TABLE", "ANTHROPIC_API_KEY"],
+    required: ["ANTHROPIC_API_KEY"],
   },
 };
 

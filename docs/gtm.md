@@ -46,15 +46,15 @@ Supabase is de enige bron van waarheid voor alle prospectdata. Geplande jobs hal
 | 8: alleen gekwalificeerde contacten in OnePageCRM | `pushContactToCrm` weigert andere contacten |
 | 9: twijfel is REVIEW, klantcontactrisico is NO_GO | Prompt van S2; trigger op `companies` zet NO_GO bij `client_contact_risk` |
 | 10: afmelding direct naar suppression | Trigger op `activities` |
-| 11: kandidaten blijven in Airtable | `matches` bewaart alleen het Airtable-id, score en status; details worden live opgehaald |
+| 11: één bron voor kandidaten | Kandidaten staan alleen in het portaal (`candidates`). T2 matcht op die tabel (`t2_candidate_pool` plus `src/lib/talent/pool.ts`); `matches.candidate_id` verwijst naar `candidates.id`. De vroegere Airtable-koppeling is verwijderd (feedback punt 8) |
 | 12: anoniem profiel zonder herleidbare gegevens | Prompt van T4 plus een controle in code op naam, contactgegevens en werkgevers |
 | 13, 14: toestemming en menselijke goedkeuring | Check-constraint op `anonymous_profiles`: `sent_at` kan alleen met goedkeuring en toestemming |
-| 15: AVG-verwijdering in Airtable | Supabase bewaart geen kandidaatgegevens, dus er is niets extra te verwijderen |
+| 15: AVG-verwijdering | Verwijder de kandidaat in het portaal; matches en anonieme profielen gaan mee (`on delete cascade`) |
 
 ## Inrichten
 
 1. **Migraties.** Voer alle bestanden in `supabase/migrations` in volgorde uit.
-2. **Omgevingsvariabelen.** Zie `.env.example`. De app (bijvoorbeeld op Vercel) heeft ze nodig voor de knoppen in het portaal. GitHub Actions heeft ze nodig voor de geplande jobs: zet geheimen onder Settings, Secrets and variables, Actions, en vul de niet-geheime waarden (actor-id's, Airtable base en tabel, mailadressen) in als variables.
+2. **Omgevingsvariabelen.** Zie `.env.example`. De app (bijvoorbeeld op Vercel) heeft ze nodig voor de knoppen in het portaal. GitHub Actions heeft ze nodig voor de geplande jobs: zet geheimen onder Settings, Secrets and variables, Actions, en vul de niet-geheime waarden (actor-id's, mailadressen) in als variables.
 3. **Apify.** Kies de actors voor LinkedIn-vacatures, Indeed-vacatures en het zoeken van personen, en zet hun id's in `APIFY_LINKEDIN_JOBS_ACTOR`, `APIFY_INDEED_JOBS_ACTOR` en `APIFY_PEOPLE_ACTOR`. De mapping per actor staat in `src/lib/integrations/apify.ts`. Draai de eerste keer klein: `npm run job -- s1-signals --limit=20`.
 4. **Google service account.** Maak een service account met de Sheets API en de Drive API aan, en zet de JSON-sleutel op één regel in `GOOGLE_SERVICE_ACCOUNT_JSON`. Deel de afsprakensheet van Web Partners met het mailadres van het service account.
 5. **Cal.com.** Maak een webhook naar `https://<domein>/api/webhooks/calcom` voor `BOOKING_CREATED`, `BOOKING_RESCHEDULED` en `BOOKING_CANCELLED`, met een geheim dat je ook in `CALCOM_WEBHOOK_SECRET` zet.
@@ -101,10 +101,10 @@ Deze punten zijn in de code als aanname vastgelegd en moeten nog worden bevestig
 2. **Seleqt.** Niet gekoppeld; LinkedIn-activiteiten kunnen handmatig worden vastgelegd.
 3. **Web Partners.** Werkt nu met een Google Sheet: bellijsten gaan erheen, afspraken komen terug via de afsprakensheet.
 4. **Volume per week.** Elke job heeft een `--limit`; begin klein en schaal op.
-5. **CV's in Airtable.** De matching gebruikt ingevulde velden; een PDF-cv wordt nog niet uitgelezen.
+5. **CV-tekst.** De matching leest de velden van de kandidaat en het veld CV text; een geüpload cv-bestand wordt niet uitgelezen. Plak de tekst van het cv bij de kandidaat.
 6. **Opmaak van een Nordavo profiel.** Er is een eerste opmaak in Nordavo-stijl; pas die aan in `src/lib/talent`.
 7. **Wie keurt profielen goed?** Elke teamgebruiker kan goedkeuren; wie het deed wordt vastgelegd.
-8. **Toestemming in Fillout.** Het veld voor toestemming is instelbaar; ontbreekt het, dan bevestigt een teamlid het handmatig.
+8. **Toestemming.** De kandidaat heeft een veld voor toestemming om een anoniem profiel te delen (onbekend, ja, nee). Is het onbekend, dan bevestigt een teamlid het per profiel; "nee" blokkeert versturen.
 9. **Naukri en LinkedIn Recruiter.** T3 maakt zoekopdrachten om te kopiëren; er is geen directe koppeling.
 10. **Payslips.** Niet in het systeem.
 11. **Beheer na oplevering.** Nog te beslissen.

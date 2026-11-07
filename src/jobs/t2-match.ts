@@ -2,13 +2,16 @@ import { defineJob } from "@/lib/gtm/jobs";
 import { runMatching } from "@/lib/talent/match";
 
 /**
- * T2: match pool candidates from Airtable on one vacancy and store the top 3
+ * T2: match portal candidates (the candidates table) on one vacancy and store the top 3
  * in matches (status voorgesteld). Also runs T3 (search brief) when fewer than
  * 3 matches score 70 or higher.
  *
- *   npm run job -- t2-match --vacancy=<uuid> [--top=25] [--batch=5] [--keep-above=50|none]
+ *   npm run job -- t2-match --vacancy=<uuid> [--top=25] [--batch=5] [--keep-above=50|none] [--pool=500]
  *
- * Only counts go into job_runs: no candidate details (hard rule 11).
+ * --pool caps the candidates the SQL prefilter (t2_candidate_pool) returns;
+ * --top is how many of those Claude scores.
+ *
+ * Only counts go into job_runs: no candidate details.
  */
 function intParam(value: string | undefined, fallback: number, min: number, max: number) {
   const n = Number(value);
@@ -17,7 +20,7 @@ function intParam(value: string | undefined, fallback: number, min: number, max:
 
 export const t2Match = defineJob({
   name: "t2-match",
-  description: "T2: kandidaten uit de Airtable-pool matchen op een vacature (param vacancy)",
+  description: "T2: match portal candidates to a vacancy (param vacancy)",
   run: async (ctx) => {
     const vacancyId = ctx.params.vacancy;
     if (!vacancyId || !/^[0-9a-f-]{36}$/i.test(vacancyId)) {
@@ -28,6 +31,7 @@ export const t2Match = defineJob({
       topN: intParam(ctx.params.top, 25, 1, 100),
       batchSize: intParam(ctx.params.batch, 5, 1, 10),
       keepAbove: keepAboveParam === "none" ? null : intParam(keepAboveParam, 50, 0, 100),
+      poolLimit: intParam(ctx.params.pool, 500, 1, 2000),
       log: ctx.log,
     });
     ctx.countIn(summary.poolSize);

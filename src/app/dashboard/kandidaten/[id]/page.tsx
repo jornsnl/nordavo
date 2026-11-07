@@ -7,6 +7,7 @@ import { PageHeader } from "@/components/dashboard/page-header";
 import { EntityExtras } from "@/components/entity/entity-extras";
 import { QuickActions, telHref, type QuickAction } from "@/components/entity/quick-actions";
 import { DeleteCandidateButton, LinkVacancyButton } from "@/components/candidates/candidate-actions";
+import { MatchingProfileCard } from "@/components/candidates/matching-profile-card";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
@@ -235,6 +236,10 @@ async function CandidateDetail({ params }: { params: Promise<{ id: string }> }) 
               </ul>
             )}
           </Card>
+
+          <Suspense fallback={<ListSkeleton rows={3} />}>
+            <MatchingProfileCard candidate={candidate} />
+          </Suspense>
         </div>
 
         <div className="min-w-0 space-y-4 sm:space-y-6">

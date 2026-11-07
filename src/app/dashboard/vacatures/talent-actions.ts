@@ -14,8 +14,7 @@ import type { IntakeState, TalentActionState } from "@/lib/talent/types";
 
 /**
  * Talent workflows on a vacancy (T1 to T6). Every action re-checks staff and
- * uses the user's Supabase client (staff RLS). Candidate details from Airtable
- * are never written to Supabase here (hard rule 11).
+ * uses the user's Supabase client (staff RLS). T2 matches portal candidates.
  */
 
 const idSchema = z.guid();
@@ -24,6 +23,8 @@ function revalidateVacancy(vacancyId: string) {
   revalidatePath(`/dashboard/vacatures/${vacancyId}`);
   revalidatePath("/dashboard/vacatures");
 }
+
+const MATCH_ERROR = "Something went wrong. Please try again.";
 
 function failure(error: unknown, fallback = GENERIC_ERROR): TalentActionState {
   if (error instanceof ClaudeRefusalError) return { error: "Claude kon dit verzoek niet verwerken. Pas de tekst aan of vul de velden zelf in." };
@@ -155,7 +156,7 @@ export async function resolveUnclearAction(vacancyId: string, item: string, _pre
 export async function runMatchingAction(vacancyId: string, _prev: TalentActionState, _formData: FormData): Promise<TalentActionState> {
   void _formData;
   await requireStaff();
-  if (!idSchema.safeParse(vacancyId).success) return { error: GENERIC_ERROR };
+  if (!idSchema.safeParse(vacancyId).success) return { error: MATCH_ERROR };
   const supabase = await createClient();
   try {
     const s = await runMatching(supabase, vacancyId);
@@ -163,33 +164,33 @@ export async function runMatchingAction(vacancyId: string, _prev: TalentActionSt
     if (s.scored === 0) {
       return {
         ok: true,
-        message: `Geen passende kandidaten in de pool (${s.poolSize} bekeken).`,
-        warning: s.searchBrief ? "Er staat een zoekopdracht voor LinkedIn en Naukri klaar." : undefined,
+        message: `No suitable candidates in the pool (${s.poolSize} candidates, ${s.prefiltered} after the prefilter).`,
+        warning: s.searchBrief ? "A search brief for LinkedIn and Naukri is ready." : undefined,
       };
     }
     return {
       ok: true,
-      message: `${s.scored} kandidaten gescoord uit een pool van ${s.poolSize}. ${s.stored} matches opgeslagen, ${s.strong} met score 70 of hoger.`,
-      warning: s.searchBrief ? "Minder dan 3 sterke matches: er staat een zoekopdracht voor LinkedIn en Naukri klaar." : undefined,
+      message: `${s.scored} candidates scored from a pool of ${s.poolSize}. ${s.stored} matches saved, ${s.strong} with a score of 70 or higher.`,
+      warning: s.searchBrief ? "Fewer than 3 strong matches: a search brief for LinkedIn and Naukri is ready." : undefined,
     };
   } catch (error) {
-    return failure(error);
+    return failure(error, MATCH_ERROR);
   }
 }
 
 export async function generateSearchBriefAction(vacancyId: string, _prev: TalentActionState, _formData: FormData): Promise<TalentActionState> {
   void _formData;
   await requireStaff();
-  if (!idSchema.safeParse(vacancyId).success) return { error: GENERIC_ERROR };
+  if (!idSchema.safeParse(vacancyId).success) return { error: MATCH_ERROR };
   const supabase = await createClient();
   try {
     const { data: matches } = await supabase.from("matches").select("score").eq("vacancy_id", vacancyId);
     const scores = (matches ?? []).map((m) => m.score ?? 0);
     await generateSearchBrief(supabase, vacancyId, { scored: scores.length, strong: scores.filter((s) => s >= 70).length });
     revalidateVacancy(vacancyId);
-    return { ok: true, message: "Zoekopdracht gemaakt." };
+    return { ok: true, message: "Search brief created." };
   } catch (error) {
-    return failure(error);
+    return failure(error, MATCH_ERROR);
   }
 }
 
@@ -202,14 +203,14 @@ const matchStatusSchema = z.enum(["voorgesteld", "goedgekeurd", "gesprek", "aang
 export async function setMatchStatusAction(matchId: string, status: MatchStatus, _prev: TalentActionState, _formData: FormData): Promise<TalentActionState> {
   void _formData;
   const user = await requireStaff();
-  if (!idSchema.safeParse(matchId).success || !matchStatusSchema.safeParse(status).success) return { error: GENERIC_ERROR };
+  if (!idSchema.safeParse(matchId).success || !matchStatusSchema.safeParse(status).success) return { error: MATCH_ERROR };
   const supabase = await createClient();
   const { data: match } = await supabase
     .from("matches")
     .select("id, vacancy_id, status, vacancy:vacancies(talent_stage)")
     .eq("id", matchId)
     .maybeSingle();
-  if (!match) return { error: "Deze match bestaat niet meer." };
+  if (!match) return { error: "This match no longer exists." };
 
   const update: TablesUpdate<"matches"> = { status };
   if (status === "goedgekeurd") {
@@ -221,7 +222,7 @@ export async function setMatchStatusAction(matchId: string, status: MatchStatus,
     update.approved_at = null;
   }
   const { error } = await supabase.from("matches").update(update).eq("id", matchId);
-  if (error) return { error: GENERIC_ERROR };
+  if (error) return { error: MATCH_ERROR };
 
   const current = match.vacancy?.talent_stage;
   if (current && (status === "gesprek" || status === "aangenomen")) {
@@ -233,6 +234,41 @@ export async function setMatchStatusAction(matchId: string, status: MatchStatus,
   return { ok: true };
 }
 
+/** Put the matched portal candidate in the vacancy's pipeline, in stage "sourced". */
+export async function addMatchToPipelineAction(matchId: string, _prev: TalentActionState, _formData: FormData): Promise<TalentActionState> {
+  void _formData;
+  await requireStaff();
+  if (!idSchema.safeParse(matchId).success) return { error: MATCH_ERROR };
+  const supabase = await createClient();
+  const { data: match } = await supabase.from("matches").select("id, vacancy_id, candidate_id, status").eq("id", matchId).maybeSingle();
+  if (!match) return { error: "This match no longer exists." };
+  if (match.status === "afgewezen") return { error: "This match was rejected. Restore it first." };
+
+  const { data: last } = await supabase
+    .from("applications")
+    .select("position")
+    .eq("vacancy_id", match.vacancy_id)
+    .eq("stage", "sourced")
+    .order("position", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const { error } = await supabase.from("applications").insert({
+    vacancy_id: match.vacancy_id,
+    candidate_id: match.candidate_id,
+    stage: "sourced",
+    position: (last?.position ?? 0) + 1024,
+  });
+  if (error?.code === "23505") return { error: "This candidate is already in the pipeline of this vacancy." };
+  if (error?.code === "23503") return { error: "This vacancy or candidate no longer exists." };
+  if (error) return { error: MATCH_ERROR };
+
+  revalidateVacancy(match.vacancy_id);
+  revalidatePath(`/dashboard/vacatures/${match.vacancy_id}/pipeline`);
+  revalidatePath(`/dashboard/kandidaten/${match.candidate_id}`);
+  revalidatePath("/dashboard/kandidaten");
+  return { ok: true, message: "Added to the pipeline." };
+}
+
 // ---------------------------------------------------------------------------
 // T4 anonymous profile and T5 approval and sending
 // ---------------------------------------------------------------------------
@@ -240,56 +276,56 @@ export async function setMatchStatusAction(matchId: string, status: MatchStatus,
 export async function generateProfileAction(vacancyId: string, matchId: string, _prev: TalentActionState, _formData: FormData): Promise<TalentActionState> {
   void _formData;
   await requireStaff();
-  if (!idSchema.safeParse(matchId).success || !idSchema.safeParse(vacancyId).success) return { error: GENERIC_ERROR };
+  if (!idSchema.safeParse(matchId).success || !idSchema.safeParse(vacancyId).success) return { error: MATCH_ERROR };
   const supabase = await createClient();
   try {
     const { code } = await generateAnonymousProfile(supabase, matchId);
     revalidateVacancy(vacancyId);
-    return { ok: true, message: `Profiel ${code} gemaakt en door de anonimiteitscheck gekomen. Lees het na en keur het goed.` };
+    return { ok: true, message: `Profile ${code} created and it passed the anonymity check. Review it and approve it.` };
   } catch (error) {
-    return failure(error);
+    return failure(error, MATCH_ERROR);
   }
 }
 
 export async function approveProfileAction(profileId: string, _prev: TalentActionState, _formData: FormData): Promise<TalentActionState> {
   void _formData;
   const user = await requireStaff();
-  if (!idSchema.safeParse(profileId).success) return { error: GENERIC_ERROR };
+  if (!idSchema.safeParse(profileId).success) return { error: MATCH_ERROR };
   const supabase = await createClient();
   try {
     const vacancyId = await approveProfile(supabase, profileId, user.id);
     revalidateVacancy(vacancyId);
-    return { ok: true, message: "Profiel goedgekeurd." };
+    return { ok: true, message: "Profile approved." };
   } catch (error) {
-    return failure(error);
+    return failure(error, MATCH_ERROR);
   }
 }
 
 export async function confirmConsentAction(profileId: string, _prev: TalentActionState, formData: FormData): Promise<TalentActionState> {
   const user = await requireStaff();
-  if (!idSchema.safeParse(profileId).success) return { error: GENERIC_ERROR };
-  if (formData.get("consent") !== "on") return { error: "Vink aan dat de kandidaat toestemming gaf." };
+  if (!idSchema.safeParse(profileId).success) return { error: MATCH_ERROR };
+  if (formData.get("consent") !== "on") return { error: "Tick the box to confirm the candidate gave consent." };
   const supabase = await createClient();
   try {
     const vacancyId = await confirmConsentByStaff(supabase, profileId, user.id);
     revalidateVacancy(vacancyId);
-    return { ok: true, message: "Toestemming vastgelegd." };
+    return { ok: true, message: "Consent recorded." };
   } catch (error) {
-    return failure(error);
+    return failure(error, MATCH_ERROR);
   }
 }
 
 export async function markProfileSentAction(profileId: string, _prev: TalentActionState, _formData: FormData): Promise<TalentActionState> {
   void _formData;
   await requireStaff();
-  if (!idSchema.safeParse(profileId).success) return { error: GENERIC_ERROR };
+  if (!idSchema.safeParse(profileId).success) return { error: MATCH_ERROR };
   const supabase = await createClient();
   try {
     const { vacancyId, warning } = await markProfileSent(supabase, profileId);
     revalidateVacancy(vacancyId);
-    return { ok: true, message: "Gemarkeerd als verstuurd.", warning };
+    return { ok: true, message: "Marked as sent.", warning };
   } catch (error) {
-    return failure(error);
+    return failure(error, MATCH_ERROR);
   }
 }
 

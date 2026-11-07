@@ -11,6 +11,7 @@ import { Button, buttonClasses } from "@/components/ui/button";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { Field, FormMessage, Input, Select, Textarea } from "@/components/ui/field";
 import { FormActions } from "@/components/entity/form-actions";
+import { MatchingFields, type MatchingFieldValues } from "@/components/candidates/matching-fields";
 
 type CandidateFormValues = Pick<
   Candidate,
@@ -28,7 +29,8 @@ type CandidateFormValues = Pick<
   | "status"
   | "owner_id"
   | "cv_path"
->;
+> &
+  MatchingFieldValues;
 
 export function CandidateForm({
   candidate,
@@ -275,6 +277,8 @@ export function CandidateForm({
           </Field>
         </CardBody>
       </Card>
+
+      <MatchingFields candidate={candidate} errors={errors} />
 
       {/* The form has no card around it, so on phones the bar spans the screen. */}
       <FormActions divider={false}>
