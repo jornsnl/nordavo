@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import Link from "next/link";
 import Form from "next/form";
-import { ClipboardCheck, Radar, Search, Upload } from "lucide-react";
+import { ClipboardCheck, Plus, Radar, Search, Upload } from "lucide-react";
 import { EmptyState } from "@/components/dashboard/empty-state";
 import { PageHeader } from "@/components/dashboard/page-header";
 import {
@@ -88,6 +88,10 @@ export default function Page({ searchParams }: PageProps<"/dashboard/leads">) {
             <ButtonLink href="/dashboard/import" variant="secondary">
               <Upload aria-hidden="true" />
               Importeren
+            </ButtonLink>
+            <ButtonLink href="/dashboard/leads/nieuw" variant="secondary">
+              <Plus aria-hidden="true" />
+              Add lead
             </ButtonLink>
             <ButtonLink href="/dashboard/leads/review">
               <ClipboardCheck aria-hidden="true" />

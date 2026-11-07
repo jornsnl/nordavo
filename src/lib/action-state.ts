@@ -6,6 +6,8 @@ export type ActionState = {
   error?: string;
   message?: string;
   fieldErrors?: Record<string, string>;
+  /** Optional link shown with the error, e.g. to the existing record of a duplicate. */
+  link?: { href: string; label: string };
 };
 
 export const initialActionState: ActionState = {};

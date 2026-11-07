@@ -31,6 +31,7 @@ export function ActionModal({
   action,
   submitLabel = "Opslaan",
   pendingLabel = "Bezig met opslaan",
+  cancelLabel = "Annuleren",
   modalSize = "md",
   children,
 }: {
@@ -45,6 +46,7 @@ export function ActionModal({
   action: FormAction;
   submitLabel?: string;
   pendingLabel?: string;
+  cancelLabel?: string;
   modalSize?: "md" | "lg";
   children: (state: ActionState) => ReactNode;
 }) {
@@ -80,6 +82,7 @@ export function ActionModal({
           action={action}
           submitLabel={submitLabel}
           pendingLabel={pendingLabel}
+          cancelLabel={cancelLabel}
           onCancel={() => setOpen(false)}
           onDone={(m) => {
             setMessage(m);
@@ -97,6 +100,7 @@ function ModalForm({
   action,
   submitLabel,
   pendingLabel,
+  cancelLabel,
   onCancel,
   onDone,
   children,
@@ -104,6 +108,7 @@ function ModalForm({
   action: FormAction;
   submitLabel: string;
   pendingLabel: string;
+  cancelLabel: string;
   onCancel: () => void;
   onDone: (message: string) => void;
   children: (state: ActionState) => ReactNode;
@@ -125,11 +130,11 @@ function ModalForm({
         startTransition(() => formAction(formData));
       }}
     >
-      <FormMessage error={state.error} />
+      <FormMessage error={state.error} link={state.link} />
       {children(state)}
       <div className="flex flex-col-reverse gap-2 border-t border-border pt-5 sm:flex-row sm:justify-end">
         <Button variant="secondary" onClick={onCancel}>
-          Annuleren
+          {cancelLabel}
         </Button>
         <Button type="submit" disabled={pending} aria-busy={pending}>
           {pending && <LoaderCircle className="animate-spin" aria-hidden="true" />}

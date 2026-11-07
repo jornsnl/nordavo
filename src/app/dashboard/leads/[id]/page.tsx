@@ -12,6 +12,7 @@ import {
   SegmentBadge,
   SignalTypeBadge,
 } from "@/components/leads/badges";
+import { AddContactButton } from "@/components/leads/add-contact-button";
 import { ContactsPanel } from "@/components/leads/contacts-panel";
 import {
   EditCompanyButton,
@@ -37,6 +38,7 @@ import {
   suppressAction,
   updateCompanyAction,
 } from "../actions";
+import { createContactAction } from "../manual-actions";
 
 export const metadata: Metadata = {
   title: "Lead",
@@ -239,6 +241,9 @@ async function LeadDetail({ params }: { params: Params }) {
               contacts={contacts}
               crmActionFor={(contactId) => pushToCrmAction.bind(null, company.id, contactId)}
               crmBlockedReason={crmBlockedReason}
+              actions={
+                <AddContactButton companyName={company.name} action={createContactAction.bind(null, company.id)} />
+              }
             />
           </div>
 

@@ -1,4 +1,5 @@
 import type { ComponentProps, ReactNode } from "react";
+import Link from "next/link";
 import { ChevronDown } from "lucide-react";
 
 const control =
@@ -66,11 +67,28 @@ export function Select({ className = "", children, ...props }: ComponentProps<"s
 }
 
 /** Form-level error or success message from a server action. */
-export function FormMessage({ error, success }: { error?: string; success?: string }) {
+export function FormMessage({
+  error,
+  success,
+  link,
+}: {
+  error?: string;
+  success?: string;
+  /** Shown after the error, e.g. to open the existing record of a duplicate. */
+  link?: { href: string; label: string };
+}) {
   if (error) {
     return (
       <p role="alert" className="rounded-xl border border-danger/20 bg-danger-bg px-4 py-3 text-sm text-danger">
         {error}
+        {link && (
+          <>
+            {" "}
+            <Link href={link.href} className="font-medium underline hover:no-underline">
+              {link.label}
+            </Link>
+          </>
+        )}
       </p>
     );
   }
