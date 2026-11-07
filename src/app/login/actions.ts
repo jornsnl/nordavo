@@ -48,7 +48,7 @@ export async function login(
     .maybeSingle();
 
   if (profile?.role === "client") {
-    redirect("/portaal");
+    redirect("/portal");
   }
   if (profile?.role !== "admin" && profile?.role !== "member") {
     redirect(safeNextPath(formData.get("next"), "/work"));

@@ -7,7 +7,7 @@ import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { McpSetupGuide } from "@/components/settings/security/mcp-setup-guide";
 import { McpTokenForm } from "@/components/settings/security/mcp-token-form";
 import { McpTokenList, type McpTokenRow } from "@/components/settings/security/mcp-token-list";
-import { createMcpToken, revokeMcpToken } from "@/app/dashboard/instellingen/mcp-actions";
+import { createMcpToken, revokeMcpToken } from "@/app/dashboard/settings/mcp-actions";
 
 /**
  * Claude Code koppelen via MCP: personal tokens and setup instructions.

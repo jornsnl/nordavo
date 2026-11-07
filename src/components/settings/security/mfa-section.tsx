@@ -6,12 +6,12 @@ import { createClient } from "@/lib/supabase/server";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { ConfirmButton } from "@/components/candidates/confirm-button";
-import { removeMfaFactor } from "@/app/dashboard/instellingen/mfa-actions";
+import { removeMfaFactor } from "@/app/dashboard/settings/mfa-actions";
 import { MfaEnroll } from "./mfa-enroll";
 
 /**
  * Two-step verification with an authenticator app. Rendered inside a <Suspense>
- * boundary on /dashboard/instellingen and /portaal/beveiliging, for staff and clients.
+ * boundary on /dashboard/settings and /portal/security, for staff and clients.
  */
 export async function MfaSection() {
   await getCurrentUser();

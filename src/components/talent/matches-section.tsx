@@ -9,7 +9,7 @@ import type { MatchStatus } from "@/lib/database.types";
 import { listVacancyMatches, type MatchWithCandidate } from "@/lib/data/matches";
 import { formatDateTime } from "@/lib/format";
 import { matchStatuses, optionFor } from "@/lib/labels";
-import { addMatchToPipelineAction, runMatchingAction, setMatchStatusAction } from "@/app/dashboard/vacatures/talent-actions";
+import { addMatchToPipelineAction, runMatchingAction, setMatchStatusAction } from "@/app/dashboard/vacancies/talent-actions";
 import { ActionButton } from "./action-button";
 import { ProfilePanel } from "./profile-panel";
 import { ScoreBar } from "./score-bar";
@@ -75,7 +75,7 @@ function MatchCard({ vacancyId, match }: { vacancyId: string; match: MatchWithCa
           <p className="flex flex-wrap items-center gap-2">
             {c ? (
               <Link
-                href={`/dashboard/kandidaten/${c.id}`}
+                href={`/dashboard/candidates/${c.id}`}
                 className="font-display text-base font-semibold text-brand-900 hover:text-brand-700 hover:underline"
               >
                 {c.name}
@@ -121,7 +121,7 @@ function MatchCard({ vacancyId, match }: { vacancyId: string; match: MatchWithCa
           {c.hasCvAttachment && !c.cvText && (
             <p className="text-xs text-muted">
               A CV file is uploaded but has no text version, so matching used the profile fields only.{" "}
-              <Link href={`/dashboard/kandidaten/${c.id}/bewerken`} className="text-brand-700 hover:underline">
+              <Link href={`/dashboard/candidates/${c.id}/edit`} className="text-brand-700 hover:underline">
                 Add the CV text
               </Link>
             </p>
@@ -167,7 +167,7 @@ function MatchCard({ vacancyId, match }: { vacancyId: string; match: MatchWithCa
 
       {match.application && (
         <ButtonLink
-          href={`/dashboard/vacatures/${vacancyId}/pipeline?application=${match.application.id}`}
+          href={`/dashboard/vacancies/${vacancyId}/pipeline?application=${match.application.id}`}
           variant="ghost"
           size="sm"
         >

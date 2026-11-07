@@ -5,7 +5,7 @@ import type { Vacancy } from "@/lib/database.types";
 import { daysBetween, formatDate } from "@/lib/format";
 import { optionFor, talentStages } from "@/lib/labels";
 import { LEAD_TIME_LIMIT_DAYS, type LeadTime } from "@/lib/talent/lead-time";
-import { updateTimelineAction } from "@/app/dashboard/vacatures/talent-actions";
+import { updateTimelineAction } from "@/app/dashboard/vacancies/talent-actions";
 import { LeadTimeSignal } from "./lead-time-signal";
 import { TimelineForm } from "./timeline-form";
 

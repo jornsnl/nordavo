@@ -3,7 +3,7 @@
 import { useActionState, useEffect, useRef } from "react";
 import { KeyRound, TriangleAlert } from "lucide-react";
 import { initialActionState } from "@/lib/action-state";
-import type { McpTokenActionState } from "@/app/dashboard/instellingen/mcp-actions";
+import type { McpTokenActionState } from "@/app/dashboard/settings/mcp-actions";
 import { Field, FormMessage, Input, Select } from "@/components/ui/field";
 import { PendingSubmit, submitWithoutReset } from "@/components/placements/form-utils";
 import { McpCodeBlock, mcpAddCommand } from "@/components/settings/security/mcp-code-block";

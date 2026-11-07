@@ -5,7 +5,7 @@ import { hasClaude } from "@/lib/ai/claude";
 import type { Vacancy } from "@/lib/database.types";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { optionFor, seniorities } from "@/lib/labels";
-import { extractVacancyAction, resolveUnclearAction, saveRequirementsAction } from "@/app/dashboard/vacatures/talent-actions";
+import { extractVacancyAction, resolveUnclearAction, saveRequirementsAction } from "@/app/dashboard/vacancies/talent-actions";
 import { ActionButton } from "./action-button";
 import { IntakePanel } from "./intake-panel";
 

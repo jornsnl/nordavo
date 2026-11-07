@@ -3,7 +3,7 @@
 import { startTransition, useActionState, type FormEvent } from "react";
 import Link from "next/link";
 import { FileText, LoaderCircle } from "lucide-react";
-import { saveCandidate } from "@/app/dashboard/kandidaten/actions";
+import { saveCandidate } from "@/app/dashboard/candidates/actions";
 import { initialActionState } from "@/lib/action-state";
 import type { Candidate } from "@/lib/database.types";
 import { candidateStatuses } from "@/lib/labels";
@@ -51,10 +51,10 @@ export function CandidateForm({
   const [state, formAction, pending] = useActionState(saveCandidate, initialActionState);
   const errors = state.fieldErrors ?? {};
   const cancelHref = candidate
-    ? `/dashboard/kandidaten/${candidate.id}`
+    ? `/dashboard/candidates/${candidate.id}`
     : vacancyId
-      ? `/dashboard/vacatures/${vacancyId}/pipeline`
-      : "/dashboard/kandidaten";
+      ? `/dashboard/vacancies/${vacancyId}/pipeline`
+      : "/dashboard/candidates";
 
   // Submit manually so React does not reset the form after a validation error.
   function onSubmit(event: FormEvent<HTMLFormElement>) {

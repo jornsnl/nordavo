@@ -2,7 +2,7 @@
 
 import { startTransition, useActionState, useMemo, useState, type FormEvent } from "react";
 import { Link2, LoaderCircle, Trash2 } from "lucide-react";
-import { deleteCandidate, linkCandidateToVacancy } from "@/app/dashboard/kandidaten/actions";
+import { deleteCandidate, linkCandidateToVacancy } from "@/app/dashboard/candidates/actions";
 import { initialActionState } from "@/lib/action-state";
 import type { VacancyOption } from "@/lib/data/applications";
 import { optionFor, vacancyStatuses } from "@/lib/labels";
@@ -99,7 +99,7 @@ function LinkVacancyForm({
           <Button variant="secondary" onClick={onClose}>
             Sluiten
           </Button>
-          <ButtonLink href={`/dashboard/vacatures/${vacancyId}/pipeline`}>Naar de pipeline</ButtonLink>
+          <ButtonLink href={`/dashboard/vacancies/${vacancyId}/pipeline`}>Naar de pipeline</ButtonLink>
         </div>
       </div>
     );

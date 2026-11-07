@@ -1,0 +1,238 @@
+import type { Metadata } from "next";
+import { Suspense } from "react";
+import Link from "next/link";
+import { notFound } from "next/navigation";
+import { ArrowLeft, Building2, KanbanSquare, Pencil } from "lucide-react";
+import { EntityExtras } from "@/components/entity/entity-extras";
+import { PageHeader } from "@/components/dashboard/page-header";
+import { ConfirmDeleteButton } from "@/components/clients/confirm-delete-button";
+import { DaysOpen } from "@/components/vacancies/days-open";
+import { LinkClientCard } from "@/components/vacancies/link-client-card";
+import { PipelineSummary } from "@/components/vacancies/pipeline-summary";
+import { sourceLabel } from "@/components/vacancies/talent-labels";
+import { MatchesSection } from "@/components/talent/matches-section";
+import { RequirementsCard } from "@/components/talent/requirements-card";
+import { SearchBriefCard } from "@/components/talent/search-brief-card";
+import { TimelineCard } from "@/components/talent/timeline-card";
+import { hasClaude } from "@/lib/ai/claude";
+import { readSearchBrief } from "@/lib/talent/match";
+import { Badge } from "@/components/ui/badge";
+import { ButtonLink } from "@/components/ui/button";
+import { Card, CardBody, CardHeader, DetailList } from "@/components/ui/card";
+import { ListSkeleton, Skeleton } from "@/components/ui/skeleton";
+import { listClientOptions } from "@/lib/data/clients";
+import { getVacancy, getVacancyPipelineSummary, listCompanyOptions, PRESENTED_TARGET } from "@/lib/data/vacancies";
+import { formatCurrency, formatDate } from "@/lib/format";
+import { optionFor, seniorities, talentStages, vacancyStatuses } from "@/lib/labels";
+import { TALENT_POOL_LABEL } from "@/lib/talent/talent-pool";
+import { deleteVacancyAction, linkTalentPoolVacancyAction } from "../actions";
+
+// Claude calls (matching, opening lines) run inside server actions on this page.
+export const maxDuration = 300;
+
+export const metadata: Metadata = {
+  title: "Vacature",
+};
+
+type Params = Promise<{ id: string }>;
+
+export default function Page({ params }: PageProps<"/dashboard/vacancies/[id]">) {
+  return (
+    <>
+      <Link
+        href="/dashboard/vacancies"
+        className="mb-4 inline-flex items-center gap-1.5 text-sm font-medium text-muted hover:text-brand-700 active:text-brand-700 pointer-coarse:mb-2 pointer-coarse:min-h-11"
+      >
+        <ArrowLeft className="size-4" aria-hidden="true" />
+        Alle vacatures
+      </Link>
+      <Suspense fallback={<DetailSkeleton />}>
+        <VacancyDetail params={params} />
+      </Suspense>
+    </>
+  );
+}
+
+async function VacancyDetail({ params }: { params: Params }) {
+  const { id } = await params;
+  const vacancy = await getVacancy(id);
+  if (!vacancy) notFound();
+
+  const summary = await getVacancyPipelineSummary(vacancy.id);
+  const status = optionFor(vacancyStatuses, vacancy.status);
+  const seniority = optionFor(seniorities, vacancy.seniority);
+  const stage = optionFor(talentStages, vacancy.talent_stage);
+  const searchBrief = readSearchBrief(vacancy.search_brief);
+  const hasRequirements = vacancy.stack.length > 0 || vacancy.must_haves.length > 0;
+
+  return (
+    <>
+      <PageHeader
+        eyebrow="Vacature"
+        title={
+          <span className="flex flex-wrap items-center gap-3">
+            {vacancy.title}
+            <Badge tone={status.tone}>{status.label}</Badge>
+            <Badge tone={stage.tone}>{stage.label}</Badge>
+          </span>
+        }
+        description={
+          <span className="flex flex-wrap items-center gap-x-4 gap-y-1">
+            {vacancy.is_talent_pool && <Badge tone="accent">{TALENT_POOL_LABEL}</Badge>}
+            {vacancy.client && (
+              <Link
+                href={`/dashboard/clients/${vacancy.client.id}`}
+                className="inline-flex items-center gap-1.5 font-medium text-brand-700 hover:underline"
+              >
+                <Building2 className="size-4" aria-hidden="true" />
+                {vacancy.client.name}
+              </Link>
+            )}
+            {!vacancy.client && vacancy.company && (
+              <Link
+                href={`/dashboard/leads/${vacancy.company.id}`}
+                className="inline-flex items-center gap-1.5 font-medium text-brand-700 hover:underline"
+              >
+                <Building2 className="size-4" aria-hidden="true" />
+                {vacancy.company.name}
+                <Badge tone="accent">Prospect</Badge>
+              </Link>
+            )}
+            <span className="inline-flex items-center gap-1.5 text-sm">
+              <span className="text-muted">Open:</span>
+              <DaysOpen days={vacancy.daysOpen} status={vacancy.status} talentPool={vacancy.is_talent_pool} showHint />
+            </span>
+          </span>
+        }
+        actions={
+          <>
+            {/* Phones: the board is the main job here, so it leads; desktop has it in the pipeline card. */}
+            <ButtonLink href={`/dashboard/vacancies/${vacancy.id}/pipeline`} className="basis-full! sm:hidden">
+              <KanbanSquare aria-hidden="true" />
+              Pipeline openen
+            </ButtonLink>
+            <ButtonLink href={`/dashboard/vacancies/${vacancy.id}/edit`} variant="secondary">
+              <Pencil aria-hidden="true" />
+              Bewerken
+            </ButtonLink>
+            <ConfirmDeleteButton
+              action={deleteVacancyAction.bind(null, vacancy.id)}
+              title="Vacature verwijderen"
+              description={`Weet je zeker dat je ${vacancy.title} wilt verwijderen? De pipeline met alle kandidaten voor deze vacature verdwijnt ook. Plaatsingen blijven bestaan. Dit kun je niet ongedaan maken.`}
+            />
+          </>
+        }
+      />
+
+      <div className="grid grid-cols-1 gap-4 sm:gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
+        <div className="min-w-0 space-y-4 sm:space-y-6">
+          {vacancy.is_talent_pool && (
+            <Suspense fallback={<ListSkeleton rows={2} />}>
+              <LinkClient vacancyId={vacancy.id} />
+            </Suspense>
+          )}
+          <TimelineCard vacancy={vacancy} leadTime={vacancy.leadTime} />
+          <RequirementsCard vacancy={vacancy} />
+          <Suspense fallback={<ListSkeleton rows={4} />}>
+            <MatchesSection vacancyId={vacancy.id} hasRequirements={hasRequirements} />
+          </Suspense>
+          {(searchBrief || hasRequirements) && (
+            <SearchBriefCard vacancyId={vacancy.id} brief={searchBrief} canGenerate={hasClaude() && hasRequirements} />
+          )}
+
+          <PipelineSummary vacancyId={vacancy.id} summary={summary} target={PRESENTED_TARGET} />
+
+          <Card>
+            <CardHeader title="Gegevens" />
+            <CardBody>
+              <DetailList
+                items={[
+                  vacancy.is_talent_pool
+                    ? { label: "Klant", value: TALENT_POOL_LABEL }
+                    : vacancy.client || !vacancy.company
+                      ? { label: "Klant", value: vacancy.client?.name }
+                      : { label: "Prospect", value: vacancy.company.name },
+                  { label: "Bron", value: sourceLabel(vacancy.source) },
+                  { label: "Deal in OnePageCRM", value: vacancy.onepage_deal_id },
+                  { label: "Senioriteit", value: seniority.label },
+                  { label: "Budget per maand", value: formatCurrency(vacancy.monthly_budget, "Niet ingevuld") },
+                  {
+                    label: "Gewenste start",
+                    value: formatDate(vacancy.desired_start_date, "Niet ingevuld"),
+                  },
+                  { label: "Geopend op", value: formatDate(vacancy.opened_at) },
+                  ...(vacancy.closed_at ? [{ label: "Gesloten op", value: formatDate(vacancy.closed_at) }] : []),
+                  {
+                    label: "Eigenaar",
+                    value: vacancy.owner ? vacancy.owner.full_name || vacancy.owner.email : null,
+                  },
+                ]}
+              />
+              <div className="mt-6 border-t border-border pt-4">
+                <h3 className="text-xs font-medium tracking-wide text-muted uppercase">Stack</h3>
+                {vacancy.stack.length > 0 ? (
+                  <ul className="mt-2 flex flex-wrap gap-1.5">
+                    {vacancy.stack.map((item, i) => (
+                      <li key={`${item}-${i}`}>
+                        <Badge tone="brand">{item}</Badge>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="mt-1 text-sm text-muted">Nog geen stack ingevuld.</p>
+                )}
+              </div>
+            </CardBody>
+          </Card>
+
+          <Card>
+            <CardHeader title="Functieprofiel" />
+            <CardBody>
+              {vacancy.description ? (
+                <p className="max-w-prose text-sm leading-relaxed whitespace-pre-line text-ink">
+                  {vacancy.description}
+                </p>
+              ) : (
+                <p className="text-sm text-muted">
+                  Nog geen functieprofiel. Vraag de klant om een functieomschrijving en zet die hier.
+                </p>
+              )}
+            </CardBody>
+          </Card>
+        </div>
+
+        <div className="min-w-0 space-y-4 sm:space-y-6">
+          <Suspense fallback={<ListSkeleton rows={3} />}>
+            <EntityExtras entityType="vacancy" entityId={vacancy.id} />
+          </Suspense>
+        </div>
+      </div>
+    </>
+  );
+}
+
+async function LinkClient({ vacancyId }: { vacancyId: string }) {
+  const [clients, companies] = await Promise.all([listClientOptions(), listCompanyOptions()]);
+  return (
+    <LinkClientCard
+      action={linkTalentPoolVacancyAction.bind(null, vacancyId)}
+      clients={clients}
+      companies={companies}
+    />
+  );
+}
+
+function DetailSkeleton() {
+  return (
+    <div aria-busy="true" aria-label="Laden">
+      <div className="mb-8 space-y-3">
+        <Skeleton className="h-3 w-20" />
+        <Skeleton className="h-8 w-72 max-w-full" />
+      </div>
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
+        <ListSkeleton rows={6} />
+        <ListSkeleton rows={3} />
+      </div>
+    </div>
+  );
+}

@@ -11,7 +11,7 @@ import type {
 import { createClient } from "@/lib/supabase/server";
 
 /**
- * Data access for the client portal (/portaal).
+ * Data access for the client portal (/portal).
  *
  * Every function calls requireClient() and filters by the client id itself,
  * on top of RLS. Candidate contact details, owners and internal fields

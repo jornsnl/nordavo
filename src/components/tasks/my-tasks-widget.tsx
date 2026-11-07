@@ -28,7 +28,7 @@ export async function MyTasksWidget({ limit = 6 }: { limit?: number }) {
         }
         actions={
           <Link
-            href="/dashboard/taken"
+            href="/dashboard/tasks"
             className="inline-flex items-center gap-1 rounded-lg text-sm font-semibold text-brand-600 hover:text-brand-800 pointer-coarse:-my-3 pointer-coarse:min-h-11 focus-visible:outline-2 focus-visible:outline-brand-500"
           >
             Alle taken
@@ -61,7 +61,7 @@ export async function MyTasksWidget({ limit = 6 }: { limit?: number }) {
       {total > tasks.length && (
         <p className="border-t border-border px-5 py-3 text-xs text-muted">
           En nog {total - tasks.length} andere.{" "}
-          <Link href="/dashboard/taken" className="font-medium text-brand-600 hover:underline">
+          <Link href="/dashboard/tasks" className="font-medium text-brand-600 hover:underline">
             Bekijk ze allemaal
           </Link>
         </p>

@@ -24,7 +24,7 @@ function revalidateLead(companyId: string) {
   revalidatePath("/dashboard/leads");
   revalidatePath("/dashboard/leads/review");
   revalidatePath(`/dashboard/leads/${companyId}`);
-  revalidatePath("/dashboard/contacten");
+  revalidatePath("/dashboard/contacts");
 }
 
 // ---------------------------------------------------------------------------
@@ -283,7 +283,7 @@ export async function suppressAction(
   if (error) return { error: GENERIC_ERROR };
 
   revalidateLead(companyId);
-  revalidatePath("/dashboard/uitsluitingen");
+  revalidatePath("/dashboard/suppressions");
   return {
     ok: true,
     message: contactId ? "Contact uitgesloten." : "Bedrijf uitgesloten. Geen enkel contact van dit bedrijf wordt nog benaderd via deze kanalen.",
@@ -408,7 +408,7 @@ export async function linkClientAction(
   if (error) return { error: GENERIC_ERROR };
 
   revalidateLead(companyId);
-  revalidatePath("/dashboard/klanten");
-  revalidatePath(`/dashboard/klanten/${clientId}`);
+  revalidatePath("/dashboard/clients");
+  revalidatePath(`/dashboard/clients/${clientId}`);
   return { ok: true, message: "Gekoppeld aan de klant. Het bedrijf staat nu op klant." };
 }

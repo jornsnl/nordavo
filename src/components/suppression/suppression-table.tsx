@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { ShieldOff } from "lucide-react";
-import { deleteSuppressionAction } from "@/app/dashboard/uitsluitingen/actions";
+import { deleteSuppressionAction } from "@/app/dashboard/suppressions/actions";
 import { ConfirmDeleteButton } from "@/components/clients/confirm-delete-button";
 import { EmptyState } from "@/components/dashboard/empty-state";
 import { Badge } from "@/components/ui/badge";
@@ -14,7 +14,7 @@ function Target({ item }: { item: SuppressionItem }) {
   if (item.contact) {
     return (
       <div>
-        <Link href={`/dashboard/contacten/${item.contact.id}`} className="font-medium text-brand-800 hover:underline">
+        <Link href={`/dashboard/contacts/${item.contact.id}`} className="font-medium text-brand-800 hover:underline">
           {item.contact.name}
         </Link>
         <div className="text-xs text-muted">{[item.contact.companyName, item.contact.email].filter(Boolean).join(", ") || "Contact"}</div>

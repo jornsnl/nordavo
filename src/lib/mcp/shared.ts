@@ -96,17 +96,17 @@ export function recordUrl(siteUrl: string, type: string, id: string): string | n
   const base = siteUrl.replace(/\/$/, "");
   switch (type) {
     case "client":
-      return `${base}/dashboard/klanten/${id}`;
+      return `${base}/dashboard/clients/${id}`;
     case "vacancy":
-      return `${base}/dashboard/vacatures/${id}`;
+      return `${base}/dashboard/vacancies/${id}`;
     case "candidate":
-      return `${base}/dashboard/kandidaten/${id}`;
+      return `${base}/dashboard/candidates/${id}`;
     case "placement":
-      return `${base}/dashboard/plaatsingen/${id}`;
+      return `${base}/dashboard/placements/${id}`;
     case "company":
       return `${base}/dashboard/leads/${id}`;
     case "task":
-      return `${base}/dashboard/taken`;
+      return `${base}/dashboard/tasks`;
     default:
       return null;
   }

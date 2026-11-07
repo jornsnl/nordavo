@@ -129,7 +129,7 @@ async function LeadDetail({ params }: { params: Params }) {
               }}
               action={updateCompanyAction.bind(null, company.id)}
             />
-            <ButtonLink href={`/dashboard/vacatures/nieuw?company=${company.id}`}>
+            <ButtonLink href={`/dashboard/vacancies/new?company=${company.id}`}>
               <Briefcase aria-hidden="true" />
               Vacature toevoegen
             </ButtonLink>
@@ -256,7 +256,7 @@ async function LeadDetail({ params }: { params: Params }) {
               {company.client ? (
                 <p className="text-sm">
                   Gekoppeld aan{" "}
-                  <Link href={`/dashboard/klanten/${company.client.id}`} className="font-medium text-brand-700 hover:underline">
+                  <Link href={`/dashboard/clients/${company.client.id}`} className="font-medium text-brand-700 hover:underline">
                     {company.client.name}
                   </Link>
                   .
@@ -417,7 +417,7 @@ function SuppressionCard({
         </ul>
       )}
       <CardBody className="border-t border-border">
-        <Link href="/dashboard/uitsluitingen" className="text-sm font-medium text-brand-700 hover:underline">
+        <Link href="/dashboard/suppressions" className="text-sm font-medium text-brand-700 hover:underline">
           Alle uitsluitingen
         </Link>
       </CardBody>

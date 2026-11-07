@@ -32,7 +32,7 @@ export const s10WeeklyReport = defineJob({
     const sent = await sendMail({
       to: process.env.REPORT_EMAIL_TO,
       subject: reportSubject(report),
-      html: renderReportHtml(report, siteUrl ? `${siteUrl.replace(/\/$/, "")}/dashboard/rapport?periode=deze-week` : undefined),
+      html: renderReportHtml(report, siteUrl ? `${siteUrl.replace(/\/$/, "")}/dashboard/report?periode=deze-week` : undefined),
     });
     ctx.meta.mail_sent = sent;
     if (!sent) {

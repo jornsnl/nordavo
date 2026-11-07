@@ -39,7 +39,7 @@ function searchPattern(raw: string) {
 }
 
 export function applicationHref(vacancyId: string) {
-  return `/dashboard/vacatures/${vacancyId}/pipeline`;
+  return `/dashboard/vacancies/${vacancyId}/pipeline`;
 }
 
 async function searchType(type: SearchableType, pattern: string, limit: number): Promise<RecordHit[]> {
@@ -269,7 +269,7 @@ export async function resolveRecords(
         .in("id", taskIds)
         .then(({ data }) => {
           for (const t of data ?? []) {
-            result.set(recordKey("task", t.id), { label: t.title, sublabel: null, href: "/dashboard/taken" });
+            result.set(recordKey("task", t.id), { label: t.title, sublabel: null, href: "/dashboard/tasks" });
           }
         }),
   ]);

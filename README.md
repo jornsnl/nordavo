@@ -7,14 +7,14 @@ Het interne portaal van [Nordavo](https://nordavo.nl): de brug tussen Nederlands
 | Onderdeel | Route | Wat het doet |
 | --- | --- | --- |
 | Overzicht | `/dashboard` | Kerncijfers, vacatures die aandacht nodig hebben (belofte: 3 kandidaten in 3 weken), komende check-ins en garanties, pipeline, mijn taken, recente activiteit |
-| Taken | `/dashboard/taken` | Lijst (te laat, vandaag, deze week) en kanbanbord, te koppelen aan elk record |
-| Klanten | `/dashboard/klanten` | Bedrijven, contactpersonen, hun vacatures en plaatsingen |
-| Vacatures | `/dashboard/vacatures` | Functieprofielen met dagen open en pipeline-samenvatting |
-| Pipeline | `/dashboard/vacatures/[id]/pipeline` | Kanbanbord per vacature: sourcing tot plaatsing, slepen met muis of toetsenbord |
-| Kandidaten | `/dashboard/kandidaten` | Profielen, skills, cv-upload, video-intro, sollicitaties |
-| Plaatsingen | `/dashboard/plaatsingen` | Startdatum, tarief, 30 dagen garantie, check-ins, opzegtermijn van een maand |
-| Instellingen | `/dashboard/instellingen` | Profiel, wachtwoord, tweestapsverificatie, passkeys, Claude Code koppelen (MCP), gebruikers en rollen, uitnodigen |
-| Klantportaal | `/portaal` | Voor klanten: eigen vacatures, voorgestelde kandidaten met cv, akkoord of afwijzen met feedback, plaatsingen, beveiliging (`/portaal/beveiliging`) |
+| Taken | `/dashboard/tasks` | Lijst (te laat, vandaag, deze week) en kanbanbord, te koppelen aan elk record |
+| Klanten | `/dashboard/clients` | Bedrijven, contactpersonen, hun vacatures en plaatsingen |
+| Vacatures | `/dashboard/vacancies` | Functieprofielen met dagen open en pipeline-samenvatting |
+| Pipeline | `/dashboard/vacancies/[id]/pipeline` | Kanbanbord per vacature: sourcing tot plaatsing, slepen met muis of toetsenbord |
+| Kandidaten | `/dashboard/candidates` | Profielen, skills, cv-upload, video-intro, sollicitaties |
+| Plaatsingen | `/dashboard/placements` | Startdatum, tarief, 30 dagen garantie, check-ins, opzegtermijn van een maand |
+| Instellingen | `/dashboard/settings` | Profiel, wachtwoord, tweestapsverificatie, passkeys, Claude Code koppelen (MCP), gebruikers en rollen, uitnodigen |
+| Klantportaal | `/portal` | Voor klanten: eigen vacatures, voorgestelde kandidaten met cv, akkoord of afwijzen met feedback, plaatsingen, beveiliging (`/portal/security`) |
 | Work | `/work` | De eigen takentool die ClickUp vervangt: workspaces (Nordavo, KG), projecten, taken met review, gasten (freelancers), meldingen per mail, API. Engels. Zie [docs/work.md](docs/work.md) |
 | MCP server | `/api/mcp` | Claude Code leest (en met schrijfrechten wijzigt) portaaldata met een persoonlijke token |
 | Zoeken | Ctrl+K / Cmd+K | Klanten, vacatures, kandidaten en plaatsingen |
@@ -100,17 +100,17 @@ supabase/migrations/       SQL migraties met RLS
 - `src/proxy.ts` draait op elke request, ververst de sessie en stuurt niet ingelogde bezoekers naar `/login?next=...`.
 - `getCurrentUser()` in `src/lib/auth.ts` is de Data Access Layer. Gebruik deze in Server Components binnen een `<Suspense>` boundary (verplicht met Cache Components) en controleer de gebruiker opnieuw in elke Server Action of Route Handler.
 - Rechten op data regel je in de database met Row Level Security, niet alleen in de UI.
-- Rollen staan in `profiles.role`: `admin` en `member` (het Nordavo team) zien alles; `external` gebruikt alleen Work (`/work`) en is de standaard voor elk nieuw account; `client` is een contactpersoon van een klant en ziet via `/portaal` alleen het eigen bedrijf, de kandidaten die aan hen zijn voorgesteld en de eigen plaatsingen. Dit is afgedwongen met RLS; klanten geven feedback alleen via de functie `client_review_application`.
+- Rollen staan in `profiles.role`: `admin` en `member` (het Nordavo team) zien alles; `external` gebruikt alleen Work (`/work`) en is de standaard voor elk nieuw account; `client` is een contactpersoon van een klant en ziet via `/portal` alleen het eigen bedrijf, de kandidaten die aan hen zijn voorgesteld en de eigen plaatsingen. Dit is afgedwongen met RLS; klanten geven feedback alleen via de functie `client_review_application`.
 - Zet in Supabase (Authentication > Emails) de templates op:
-  - Invite user: `{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=invite&next=/auth/wachtwoord`
-  - Reset password: `{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=recovery&next=/auth/wachtwoord`
+  - Invite user: `{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=invite&next=/auth/password`
+  - Reset password: `{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=recovery&next=/auth/password`
 - Zet onder Authentication > URL Configuration de Site URL op het productiedomein en voeg `http://localhost:3000/**` toe aan de Redirect URLs.
 
 ### Tweestapsverificatie, passkeys en MCP
 
 | Onderdeel | Wat het doet | Uitleg |
 | --- | --- | --- |
-| Tweestapsverificatie | Code uit een authenticator app na het wachtwoord, in te stellen via het profiel. De proxy en `getCurrentUser()` laten een sessie zonder tweede stap niet verder dan `/login/verificatie`. | [docs/mfa.md](docs/mfa.md) |
+| Tweestapsverificatie | Code uit een authenticator app na het wachtwoord, in te stellen via het profiel. De proxy en `getCurrentUser()` laten een sessie zonder tweede stap niet verder dan `/login/verify`. | [docs/mfa.md](docs/mfa.md) |
 | Passkeys | Inloggen met vingerafdruk, gezicht of pincode. Toevoegen, hernoemen en intrekken via het profiel. Een passkey telt ook als tweede stap. | [docs/passkeys.md](docs/passkeys.md) |
 | MCP server | Claude Code koppelen aan het portaal met een persoonlijke token (lezen, of lezen en schrijven). Tokens maak en trek je in via het profiel. | [docs/mcp.md](docs/mcp.md) |
 

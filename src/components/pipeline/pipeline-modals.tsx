@@ -3,8 +3,8 @@
 import { startTransition, useActionState, useMemo, useState, useTransition, type FormEvent } from "react";
 import Link from "next/link";
 import { LoaderCircle, Plus, Search, Trash2, UserRound } from "lucide-react";
-import { linkCandidateToVacancy } from "@/app/dashboard/kandidaten/actions";
-import { removeApplication, updateApplication } from "@/app/dashboard/vacatures/[id]/pipeline/actions";
+import { linkCandidateToVacancy } from "@/app/dashboard/candidates/actions";
+import { removeApplication, updateApplication } from "@/app/dashboard/vacancies/[id]/pipeline/actions";
 import { initialActionState } from "@/lib/action-state";
 import type { CandidateOption } from "@/lib/data/candidates";
 import { formatDate, formatDateTime } from "@/lib/format";
@@ -61,7 +61,7 @@ function ApplicationDetails({ card, onClose }: { card: BoardCard; onClose: () =>
           {card.daysInPipeline === 1 ? "1 dag" : `${card.daysInPipeline} dagen`} in de pipeline
         </span>
         <Link
-          href={`/dashboard/kandidaten/${card.candidate.id}`}
+          href={`/dashboard/candidates/${card.candidate.id}`}
           className="ml-auto inline-flex items-center gap-1.5 rounded text-sm font-medium text-brand-700 hover:underline pointer-coarse:min-h-10 focus-visible:outline-2 focus-visible:outline-brand-500"
         >
           <UserRound className="size-4" aria-hidden="true" />
@@ -160,7 +160,7 @@ function ApplicationDetails({ card, onClose }: { card: BoardCard; onClose: () =>
       {card.stage === "placed" && (
         <div className="flex flex-col gap-3 rounded-xl border border-emerald-600/20 bg-emerald-50 p-4 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm text-emerald-800">Geplaatst. Leg de plaatsing vast voor contract en payroll.</p>
-          <ButtonLink href={`/dashboard/plaatsingen/nieuw?application=${card.id}`} size="sm">
+          <ButtonLink href={`/dashboard/placements/new?application=${card.id}`} size="sm">
             Plaatsing vastleggen
           </ButtonLink>
         </div>
@@ -373,7 +373,7 @@ function AddCandidateList({
       <p className="text-sm text-muted">
         Staat de kandidaat er nog niet in?{" "}
         <Link
-          href={`/dashboard/kandidaten/nieuw?vacature=${vacancyId}`}
+          href={`/dashboard/candidates/new?vacature=${vacancyId}`}
           className="font-medium text-brand-700 hover:underline"
         >
           Maak een nieuwe kandidaat aan

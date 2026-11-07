@@ -89,7 +89,7 @@ export default function Page({ searchParams }: PageProps<"/dashboard/leads">) {
               <Upload aria-hidden="true" />
               Importeren
             </ButtonLink>
-            <ButtonLink href="/dashboard/leads/nieuw" variant="secondary">
+            <ButtonLink href="/dashboard/leads/new" variant="secondary">
               <Plus aria-hidden="true" />
               Add lead
             </ButtonLink>

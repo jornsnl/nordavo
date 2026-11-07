@@ -26,7 +26,7 @@ type Db = Awaited<ReturnType<typeof createClient>>;
 function revalidateLeads(companyId: string) {
   revalidatePath("/dashboard/leads");
   revalidatePath(`/dashboard/leads/${companyId}`);
-  revalidatePath("/dashboard/contacten");
+  revalidatePath("/dashboard/contacts");
 }
 
 // ---------------------------------------------------------------------------

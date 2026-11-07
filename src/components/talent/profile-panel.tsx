@@ -10,7 +10,7 @@ import {
   confirmConsentAction,
   generateProfileAction,
   markProfileSentAction,
-} from "@/app/dashboard/vacatures/talent-actions";
+} from "@/app/dashboard/vacancies/talent-actions";
 import { ActionButton } from "./action-button";
 import { ConsentForm } from "./consent-form";
 
@@ -42,7 +42,7 @@ export function ProfilePanel({ vacancyId, match }: { vacancyId: string; match: M
   const content = profile?.content;
   const candidateConsent = match.candidate?.consent ?? null;
   const consentOk = Boolean(profile?.consentConfirmed) || candidateConsent === true;
-  const candidateHref = match.candidate ? `/dashboard/kandidaten/${match.candidate.id}/bewerken` : null;
+  const candidateHref = match.candidate ? `/dashboard/candidates/${match.candidate.id}/edit` : null;
 
   if (!profile) {
     return (
@@ -77,7 +77,7 @@ export function ProfilePanel({ vacancyId, match }: { vacancyId: string; match: M
         </div>
         <div className="flex flex-wrap gap-2">
           {profile.fileUrl && (
-            <ButtonLink href={`/dashboard/vacatures/${vacancyId}/profielen/${profile.id}`} variant="secondary" size="sm" prefetch={false}>
+            <ButtonLink href={`/dashboard/vacancies/${vacancyId}/profiles/${profile.id}`} variant="secondary" size="sm" prefetch={false}>
               <Download aria-hidden="true" />
               PDF
             </ButtonLink>

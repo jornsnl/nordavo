@@ -9,13 +9,13 @@ import {
   removePasskey,
   renamePasskey,
   startPasskeyRegistration,
-} from "@/app/dashboard/instellingen/passkey-actions";
+} from "@/app/dashboard/settings/passkey-actions";
 import { PasskeyItem } from "./passkey-item";
 import { PasskeyRegister } from "./passkey-register";
 
 /**
  * Passkeys for the signed-in user, staff and client users alike.
- * Rendered inside a <Suspense> boundary on /dashboard/instellingen and /portaal/beveiliging.
+ * Rendered inside a <Suspense> boundary on /dashboard/settings and /portal/security.
  */
 export async function PasskeySection() {
   const user = await getCurrentUser();

@@ -18,7 +18,7 @@ import {
 } from "@dnd-kit/core";
 import { arrayMove, sortableKeyboardCoordinates } from "@dnd-kit/sortable";
 import { Handshake, Plus, X } from "lucide-react";
-import { moveApplication, reorderStage } from "@/app/dashboard/vacatures/[id]/pipeline/actions";
+import { moveApplication, reorderStage } from "@/app/dashboard/vacancies/[id]/pipeline/actions";
 import type { PipelineApplication } from "@/lib/data/applications";
 import type { CandidateOption } from "@/lib/data/candidates";
 import type { ApplicationStage } from "@/lib/database.types";
@@ -314,7 +314,7 @@ export function PipelineBoard({
             contract, payroll en de garantieperiode.
           </p>
           <div className="flex gap-2 max-sm:*:flex-1">
-            <ButtonLink href={`/dashboard/plaatsingen/nieuw?application=${placed.id}`} size="sm">
+            <ButtonLink href={`/dashboard/placements/new?application=${placed.id}`} size="sm">
               Plaatsing vastleggen
             </ButtonLink>
             <Button variant="ghost" size="sm" onClick={() => setPlaced(null)}>

@@ -2,7 +2,7 @@
 
 import { useActionState, useState } from "react";
 import { Plus } from "lucide-react";
-import { addSuppressionAction } from "@/app/dashboard/uitsluitingen/actions";
+import { addSuppressionAction } from "@/app/dashboard/suppressions/actions";
 import { Button } from "@/components/ui/button";
 import { Field, FormMessage, Input, Select, Textarea } from "@/components/ui/field";
 import { Modal } from "@/components/ui/modal";

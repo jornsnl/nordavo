@@ -14,7 +14,7 @@ export async function PortalUserMenu() {
         <p className="max-w-40 truncate text-xs text-muted">{user.email}</p>
       </div>
       <Link
-        href="/portaal/beveiliging"
+        href="/portal/security"
         // On phones Beveiliging is a tab in the bottom bar.
         className="flex size-9 items-center max-md:hidden justify-center rounded-lg text-muted transition hover:bg-brand-50 hover:text-brand-900 focus-visible:outline-2 focus-visible:outline-brand-500"
         aria-label="Beveiliging"

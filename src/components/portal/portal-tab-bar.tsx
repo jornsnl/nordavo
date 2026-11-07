@@ -7,12 +7,12 @@ import { isActivePortalPath } from "./nav-items";
 const tabs: TabItem[] = [
   {
     label: "Overzicht",
-    href: "/portaal",
+    href: "/portal",
     icon: LayoutDashboard,
-    match: (path) => isActivePortalPath(path, "/portaal"),
+    match: (path) => isActivePortalPath(path, "/portal"),
   },
-  { label: "Plaatsingen", href: "/portaal/plaatsingen", icon: Handshake },
-  { label: "Beveiliging", href: "/portaal/beveiliging", icon: ShieldCheck },
+  { label: "Plaatsingen", href: "/portal/placements", icon: Handshake },
+  { label: "Beveiliging", href: "/portal/security", icon: ShieldCheck },
 ];
 
 /** Bottom tabs for the client portal on phones; the header tabs take over from md. */

@@ -7,7 +7,7 @@ import {
   exportMaxAction,
   pushMailCampaignAction,
   type ExportActionState,
-} from "@/app/dashboard/lijsten/actions";
+} from "@/app/dashboard/lists/actions";
 import { Field, FormMessage, Input, Select } from "@/components/ui/field";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { initialActionState, type ActionState } from "@/lib/action-state";

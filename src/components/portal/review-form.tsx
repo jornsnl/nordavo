@@ -2,7 +2,7 @@
 
 import { useActionState, useState } from "react";
 import { Check, Pencil, X } from "lucide-react";
-import { reviewApplication } from "@/app/portaal/vacatures/[id]/actions";
+import { reviewApplication } from "@/app/portal/vacancies/[id]/actions";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Field, FormMessage, Textarea } from "@/components/ui/field";

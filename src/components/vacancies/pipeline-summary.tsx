@@ -100,7 +100,7 @@ export function PipelineSummary({
           })}
         </ul>
 
-        <ButtonLink href={`/dashboard/vacatures/${vacancyId}/pipeline`} className="w-full sm:w-auto">
+        <ButtonLink href={`/dashboard/vacancies/${vacancyId}/pipeline`} className="w-full sm:w-auto">
           <KanbanSquare aria-hidden="true" />
           Pipeline openen
           <ArrowRight aria-hidden="true" />

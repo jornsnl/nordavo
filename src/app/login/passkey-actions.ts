@@ -182,7 +182,7 @@ export async function finishPasskeySignIn(
     .maybeSingle();
 
   if (profile?.role === "client") {
-    redirect("/portaal");
+    redirect("/portal");
   }
   redirect(safeNextPath(next));
 }

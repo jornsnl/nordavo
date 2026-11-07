@@ -35,7 +35,7 @@ export function PlacementActions({
   return (
     // Phones: Bewerken on its own row, the status changes share the next one.
     <div className="flex flex-wrap gap-2 max-sm:w-full">
-      <ButtonLink href={`/dashboard/plaatsingen/${placementId}/bewerken`} variant="secondary" className="max-sm:basis-full">
+      <ButtonLink href={`/dashboard/placements/${placementId}/edit`} variant="secondary" className="max-sm:basis-full">
         <Pencil aria-hidden="true" />
         Bewerken
       </ButtonLink>

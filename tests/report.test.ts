@@ -142,10 +142,10 @@ test("renderReportHtml puts warnings first and escapes data", () => {
     leadTimes: leadTimeRows([vacancy({ id: "late", title: "Dev <script>" })], now),
     warnings: ["Dev <script> bij Acme loopt al 23 dagen"],
   };
-  const html = renderReportHtml(report, "https://portal.nordavo.nl/dashboard/rapport");
+  const html = renderReportHtml(report, "https://portal.nordavo.nl/dashboard/report");
   assert.ok(html.indexOf("Let op") < html.indexOf("GO percentage per segment"));
   assert.ok(!html.includes("<script>"));
   assert.ok(html.includes("Dev &lt;script&gt;"));
   assert.ok(html.includes("#0a1a2f"));
-  assert.ok(html.includes("https://portal.nordavo.nl/dashboard/rapport"));
+  assert.ok(html.includes("https://portal.nordavo.nl/dashboard/report"));
 });

@@ -32,7 +32,7 @@ function isPublicPath(pathname: string) {
 /**
  * Refreshes the Supabase session on every request and sends visitors
  * to the right place: signed out to /login, halfway through two-step
- * verification to /login/verificatie, signed in away from /login.
+ * verification to /login/verify, signed in away from /login.
  */
 export async function updateSession(request: NextRequest) {
   let response = NextResponse.next({ request });
@@ -74,7 +74,7 @@ export async function updateSession(request: NextRequest) {
   }
 
   // Password done but authenticator app code not yet: only the code form is open.
-  // Returning here also keeps /login/verificatie out of the /login redirect below.
+  // Returning here also keeps /login/verify out of the /login redirect below.
   if (claims && !matches(TOKEN_API_PATHS, pathname)) {
     const step = await checkSecondStep(supabase, claims, (name) => request.cookies.get(name)?.value);
     if (step.required) {

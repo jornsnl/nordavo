@@ -25,7 +25,7 @@ export function VacancyCard({ vacancy }: { vacancy: PortalVacancySummary }) {
 
   return (
     <Link
-      href={`/portaal/vacatures/${vacancy.id}`}
+      href={`/portal/vacancies/${vacancy.id}`}
       className="group flex h-full flex-col rounded-2xl border border-border bg-card p-4 shadow-xs transition hover:border-brand-200 hover:shadow-md active:scale-[0.99] active:bg-brand-50/50 focus-visible sm:p-5:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500"
     >
       <div className="flex items-start justify-between gap-3">

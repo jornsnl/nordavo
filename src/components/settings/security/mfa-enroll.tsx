@@ -11,7 +11,7 @@ import {
   cancelMfaEnrollment,
   startMfaEnrollment,
   verifyMfaEnrollment,
-} from "@/app/dashboard/instellingen/mfa-actions";
+} from "@/app/dashboard/settings/mfa-actions";
 
 /** "App toevoegen": name, then QR code and secret, then the first code from the app. */
 export function MfaEnroll({ hasFactors }: { hasFactors: boolean }) {

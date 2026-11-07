@@ -229,11 +229,11 @@ export const matchStatuses: Option<MatchStatus>[] = [
 ];
 
 export const entityTypes: Record<EntityType, { label: string; href: (id: string) => string }> = {
-  client: { label: "Klant", href: (id) => `/dashboard/klanten/${id}` },
-  vacancy: { label: "Vacature", href: (id) => `/dashboard/vacatures/${id}` },
-  candidate: { label: "Kandidaat", href: (id) => `/dashboard/kandidaten/${id}` },
-  application: { label: "Sollicitatie", href: (id) => `/dashboard/kandidaten?application=${id}` },
-  placement: { label: "Plaatsing", href: (id) => `/dashboard/plaatsingen/${id}` },
+  client: { label: "Klant", href: (id) => `/dashboard/clients/${id}` },
+  vacancy: { label: "Vacature", href: (id) => `/dashboard/vacancies/${id}` },
+  candidate: { label: "Kandidaat", href: (id) => `/dashboard/candidates/${id}` },
+  application: { label: "Sollicitatie", href: (id) => `/dashboard/candidates?application=${id}` },
+  placement: { label: "Plaatsing", href: (id) => `/dashboard/placements/${id}` },
   company: { label: "Lead", href: (id) => `/dashboard/leads/${id}` },
 };
 

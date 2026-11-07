@@ -54,7 +54,7 @@ export async function MatchingProfileCard({ candidate }: { candidate: Values }) 
                 return (
                   <li key={m.id} className="flex flex-wrap items-center gap-2 text-sm">
                     {m.vacancy ? (
-                      <Link href={`/dashboard/vacatures/${m.vacancy.id}`} className="font-medium text-brand-700 hover:underline">
+                      <Link href={`/dashboard/vacancies/${m.vacancy.id}`} className="font-medium text-brand-700 hover:underline">
                         {m.vacancy.title}
                       </Link>
                     ) : (

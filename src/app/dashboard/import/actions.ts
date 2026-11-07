@@ -63,7 +63,7 @@ export async function importChunkAction(input: ImportChunkInput): Promise<Import
     const supabase = await createClient();
     const result = await importLeadRows(supabase, rows, mapping, source);
     revalidatePath("/dashboard/leads");
-    revalidatePath("/dashboard/contacten");
+    revalidatePath("/dashboard/contacts");
     return {
       ok: true,
       result: { ...result, skipped: result.skipped.map((s) => ({ ...s, row: s.row + offset })) },

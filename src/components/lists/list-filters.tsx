@@ -21,14 +21,14 @@ export function ListFilters({ filter, list }: { filter: ListFilter; list: ListEx
     .join(", ");
   return (
     <Form
-      action="/dashboard/lijsten"
+      action="/dashboard/lists"
       className="mb-6 flex items-center gap-3 max-md:justify-between md:block md:rounded-2xl md:border md:border-border md:bg-card md:p-4 md:shadow-xs"
     >
       <input type="hidden" name="lijst" value={list} />
       <p className="min-w-0 text-sm text-muted md:hidden">
         <span className="font-medium text-ink">Filter:</span> {summary}
       </p>
-      <FilterSheet activeCount={active} resetHref={`/dashboard/lijsten?lijst=${list}`} title="Lijsten filteren">
+      <FilterSheet activeCount={active} resetHref={`/dashboard/lists?lijst=${list}`} title="Lijsten filteren">
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[repeat(5,minmax(0,1fr))_auto] lg:items-end">
           <Field label="Segment" htmlFor="filter-segment">
             <Select id="filter-segment" name="segment" defaultValue={filter.segment ?? ""}>

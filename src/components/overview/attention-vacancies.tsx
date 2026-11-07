@@ -38,7 +38,7 @@ export async function AttentionVacancies() {
           return (
             <li key={vacancy.id}>
               <Link
-                href={`/dashboard/vacatures/${vacancy.id}`}
+                href={`/dashboard/vacancies/${vacancy.id}`}
                 className="flex flex-col gap-2 px-5 py-3.5 transition hover:bg-brand-50/40 active:bg-brand-50 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-brand-500 sm:flex-row sm:items-center sm:gap-4"
               >
                 <div className="min-w-0 flex-1">
@@ -71,7 +71,7 @@ export async function AttentionVacancies() {
         <p className="border-t border-border px-5 py-3 text-xs text-muted">
           En nog {total - items.length} andere open{" "}
           {total - items.length === 1 ? "vacature" : "vacatures"}.{" "}
-          <Link href="/dashboard/vacatures" className="font-semibold text-brand-600 hover:underline">
+          <Link href="/dashboard/vacancies" className="font-semibold text-brand-600 hover:underline">
             Alle vacatures
           </Link>
         </p>

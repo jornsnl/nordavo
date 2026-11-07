@@ -2,7 +2,7 @@
 
 import { useActionState } from "react";
 import { Upload } from "lucide-react";
-import { importMaxAction, type MaxImportState } from "@/app/dashboard/lijsten/actions";
+import { importMaxAction, type MaxImportState } from "@/app/dashboard/lists/actions";
 import { Field, FormMessage, Input } from "@/components/ui/field";
 import { SubmitButton } from "@/components/ui/submit-button";
 

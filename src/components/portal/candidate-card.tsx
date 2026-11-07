@@ -90,7 +90,7 @@ export function CandidateCard({ item }: { item: PortalCandidate }) {
               )}
               {candidate.hasCv && (
                 <a
-                  href={`/portaal/cv/${item.applicationId}`}
+                  href={`/portal/cv/${item.applicationId}`}
                   target="_blank"
                   rel="noopener"
                   className={buttonClasses({ variant: "secondary", size: "sm", className: "max-sm:min-h-11!" })}

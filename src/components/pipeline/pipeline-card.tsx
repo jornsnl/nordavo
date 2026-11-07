@@ -149,7 +149,7 @@ function CardBody({
 
       {card.stage === "placed" && !lifted && (
         <Link
-          href={`/dashboard/plaatsingen/nieuw?application=${card.id}`}
+          href={`/dashboard/placements/new?application=${card.id}`}
           className="mt-2 inline-flex items-center gap-1.5 rounded text-xs font-semibold text-emerald-700 hover:underline pointer-coarse:min-h-9 focus-visible:outline-2 focus-visible:outline-brand-500"
         >
           <Handshake className="size-3.5" aria-hidden="true" />

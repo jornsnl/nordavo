@@ -3,7 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { formatDate } from "@/lib/format";
 import type { StoredSearchBrief } from "@/lib/talent/match";
-import { generateSearchBriefAction } from "@/app/dashboard/vacatures/talent-actions";
+import { generateSearchBriefAction } from "@/app/dashboard/vacancies/talent-actions";
 import { ActionButton } from "./action-button";
 import { CopyButton } from "./copy-button";
 

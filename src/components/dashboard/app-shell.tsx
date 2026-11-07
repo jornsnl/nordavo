@@ -15,9 +15,9 @@ import { SidebarNav } from "./sidebar-nav";
 // The most used modules as tabs on phones; everything else sits under "Meer".
 const tabs: TabItem[] = [
   { label: "Overzicht", href: "/dashboard", icon: LayoutDashboard, match: (path) => path === "/dashboard" },
-  { label: "Taken", href: "/dashboard/taken", icon: CheckSquare },
+  { label: "Taken", href: "/dashboard/tasks", icon: CheckSquare },
   { label: "Leads", href: "/dashboard/leads", icon: Radar },
-  { label: "Vacatures", href: "/dashboard/vacatures", icon: Briefcase },
+  { label: "Vacatures", href: "/dashboard/vacancies", icon: Briefcase },
 ];
 
 /**

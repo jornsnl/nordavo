@@ -58,7 +58,7 @@ export default function DashboardPage() {
               description="Binnen 3 weken 3 kandidaten voorstellen. Langst open staat bovenaan."
               actions={
                 <Link
-                  href="/dashboard/vacatures"
+                  href="/dashboard/vacancies"
                   className="text-sm font-semibold text-brand-600 hover:text-brand-800 pointer-coarse:-my-3 pointer-coarse:inline-flex pointer-coarse:min-h-11 pointer-coarse:items-center"
                 >
                   Alle vacatures
@@ -118,7 +118,7 @@ export default function DashboardPage() {
             </p>
           </div>
           <Link
-            href="/dashboard/vacatures"
+            href="/dashboard/vacancies"
             className="inline-flex items-center gap-1.5 self-start text-sm font-semibold text-brand-600 hover:text-brand-800 pointer-coarse:min-h-11"
           >
             Naar vacatures

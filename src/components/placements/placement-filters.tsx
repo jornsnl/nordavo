@@ -25,7 +25,7 @@ export function PlacementFilters({
     if (nextClient) params.set("klant", nextClient);
     const query = params.toString();
     startTransition(() => {
-      router.replace(`/dashboard/plaatsingen${query ? `?${query}` : ""}`, { scroll: false });
+      router.replace(`/dashboard/placements${query ? `?${query}` : ""}`, { scroll: false });
     });
   }
 

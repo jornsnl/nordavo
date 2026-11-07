@@ -202,7 +202,7 @@ export function LeadTimeTable({ rows }: { rows: LeadTimeRow[] }) {
             {rows.map((row) => (
               <MobileListItem
                 key={row.vacancyId}
-                href={`/dashboard/vacatures/${row.vacancyId}`}
+                href={`/dashboard/vacancies/${row.vacancyId}`}
                 title={row.title}
                 subtitle={[row.company, row.stageLabel].filter(Boolean).join(", ")}
                 meta={
@@ -235,7 +235,7 @@ export function LeadTimeTable({ rows }: { rows: LeadTimeRow[] }) {
                 <TR key={row.vacancyId}>
                   <TD>
                     <Link
-                      href={`/dashboard/vacatures/${row.vacancyId}`}
+                      href={`/dashboard/vacancies/${row.vacancyId}`}
                       className="font-medium text-brand-900 hover:text-brand-600 hover:underline"
                     >
                       {row.title}

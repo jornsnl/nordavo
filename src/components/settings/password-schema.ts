@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-/** New password with confirmation, shared by settings and /auth/wachtwoord. */
+/** New password with confirmation, shared by settings and /auth/password. */
 export const passwordSchema = z
   .object({
     password: z
