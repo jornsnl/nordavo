@@ -21,7 +21,7 @@ import type { CandidateStatus } from "@/lib/database.types";
 import { candidateStatuses, optionFor } from "@/lib/labels";
 
 export const metadata: Metadata = {
-  title: "Kandidaten",
+  title: "Candidates",
 };
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
@@ -34,13 +34,13 @@ export default function Page({ searchParams }: PageProps<"/dashboard/candidates"
   return (
     <>
       <PageHeader
-        eyebrow="Werving"
-        title="Kandidaten"
-        description="Developers en data engineers uit Bangalore, van screening tot eindgesprek."
+        eyebrow="Recruitment"
+        title="Candidates"
+        description="Developers and data engineers from Bangalore, from screening to final interview."
         actions={
           <ButtonLink href="/dashboard/candidates/new">
             <Plus aria-hidden="true" />
-            Nieuwe kandidaat
+            New candidate
           </ButtonLink>
         }
       />
@@ -82,7 +82,7 @@ async function CandidateList({ searchParams }: { searchParams: SearchParams }) {
       <Form
         action="/dashboard/candidates"
         role="search"
-        aria-label="Kandidaten zoeken"
+        aria-label="Search candidates"
         className="grid grid-cols-[minmax(0,1fr)] gap-3 sm:grid-cols-[1fr_auto_auto_auto] sm:rounded-2xl sm:border sm:border-border sm:bg-card sm:p-3 sm:shadow-xs"
       >
         <div className="relative">
@@ -91,7 +91,7 @@ async function CandidateList({ searchParams }: { searchParams: SearchParams }) {
             aria-hidden="true"
           />
           <label htmlFor="candidate-q" className="sr-only">
-            Zoek op naam, functie of skill
+            Search by name, role or skill
           </label>
           <Input
             id="candidate-q"
@@ -100,7 +100,7 @@ async function CandidateList({ searchParams }: { searchParams: SearchParams }) {
             enterKeyHint="search"
             autoComplete="off"
             defaultValue={q}
-            placeholder="Zoek op naam, functie of skill"
+            placeholder="Search by name, role or skill"
             className="pl-10"
           />
         </div>
@@ -109,7 +109,7 @@ async function CandidateList({ searchParams }: { searchParams: SearchParams }) {
           label="Status"
           className="sm:hidden"
           chips={[
-            { label: "Alle", href: filterHref("/dashboard/candidates", current, { status: undefined }), active: !status },
+            { label: "All", href: filterHref("/dashboard/candidates", current, { status: undefined }), active: !status },
             ...candidateStatuses.map((s) => ({
               label: s.label,
               href: filterHref("/dashboard/candidates", current, { status: s.value }),
@@ -122,7 +122,7 @@ async function CandidateList({ searchParams }: { searchParams: SearchParams }) {
             Status
           </label>
           <Select id="candidate-status" name="status" defaultValue={status ?? ""}>
-            <option value="">Alle statussen</option>
+            <option value="">All statuses</option>
             {candidateStatuses.map((s) => (
               <option key={s.value} value={s.value}>
                 {s.label}
@@ -135,7 +135,7 @@ async function CandidateList({ searchParams }: { searchParams: SearchParams }) {
             Skill
           </label>
           <Select id="candidate-skill" name="skill" defaultValue={skill ?? ""} className="max-sm:w-full">
-            <option value="">Alle skills</option>
+            <option value="">All skills</option>
             {skill && !skills.includes(skill) && <option value={skill}>{skill}</option>}
             {skills.map((s) => (
               <option key={s} value={s}>
@@ -145,17 +145,17 @@ async function CandidateList({ searchParams }: { searchParams: SearchParams }) {
           </Select>
           {filtered && (
             <ButtonLink href="/dashboard/candidates" variant="ghost" className="shrink-0 sm:hidden">
-              Wissen
+              Clear
             </ButtonLink>
           )}
         </AutoSubmitSelects>
         <div className="flex gap-2 max-sm:hidden">
           <Button type="submit" variant="secondary" className="flex-1">
-            Filteren
+            Filter
           </Button>
           {filtered && (
             <ButtonLink href="/dashboard/candidates" variant="ghost">
-              Wissen
+              Clear
             </ButtonLink>
           )}
         </div>
@@ -165,22 +165,22 @@ async function CandidateList({ searchParams }: { searchParams: SearchParams }) {
         filtered ? (
           <EmptyState
             icon={SearchX}
-            title="Geen kandidaten gevonden"
-            description="Niemand past bij deze zoekopdracht. Pas je filters aan of wis ze."
+            title="No candidates found"
+            description="Nobody matches this search. Adjust or clear your filters."
           />
         ) : (
           <EmptyState
             icon={Users}
-            title="Nog geen kandidaten"
-            description="Voeg je eerste kandidaat toe met cv, skills en video-intro. Daarna koppel je hem aan een vacature."
+            title="No candidates yet"
+            description="Add your first candidate with a CV, skills and video intro. Then link them to a vacancy."
           />
         )
       ) : (
         <>
           <p className="text-sm text-muted" aria-live="polite">
-            {candidates.length === 1 ? "1 kandidaat" : `${candidates.length} kandidaten`}
+            {candidates.length === 1 ? "1 candidate" : `${candidates.length} candidates`}
           </p>
-          <MobileList label="Kandidaten" className="md:hidden">
+          <MobileList label="Candidates" className="md:hidden">
             {candidates.map((c) => {
               const statusOption = optionFor(candidateStatuses, c.status);
               return (
@@ -189,10 +189,10 @@ async function CandidateList({ searchParams }: { searchParams: SearchParams }) {
                   href={`/dashboard/candidates/${c.id}`}
                   leading={<Avatar name={c.full_name} />}
                   title={c.full_name}
-                  subtitle={[c.current_title, c.years_experience !== null ? `${c.years_experience} jr` : null]
+                  subtitle={[c.current_title, c.years_experience !== null ? `${c.years_experience} yrs` : null]
                     .filter(Boolean)
-                    .join(" · ") || "Functie onbekend"}
-                  meta={`${c.location}${c.activeApplications > 0 ? ` · ${c.activeApplications} actief` : ""}`}
+                    .join(" · ") || "Role unknown"}
+                  meta={`${c.location}${c.activeApplications > 0 ? ` · ${c.activeApplications} active` : ""}`}
                 >
                   {/* Status sits with the skills, so the name gets the full width. */}
                   <div className="flex flex-wrap gap-1">
@@ -209,12 +209,12 @@ async function CandidateList({ searchParams }: { searchParams: SearchParams }) {
           <Table className="hidden md:block">
             <THead>
               <tr>
-                <TH>Naam</TH>
-                <TH>Functie</TH>
-                <TH className="text-right">Ervaring</TH>
+                <TH>Name</TH>
+                <TH>Role</TH>
+                <TH className="text-right">Experience</TH>
                 <TH>Skills</TH>
                 <TH>Status</TH>
-                <TH className="text-right">Actief</TH>
+                <TH className="text-right">Active</TH>
               </tr>
             </THead>
             <TBody>
@@ -234,9 +234,9 @@ async function CandidateList({ searchParams }: { searchParams: SearchParams }) {
                         </span>
                       </Link>
                     </TD>
-                    <TD className="text-muted">{c.current_title ?? "Onbekend"}</TD>
+                    <TD className="text-muted">{c.current_title ?? "Unknown"}</TD>
                     <TD className="text-right whitespace-nowrap tabular-nums">
-                      {c.years_experience !== null ? `${c.years_experience} jr` : "Onbekend"}
+                      {c.years_experience !== null ? `${c.years_experience} yrs` : "Unknown"}
                     </TD>
                     <TD>
                       <div className="flex max-w-xs flex-wrap gap-1">
@@ -244,14 +244,14 @@ async function CandidateList({ searchParams }: { searchParams: SearchParams }) {
                           <Badge key={s}>{s}</Badge>
                         ))}
                         {c.skills.length > 4 && <Badge tone="brand">+{c.skills.length - 4}</Badge>}
-                        {c.skills.length === 0 && <span className="text-muted">Geen</span>}
+                        {c.skills.length === 0 && <span className="text-muted">None</span>}
                       </div>
                     </TD>
                     <TD>
                       <Badge tone={statusOption.tone}>{statusOption.label}</Badge>
                     </TD>
                     <TD className="text-right tabular-nums">
-                      <span className="sr-only">Actieve sollicitaties: </span>
+                      <span className="sr-only">Active applications: </span>
                       {c.activeApplications}
                     </TD>
                   </TR>

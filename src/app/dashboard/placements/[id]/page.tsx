@@ -28,7 +28,7 @@ import {
 } from "../actions";
 
 export const metadata: Metadata = {
-  title: "Plaatsing",
+  title: "Placement",
 };
 
 type Params = Promise<{ id: string }>;
@@ -62,8 +62,8 @@ async function PlacementDetail({
   if (!placement) notFound();
 
   const today = todayIso();
-  const candidateName = placement.candidate?.full_name ?? "Onbekende kandidaat";
-  const clientName = placement.client?.name ?? "onbekende klant";
+  const candidateName = placement.candidate?.full_name ?? "Unknown candidate";
+  const clientName = placement.client?.name ?? "unknown client";
   const months = monthsBetween(
     placement.start_date,
     placement.status === "ended" && placement.end_date ? placement.end_date : today,
@@ -72,11 +72,11 @@ async function PlacementDetail({
   return (
     <>
       <PageHeader
-        eyebrow="Plaatsing"
+        eyebrow="Placement"
         title={
           <span className="flex flex-wrap items-center gap-x-3 gap-y-2">
             <span>
-              {candidateName} <span className="font-semibold text-muted">bij</span> {clientName}
+              {candidateName} <span className="font-semibold text-muted">at</span> {clientName}
             </span>
             <PlacementStatusBadge status={placement.status} />
           </span>
@@ -94,9 +94,10 @@ async function PlacementDetail({
         }
       />
 
-      {query.melding === "deels" && (
+      {/* "melding=deels" is the old Dutch form of the same notice. */}
+      {(query.notice === "partial" || query.melding === "deels") && (
         <div className="mb-6">
-          <FormMessage error="De plaatsing is opgeslagen, maar niet alles is bijgewerkt. Controleer de status van de vacature, de kandidaat en de taken." />
+          <FormMessage error="The placement was saved, but not everything was updated. Check the status of the vacancy, the candidate and the tasks." />
         </div>
       )}
 
@@ -108,7 +109,7 @@ async function PlacementDetail({
               <DetailList
                 items={[
                   {
-                    label: "Kandidaat",
+                    label: "Candidate",
                     value: placement.candidate ? (
                       <Link
                         href={`/dashboard/candidates/${placement.candidate.id}`}
@@ -119,7 +120,7 @@ async function PlacementDetail({
                     ) : null,
                   },
                   {
-                    label: "Klant",
+                    label: "Client",
                     value: placement.client ? (
                       <Link
                         href={`/dashboard/clients/${placement.client.id}`}
@@ -130,7 +131,7 @@ async function PlacementDetail({
                     ) : null,
                   },
                   {
-                    label: "Vacature",
+                    label: "Vacancy",
                     value: placement.vacancy ? (
                       <Link
                         href={`/dashboard/vacancies/${placement.vacancy.id}`}
@@ -141,20 +142,20 @@ async function PlacementDetail({
                     ) : null,
                   },
                   {
-                    label: "Maandtarief",
+                    label: "Monthly rate",
                     value:
                       placement.monthly_rate !== null ? formatCurrency(placement.monthly_rate) : null,
                   },
-                  { label: "Startdatum", value: formatDate(placement.start_date) },
+                  { label: "Start date", value: formatDate(placement.start_date) },
                   {
-                    label: "Looptijd",
+                    label: "Duration",
                     value:
                       placement.start_date > today
-                        ? "Nog niet gestart"
-                        : `${months} ${months === 1 ? "maand" : "maanden"}`,
+                        ? "Not started yet"
+                        : `${months} ${months === 1 ? "month" : "months"}`,
                   },
                   {
-                    label: "Volgende check-in",
+                    label: "Next check-in",
                     value: (
                       <CheckinDate
                         date={placement.next_checkin_at}
@@ -164,23 +165,23 @@ async function PlacementDetail({
                     ),
                   },
                   {
-                    label: placement.status === "active" ? "Opzegtermijn" : "Opgezegd op",
+                    label: placement.status === "active" ? "Notice period" : "Notice given on",
                     value:
                       placement.status === "active"
-                        ? `Eén maand. Bij opzegging vandaag is de laatste dag ${formatDate(addMonths(today, 1))}.`
+                        ? `One month. With notice given today, the last day is ${formatDate(addMonths(today, 1))}.`
                         : placement.notice_given_at
                           ? formatDate(placement.notice_given_at)
                           : null,
                   },
                   {
-                    label: "Einddatum",
-                    value: placement.end_date ? formatDate(placement.end_date) : "Geen, loopt door",
+                    label: "End date",
+                    value: placement.end_date ? formatDate(placement.end_date) : "None, ongoing",
                   },
                 ]}
               />
               {placement.notes && (
                 <div className="mt-6 border-t border-border pt-4">
-                  <p className="text-xs font-medium tracking-wide text-muted uppercase">Notities</p>
+                  <p className="text-xs font-medium tracking-wide text-muted uppercase">Notes</p>
                   <p className="mt-1 text-sm leading-relaxed whitespace-pre-line text-ink">
                     {placement.notes}
                   </p>
@@ -192,7 +193,7 @@ async function PlacementDetail({
           <Card>
             <CardHeader
               title="Check-ins"
-              description="Regelmatig contact met de klant over hoe het gaat."
+              description="Regular contact with the client about how things are going."
               actions={
                 <AddCheckin
                   addCheckin={addCheckin.bind(null, placement.id)}
@@ -210,7 +211,7 @@ async function PlacementDetail({
 
         <aside className="min-w-0 space-y-6">
           <Card>
-            <CardHeader title="Garantieperiode" />
+            <CardHeader title="Guarantee period" />
             <CardBody>
               <GuaranteeProgress
                 startDate={placement.start_date}
@@ -236,7 +237,7 @@ async function Checkins({ placementId }: { placementId: string }) {
 
 function DetailSkeleton() {
   return (
-    <div aria-busy="true" aria-label="Laden">
+    <div aria-busy="true" aria-label="Loading">
       <div className="mb-8 space-y-3">
         <Skeleton className="h-3 w-20" />
         <Skeleton className="h-8 w-80 max-w-full" />

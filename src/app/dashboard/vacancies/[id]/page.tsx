@@ -31,7 +31,7 @@ import { deleteVacancyAction, linkTalentPoolVacancyAction } from "../actions";
 export const maxDuration = 300;
 
 export const metadata: Metadata = {
-  title: "Vacature",
+  title: "Vacancy",
 };
 
 type Params = Promise<{ id: string }>;
@@ -44,7 +44,7 @@ export default function Page({ params }: PageProps<"/dashboard/vacancies/[id]">)
         className="mb-4 inline-flex items-center gap-1.5 text-sm font-medium text-muted hover:text-brand-700 active:text-brand-700 pointer-coarse:mb-2 pointer-coarse:min-h-11"
       >
         <ArrowLeft className="size-4" aria-hidden="true" />
-        Alle vacatures
+        All vacancies
       </Link>
       <Suspense fallback={<DetailSkeleton />}>
         <VacancyDetail params={params} />
@@ -68,7 +68,7 @@ async function VacancyDetail({ params }: { params: Params }) {
   return (
     <>
       <PageHeader
-        eyebrow="Vacature"
+        eyebrow="Vacancy"
         title={
           <span className="flex flex-wrap items-center gap-3">
             {vacancy.title}
@@ -109,16 +109,16 @@ async function VacancyDetail({ params }: { params: Params }) {
             {/* Phones: the board is the main job here, so it leads; desktop has it in the pipeline card. */}
             <ButtonLink href={`/dashboard/vacancies/${vacancy.id}/pipeline`} className="basis-full! sm:hidden">
               <KanbanSquare aria-hidden="true" />
-              Pipeline openen
+              Open pipeline
             </ButtonLink>
             <ButtonLink href={`/dashboard/vacancies/${vacancy.id}/edit`} variant="secondary">
               <Pencil aria-hidden="true" />
-              Bewerken
+              Edit
             </ButtonLink>
             <ConfirmDeleteButton
               action={deleteVacancyAction.bind(null, vacancy.id)}
-              title="Vacature verwijderen"
-              description={`Weet je zeker dat je ${vacancy.title} wilt verwijderen? De pipeline met alle kandidaten voor deze vacature verdwijnt ook. Plaatsingen blijven bestaan. Dit kun je niet ongedaan maken.`}
+              title="Delete vacancy"
+              description={`Are you sure you want to delete ${vacancy.title}? The pipeline with all candidates for this vacancy is removed too. Placements are kept. This cannot be undone.`}
             />
           </>
         }
@@ -143,27 +143,27 @@ async function VacancyDetail({ params }: { params: Params }) {
           <PipelineSummary vacancyId={vacancy.id} summary={summary} target={PRESENTED_TARGET} />
 
           <Card>
-            <CardHeader title="Gegevens" />
+            <CardHeader title="Details" />
             <CardBody>
               <DetailList
                 items={[
                   vacancy.is_talent_pool
-                    ? { label: "Klant", value: TALENT_POOL_LABEL }
+                    ? { label: "Client", value: TALENT_POOL_LABEL }
                     : vacancy.client || !vacancy.company
-                      ? { label: "Klant", value: vacancy.client?.name }
+                      ? { label: "Client", value: vacancy.client?.name }
                       : { label: "Prospect", value: vacancy.company.name },
-                  { label: "Bron", value: sourceLabel(vacancy.source) },
+                  { label: "Source", value: sourceLabel(vacancy.source) },
                   { label: "Deal in OnePageCRM", value: vacancy.onepage_deal_id },
-                  { label: "Senioriteit", value: seniority.label },
-                  { label: "Budget per maand", value: formatCurrency(vacancy.monthly_budget, "Niet ingevuld") },
+                  { label: "Seniority", value: seniority.label },
+                  { label: "Monthly budget", value: formatCurrency(vacancy.monthly_budget, "Not filled in") },
                   {
-                    label: "Gewenste start",
-                    value: formatDate(vacancy.desired_start_date, "Niet ingevuld"),
+                    label: "Desired start",
+                    value: formatDate(vacancy.desired_start_date, "Not filled in"),
                   },
-                  { label: "Geopend op", value: formatDate(vacancy.opened_at) },
-                  ...(vacancy.closed_at ? [{ label: "Gesloten op", value: formatDate(vacancy.closed_at) }] : []),
+                  { label: "Opened on", value: formatDate(vacancy.opened_at) },
+                  ...(vacancy.closed_at ? [{ label: "Closed on", value: formatDate(vacancy.closed_at) }] : []),
                   {
-                    label: "Eigenaar",
+                    label: "Owner",
                     value: vacancy.owner ? vacancy.owner.full_name || vacancy.owner.email : null,
                   },
                 ]}
@@ -179,14 +179,14 @@ async function VacancyDetail({ params }: { params: Params }) {
                     ))}
                   </ul>
                 ) : (
-                  <p className="mt-1 text-sm text-muted">Nog geen stack ingevuld.</p>
+                  <p className="mt-1 text-sm text-muted">No stack filled in yet.</p>
                 )}
               </div>
             </CardBody>
           </Card>
 
           <Card>
-            <CardHeader title="Functieprofiel" />
+            <CardHeader title="Job profile" />
             <CardBody>
               {vacancy.description ? (
                 <p className="max-w-prose text-sm leading-relaxed whitespace-pre-line text-ink">
@@ -194,7 +194,7 @@ async function VacancyDetail({ params }: { params: Params }) {
                 </p>
               ) : (
                 <p className="text-sm text-muted">
-                  Nog geen functieprofiel. Vraag de klant om een functieomschrijving en zet die hier.
+                  No job profile yet. Ask the client for a job description and add it here.
                 </p>
               )}
             </CardBody>
@@ -224,7 +224,7 @@ async function LinkClient({ vacancyId }: { vacancyId: string }) {
 
 function DetailSkeleton() {
   return (
-    <div aria-busy="true" aria-label="Laden">
+    <div aria-busy="true" aria-label="Loading">
       <div className="mb-8 space-y-3">
         <Skeleton className="h-3 w-20" />
         <Skeleton className="h-8 w-72 max-w-full" />

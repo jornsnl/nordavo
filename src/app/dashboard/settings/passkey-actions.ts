@@ -30,12 +30,12 @@ function revalidateSecurityPages() {
 }
 
 const nameSchema = z
-  .string({ error: "Geef je passkey een naam" })
-  .min(1, { error: "Geef je passkey een naam" })
-  .max(80, { error: "Maximaal 80 tekens" });
+  .string({ error: "Name your passkey" })
+  .min(1, { error: "Name your passkey" })
+  .max(80, { error: "At most 80 characters" });
 
 const NOT_CONFIGURED =
-  "Passkeys werken pas als SUPABASE_SECRET_KEY op de server is ingesteld.";
+  "Passkeys only work once SUPABASE_SECRET_KEY is set on the server.";
 
 /** Step 1 of adding a passkey: options for the browser prompt. */
 export async function startPasskeyRegistration(
@@ -44,7 +44,7 @@ export async function startPasskeyRegistration(
   const user = await getCurrentUser();
   const parsed = nameSchema.safeParse(typeof name === "string" ? name.trim() : undefined);
   if (!parsed.success) {
-    return { error: "Controleer de naam.", fieldErrors: { name: parsed.error.issues[0].message } };
+    return { error: "Check the name.", fieldErrors: { name: parsed.error.issues[0].message } };
   }
   if (!hasAdminClient()) return { error: NOT_CONFIGURED };
 
@@ -108,12 +108,12 @@ export async function finishPasskeyRegistration(
   const parsedName = nameSchema.safeParse(typeof name === "string" ? name.trim() : undefined);
   const parsedResponse = registrationResponseSchema.safeParse(response);
   if (!parsedName.success || !parsedResponse.success) {
-    return { error: "De passkey is niet toegevoegd. Probeer het opnieuw." };
+    return { error: "The passkey was not added. Please try again." };
   }
 
   const challenge = await consumeChallenge("registration", user.id);
   if (!challenge) {
-    return { error: "Dit duurde te lang. Probeer het opnieuw." };
+    return { error: "This took too long. Please try again." };
   }
 
   let verification;
@@ -127,11 +127,11 @@ export async function finishPasskeyRegistration(
     });
   } catch (error) {
     console.error("finishPasskeyRegistration verify", error instanceof Error ? error.message : error);
-    return { error: "De passkey kon niet worden gecontroleerd. Probeer het opnieuw." };
+    return { error: "The passkey could not be verified. Please try again." };
   }
 
   if (!verification.verified) {
-    return { error: "De passkey kon niet worden gecontroleerd. Probeer het opnieuw." };
+    return { error: "The passkey could not be verified. Please try again." };
   }
 
   const { credential, credentialDeviceType, credentialBackedUp, aaguid } =
@@ -154,17 +154,17 @@ export async function finishPasskeyRegistration(
   if (error) {
     console.error("finishPasskeyRegistration insert", error);
     if (error.code === "23505") {
-      return { error: "Deze passkey is al toegevoegd." };
+      return { error: "This passkey has already been added." };
     }
     return { error: GENERIC_ERROR };
   }
 
   revalidateSecurityPages();
-  return { ok: true, message: `Passkey "${parsedName.data}" is toegevoegd.` };
+  return { ok: true, message: `Passkey "${parsedName.data}" added.` };
 }
 
 const renameSchema = z.object({
-  id: z.guid({ error: "Passkey niet gevonden" }),
+  id: z.guid({ error: "Passkey not found" }),
   name: nameSchema,
 });
 
@@ -175,7 +175,7 @@ export async function renamePasskey(
   const user = await getCurrentUser();
   const parsed = renameSchema.safeParse(formValues(formData));
   if (!parsed.success) {
-    return { error: "Controleer de naam.", fieldErrors: fieldErrorsFrom(parsed.error) };
+    return { error: "Check the name.", fieldErrors: fieldErrorsFrom(parsed.error) };
   }
 
   const supabase = await createClient();
@@ -193,13 +193,13 @@ export async function renamePasskey(
   }
 
   revalidateSecurityPages();
-  return { ok: true, message: "Opgeslagen." };
+  return { ok: true, message: "Saved." };
 }
 
 export async function removePasskey(id: string): Promise<ActionState> {
   const user = await getCurrentUser();
   const parsed = z.guid().safeParse(id);
-  if (!parsed.success) return { error: "Passkey niet gevonden." };
+  if (!parsed.success) return { error: "Passkey not found." };
 
   const supabase = await createClient();
   const { data, error } = await supabase
@@ -215,5 +215,5 @@ export async function removePasskey(id: string): Promise<ActionState> {
   }
 
   revalidateSecurityPages();
-  return { ok: true, message: "De passkey is ingetrokken." };
+  return { ok: true, message: "The passkey has been revoked." };
 }

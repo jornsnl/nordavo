@@ -26,7 +26,7 @@ import { clientStatuses, optionFor, placementStatuses, vacancyStatuses } from "@
 import { deleteClientAction, deleteContactAction, saveContactAction } from "../actions";
 
 export const metadata: Metadata = {
-  title: "Klant",
+  title: "Client",
 };
 
 type Params = Promise<{ id: string }>;
@@ -39,7 +39,7 @@ export default function Page({ params }: PageProps<"/dashboard/clients/[id]">) {
         className="mb-4 inline-flex items-center gap-1.5 text-sm font-medium text-muted hover:text-brand-700 active:text-brand-700 pointer-coarse:mb-2 pointer-coarse:min-h-11"
       >
         <ArrowLeft className="size-4" aria-hidden="true" />
-        Alle klanten
+        All clients
       </Link>
       <Suspense fallback={<DetailSkeleton />}>
         <ClientDetail params={params} />
@@ -65,17 +65,17 @@ async function ClientDetail({ params }: { params: Params }) {
   const primary = contacts[0];
   const quickActions: QuickAction[] = [];
   if (primary?.phone) {
-    quickActions.push({ label: "Bellen", href: telHref(primary.phone), icon: Phone, ariaLabel: `Bel ${primary.full_name}` });
+    quickActions.push({ label: "Call", href: telHref(primary.phone), icon: Phone, ariaLabel: `Call ${primary.full_name}` });
   }
   if (primary?.email) {
-    quickActions.push({ label: "Mailen", href: `mailto:${primary.email}`, icon: Mail, ariaLabel: `Mail ${primary.full_name}` });
+    quickActions.push({ label: "Email", href: `mailto:${primary.email}`, icon: Mail, ariaLabel: `Email ${primary.full_name}` });
   }
   if (websiteUrl) quickActions.push({ label: "Website", href: websiteUrl, icon: Globe, external: true });
 
   return (
     <>
       <PageHeader
-        eyebrow="Klant"
+        eyebrow="Client"
         title={
           <span className="flex flex-wrap items-center gap-3">
             {client.name}
@@ -87,23 +87,23 @@ async function ClientDetail({ params }: { params: Params }) {
           <>
             <ButtonLink href={`/dashboard/clients/${client.id}/edit`} variant="secondary">
               <Pencil aria-hidden="true" />
-              Bewerken
+              Edit
             </ButtonLink>
             <ConfirmDeleteButton
               action={deleteClientAction.bind(null, client.id)}
-              title="Klant verwijderen"
-              description={`Weet je zeker dat je ${client.name} wilt verwijderen? De contactpersonen, vacatures en pipelines van deze klant worden ook verwijderd. Dit kun je niet ongedaan maken.`}
+              title="Delete client"
+              description={`Are you sure you want to delete ${client.name}? The contacts, vacancies and pipelines of this client are deleted too. This cannot be undone.`}
             />
           </>
         }
       />
 
-      <QuickActions label={`Snel contact met ${client.name}`} actions={quickActions} />
+      <QuickActions label={`Quick contact with ${client.name}`} actions={quickActions} />
 
       <div className="grid grid-cols-1 gap-4 sm:gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
         <div className="min-w-0 space-y-4 sm:space-y-6">
           <Card>
-            <CardHeader title="Gegevens" />
+            <CardHeader title="Details" />
             <CardBody>
               <DetailList
                 items={[
@@ -118,24 +118,24 @@ async function ClientDetail({ params }: { params: Params }) {
                       >
                         {websiteUrl.replace(/^https?:\/\//, "").replace(/\/$/, "")}
                         <ExternalLink className="size-3.5" aria-hidden="true" />
-                        <span className="sr-only">(opent in een nieuw tabblad)</span>
+                        <span className="sr-only">(opens in a new tab)</span>
                       </a>
                     ) : (
                       client.website
                     ),
                   },
-                  { label: "Branche", value: client.industry },
-                  { label: "Plaats", value: client.city },
+                  { label: "Industry", value: client.industry },
+                  { label: "Location", value: client.city },
                   {
-                    label: "Eigenaar",
+                    label: "Owner",
                     value: client.owner ? client.owner.full_name || client.owner.email : null,
                   },
-                  { label: "Klant sinds", value: formatDate(client.created_at) },
+                  { label: "Client since", value: formatDate(client.created_at) },
                 ]}
               />
               {client.notes && (
                 <div className="mt-6 border-t border-border pt-4">
-                  <h3 className="text-xs font-medium tracking-wide text-muted uppercase">Notities</h3>
+                  <h3 className="text-xs font-medium tracking-wide text-muted uppercase">Notes</h3>
                   <p className="mt-1 text-sm whitespace-pre-line text-ink">{client.notes}</p>
                 </div>
               )}
@@ -165,18 +165,18 @@ function VacanciesCard({ clientId, vacancies }: { clientId: string; vacancies: C
   return (
     <Card>
       <CardHeader
-        title="Vacatures"
-        description="Alle functieprofielen van deze klant."
+        title="Vacancies"
+        description="All job profiles of this client."
         actions={
           <ButtonLink href={`/dashboard/vacancies/new?client=${clientId}`} variant="secondary" size="sm">
             <Plus aria-hidden="true" />
-            Nieuwe vacature
+            New vacancy
           </ButtonLink>
         }
       />
       {vacancies.length === 0 ? (
         <CardBody>
-          <p className="text-sm text-muted">Nog geen vacatures voor deze klant.</p>
+          <p className="text-sm text-muted">No vacancies for this client yet.</p>
         </CardBody>
       ) : (
         <ul className="divide-y divide-border">
@@ -195,7 +195,7 @@ function VacanciesCard({ clientId, vacancies }: { clientId: string; vacancies: C
                   >
                     {v.title}
                   </Link>
-                  <p className="text-xs text-muted">Geopend op {formatDate(v.openedAt)}</p>
+                  <p className="text-xs text-muted">Opened on {formatDate(v.openedAt)}</p>
                 </div>
                 <div className="flex shrink-0 items-center gap-3 text-sm">
                   <Badge tone={status.tone}>{status.label}</Badge>
@@ -213,10 +213,10 @@ function VacanciesCard({ clientId, vacancies }: { clientId: string; vacancies: C
 function PlacementsCard({ placements }: { placements: ClientPlacementItem[] }) {
   return (
     <Card>
-      <CardHeader title="Plaatsingen" description="Developers die via Nordavo bij deze klant werken." />
+      <CardHeader title="Placements" description="Developers working at this client through Nordavo." />
       {placements.length === 0 ? (
         <CardBody>
-          <p className="text-sm text-muted">Nog geen plaatsingen bij deze klant.</p>
+          <p className="text-sm text-muted">No placements at this client yet.</p>
         </CardBody>
       ) : (
         <ul className="divide-y divide-border">
@@ -250,7 +250,7 @@ function PlacementsCard({ placements }: { placements: ClientPlacementItem[] }) {
 
 function DetailSkeleton() {
   return (
-    <div aria-busy="true" aria-label="Laden">
+    <div aria-busy="true" aria-label="Loading">
       <div className="mb-8 space-y-3">
         <Skeleton className="h-3 w-20" />
         <Skeleton className="h-8 w-72 max-w-full" />

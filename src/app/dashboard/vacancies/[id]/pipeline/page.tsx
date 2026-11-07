@@ -51,7 +51,7 @@ async function Pipeline({
         className="mb-4 inline-flex items-center gap-1.5 rounded-lg text-sm font-medium text-muted hover:text-brand-700 focus-visible:outline-2 focus-visible:outline-brand-500"
       >
         <ArrowLeft className="size-4" aria-hidden="true" />
-        Terug naar vacature
+        Back to vacancy
       </Link>
       <PageHeader
         eyebrow={vacancy.client?.name ?? "Pipeline"}
@@ -64,14 +64,14 @@ async function Pipeline({
         description={
           vacancy.client ? (
             <>
-              Pipeline voor{" "}
+              Pipeline for{" "}
               <Link href={`/dashboard/clients/${vacancy.client.id}`} className="text-brand-700 hover:underline">
                 {vacancy.client.name}
               </Link>
-              . Sleep kaarten naar de volgende fase of gebruik Verplaats naar.
+              . Drag cards to the next stage or use Move to.
             </>
           ) : (
-            "Sleep kaarten naar de volgende fase of gebruik Verplaats naar."
+            "Drag cards to the next stage or use Move to."
           )
         }
       />
@@ -89,7 +89,7 @@ async function Pipeline({
 
 function BoardSkeleton() {
   return (
-    <div aria-busy="true" aria-label="Pipeline laden">
+    <div aria-busy="true" aria-label="Loading pipeline">
       <Skeleton className="mb-4 h-4 w-40" />
       <Skeleton className="mb-8 h-10 w-80 max-w-full" />
       <Skeleton className="mb-4 h-6 w-48" />

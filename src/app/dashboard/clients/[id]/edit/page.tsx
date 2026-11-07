@@ -9,13 +9,13 @@ import { getClient, listStaffOptions } from "@/lib/data/clients";
 import { updateClientAction } from "../../actions";
 
 export const metadata: Metadata = {
-  title: "Klant bewerken",
+  title: "Edit client",
 };
 
 export default function Page({ params }: PageProps<"/dashboard/clients/[id]/edit">) {
   return (
     <>
-      <PageHeader eyebrow="Klanten" title="Klant bewerken" />
+      <PageHeader eyebrow="Clients" title="Edit client" />
       <Card className="max-w-3xl">
         <CardBody className="py-6">
           <Suspense fallback={<ListSkeleton rows={4} />}>
@@ -38,7 +38,7 @@ async function EditClientForm({ params }: { params: Promise<{ id: string }> }) {
       defaults={client}
       staff={staff}
       cancelHref={`/dashboard/clients/${client.id}`}
-      submitLabel="Wijzigingen opslaan"
+      submitLabel="Save changes"
     />
   );
 }

@@ -13,7 +13,7 @@ import { isSuppressionReason, isSuppressionScope, listSuppressions, SUPPRESSION_
 import { suppressionReasons, suppressionScopes } from "@/lib/labels";
 
 export const metadata: Metadata = {
-  title: "Uitsluitingen",
+  title: "Suppressions",
 };
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
@@ -29,9 +29,9 @@ export default function Page({ searchParams }: { searchParams: SearchParams }) {
   return (
     <>
       <PageHeader
-        eyebrow="Beheer"
-        title="Uitsluitingen"
-        description="Wie hier staat, komt op geen enkele bel of maillijst voor de gekozen kanalen. Afmeldingen komen er automatisch bij."
+        eyebrow="Admin"
+        title="Suppressions"
+        description="Anyone listed here is left off every call and mailing list for the chosen channels. Unsubscribes are added automatically."
         actions={<AddSuppressionButton />}
       />
       <Suspense fallback={<Skeleton className="mb-6 h-11 w-full" />}>
@@ -51,7 +51,7 @@ async function Filters({ searchParams }: { searchParams: SearchParams }) {
       <div className="relative min-w-0 flex-1">
         <Search className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-muted" aria-hidden="true" />
         <label htmlFor="sup-q" className="sr-only">
-          Zoek op naam, bedrijf of mailadres
+          Search by name, company or email address
         </label>
         <Input
           id="sup-q"
@@ -60,17 +60,17 @@ async function Filters({ searchParams }: { searchParams: SearchParams }) {
           enterKeyHint="search"
           autoComplete="off"
           defaultValue={q}
-          placeholder="Zoek op naam, bedrijf of mailadres"
+          placeholder="Search by name, company or email address"
           className="pl-10"
         />
       </div>
-      <FilterSheet activeCount={[reason, scope].filter(Boolean).length} resetHref="/dashboard/suppressions" title="Uitsluitingen filteren">
+      <FilterSheet activeCount={[reason, scope].filter(Boolean).length} resetHref="/dashboard/suppressions" title="Filter suppressions">
         <div className="flex flex-col gap-3 md:flex-row md:items-center">
           <label htmlFor="sup-reden" className="sr-only max-md:not-sr-only max-md:text-sm max-md:font-medium max-md:text-ink">
-            Reden
+            Reason
           </label>
           <Select id="sup-reden" name="reden" defaultValue={reason ?? ""} className="md:w-44">
-            <option value="">Alle redenen</option>
+            <option value="">All reasons</option>
             {suppressionReasons.map((r) => (
               <option key={r.value} value={r.value}>
                 {r.label}
@@ -78,10 +78,10 @@ async function Filters({ searchParams }: { searchParams: SearchParams }) {
             ))}
           </Select>
           <label htmlFor="sup-kanalen" className="sr-only max-md:not-sr-only max-md:text-sm max-md:font-medium max-md:text-ink">
-            Kanalen
+            Channels
           </label>
           <Select id="sup-kanalen" name="kanalen" defaultValue={scope ?? ""} className="md:w-44">
-            <option value="">Alle kanalen</option>
+            <option value="">All channels</option>
             {suppressionScopes.map((s) => (
               <option key={s.value} value={s.value}>
                 {s.label}
@@ -89,7 +89,7 @@ async function Filters({ searchParams }: { searchParams: SearchParams }) {
             ))}
           </Select>
           <Button type="submit" variant="secondary" className="max-md:hidden">
-            Filteren
+            Filter
           </Button>
         </div>
       </FilterSheet>
@@ -105,7 +105,7 @@ async function Results({ searchParams }: { searchParams: SearchParams }) {
       <SuppressionTable items={items} filtered={Boolean(q || reason || scope)} />
       {total > SUPPRESSION_LIST_LIMIT && (
         <p className="mt-3 text-sm text-muted">
-          Je zoekt in de nieuwste {SUPPRESSION_LIST_LIMIT} van {total} uitsluitingen. Oudere uitsluitingen blijven gewoon gelden.
+          You are searching the newest {SUPPRESSION_LIST_LIMIT} of {total} suppressions. Older suppressions still apply.
         </p>
       )}
     </>

@@ -20,9 +20,9 @@ import {
 
 const profileSchema = z.object({
   full_name: z
-    .string({ error: "Vul je naam in" })
-    .min(2, { error: "Vul je naam in" })
-    .max(120, { error: "Maximaal 120 tekens" }),
+    .string({ error: "Enter your name" })
+    .min(2, { error: "Enter your name" })
+    .max(120, { error: "At most 120 characters" }),
 });
 
 export async function updateOwnProfile(
@@ -32,7 +32,7 @@ export async function updateOwnProfile(
   const user = await requireStaff();
   const parsed = profileSchema.safeParse(formValues(formData));
   if (!parsed.success) {
-    return { error: "Controleer je naam.", fieldErrors: fieldErrorsFrom(parsed.error) };
+    return { error: "Check your name.", fieldErrors: fieldErrorsFrom(parsed.error) };
   }
 
   const supabase = await createClient();
@@ -48,7 +48,7 @@ export async function updateOwnProfile(
   }
 
   revalidatePath("/dashboard", "layout");
-  return { ok: true, message: "Je naam is opgeslagen." };
+  return { ok: true, message: "Your name has been saved." };
 }
 
 export async function changePassword(
@@ -58,7 +58,7 @@ export async function changePassword(
   await requireStaff();
   const parsed = passwordSchema.safeParse(passwordValues(formData));
   if (!parsed.success) {
-    return { error: "Controleer je nieuwe wachtwoord.", fieldErrors: fieldErrorsFrom(parsed.error) };
+    return { error: "Check your new password.", fieldErrors: fieldErrorsFrom(parsed.error) };
   }
 
   const supabase = await createClient();
@@ -68,17 +68,17 @@ export async function changePassword(
     return { error: passwordErrorMessage(error.code) };
   }
 
-  return { ok: true, message: "Je wachtwoord is gewijzigd." };
+  return { ok: true, message: "Your password has been changed." };
 }
 
 const roleSchema = z
   .object({
-    user_id: z.guid({ error: "Gebruiker niet gevonden" }),
-    role: z.enum(["admin", "member", "client", "external"], { error: "Kies een rol" }),
-    client_id: z.guid({ error: "Kies een klant" }).optional(),
+    user_id: z.guid({ error: "User not found" }),
+    role: z.enum(["admin", "member", "client", "external"], { error: "Choose a role" }),
+    client_id: z.guid({ error: "Choose a client" }).optional(),
   })
   .refine((v) => v.role !== "client" || v.client_id, {
-    error: "Kies de klant waar dit account bij hoort",
+    error: "Choose the client this account belongs to",
     path: ["client_id"],
   });
 
@@ -89,7 +89,7 @@ export async function updateUserRole(
   await requireAdmin();
   const parsed = roleSchema.safeParse(formValues(formData));
   if (!parsed.success) {
-    return { error: "Controleer de rol.", fieldErrors: fieldErrorsFrom(parsed.error) };
+    return { error: "Check the role.", fieldErrors: fieldErrorsFrom(parsed.error) };
   }
 
   const supabase = await createClient();
@@ -106,21 +106,21 @@ export async function updateUserRole(
   }
 
   revalidatePath("/dashboard/settings");
-  return { ok: true, message: "Opgeslagen." };
+  return { ok: true, message: "Saved." };
 }
 
 const inviteSchema = z
   .object({
-    email: z.email({ error: "Vul een geldig e-mailadres in" }),
+    email: z.email({ error: "Enter a valid email address" }),
     full_name: z
-      .string({ error: "Vul een naam in" })
-      .min(2, { error: "Vul een naam in" })
-      .max(120, { error: "Maximaal 120 tekens" }),
-    role: z.enum(["admin", "member", "client", "external"], { error: "Kies een rol" }),
-    client_id: z.guid({ error: "Kies een klant" }).optional(),
+      .string({ error: "Enter a name" })
+      .min(2, { error: "Enter a name" })
+      .max(120, { error: "At most 120 characters" }),
+    role: z.enum(["admin", "member", "client", "external"], { error: "Choose a role" }),
+    client_id: z.guid({ error: "Choose a client" }).optional(),
   })
   .refine((v) => v.role !== "client" || v.client_id, {
-    error: "Kies de klant waar dit account bij hoort",
+    error: "Choose the client this account belongs to",
     path: ["client_id"],
   });
 
@@ -131,14 +131,14 @@ export async function inviteUser(
   await requireAdmin();
   const parsed = inviteSchema.safeParse(formValues(formData));
   if (!parsed.success) {
-    return { error: "Controleer de gemarkeerde velden.", fieldErrors: fieldErrorsFrom(parsed.error) };
+    return { error: "Check the highlighted fields.", fieldErrors: fieldErrorsFrom(parsed.error) };
   }
 
   const admin = createAdminClient();
   if (!admin) {
     return {
       error:
-        "Uitnodigen kan pas als SUPABASE_SECRET_KEY op de server is ingesteld. Nodig de gebruiker tot die tijd uit via het Supabase dashboard.",
+        "Invites only work once SUPABASE_SECRET_KEY is set on the server. Until then, invite the user from the Supabase dashboard.",
     };
   }
 
@@ -152,11 +152,11 @@ export async function inviteUser(
     console.error("inviteUser", error?.code, error?.message);
     if (error?.code === "email_exists" || error?.status === 422) {
       return {
-        error: "Er bestaat al een account met dit e-mailadres.",
-        fieldErrors: { email: "Dit e-mailadres heeft al een account" },
+        error: "An account with this email address already exists.",
+        fieldErrors: { email: "This email address already has an account" },
       };
     }
-    return { error: "De uitnodiging is niet verstuurd. Probeer het opnieuw." };
+    return { error: "The invite was not sent. Please try again." };
   }
 
   // The profile row is created by a trigger; set role and company with the admin client.
@@ -173,10 +173,10 @@ export async function inviteUser(
     console.error("inviteUser profile", profileError);
     revalidatePath("/dashboard/settings");
     return {
-      error: `De uitnodiging is verstuurd naar ${email}, maar de rol is niet opgeslagen. Pas de rol aan in de lijst hieronder.`,
+      error: `The invite was sent to ${email}, but the role was not saved. Change the role in the list below.`,
     };
   }
 
   revalidatePath("/dashboard/settings");
-  return { ok: true, message: `Uitnodiging verstuurd naar ${email}.` };
+  return { ok: true, message: `Invite sent to ${email}.` };
 }

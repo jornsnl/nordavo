@@ -54,7 +54,7 @@ export default function Page({ params }: PageProps<"/dashboard/leads/[id]">) {
         className="mb-4 inline-flex items-center gap-1.5 text-sm font-medium text-muted hover:text-brand-700 max-md:-mt-2 max-md:mb-2 max-md:min-h-11 max-md:active:text-brand-700"
       >
         <ArrowLeft className="size-4" aria-hidden="true" />
-        Alle leads
+        All leads
       </Link>
       <Suspense fallback={<DetailSkeleton />}>
         <LeadDetail params={params} />
@@ -82,9 +82,9 @@ async function LeadDetail({ params }: { params: Params }) {
     company.website && /^https?:\/\//i.test(company.website) ? company.website : `https://${company.domain}`;
   const contactOptions = contacts.map((c) => ({ id: c.id, name: c.title ? `${c.name}, ${c.title}` : c.name }));
   const crmBlockedReason = !hasOnePage()
-    ? "OnePageCRM is nog niet gekoppeld: ONEPAGE_USER_ID en ONEPAGE_API_KEY ontbreken op de server. Versturen lukt pas als die er zijn."
+    ? "OnePageCRM is not connected yet: ONEPAGE_USER_ID and ONEPAGE_API_KEY are missing on the server. Sending only works once they are set."
     : company.icp_decision !== "GO"
-      ? "Alleen contacten van een GO bedrijf gaan naar het CRM. Dit bedrijf is nog niet gekwalificeerd."
+      ? "Only contacts of a GO company go to the CRM. This company is not qualified yet."
       : null;
 
   return (
@@ -108,7 +108,7 @@ async function LeadDetail({ params }: { params: Params }) {
             >
               {company.domain}
               <ExternalLink className="size-3.5" aria-hidden="true" />
-              <span className="sr-only">(opent in een nieuw tabblad)</span>
+              <span className="sr-only">(opens in a new tab)</span>
             </a>
             <SegmentBadge segment={company.segment} />
           </span>
@@ -131,7 +131,7 @@ async function LeadDetail({ params }: { params: Params }) {
             />
             <ButtonLink href={`/dashboard/vacancies/new?company=${company.id}`}>
               <Briefcase aria-hidden="true" />
-              Vacature toevoegen
+              Add vacancy
             </ButtonLink>
           </>
         }
@@ -142,18 +142,18 @@ async function LeadDetail({ params }: { params: Params }) {
         <div className="min-w-0 space-y-6 max-lg:contents max-lg:space-y-0">
           <Card>
             <CardHeader
-              title="ICP oordeel"
+              title="ICP verdict"
               description={
                 company.qualified_at
-                  ? `Beoordeeld op ${formatDate(company.qualified_at)}${
-                      company.reviewer ? ` door ${company.reviewer.full_name || company.reviewer.email}` : " door Claude"
+                  ? `Assessed on ${formatDate(company.qualified_at)}${
+                      company.reviewer ? ` by ${company.reviewer.full_name || company.reviewer.email}` : " by Claude"
                     }`
-                  : "Nog niet beoordeeld."
+                  : "Not assessed yet."
               }
               actions={
                 company.icp_decision === "REVIEW" ? (
                   <ButtonLink href={`/dashboard/leads/review?id=${company.id}`} size="sm">
-                    Beoordelen
+                    Review
                   </ButtonLink>
                 ) : undefined
               }
@@ -162,16 +162,16 @@ async function LeadDetail({ params }: { params: Params }) {
               {company.client_contact_risk && (
                 <p className="flex items-start gap-2 rounded-xl border border-danger/20 bg-danger-bg px-4 py-3 text-sm text-danger">
                   <ShieldAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-                  Risico op klantcontact: de developer zou direct met klanten van de klant werken. Daarom altijd No go.
+                  Client contact risk: the developer would work directly with the client&rsquo;s own customers. That is always a No go.
                 </p>
               )}
               <div>
-                <h3 className="text-xs font-medium tracking-wide text-muted uppercase">Reden</h3>
-                <p className="mt-1 text-sm whitespace-pre-line text-ink">{company.icp_reason || "Geen reden vastgelegd."}</p>
+                <h3 className="text-xs font-medium tracking-wide text-muted uppercase">Reason</h3>
+                <p className="mt-1 text-sm whitespace-pre-line text-ink">{company.icp_reason || "No reason recorded."}</p>
               </div>
               {company.red_flags.length > 0 && (
                 <div>
-                  <h3 className="text-xs font-medium tracking-wide text-muted uppercase">Rode vlaggen</h3>
+                  <h3 className="text-xs font-medium tracking-wide text-muted uppercase">Red flags</h3>
                   <ul className="mt-2 flex flex-wrap gap-2">
                     {company.red_flags.map((flag) => (
                       <li key={flag}>
@@ -186,18 +186,18 @@ async function LeadDetail({ params }: { params: Params }) {
               )}
               {company.opening_line && (
                 <div>
-                  <h3 className="text-xs font-medium tracking-wide text-muted uppercase">Openingszin</h3>
+                  <h3 className="text-xs font-medium tracking-wide text-muted uppercase">Opening line</h3>
                   <p className="mt-1 text-sm text-ink italic">{company.opening_line}</p>
                 </div>
               )}
               <div className="border-t border-border pt-4">
                 <DetailList
                   items={[
-                    { label: "Rechtsvorm", value: company.legal_form },
-                    { label: "Medewerkers", value: company.employees },
+                    { label: "Legal form", value: company.legal_form },
+                    { label: "Employees", value: company.employees },
                     { label: "Sector", value: company.sector },
-                    { label: "Plaats", value: company.city },
-                    { label: "KvK-nummer", value: company.kvk_number },
+                    { label: "Location", value: company.city },
+                    { label: "KvK number", value: company.kvk_number },
                     {
                       label: "LinkedIn",
                       value: company.linkedin_url ? (
@@ -207,16 +207,16 @@ async function LeadDetail({ params }: { params: Params }) {
                           rel="noopener noreferrer"
                           className="break-all text-brand-700 hover:underline"
                         >
-                          Bedrijfspagina
-                          <span className="sr-only">(opent in een nieuw tabblad)</span>
+                          Company page
+                          <span className="sr-only">(opens in a new tab)</span>
                         </a>
                       ) : null,
                     },
                     {
-                      label: "Bronnen",
+                      label: "Sources",
                       value: company.sources.length > 0 ? company.sources.join(", ") : company.source,
                     },
-                    { label: "In het systeem sinds", value: formatDate(company.created_at) },
+                    { label: "In the system since", value: formatDate(company.created_at) },
                   ]}
                 />
               </div>
@@ -249,13 +249,13 @@ async function LeadDetail({ params }: { params: Params }) {
 
           <Card className="max-lg:order-4">
             <CardHeader
-              title="Klant"
-              description={company.client ? undefined : "Is dit bedrijf klant geworden? Koppel het aan een klantrecord."}
+              title="Client"
+              description={company.client ? undefined : "Has this company become a client? Link it to a client record."}
             />
             <CardBody>
               {company.client ? (
                 <p className="text-sm">
-                  Gekoppeld aan{" "}
+                  Linked to{" "}
                   <Link href={`/dashboard/clients/${company.client.id}`} className="font-medium text-brand-700 hover:underline">
                     {company.client.name}
                   </Link>
@@ -293,10 +293,10 @@ async function LeadDetail({ params }: { params: Params }) {
 function SignalsCard({ signals }: { signals: SignalItem[] }) {
   return (
     <Card>
-      <CardHeader title="Signalen" description="Vacatures en andere koopsignalen, nieuwste eerst." />
+      <CardHeader title="Signals" description="Vacancies and other buying signals, newest first." />
       {signals.length === 0 ? (
         <CardBody>
-          <p className="text-sm text-muted">Nog geen signalen bij dit bedrijf.</p>
+          <p className="text-sm text-muted">No signals for this company yet.</p>
         </CardBody>
       ) : (
         <ol className="divide-y divide-border">
@@ -314,19 +314,19 @@ function SignalsCard({ signals }: { signals: SignalItem[] }) {
                     rel="noopener noreferrer"
                     className="inline-flex items-center gap-1 text-sm font-medium text-brand-700 hover:underline"
                   >
-                    {s.title || "Bekijk bron"}
+                    {s.title || "View source"}
                     <ExternalLink className="size-3.5 shrink-0" aria-hidden="true" />
-                    <span className="sr-only">(opent in een nieuw tabblad)</span>
+                    <span className="sr-only">(opens in a new tab)</span>
                   </a>
                 ) : (
-                  <p className="text-sm font-medium">{s.title || "Zonder titel"}</p>
+                  <p className="text-sm font-medium">{s.title || "Untitled"}</p>
                 )}
               </div>
               <p className="shrink-0 text-xs text-muted">
-                Eerst gezien {formatDate(s.firstSeenAt)}
+                First seen {formatDate(s.firstSeenAt)}
                 <br className="hidden sm:block" />
                 <span className="sm:hidden">, </span>
-                laatst {formatDate(s.lastSeenAt)}
+                last seen {formatDate(s.lastSeenAt)}
               </p>
             </li>
           ))}
@@ -339,10 +339,10 @@ function SignalsCard({ signals }: { signals: SignalItem[] }) {
 function ActivitiesCard({ activities, actions }: { activities: GtmActivityItem[]; actions: ReactNode }) {
   return (
     <Card>
-      <CardHeader title="Activiteiten" description="Alle contactmomenten, over alle kanalen." actions={actions} />
+      <CardHeader title="Activities" description="All touchpoints, across all channels." actions={actions} />
       {activities.length === 0 ? (
         <CardBody>
-          <p className="text-sm text-muted">Nog niemand van dit bedrijf benaderd.</p>
+          <p className="text-sm text-muted">Nobody at this company has been approached yet.</p>
         </CardBody>
       ) : (
         <ol className="divide-y divide-border">
@@ -356,16 +356,16 @@ function ActivitiesCard({ activities, actions }: { activities: GtmActivityItem[]
                   {a.contactName && <span className="font-medium text-ink">{a.contactName}</span>}
                   <span className="text-xs text-muted">{formatDateTime(a.date)}</span>
                 </div>
-                {a.campaignName && <p className="text-xs text-muted">Campagne: {a.campaignName}</p>}
+                {a.campaignName && <p className="text-xs text-muted">Campaign: {a.campaignName}</p>}
                 {a.notes && <p className="text-sm whitespace-pre-line text-ink">{a.notes}</p>}
                 {a.nextAction && (
                   <p className="text-sm text-muted">
-                    <span className="font-medium text-ink">Volgende actie:</span> {a.nextAction}
-                    {a.nextActionDate ? ` op ${formatDate(a.nextActionDate)}` : ""}
+                    <span className="font-medium text-ink">Next action:</span> {a.nextAction}
+                    {a.nextActionDate ? ` on ${formatDate(a.nextActionDate)}` : ""}
                   </p>
                 )}
                 <p className="text-xs text-muted">
-                  {a.source === "handmatig" ? `Handmatig${a.createdByName ? ` door ${a.createdByName}` : ""}` : `Via ${a.source}`}
+                  {a.source === "handmatig" ? `Manual${a.createdByName ? ` by ${a.createdByName}` : ""}` : `Via ${a.source}`}
                 </p>
               </li>
             );
@@ -387,15 +387,15 @@ function SuppressionCard({
 }) {
   const nameFor = (s: SuppressionItem) => {
     if (s.contactId) return contacts.find((c) => c.id === s.contactId)?.name ?? "Contact";
-    if (s.companyId) return "Hele bedrijf";
-    return s.email ?? "Mailadres";
+    if (s.companyId) return "Whole company";
+    return s.email ?? "Email address";
   };
   return (
     <Card>
-      <CardHeader title="Uitsluitingen" actions={actions} />
+      <CardHeader title="Suppressions" actions={actions} />
       {suppressions.length === 0 ? (
         <CardBody>
-          <p className="text-sm text-muted">Niemand van dit bedrijf is uitgesloten.</p>
+          <p className="text-sm text-muted">Nobody at this company is suppressed.</p>
         </CardBody>
       ) : (
         <ul className="divide-y divide-border">
@@ -410,7 +410,7 @@ function SuppressionCard({
                   <Badge tone={scope.tone}>{scope.label}</Badge>
                 </div>
                 {s.notes && <p className="text-muted">{s.notes}</p>}
-                <p className="text-xs text-muted">Sinds {formatDate(s.createdAt)}</p>
+                <p className="text-xs text-muted">Since {formatDate(s.createdAt)}</p>
               </li>
             );
           })}
@@ -418,7 +418,7 @@ function SuppressionCard({
       )}
       <CardBody className="border-t border-border">
         <Link href="/dashboard/suppressions" className="text-sm font-medium text-brand-700 hover:underline">
-          Alle uitsluitingen
+          All suppressions
         </Link>
       </CardBody>
     </Card>
@@ -427,7 +427,7 @@ function SuppressionCard({
 
 function DetailSkeleton() {
   return (
-    <div aria-busy="true" aria-label="Laden">
+    <div aria-busy="true" aria-label="Loading">
       <div className="mb-8 space-y-3">
         <Skeleton className="h-3 w-20" />
         <Skeleton className="h-8 w-72 max-w-full" />

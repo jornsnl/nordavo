@@ -21,31 +21,31 @@ const statusValues = candidateStatuses.map((s) => s.value) as [CandidateStatus, 
 
 const httpUrl = (label: string) =>
   z
-    .url({ protocol: /^https?$/, error: `Vul een geldige ${label} in, beginnend met https://` })
-    .max(500, { error: "Deze link is te lang." })
+    .url({ protocol: /^https?$/, error: `Enter a valid ${label}, starting with https://` })
+    .max(500, { error: "This link is too long." })
     .optional();
 
 const candidateSchema = z.object({
   full_name: z
-    .string({ error: "Vul de naam in." })
-    .min(2, { error: "Vul de naam in." })
-    .max(200, { error: "Deze naam is te lang." }),
-  email: z.email({ error: "Vul een geldig e-mailadres in." }).optional(),
-  phone: z.string().max(50, { error: "Dit telefoonnummer is te lang." }).optional(),
-  location: z.string().max(120, { error: "Deze locatie is te lang." }).optional(),
-  current_title: z.string().max(200, { error: "Deze functietitel is te lang." }).optional(),
+    .string({ error: "Enter the name." })
+    .min(2, { error: "Enter the name." })
+    .max(200, { error: "This name is too long." }),
+  email: z.email({ error: "Enter a valid email address." }).optional(),
+  phone: z.string().max(50, { error: "This phone number is too long." }).optional(),
+  location: z.string().max(120, { error: "This location is too long." }).optional(),
+  current_title: z.string().max(200, { error: "This job title is too long." }).optional(),
   years_experience: z.coerce
-    .number({ error: "Vul een heel getal in." })
-    .int({ error: "Vul een heel getal in." })
-    .min(0, { error: "Ervaring kan niet negatief zijn." })
-    .max(60, { error: "Dat is wel erg veel ervaring." })
+    .number({ error: "Enter a whole number." })
+    .int({ error: "Enter a whole number." })
+    .min(0, { error: "Experience cannot be negative." })
+    .max(60, { error: "That is a lot of experience." })
     .optional(),
-  skills: z.string().max(2000, { error: "Te veel skills." }).optional(),
+  skills: z.string().max(2000, { error: "Too many skills." }).optional(),
   linkedin_url: httpUrl("LinkedIn link"),
   video_url: httpUrl("video link"),
-  summary: z.string().max(5000, { error: "De samenvatting is te lang." }).optional(),
-  status: z.enum(statusValues, { error: "Kies een status." }).default("available"),
-  owner_id: z.string().refine(isUuid, { error: "Kies een teamlid." }).optional(),
+  summary: z.string().max(5000, { error: "The summary is too long." }).optional(),
+  status: z.enum(statusValues, { error: "Choose a status." }).default("available"),
+  owner_id: z.string().refine(isUuid, { error: "Choose a team member." }).optional(),
   // Matching fields (T2 and the anonymous profile).
   seniority: z.enum(["junior", "medior", "senior", "lead"], { error: "Choose a seniority." }).optional(),
   english_level: z.string().max(100, { error: "This English level is too long." }).optional(),
@@ -81,9 +81,9 @@ function cvFrom(formData: FormData): { file?: File; error?: string } {
   const name = value.name.toLowerCase();
   const extensionOk = CV_EXTENSIONS.some((ext) => name.endsWith(ext));
   const typeOk = !value.type || CV_MIME_TYPES.includes(value.type);
-  if (!extensionOk || !typeOk) return { error: "Upload een cv als PDF, DOC of DOCX." };
+  if (!extensionOk || !typeOk) return { error: "Upload a CV as PDF, DOC or DOCX." };
   if (value.size > MAX_UPLOAD_BYTES) {
-    return { error: `Het cv is te groot. Maximaal ${Math.round(MAX_UPLOAD_BYTES / 1024 / 1024)} MB.` };
+    return { error: `The CV is too large. At most ${Math.round(MAX_UPLOAD_BYTES / 1024 / 1024)} MB.` };
   }
   return { file: value };
 }
@@ -118,8 +118,8 @@ async function insertApplication(supabase: Supabase, vacancyId: string, candidat
     .from("applications")
     .insert({ vacancy_id: vacancyId, candidate_id: candidateId, stage: "sourced", position });
   if (!error) return null;
-  if (error.code === "23505") return "Deze kandidaat staat al in de pipeline van deze vacature.";
-  if (error.code === "23503") return "Deze vacature of kandidaat bestaat niet meer.";
+  if (error.code === "23505") return "This candidate is already in the pipeline of this vacancy.";
+  if (error.code === "23503") return "This vacancy or candidate no longer exists.";
   return GENERIC_ERROR;
 }
 
@@ -129,7 +129,7 @@ export async function saveCandidate(_prev: ActionState, formData: FormData): Pro
 
   const id = formData.get("id");
   const candidateId = typeof id === "string" && id ? id : null;
-  if (candidateId && !isUuid(candidateId)) return { error: "Kandidaat niet gevonden." };
+  if (candidateId && !isUuid(candidateId)) return { error: "Candidate not found." };
 
   const values = formValues(formData);
   const parsed = candidateSchema.safeParse(values);
@@ -137,7 +137,7 @@ export async function saveCandidate(_prev: ActionState, formData: FormData): Pro
 
   if (!parsed.success || cv.error) {
     return {
-      error: "Controleer de gemarkeerde velden.",
+      error: "Check the highlighted fields.",
       fieldErrors: {
         ...(parsed.success ? {} : fieldErrorsFrom(parsed.error)),
         ...(cv.error ? { cv: cv.error } : {}),
@@ -201,7 +201,7 @@ export async function saveCandidate(_prev: ActionState, formData: FormData): Pro
     }
 
     revalidatePath("/dashboard/candidates");
-    if (cvFailed) redirect(`/dashboard/candidates/${data.id}/edit?cv=mislukt`);
+    if (cvFailed) redirect(`/dashboard/candidates/${data.id}/edit?cv=failed`);
     if (linkedVacancy) {
       revalidatePath(`/dashboard/vacancies/${linkedVacancy}/pipeline`);
       redirect(`/dashboard/vacancies/${linkedVacancy}/pipeline`);
@@ -215,7 +215,7 @@ export async function saveCandidate(_prev: ActionState, formData: FormData): Pro
     .eq("id", candidateId)
     .maybeSingle();
   if (loadError) return { error: GENERIC_ERROR };
-  if (!existing) return { error: "Kandidaat niet gevonden." };
+  if (!existing) return { error: "Candidate not found." };
 
   let cvPath = existing.cv_path;
   let removeOld: string | null = null;
@@ -223,7 +223,7 @@ export async function saveCandidate(_prev: ActionState, formData: FormData): Pro
   if (cv.file) {
     const path = await uploadCv(supabase, candidateId, cv.file);
     if (!path) {
-      return { error: "Het cv uploaden is mislukt. Probeer het opnieuw.", fieldErrors: { cv: "Upload mislukt." } };
+      return { error: "The CV upload failed. Please try again.", fieldErrors: { cv: "Upload failed." } };
     }
     removeOld = existing.cv_path;
     cvPath = path;
@@ -252,7 +252,7 @@ export async function saveCandidate(_prev: ActionState, formData: FormData): Pro
 
 export async function deleteCandidate(candidateId: string): Promise<ActionState> {
   await requireStaff();
-  if (!isUuid(candidateId)) return { error: "Kandidaat niet gevonden." };
+  if (!isUuid(candidateId)) return { error: "Candidate not found." };
 
   const supabase = await createClient();
   const { data: existing } = await supabase
@@ -264,7 +264,7 @@ export async function deleteCandidate(candidateId: string): Promise<ActionState>
   const { error } = await supabase.from("candidates").delete().eq("id", candidateId);
   if (error) {
     if (error.code === "23503") {
-      return { error: "Deze kandidaat heeft een plaatsing en kan niet worden verwijderd." };
+      return { error: "This candidate has a placement and cannot be deleted." };
     }
     return { error: GENERIC_ERROR };
   }
@@ -276,8 +276,8 @@ export async function deleteCandidate(candidateId: string): Promise<ActionState>
 }
 
 const linkSchema = z.object({
-  candidate_id: z.string({ error: "Kies een kandidaat." }).refine(isUuid, { error: "Kies een kandidaat." }),
-  vacancy_id: z.string({ error: "Kies een vacature." }).refine(isUuid, { error: "Kies een vacature." }),
+  candidate_id: z.string({ error: "Choose a candidate." }).refine(isUuid, { error: "Choose a candidate." }),
+  vacancy_id: z.string({ error: "Choose a vacancy." }).refine(isUuid, { error: "Choose a vacancy." }),
 });
 
 /** Add a candidate to the pipeline of a vacancy, in stage "sourced". */
@@ -289,7 +289,7 @@ export async function linkCandidateToVacancy(
 
   const parsed = linkSchema.safeParse(formValues(formData));
   if (!parsed.success) {
-    return { error: "Kies een vacature.", fieldErrors: fieldErrorsFrom(parsed.error) };
+    return { error: "Choose a vacancy.", fieldErrors: fieldErrorsFrom(parsed.error) };
   }
 
   const { candidate_id, vacancy_id } = parsed.data;
@@ -300,5 +300,5 @@ export async function linkCandidateToVacancy(
   revalidatePath(`/dashboard/candidates/${candidate_id}`);
   revalidatePath(`/dashboard/vacancies/${vacancy_id}/pipeline`);
   revalidatePath("/dashboard/candidates");
-  return { ok: true, message: "Kandidaat toegevoegd aan de pipeline." };
+  return { ok: true, message: "Candidate added to the pipeline." };
 }

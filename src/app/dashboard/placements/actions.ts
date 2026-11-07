@@ -16,28 +16,30 @@ import { addDays, addMonths } from "@/components/placements/dates";
 
 const id = z.guid();
 
+const CHECKIN_TASK_TITLE = "Client check-in";
+
 const date = (message: string) => z.iso.date({ error: message });
 
 const money = z
   .string()
-  .regex(/^\d{1,8}([.,]\d{1,2})?$/, { error: "Vul een bedrag in, bijvoorbeeld 4500" })
+  .regex(/^\d{1,8}([.,]\d{1,2})?$/, { error: "Enter an amount, for example 4500" })
   .transform((value) => Number(value.replace(",", ".")))
   .optional();
 
 const placementSchema = z
   .object({
-    client_id: z.guid({ error: "Kies een klant" }),
-    candidate_id: z.guid({ error: "Kies een kandidaat" }),
-    vacancy_id: z.guid({ error: "Kies een geldige vacature" }).optional(),
+    client_id: z.guid({ error: "Choose a client" }),
+    candidate_id: z.guid({ error: "Choose a candidate" }),
+    vacancy_id: z.guid({ error: "Choose a valid vacancy" }).optional(),
     application_id: z.guid().optional(),
-    start_date: date("Vul een startdatum in"),
+    start_date: date("Enter a start date"),
     monthly_rate: money,
-    next_checkin_at: date("Vul een geldige datum in").optional(),
-    end_date: date("Vul een geldige datum in").optional(),
-    notes: z.string().max(5000, { error: "Maximaal 5000 tekens" }).optional(),
+    next_checkin_at: date("Enter a valid date").optional(),
+    end_date: date("Enter a valid date").optional(),
+    notes: z.string().max(5000, { error: "At most 5000 characters" }).optional(),
   })
   .refine((v) => !v.end_date || v.end_date >= v.start_date, {
-    error: "De einddatum ligt voor de startdatum",
+    error: "The end date is before the start date",
     path: ["end_date"],
   });
 
@@ -58,7 +60,7 @@ export async function createPlacement(
   const user = await requireStaff();
   const parsed = placementSchema.safeParse(formValues(formData));
   if (!parsed.success) {
-    return { error: "Controleer de gemarkeerde velden.", fieldErrors: fieldErrorsFrom(parsed.error) };
+    return { error: "Check the highlighted fields.", fieldErrors: fieldErrorsFrom(parsed.error) };
   }
 
   const input = parsed.data;
@@ -77,7 +79,7 @@ export async function createPlacement(
       .eq("id", applicationId)
       .maybeSingle();
     if (!application?.vacancy) {
-      return { error: "Deze sollicitatie bestaat niet meer. Kies klant en kandidaat zelf." };
+      return { error: "This application no longer exists. Choose the client and candidate yourself." };
     }
     const { data: existing } = await supabase
       .from("placements")
@@ -86,12 +88,12 @@ export async function createPlacement(
       .limit(1)
       .maybeSingle();
     if (existing) {
-      return { error: "Voor deze sollicitatie bestaat al een plaatsing." };
+      return { error: "A placement already exists for this application." };
     }
     candidateId = application.candidate_id;
     vacancyId = application.vacancy.id;
     if (!application.vacancy.client_id) {
-      return { error: "Koppel deze vacature eerst aan een klant voordat je een plaatsing vastlegt." };
+      return { error: "Link this vacancy to a client before you record a placement." };
     }
     clientId = application.vacancy.client_id;
   } else if (vacancyId) {
@@ -102,8 +104,8 @@ export async function createPlacement(
       .maybeSingle();
     if (!vacancy || vacancy.client_id !== clientId) {
       return {
-        error: "Controleer de gemarkeerde velden.",
-        fieldErrors: { vacancy_id: "Deze vacature hoort niet bij de gekozen klant" },
+        error: "Check the highlighted fields.",
+        fieldErrors: { vacancy_id: "This vacancy does not belong to the chosen client" },
       };
     }
     // Link the pipeline entry if the candidate was already in this vacancy.
@@ -151,8 +153,8 @@ export async function createPlacement(
       : null,
     supabase.from("tasks").insert([
       {
-        title: "Check-in met klant",
-        description: "Hoe gaat het met de developer? Vraag door op samenwerking, tempo en communicatie.",
+        title: CHECKIN_TASK_TITLE,
+        description: "How is the developer doing? Ask about collaboration, pace and communication.",
         due_date: nextCheckin,
         // Bulk inserts send NULL for keys missing in a row, so every row
         // lists the same columns.
@@ -162,9 +164,9 @@ export async function createPlacement(
         entity_id: placement.id,
       },
       {
-        title: "Evaluatie einde garantieperiode",
+        title: "Guarantee period review",
         description:
-          "De garantieperiode van 30 dagen loopt af. Bespreek met de klant of alles naar wens is.",
+          "The 30-day guarantee period is ending. Check with the client that everything is as expected.",
         due_date: addDays(guaranteeUntil, -5),
         priority: "high",
         assignee_id: user.id,
@@ -185,7 +187,7 @@ export async function createPlacement(
   revalidateAll(placement.id);
   revalidatePath("/dashboard/vacancies");
   revalidatePath("/dashboard/candidates");
-  redirect(`/dashboard/placements/${placement.id}${failed ? "?melding=deels" : ""}`);
+  redirect(`/dashboard/placements/${placement.id}${failed ? "?notice=partial" : ""}`);
 }
 
 export async function updatePlacement(
@@ -194,11 +196,11 @@ export async function updatePlacement(
   formData: FormData,
 ): Promise<ActionState> {
   await requireStaff();
-  if (!id.safeParse(placementId).success) return { error: "Plaatsing niet gevonden." };
+  if (!id.safeParse(placementId).success) return { error: "Placement not found." };
 
   const parsed = placementSchema.safeParse(formValues(formData));
   if (!parsed.success) {
-    return { error: "Controleer de gemarkeerde velden.", fieldErrors: fieldErrorsFrom(parsed.error) };
+    return { error: "Check the highlighted fields.", fieldErrors: fieldErrorsFrom(parsed.error) };
   }
   const input = parsed.data;
   const supabase = await createClient();
@@ -208,7 +210,7 @@ export async function updatePlacement(
     .select("id, application_id, client_id, candidate_id, vacancy_id")
     .eq("id", placementId)
     .maybeSingle();
-  if (!current) return { error: "Plaatsing niet gevonden." };
+  if (!current) return { error: "Placement not found." };
 
   // Placements from the pipeline keep their client, candidate and vacancy.
   const locked = Boolean(current.application_id);
@@ -223,8 +225,8 @@ export async function updatePlacement(
       .maybeSingle();
     if (!vacancy || vacancy.client_id !== clientId) {
       return {
-        error: "Controleer de gemarkeerde velden.",
-        fieldErrors: { vacancy_id: "Deze vacature hoort niet bij de gekozen klant" },
+        error: "Check the highlighted fields.",
+        fieldErrors: { vacancy_id: "This vacancy does not belong to the chosen client" },
       };
     }
   }
@@ -255,14 +257,14 @@ export async function updatePlacement(
 export type CheckinState = ActionState & { suggestedNext?: string };
 
 const checkinSchema = z.object({
-  checkin_date: date("Vul een datum in"),
+  checkin_date: date("Enter a date"),
   rating: z.coerce
-    .number({ error: "Kies een score van 1 tot 5" })
+    .number({ error: "Choose a score from 1 to 5" })
     .int()
-    .min(1, { error: "Kies een score van 1 tot 5" })
-    .max(5, { error: "Kies een score van 1 tot 5" })
+    .min(1, { error: "Choose a score from 1 to 5" })
+    .max(5, { error: "Choose a score from 1 to 5" })
     .optional(),
-  notes: z.string().max(5000, { error: "Maximaal 5000 tekens" }).optional(),
+  notes: z.string().max(5000, { error: "At most 5000 characters" }).optional(),
 });
 
 export async function addCheckin(
@@ -271,16 +273,16 @@ export async function addCheckin(
   formData: FormData,
 ): Promise<CheckinState> {
   await requireStaff();
-  if (!id.safeParse(placementId).success) return { error: "Plaatsing niet gevonden." };
+  if (!id.safeParse(placementId).success) return { error: "Placement not found." };
 
   const parsed = checkinSchema.safeParse(formValues(formData));
   if (!parsed.success) {
-    return { error: "Controleer de gemarkeerde velden.", fieldErrors: fieldErrorsFrom(parsed.error) };
+    return { error: "Check the highlighted fields.", fieldErrors: fieldErrorsFrom(parsed.error) };
   }
   if (!parsed.data.rating && !parsed.data.notes) {
     return {
-      error: "Geef een score of schrijf een korte notitie.",
-      fieldErrors: { notes: "Vul een score of notitie in" },
+      error: "Give a score or write a short note.",
+      fieldErrors: { notes: "Enter a score or a note" },
     };
   }
 
@@ -303,20 +305,21 @@ export async function addCheckin(
     .update({ status: "done" })
     .eq("entity_type", "placement")
     .eq("entity_id", placementId)
-    .eq("title", "Check-in met klant")
+    // Tasks created before the English UI carry the Dutch title.
+    .in("title", [CHECKIN_TASK_TITLE, "Check-in met klant"])
     .neq("status", "done")
     .lte("due_date", addDays(parsed.data.checkin_date, 7));
 
   revalidateAll(placementId);
   return {
     ok: true,
-    message: "Check-in opgeslagen.",
+    message: "Check-in saved.",
     suggestedNext: addMonths(parsed.data.checkin_date, 1),
   };
 }
 
 const nextCheckinSchema = z.object({
-  next_checkin_at: date("Vul een datum in"),
+  next_checkin_at: date("Enter a date"),
   create_task: z.literal("on").optional(),
 });
 
@@ -326,11 +329,11 @@ export async function setNextCheckin(
   formData: FormData,
 ): Promise<ActionState> {
   const user = await requireStaff();
-  if (!id.safeParse(placementId).success) return { error: "Plaatsing niet gevonden." };
+  if (!id.safeParse(placementId).success) return { error: "Placement not found." };
 
   const parsed = nextCheckinSchema.safeParse(formValues(formData));
   if (!parsed.success) {
-    return { error: "Controleer de datum.", fieldErrors: fieldErrorsFrom(parsed.error) };
+    return { error: "Check the date.", fieldErrors: fieldErrorsFrom(parsed.error) };
   }
 
   const supabase = await createClient();
@@ -346,7 +349,7 @@ export async function setNextCheckin(
 
   if (parsed.data.create_task) {
     await supabase.from("tasks").insert({
-      title: "Check-in met klant",
+      title: CHECKIN_TASK_TITLE,
       due_date: parsed.data.next_checkin_at,
       assignee_id: user.id,
       entity_type: "placement",
@@ -355,16 +358,16 @@ export async function setNextCheckin(
   }
 
   revalidateAll(placementId);
-  return { ok: true, message: "Volgende check-in gepland." };
+  return { ok: true, message: "Next check-in scheduled." };
 }
 
 const noticeSchema = z
   .object({
-    notice_given_at: date("Vul de datum van opzegging in"),
-    end_date: date("Vul de laatste werkdag in"),
+    notice_given_at: date("Enter the date notice was given"),
+    end_date: date("Enter the last working day"),
   })
   .refine((v) => v.end_date >= v.notice_given_at, {
-    error: "De einddatum ligt voor de opzegdatum",
+    error: "The end date is before the notice date",
     path: ["end_date"],
   });
 
@@ -374,11 +377,11 @@ export async function givePlacementNotice(
   formData: FormData,
 ): Promise<ActionState> {
   await requireStaff();
-  if (!id.safeParse(placementId).success) return { error: "Plaatsing niet gevonden." };
+  if (!id.safeParse(placementId).success) return { error: "Placement not found." };
 
   const parsed = noticeSchema.safeParse(formValues(formData));
   if (!parsed.success) {
-    return { error: "Controleer de gemarkeerde velden.", fieldErrors: fieldErrorsFrom(parsed.error) };
+    return { error: "Check the highlighted fields.", fieldErrors: fieldErrorsFrom(parsed.error) };
   }
 
   const supabase = await createClient();
@@ -397,13 +400,13 @@ export async function givePlacementNotice(
     console.error("givePlacementNotice", error);
     return { error: GENERIC_ERROR };
   }
-  if (!data?.length) return { error: "Alleen een actieve plaatsing kun je opzeggen." };
+  if (!data?.length) return { error: "Only an active placement can be given notice." };
 
   revalidateAll(placementId);
-  return { ok: true, message: "Plaatsing opgezegd." };
+  return { ok: true, message: "Notice given for the placement." };
 }
 
-const endSchema = z.object({ end_date: date("Vul de einddatum in") });
+const endSchema = z.object({ end_date: date("Enter the end date") });
 
 export async function endPlacement(
   placementId: string,
@@ -411,11 +414,11 @@ export async function endPlacement(
   formData: FormData,
 ): Promise<ActionState> {
   await requireStaff();
-  if (!id.safeParse(placementId).success) return { error: "Plaatsing niet gevonden." };
+  if (!id.safeParse(placementId).success) return { error: "Placement not found." };
 
   const parsed = endSchema.safeParse(formValues(formData));
   if (!parsed.success) {
-    return { error: "Controleer de datum.", fieldErrors: fieldErrorsFrom(parsed.error) };
+    return { error: "Check the date.", fieldErrors: fieldErrorsFrom(parsed.error) };
   }
 
   const supabase = await createClient();
@@ -430,15 +433,15 @@ export async function endPlacement(
     console.error("endPlacement", error);
     return { error: GENERIC_ERROR };
   }
-  if (!data?.length) return { error: "Deze plaatsing is al beëindigd." };
+  if (!data?.length) return { error: "This placement has already ended." };
 
   revalidateAll(placementId);
-  return { ok: true, message: "Plaatsing beëindigd." };
+  return { ok: true, message: "Placement ended." };
 }
 
 export async function deletePlacement(placementId: string): Promise<ActionState> {
   await requireStaff();
-  if (!id.safeParse(placementId).success) return { error: "Plaatsing niet gevonden." };
+  if (!id.safeParse(placementId).success) return { error: "Placement not found." };
 
   const supabase = await createClient();
   const { error } = await supabase.from("placements").delete().eq("id", placementId);

@@ -38,7 +38,7 @@ export async function moveApplication(
   await requireStaff();
 
   const parsed = moveSchema.safeParse({ applicationId, stage, position, rejectionReason });
-  if (!parsed.success) return { error: "Deze verplaatsing klopt niet. Ververs de pagina." };
+  if (!parsed.success) return { error: "This move is not valid. Refresh the page." };
 
   const supabase = await createClient();
   const { data: current, error: loadError } = await supabase
@@ -48,7 +48,7 @@ export async function moveApplication(
     .maybeSingle();
 
   if (loadError) return { error: GENERIC_ERROR };
-  if (!current) return { error: "Deze kandidaat staat niet meer in de pipeline." };
+  if (!current) return { error: "This candidate is no longer in the pipeline." };
 
   const update: TablesUpdate<"applications"> = {
     stage: parsed.data.stage,
@@ -65,25 +65,25 @@ export async function moveApplication(
     .from("applications")
     .update(update)
     .eq("id", parsed.data.applicationId);
-  if (error) return { error: "Verplaatsen is niet gelukt. Probeer het opnieuw." };
+  if (error) return { error: "The move failed. Please try again." };
 
   revalidateBoard(current.vacancy_id, current.candidate_id);
   return { ok: true };
 }
 
 const score = z.coerce
-  .number({ error: "Vul een getal van 0 tot 100 in." })
-  .int({ error: "Vul een heel getal in." })
-  .min(0, { error: "Minimaal 0." })
-  .max(100, { error: "Maximaal 100." })
+  .number({ error: "Enter a number from 0 to 100." })
+  .int({ error: "Enter a whole number." })
+  .min(0, { error: "At least 0." })
+  .max(100, { error: "At most 100." })
   .optional();
 
 const assessmentSchema = z.object({
-  id: z.string({ error: "Sollicitatie niet gevonden." }).refine(isUuid, { error: "Sollicitatie niet gevonden." }),
+  id: z.string({ error: "Application not found." }).refine(isUuid, { error: "Application not found." }),
   technical_score: score,
   english_score: score,
-  assessment_notes: z.string().max(5000, { error: "Deze notities zijn te lang." }).optional(),
-  rejection_reason: z.string().max(2000, { error: "Deze reden is te lang." }).optional(),
+  assessment_notes: z.string().max(5000, { error: "These notes are too long." }).optional(),
+  rejection_reason: z.string().max(2000, { error: "This reason is too long." }).optional(),
 });
 
 /** Scores and notes from the assessment, edited in the card modal. */
@@ -92,7 +92,7 @@ export async function updateApplication(_prev: ActionState, formData: FormData):
 
   const parsed = assessmentSchema.safeParse(formValues(formData));
   if (!parsed.success) {
-    return { error: "Controleer de gemarkeerde velden.", fieldErrors: fieldErrorsFrom(parsed.error) };
+    return { error: "Check the highlighted fields.", fieldErrors: fieldErrorsFrom(parsed.error) };
   }
 
   const { id, ...input } = parsed.data;
@@ -110,16 +110,16 @@ export async function updateApplication(_prev: ActionState, formData: FormData):
     .maybeSingle();
 
   if (error) return { error: GENERIC_ERROR };
-  if (!data) return { error: "Deze kandidaat staat niet meer in de pipeline." };
+  if (!data) return { error: "This candidate is no longer in the pipeline." };
 
   revalidateBoard(data.vacancy_id, data.candidate_id);
-  return { ok: true, message: "Opgeslagen." };
+  return { ok: true, message: "Saved." };
 }
 
 /** Take a candidate off the board of this vacancy. The candidate itself stays. */
 export async function removeApplication(applicationId: string): Promise<ActionState> {
   await requireStaff();
-  if (!isUuid(applicationId)) return { error: "Sollicitatie niet gevonden." };
+  if (!isUuid(applicationId)) return { error: "Application not found." };
 
   const supabase = await createClient();
   const { data, error } = await supabase
@@ -131,7 +131,7 @@ export async function removeApplication(applicationId: string): Promise<ActionSt
 
   if (error) return { error: GENERIC_ERROR };
   if (data) revalidateBoard(data.vacancy_id, data.candidate_id);
-  return { ok: true, message: "Kandidaat uit de pipeline gehaald." };
+  return { ok: true, message: "Candidate removed from the pipeline." };
 }
 
 const reorderSchema = z.object({
@@ -152,7 +152,7 @@ export async function reorderStage(
   await requireStaff();
 
   const parsed = reorderSchema.safeParse({ vacancyId, stage, orderedIds });
-  if (!parsed.success) return { error: "Deze volgorde klopt niet. Ververs de pagina." };
+  if (!parsed.success) return { error: "This order is not valid. Refresh the page." };
 
   const supabase = await createClient();
   const results = await Promise.all(
@@ -165,7 +165,7 @@ export async function reorderStage(
         .eq("stage", parsed.data.stage),
     ),
   );
-  if (results.some((r) => r.error)) return { error: "Volgorde opslaan is niet gelukt." };
+  if (results.some((r) => r.error)) return { error: "Saving the order failed." };
 
   revalidatePath(`/dashboard/vacancies/${parsed.data.vacancyId}/pipeline`);
   return { ok: true };

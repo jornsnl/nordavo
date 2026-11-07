@@ -27,13 +27,13 @@ function revalidateVacancy(vacancyId: string) {
 const MATCH_ERROR = "Something went wrong. Please try again.";
 
 function failure(error: unknown, fallback = GENERIC_ERROR): TalentActionState {
-  if (error instanceof ClaudeRefusalError) return { error: "Claude kon dit verzoek niet verwerken. Pas de tekst aan of vul de velden zelf in." };
+  if (error instanceof ClaudeRefusalError) return { error: "Claude could not process this request. Change the text or fill in the fields yourself." };
   if (error instanceof Error && error.message) return { error: error.message };
   return { error: fallback };
 }
 
 // ---------------------------------------------------------------------------
-// T1 Vacature uitlezen
+// T1 Read the vacancy text
 // ---------------------------------------------------------------------------
 
 export async function extractVacancyAction(vacancyId: string, _prev: IntakeState, formData: FormData): Promise<IntakeState> {
@@ -41,14 +41,14 @@ export async function extractVacancyAction(vacancyId: string, _prev: IntakeState
   if (!idSchema.safeParse(vacancyId).success) return { error: GENERIC_ERROR };
   const rawText = String(formData.get("raw_text") ?? "").trim();
   if (rawText.length < 40) {
-    return { error: "Plak de volledige vacaturetekst. Dit is te kort om eisen uit te halen.", rawText, fieldErrors: { raw_text: "Te kort" } };
+    return { error: "Paste the full vacancy text. This is too short to extract requirements from.", rawText, fieldErrors: { raw_text: "Too short" } };
   }
-  if (rawText.length > 30000) return { error: "Deze tekst is te lang. Plak alleen de vacature zelf.", rawText };
-  if (!hasClaude()) return { error: "Claude is niet gekoppeld (ANTHROPIC_API_KEY ontbreekt). Vul de vaste eisen zelf in.", rawText };
+  if (rawText.length > 30000) return { error: "This text is too long. Paste only the vacancy itself.", rawText };
+  if (!hasClaude()) return { error: "Claude is not connected (ANTHROPIC_API_KEY is missing). Fill in the requirements yourself.", rawText };
 
   const supabase = await createClient();
   const { data: vacancy } = await supabase.from("vacancies").select("title").eq("id", vacancyId).maybeSingle();
-  if (!vacancy) return { error: "Deze vacature bestaat niet meer." };
+  if (!vacancy) return { error: "This vacancy no longer exists." };
 
   try {
     const extraction = await askJson({
@@ -57,7 +57,7 @@ export async function extractVacancyAction(vacancyId: string, _prev: IntakeState
       schema: vacancyExtractionSchema,
       effort: "low",
     });
-    return { ok: true, extraction, rawText, message: "Uitgelezen. Controleer de vaste eisen en sla ze op." };
+    return { ok: true, extraction, rawText, message: "Text read. Check the requirements and save them." };
   } catch (error) {
     return { ...failure(error), rawText };
   }
@@ -65,26 +65,26 @@ export async function extractVacancyAction(vacancyId: string, _prev: IntakeState
 
 const amount = z
   .string()
-  .regex(/^\d{1,8}([.,]\d{1,2})?$/, "Vul een bedrag in euro in, bijvoorbeeld 3200.")
+  .regex(/^\d{1,8}([.,]\d{1,2})?$/, "Enter an amount in euros, for example 3200.")
   .transform((value) => Number(value.replace(",", ".")));
 
 const requirementsSchema = z
   .object({
-    raw_text: z.string().max(30000, "Deze tekst is te lang.").optional(),
-    stack: z.string().max(1000, "Gebruik maximaal 1000 tekens.").optional(),
-    seniority: z.enum(["medior", "senior", "lead"], { error: "Kies een senioriteit." }),
-    hours: z.coerce.number({ error: "Vul een aantal uren in." }).int("Gebruik hele uren.").min(1, "Minimaal 1 uur.").max(60, "Maximaal 60 uur.").optional(),
-    timezone_overlap: z.string().max(300, "Gebruik maximaal 300 tekens.").optional(),
+    raw_text: z.string().max(30000, "This text is too long.").optional(),
+    stack: z.string().max(1000, "Use at most 1000 characters.").optional(),
+    seniority: z.enum(["medior", "senior", "lead"], { error: "Choose a seniority." }),
+    hours: z.coerce.number({ error: "Enter a number of hours." }).int("Use whole hours.").min(1, "At least 1 hour.").max(60, "At most 60 hours.").optional(),
+    timezone_overlap: z.string().max(300, "Use at most 300 characters.").optional(),
     budget_min: amount.optional(),
     budget_max: amount.optional(),
     client_contact_required: z.enum(["ja", "nee"]).optional(),
-    must_haves: z.string().max(4000, "Dit is te lang.").optional(),
-    nice_to_haves: z.string().max(4000, "Dit is te lang.").optional(),
-    unclear: z.string().max(4000, "Dit is te lang.").optional(),
+    must_haves: z.string().max(4000, "This is too long.").optional(),
+    nice_to_haves: z.string().max(4000, "This is too long.").optional(),
+    unclear: z.string().max(4000, "This is too long.").optional(),
   })
   .superRefine((data, ctx) => {
     if (data.budget_min !== undefined && data.budget_max !== undefined && data.budget_min > data.budget_max) {
-      ctx.addIssue({ code: "custom", path: ["budget_max"], message: "Het maximum is lager dan het minimum." });
+      ctx.addIssue({ code: "custom", path: ["budget_max"], message: "The maximum is lower than the minimum." });
     }
   });
 
@@ -100,12 +100,12 @@ export async function saveRequirementsAction(vacancyId: string, _prev: TalentAct
   await requireStaff();
   if (!idSchema.safeParse(vacancyId).success) return { error: GENERIC_ERROR };
   const parsed = requirementsSchema.safeParse(formValues(formData));
-  if (!parsed.success) return { error: "Controleer de gemarkeerde velden.", fieldErrors: fieldErrorsFrom(parsed.error) };
+  if (!parsed.success) return { error: "Check the highlighted fields.", fieldErrors: fieldErrorsFrom(parsed.error) };
   const d = parsed.data;
 
   const supabase = await createClient();
   const { data: current } = await supabase.from("vacancies").select("intake_at, raw_text").eq("id", vacancyId).maybeSingle();
-  if (!current) return { error: "Deze vacature bestaat niet meer." };
+  if (!current) return { error: "This vacancy no longer exists." };
 
   const update: TablesUpdate<"vacancies"> = {
     stack: parseList(d.stack),
@@ -127,19 +127,19 @@ export async function saveRequirementsAction(vacancyId: string, _prev: TalentAct
   revalidateVacancy(vacancyId);
   return {
     ok: true,
-    message: "Vaste eisen opgeslagen.",
-    warning: update.client_contact_required ? "Let op: de developer moet direct contact hebben met de klanten van de klant. Dat is voor Nordavo een no go." : undefined,
+    message: "Requirements saved.",
+    warning: update.client_contact_required ? "Note: the developer would need direct contact with the client's own customers. That is a no go for Nordavo." : undefined,
   };
 }
 
-/** Tick off an item on the "nog navragen" list. */
+/** Tick off an item on the "still to ask" list. */
 export async function resolveUnclearAction(vacancyId: string, item: string, _prev: TalentActionState, _formData: FormData): Promise<TalentActionState> {
   void _formData;
   await requireStaff();
   if (!idSchema.safeParse(vacancyId).success) return { error: GENERIC_ERROR };
   const supabase = await createClient();
   const { data } = await supabase.from("vacancies").select("unclear").eq("id", vacancyId).maybeSingle();
-  if (!data) return { error: "Deze vacature bestaat niet meer." };
+  if (!data) return { error: "This vacancy no longer exists." };
   const { error } = await supabase
     .from("vacancies")
     .update({ unclear: data.unclear.filter((u) => u !== item) })
@@ -195,7 +195,7 @@ export async function generateSearchBriefAction(vacancyId: string, _prev: Talent
 }
 
 // ---------------------------------------------------------------------------
-// Match status (approve, reject, gesprek, aangenomen)
+// Match status (approve, reject, interview, hired)
 // ---------------------------------------------------------------------------
 
 const matchStatusSchema = z.enum(["voorgesteld", "goedgekeurd", "gesprek", "aangenomen", "afgewezen"]);
@@ -330,10 +330,10 @@ export async function markProfileSentAction(profileId: string, _prev: TalentActi
 }
 
 // ---------------------------------------------------------------------------
-// T6 doorlooptijd
+// T6 lead time
 // ---------------------------------------------------------------------------
 
-const optionalDate = z.iso.date({ error: "Kies een geldige datum." }).optional();
+const optionalDate = z.iso.date({ error: "Choose a valid date." }).optional();
 const timelineSchema = z.object({
   intake_at: optionalDate,
   profiles_sent_at: optionalDate,
@@ -350,10 +350,10 @@ export async function updateTimelineAction(vacancyId: string, _prev: TalentActio
   await requireStaff();
   if (!idSchema.safeParse(vacancyId).success) return { error: GENERIC_ERROR };
   const parsed = timelineSchema.safeParse(formValues(formData));
-  if (!parsed.success) return { error: "Controleer de datums.", fieldErrors: fieldErrorsFrom(parsed.error) };
+  if (!parsed.success) return { error: "Check the dates.", fieldErrors: fieldErrorsFrom(parsed.error) };
   const d = parsed.data;
   if (d.intake_at && d.profiles_sent_at && d.profiles_sent_at < d.intake_at) {
-    return { error: "Profielen kunnen niet voor de intake zijn verstuurd.", fieldErrors: { profiles_sent_at: "Ligt voor de intake" } };
+    return { error: "Profiles cannot have been sent before the intake.", fieldErrors: { profiles_sent_at: "Before the intake" } };
   }
 
   const supabase = await createClient();
@@ -362,7 +362,7 @@ export async function updateTimelineAction(vacancyId: string, _prev: TalentActio
     .select("intake_at, profiles_sent_at, first_interview_at, talent_stage")
     .eq("id", vacancyId)
     .maybeSingle();
-  if (!current) return { error: "Deze vacature bestaat niet meer." };
+  if (!current) return { error: "This vacancy no longer exists." };
 
   // Keep the exact time when the day did not change.
   const keep = (value: string | undefined, existing: string | null) =>
@@ -382,5 +382,5 @@ export async function updateTimelineAction(vacancyId: string, _prev: TalentActio
   const { error } = await supabase.from("vacancies").update(update).eq("id", vacancyId);
   if (error) return { error: GENERIC_ERROR };
   revalidateVacancy(vacancyId);
-  return { ok: true, message: "Tijdlijn opgeslagen." };
+  return { ok: true, message: "Timeline saved." };
 }

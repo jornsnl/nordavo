@@ -17,7 +17,7 @@ import { PlacementForm, type PlacementFormValues } from "@/components/placements
 import { createPlacement } from "../actions";
 
 export const metadata: Metadata = {
-  title: "Nieuwe plaatsing",
+  title: "New placement",
 };
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
@@ -26,9 +26,9 @@ export default function Page({ searchParams }: { searchParams: SearchParams }) {
   return (
     <>
       <PageHeader
-        eyebrow="Plaatsingen"
-        title="Nieuwe plaatsing"
-        description="Leg vast wie waar begint. We zetten de vacature op ingevuld en plannen de eerste check-in en de evaluatie van de garantieperiode."
+        eyebrow="Placements"
+        title="New placement"
+        description="Record who starts where. We mark the vacancy as filled and schedule the first check-in and the guarantee period review."
       />
       <Card className="max-w-3xl">
         <CardBody className="py-6">
@@ -55,12 +55,12 @@ async function NewPlacement({ searchParams }: { searchParams: SearchParams }) {
   if (existing) {
     return (
       <div className="space-y-4">
-        <FormMessage error="Voor deze kandidaat bij deze vacature bestaat al een plaatsing." />
+        <FormMessage error="A placement already exists for this candidate on this vacancy." />
         <Link
           href={`/dashboard/placements/${existing.id}`}
           className="inline-block text-sm font-semibold text-brand-600 hover:underline"
         >
-          Bekijk de plaatsing
+          View the placement
         </Link>
       </div>
     );
@@ -86,14 +86,14 @@ async function NewPlacement({ searchParams }: { searchParams: SearchParams }) {
     <>
       {applicationId && !application && (
         <div className="mb-6">
-          <FormMessage error="Deze sollicitatie hebben we niet gevonden. Kies klant en kandidaat zelf." />
+          <FormMessage error="We could not find this application. Choose the client and candidate yourself." />
         </div>
       )}
       {application?.vacancy && (
         <p className="mb-6 text-sm text-muted">
-          Vanuit de pipeline:{" "}
-          <span className="font-medium text-ink">{application.candidate?.full_name}</span> bij{" "}
-          <span className="font-medium text-ink">{application.vacancy.client?.name}</span> voor{" "}
+          From the pipeline:{" "}
+          <span className="font-medium text-ink">{application.candidate?.full_name}</span> at{" "}
+          <span className="font-medium text-ink">{application.vacancy.client?.name}</span> for{" "}
           <span className="font-medium text-ink">{application.vacancy.title}</span>.
         </p>
       )}
@@ -115,7 +115,7 @@ async function NewPlacement({ searchParams }: { searchParams: SearchParams }) {
 
 function FormSkeleton() {
   return (
-    <div className="grid gap-5 sm:grid-cols-2" aria-busy="true" aria-label="Laden">
+    <div className="grid gap-5 sm:grid-cols-2" aria-busy="true" aria-label="Loading">
       {Array.from({ length: 6 }, (_, i) => (
         <div key={i} className="space-y-2">
           <Skeleton className="h-4 w-24" />

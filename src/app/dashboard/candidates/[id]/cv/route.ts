@@ -9,7 +9,7 @@ export async function GET(_request: Request, { params }: RouteContext<"/dashboar
   const { id } = await params;
   const candidate = await getCandidate(id);
   if (!candidate?.cv_path) {
-    return new Response("Geen cv gevonden.", {
+    return new Response("CV not found.", {
       status: 404,
       headers: { "content-type": "text/plain; charset=utf-8" },
     });
@@ -17,7 +17,7 @@ export async function GET(_request: Request, { params }: RouteContext<"/dashboar
 
   const url = await createSignedUrl(candidate.cv_path, 60);
   if (!url) {
-    return new Response("Het cv kon niet worden geopend. Probeer het later opnieuw.", {
+    return new Response("The CV could not be opened. Please try again later.", {
       status: 502,
       headers: { "content-type": "text/plain; charset=utf-8" },
     });

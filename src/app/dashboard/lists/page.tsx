@@ -15,7 +15,7 @@ import { isListType, listDefinitions, parseListFilter, PREVIEW_ROWS } from "@/li
 export const maxDuration = 300;
 
 export const metadata: Metadata = {
-  title: "Lijsten",
+  title: "Lists",
 };
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
@@ -32,8 +32,8 @@ export default function Page({ searchParams }: { searchParams: SearchParams }) {
     <>
       <PageHeader
         eyebrow="Sales"
-        title="Lijsten"
-        description="Een lijst is een opgeslagen filter, geen los bestand. Elke export checkt eerst uitsluitingen en de 30 dagen regel, en komt in de historie."
+        title="Lists"
+        description="A list is a saved filter, not a separate file. Every export first checks suppressions and the 30-day rule, and is logged in the history."
       />
       <Suspense fallback={<Skeleton className="mb-6 h-24 w-full rounded-2xl" />}>
         <Filters searchParams={searchParams} />
@@ -50,8 +50,8 @@ export default function Page({ searchParams }: { searchParams: SearchParams }) {
 
       <Card className="mb-10">
         <CardHeader
-          title="Telefoonnummers van Max importeren"
-          description="Upload de CSV die Max terugstuurt. Nummers komen alleen op contacten zonder nummer, met Max als bron."
+          title="Import phone numbers from Max"
+          description="Upload the CSV that Max sends back. Numbers are only added to contacts without a number, with Max as the source."
         />
         <CardBody>
           <MaxImportForm />
@@ -59,7 +59,7 @@ export default function Page({ searchParams }: { searchParams: SearchParams }) {
       </Card>
 
       <section>
-        <h2 className="mb-3 font-display text-lg font-semibold text-brand-900">Exporthistorie</h2>
+        <h2 className="mb-3 font-display text-lg font-semibold text-brand-900">Export history</h2>
         <Suspense fallback={<ListSkeleton rows={4} />}>
           <ExportHistory />
         </Suspense>
@@ -84,10 +84,10 @@ async function Preview({ searchParams }: { searchParams: SearchParams }) {
   return (
     <>
       <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
-        <h2 className="font-display text-lg font-semibold text-brand-900">Voorbeeld: {listDefinitions[list].label.toLowerCase()}</h2>
+        <h2 className="font-display text-lg font-semibold text-brand-900">Preview: {listDefinitions[list].label.toLowerCase()}</h2>
         <p className="text-sm text-muted">
           {preview.rows.length > 0
-            ? `De eerste ${Math.min(PREVIEW_ROWS, preview.rows.length)} van ${preview.count}${preview.capped ? "+" : ""}, hoogste score eerst.`
+            ? `The first ${Math.min(PREVIEW_ROWS, preview.rows.length)} of ${preview.count}${preview.capped ? "+" : ""}, highest score first.`
             : null}
         </p>
       </div>

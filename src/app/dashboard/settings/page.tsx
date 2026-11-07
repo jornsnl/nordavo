@@ -25,21 +25,21 @@ import { changePassword, inviteUser, updateOwnProfile, updateUserRole } from "./
 import { resetUserMfa } from "./mfa-actions";
 
 export const metadata: Metadata = {
-  title: "Instellingen",
+  title: "Settings",
 };
 
 export default function Page() {
   return (
     <>
       <PageHeader
-        eyebrow="Beheer"
-        title="Instellingen"
-        description="Je eigen account en, als beheerder, wie er toegang heeft tot het portaal."
+        eyebrow="Admin"
+        title="Settings"
+        description="Your own account and, as an admin, who has access to the portal."
       />
 
       <div className="space-y-6">
         <Card>
-          <CardHeader title="Profiel" description="Zo zien je collega's je in het portaal." />
+          <CardHeader title="Profile" description="This is how your colleagues see you in the portal." />
           <CardBody className="py-5">
             <Suspense fallback={<FormSkeleton />}>
               <Profile />
@@ -49,8 +49,8 @@ export default function Page() {
 
         <Card>
           <CardHeader
-            title="Wachtwoord wijzigen"
-            description="Kies een sterk wachtwoord dat je nergens anders gebruikt."
+            title="Change password"
+            description="Choose a strong password that you do not use anywhere else."
           />
           <CardBody className="py-5">
             <PasswordForm action={changePassword} />
@@ -108,16 +108,16 @@ async function UsersSection() {
       <section aria-labelledby="users-heading">
         <div className="mb-3 mt-4">
           <h2 id="users-heading" className="font-display text-lg font-semibold text-brand-900">
-            Gebruikers
+            Users
           </h2>
           <p className="mt-0.5 text-sm text-muted">
-            Teamleden zien alles. Klantaccounts zien alleen hun eigen vacatures en voorgestelde
-            kandidaten in het klantportaal.
+            Team members see everything. Client accounts only see their own vacancies and proposed
+            candidates in the client portal.
           </p>
         </div>
-        <MobileList label="Gebruikers" className="md:hidden">
+        <MobileList label="Users" className="md:hidden">
           {profiles.map((profile) => {
-            const name = profile.full_name || profile.email || "Naamloos";
+            const name = profile.full_name || profile.email || "Unnamed";
             const role = optionFor(profileRoles, profile.role);
             const isSelf = profile.id === user.id;
             const mfaOn = mfaByUser.get(profile.id);
@@ -128,19 +128,19 @@ async function UsersSection() {
                 title={
                   <>
                     {name}
-                    {isSelf && <span className="ml-1.5 text-xs font-normal text-muted">(jij)</span>}
+                    {isSelf && <span className="ml-1.5 text-xs font-normal text-muted">(you)</span>}
                   </>
                 }
-                subtitle={profile.email ?? "Geen e-mailadres"}
+                subtitle={profile.email ?? "No email address"}
                 meta={
                   <>
                     {profile.role === "client"
-                      ? (profile.client?.name ?? "Niet gekoppeld")
+                      ? (profile.client?.name ?? "Not linked")
                       : profile.role === "external"
-                        ? "Alleen Work"
+                        ? "Work only"
                         : "Nordavo"}
                     {" · 2FA "}
-                    {mfaOn === undefined ? "onbekend" : mfaOn ? "aan" : "uit"}
+                    {mfaOn === undefined ? "unknown" : mfaOn ? "on" : "off"}
                   </>
                 }
                 // Others get the role picker below, so the badge would only repeat it.
@@ -168,16 +168,16 @@ async function UsersSection() {
         <Table className="hidden md:block">
           <THead>
             <tr>
-              <TH>Naam</TH>
-              <TH>Rol</TH>
-              <TH>Klant</TH>
+              <TH>Name</TH>
+              <TH>Role</TH>
+              <TH>Client</TH>
               <TH>2FA</TH>
-              <TH>Rol en klant aanpassen</TH>
+              <TH>Change role and client</TH>
             </tr>
           </THead>
           <TBody>
             {profiles.map((profile) => {
-              const name = profile.full_name || profile.email || "Naamloos";
+              const name = profile.full_name || profile.email || "Unnamed";
               const role = optionFor(profileRoles, profile.role);
               const isSelf = profile.id === user.id;
               const mfaOn = mfaByUser.get(profile.id);
@@ -189,13 +189,13 @@ async function UsersSection() {
                       <div className="min-w-0">
                         <p className="truncate font-medium text-ink">
                           {name}
-                          {isSelf && <span className="ml-1.5 text-xs text-muted">(jij)</span>}
+                          {isSelf && <span className="ml-1.5 text-xs text-muted">(you)</span>}
                         </p>
                         <p className="truncate text-xs text-muted">
-                          {profile.email ?? "Geen e-mailadres"}
+                          {profile.email ?? "No email address"}
                           <span className="hidden sm:inline">
                             {" "}
-                            · sinds {formatDate(profile.created_at)}
+                            · since {formatDate(profile.created_at)}
                           </span>
                         </p>
                       </div>
@@ -206,17 +206,17 @@ async function UsersSection() {
                   </TD>
                   <TD className="text-muted">
                     {profile.role === "client"
-                      ? (profile.client?.name ?? <span className="text-danger">Niet gekoppeld</span>)
+                      ? (profile.client?.name ?? <span className="text-danger">Not linked</span>)
                       : profile.role === "external"
-                        ? "Alleen Work"
+                        ? "Work only"
                         : "Nordavo"}
                   </TD>
                   <TD>
                     {mfaOn === undefined ? (
-                      <span className="text-xs text-muted">Onbekend</span>
+                      <span className="text-xs text-muted">Unknown</span>
                     ) : (
                       <div className="flex flex-wrap items-center gap-2">
-                        <Badge tone={mfaOn ? "success" : "neutral"}>{mfaOn ? "Aan" : "Uit"}</Badge>
+                        <Badge tone={mfaOn ? "success" : "neutral"}>{mfaOn ? "On" : "Off"}</Badge>
                         {mfaOn && !isSelf && <ResetMfaButton userId={profile.id} name={name} />}
                       </div>
                     )}
@@ -224,7 +224,7 @@ async function UsersSection() {
                   <TD>
                     {isSelf ? (
                       <span className="text-xs text-muted">
-                        Je eigen beheerdersrol kun je niet aanpassen.
+                        You cannot change your own admin role.
                       </span>
                     ) : (
                       <RoleEditor
@@ -246,8 +246,8 @@ async function UsersSection() {
 
       <Card>
         <CardHeader
-          title="Gebruiker uitnodigen"
-          description="De gebruiker krijgt een e-mail met een link om een wachtwoord in te stellen."
+          title="Invite user"
+          description="The user gets an email with a link to set a password."
         />
         <CardBody className="py-5">
           <InviteForm action={inviteUser} clients={clients} enabled={canInvite} />
@@ -262,12 +262,12 @@ function ResetMfaButton({ userId, name }: { userId: string; name: string }) {
     <ConfirmButton
       size="sm"
       variant="ghost"
-      title="Tweestapsverificatie resetten?"
-      description={`Alle authenticator apps van ${name} worden verwijderd. ${name} logt daarna in met alleen een wachtwoord en kan in het profiel een nieuwe app toevoegen. Doe dit alleen als je zeker weet dat het verzoek van ${name} zelf komt.`}
-      confirmLabel="2FA resetten"
+      title="Reset two-step verification?"
+      description={`All authenticator apps of ${name} are removed. ${name} then signs in with just a password and can add a new app in their profile. Only do this if you are sure the request comes from ${name} themselves.`}
+      confirmLabel="Reset 2FA"
       action={resetUserMfa.bind(null, userId)}
     >
-      2FA resetten
+      Reset 2FA
     </ConfirmButton>
   );
 }

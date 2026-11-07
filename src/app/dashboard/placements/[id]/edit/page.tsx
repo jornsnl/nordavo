@@ -10,7 +10,7 @@ import { PlacementForm } from "@/components/placements/placement-form";
 import { updatePlacement } from "../../actions";
 
 export const metadata: Metadata = {
-  title: "Plaatsing bewerken",
+  title: "Edit placement",
 };
 
 type Params = Promise<{ id: string }>;
@@ -18,7 +18,7 @@ type Params = Promise<{ id: string }>;
 export default function Page({ params }: { params: Params }) {
   return (
     <>
-      <PageHeader eyebrow="Plaatsingen" title="Plaatsing bewerken" />
+      <PageHeader eyebrow="Placements" title="Edit placement" />
       <Card className="max-w-3xl">
         <CardBody className="py-6">
           <Suspense fallback={<Skeleton className="h-96 w-full" />}>

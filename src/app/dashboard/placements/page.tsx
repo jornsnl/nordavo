@@ -25,7 +25,7 @@ import {
 } from "@/components/placements/status-filters";
 
 export const metadata: Metadata = {
-  title: "Plaatsingen",
+  title: "Placements",
 };
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
@@ -34,13 +34,13 @@ export default function Page({ searchParams }: { searchParams: SearchParams }) {
   return (
     <>
       <PageHeader
-        eyebrow="Werving"
-        title="Plaatsingen"
-        description="Developers die fulltime in het team van een klant werken. Geen minimale looptijd, één maand opzegtermijn."
+        eyebrow="Recruitment"
+        title="Placements"
+        description="Developers working full-time in a client's team. No minimum term, one month's notice."
         actions={
           <ButtonLink href="/dashboard/placements/new">
             <Plus aria-hidden="true" />
-            Nieuwe plaatsing
+            New placement
           </ButtonLink>
         }
       />
@@ -86,19 +86,19 @@ async function Placements({ searchParams }: { searchParams: SearchParams }) {
         filtered ? (
           <EmptyState
             icon={Handshake}
-            title="Geen plaatsingen gevonden"
-            description="Er zijn geen plaatsingen die bij dit filter passen. Kies een andere status of klant."
+            title="No placements found"
+            description="No placements match this filter. Choose a different status or client."
           />
         ) : (
           <EmptyState
             icon={Handshake}
-            title="Nog geen lopende plaatsingen"
-            description="Zodra een kandidaat bij een klant begint, leg je dat hier vast. Dan houden we garantie, check-ins en opzegtermijn voor je bij."
+            title="No ongoing placements yet"
+            description="As soon as a candidate starts at a client, record it here. We then keep track of the guarantee, check-ins and notice period for you."
           />
         )
       ) : (
         <>
-          <MobileList label="Plaatsingen" className="md:hidden">
+          <MobileList label="Placements" className="md:hidden">
             {placements.map((p) => {
               const runningUntil = p.status === "ended" && p.end_date ? p.end_date : today;
               const started = p.start_date <= today;
@@ -107,9 +107,9 @@ async function Placements({ searchParams }: { searchParams: SearchParams }) {
                 <MobileListItem
                   key={p.id}
                   href={`/dashboard/placements/${p.id}`}
-                  title={p.candidate?.full_name ?? "Onbekende kandidaat"}
-                  subtitle={[p.client?.name ?? "Onbekend", p.vacancy?.title].filter(Boolean).join(" · ")}
-                  meta={`${started ? `${months} ${months === 1 ? "maand" : "maanden"}` : `Start ${formatDate(p.start_date)}`} · ${formatCurrency(p.monthly_rate, "Tarief niet ingevuld")}`}
+                  title={p.candidate?.full_name ?? "Unknown candidate"}
+                  subtitle={[p.client?.name ?? "Unknown", p.vacancy?.title].filter(Boolean).join(" · ")}
+                  meta={`${started ? `${months} ${months === 1 ? "month" : "months"}` : `Start ${formatDate(p.start_date)}`} · ${formatCurrency(p.monthly_rate, "Rate not filled in")}`}
                 >
                   <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1.5 text-xs">
                     <PlacementStatusBadge status={p.status} />
@@ -132,14 +132,14 @@ async function Placements({ searchParams }: { searchParams: SearchParams }) {
           <Table className="hidden md:block">
             <THead>
               <tr>
-                <TH>Kandidaat</TH>
-                <TH>Klant</TH>
-                <TH>Vacature</TH>
+                <TH>Candidate</TH>
+                <TH>Client</TH>
+                <TH>Vacancy</TH>
                 <TH>Start</TH>
-                <TH>Looptijd</TH>
-                <TH className="text-right">Maandtarief</TH>
+                <TH>Duration</TH>
+                <TH className="text-right">Monthly rate</TH>
                 <TH>Status</TH>
-                <TH>Volgende check-in</TH>
+                <TH>Next check-in</TH>
               </tr>
             </THead>
             <TBody>
@@ -154,17 +154,17 @@ async function Placements({ searchParams }: { searchParams: SearchParams }) {
                         href={`/dashboard/placements/${p.id}`}
                         className="font-semibold text-brand-800 hover:text-brand-600 hover:underline"
                       >
-                        {p.candidate?.full_name ?? "Onbekende kandidaat"}
+                        {p.candidate?.full_name ?? "Unknown candidate"}
                       </Link>
                     </TD>
-                    <TD>{p.client?.name ?? "Onbekend"}</TD>
-                    <TD className="text-muted">{p.vacancy?.title ?? "Geen vacature"}</TD>
+                    <TD>{p.client?.name ?? "Unknown"}</TD>
+                    <TD className="text-muted">{p.vacancy?.title ?? "No vacancy"}</TD>
                     <TD className="whitespace-nowrap">{formatDate(p.start_date)}</TD>
                     <TD className="whitespace-nowrap">
-                      {started ? `${months} ${months === 1 ? "maand" : "maanden"}` : "Nog niet gestart"}
+                      {started ? `${months} ${months === 1 ? "month" : "months"}` : "Not started yet"}
                     </TD>
                     <TD className="text-right whitespace-nowrap tabular-nums">
-                      {formatCurrency(p.monthly_rate, "Niet ingevuld")}
+                      {formatCurrency(p.monthly_rate, "Not filled in")}
                     </TD>
                     <TD>
                       <div className="flex flex-wrap gap-1.5">

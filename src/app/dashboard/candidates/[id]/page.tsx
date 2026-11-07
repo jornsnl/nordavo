@@ -25,7 +25,7 @@ import {
 } from "@/lib/labels";
 
 export const metadata: Metadata = {
-  title: "Kandidaat",
+  title: "Candidate",
 };
 
 export default function Page({ params }: PageProps<"/dashboard/candidates/[id]">) {
@@ -36,7 +36,7 @@ export default function Page({ params }: PageProps<"/dashboard/candidates/[id]">
         className="mb-4 inline-flex items-center gap-1.5 rounded-lg text-sm font-medium text-muted hover:text-brand-700 active:text-brand-700 pointer-coarse:mb-2 pointer-coarse:min-h-11 focus-visible:outline-2 focus-visible:outline-brand-500"
       >
         <ArrowLeft className="size-4" aria-hidden="true" />
-        Alle kandidaten
+        All candidates
       </Link>
       <Suspense fallback={<DetailSkeleton />}>
         <CandidateDetail params={params} />
@@ -47,7 +47,7 @@ export default function Page({ params }: PageProps<"/dashboard/candidates/[id]">
 
 function DetailSkeleton() {
   return (
-    <div aria-busy="true" aria-label="Laden">
+    <div aria-busy="true" aria-label="Loading">
       <Skeleton className="mb-8 h-12 w-72" />
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="space-y-6 lg:col-span-2">
@@ -74,22 +74,22 @@ async function CandidateDetail({ params }: { params: Promise<{ id: string }> }) 
   // Phones: the usual next step (call, mail, read the cv) right under the name.
   const quickActions: QuickAction[] = [];
   if (candidate.phone) {
-    quickActions.push({ label: "Bellen", href: telHref(candidate.phone), icon: Phone, ariaLabel: `Bel ${candidate.full_name}` });
+    quickActions.push({ label: "Call", href: telHref(candidate.phone), icon: Phone, ariaLabel: `Call ${candidate.full_name}` });
   }
   if (candidate.email) {
-    quickActions.push({ label: "Mailen", href: `mailto:${candidate.email}`, icon: Mail, ariaLabel: `Mail ${candidate.full_name}` });
+    quickActions.push({ label: "Email", href: `mailto:${candidate.email}`, icon: Mail, ariaLabel: `Email ${candidate.full_name}` });
   }
   if (candidate.cv_path) {
-    quickActions.push({ label: "Cv", href: `/dashboard/candidates/${id}/cv`, icon: FileText, external: true, ariaLabel: "Cv openen" });
+    quickActions.push({ label: "CV", href: `/dashboard/candidates/${id}/cv`, icon: FileText, external: true, ariaLabel: "Open CV" });
   }
   if (candidate.linkedin_url) {
-    quickActions.push({ label: "LinkedIn", href: candidate.linkedin_url, icon: ExternalLink, external: true, ariaLabel: "LinkedIn-profiel" });
+    quickActions.push({ label: "LinkedIn", href: candidate.linkedin_url, icon: ExternalLink, external: true, ariaLabel: "LinkedIn profile" });
   }
 
   return (
     <>
       <PageHeader
-        eyebrow="Kandidaat"
+        eyebrow="Candidate"
         title={
           <span className="flex flex-wrap items-center gap-3">
             <Avatar name={candidate.full_name} />
@@ -102,34 +102,34 @@ async function CandidateDetail({ params }: { params: Promise<{ id: string }> }) 
           <>
             <ButtonLink href={`/dashboard/candidates/${id}/edit`} variant="secondary">
               <Pencil aria-hidden="true" />
-              Bewerken
+              Edit
             </ButtonLink>
             <DeleteCandidateButton candidateId={id} name={candidate.full_name} />
           </>
         }
       />
 
-      <QuickActions label={`Snel contact met ${candidate.full_name}`} actions={quickActions} />
+      <QuickActions label={`Quick contact with ${candidate.full_name}`} actions={quickActions} />
 
       <div className="grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-3">
         <div className="min-w-0 space-y-4 sm:space-y-6 lg:col-span-2">
           <Card>
-            <CardHeader title="Profiel" />
+            <CardHeader title="Profile" />
             <CardBody className="space-y-6">
               <DetailList
                 items={[
-                  { label: "Functie", value: candidate.current_title },
-                  { label: "Locatie", value: candidate.location },
+                  { label: "Role", value: candidate.current_title },
+                  { label: "Location", value: candidate.location },
                   {
-                    label: "Ervaring",
+                    label: "Experience",
                     value:
                       candidate.years_experience !== null
-                        ? `${candidate.years_experience} jaar`
+                        ? `${candidate.years_experience} ${candidate.years_experience === 1 ? "year" : "years"}`
                         : null,
                   },
-                  { label: "Eigenaar", value: candidate.owner?.full_name ?? candidate.owner?.email ?? null },
+                  { label: "Owner", value: candidate.owner?.full_name ?? candidate.owner?.email ?? null },
                   {
-                    label: "E-mail",
+                    label: "Email",
                     value: candidate.email ? (
                       <a className="text-brand-700 hover:underline" href={`mailto:${candidate.email}`}>
                         {candidate.email}
@@ -137,7 +137,7 @@ async function CandidateDetail({ params }: { params: Promise<{ id: string }> }) 
                     ) : null,
                   },
                   {
-                    label: "Telefoon",
+                    label: "Phone",
                     value: candidate.phone ? (
                       <a className="text-brand-700 hover:underline" href={telHref(candidate.phone)}>
                         {candidate.phone}
@@ -157,13 +157,13 @@ async function CandidateDetail({ params }: { params: Promise<{ id: string }> }) 
                     ))}
                   </ul>
                 ) : (
-                  <p className="mt-1 text-sm text-muted">Nog geen skills ingevuld.</p>
+                  <p className="mt-1 text-sm text-muted">No skills filled in yet.</p>
                 )}
               </div>
               <div>
-                <h3 className="text-xs font-medium tracking-wide text-muted uppercase">Samenvatting</h3>
+                <h3 className="text-xs font-medium tracking-wide text-muted uppercase">Summary</h3>
                 <p className="mt-1 text-sm leading-relaxed whitespace-pre-line text-ink">
-                  {candidate.summary ?? <span className="text-muted">Nog geen samenvatting.</span>}
+                  {candidate.summary ?? <span className="text-muted">No summary yet.</span>}
                 </p>
               </div>
             </CardBody>
@@ -171,8 +171,8 @@ async function CandidateDetail({ params }: { params: Promise<{ id: string }> }) 
 
           <Card>
             <CardHeader
-              title="Vacatures"
-              description="Alle pipelines waar deze kandidaat in staat."
+              title="Vacancies"
+              description="All pipelines this candidate is in."
               actions={
                 <LinkVacancyButton
                   candidateId={id}
@@ -184,7 +184,7 @@ async function CandidateDetail({ params }: { params: Promise<{ id: string }> }) 
             {applications.length === 0 ? (
               <CardBody>
                 <p className="text-sm text-muted">
-                  Nog niet gekoppeld aan een vacature. Koppel de kandidaat om de selectie te starten.
+                  Not linked to a vacancy yet. Link the candidate to start the selection.
                 </p>
               </CardBody>
             ) : (
@@ -204,19 +204,19 @@ async function CandidateDetail({ params }: { params: Promise<{ id: string }> }) 
                             {application.vacancy.title}
                           </Link>
                         ) : (
-                          <span className="font-medium text-muted">Onbekende vacature</span>
+                          <span className="font-medium text-muted">Unknown vacancy</span>
                         )}
                         <p className="text-sm text-muted">
-                          {application.vacancy?.client?.name ?? "Onbekende klant"}
+                          {application.vacancy?.client?.name ?? "Unknown client"}
                           {" · "}
-                          sinds {formatDate(application.created_at)}
+                          since {formatDate(application.created_at)}
                         </p>
                         <div className="mt-2 flex flex-wrap items-center gap-1.5">
                           <Badge tone={stage.tone}>{stage.label}</Badge>
                           {presented && <Badge tone={decision.tone}>{decision.label}</Badge>}
                           <span className="text-xs text-muted">
-                            Techniek {application.technical_score ?? "nvt"}, Engels{" "}
-                            {application.english_score ?? "nvt"}
+                            Technical {application.technical_score ?? "n/a"}, English{" "}
+                            {application.english_score ?? "n/a"}
                           </span>
                         </div>
                       </div>
@@ -244,7 +244,7 @@ async function CandidateDetail({ params }: { params: Promise<{ id: string }> }) 
 
         <div className="min-w-0 space-y-4 sm:space-y-6">
           <Card>
-            <CardHeader title="Documenten en links" />
+            <CardHeader title="Documents and links" />
             <CardBody>
               <ul className="space-y-3 text-sm">
                 <li>
@@ -256,12 +256,12 @@ async function CandidateDetail({ params }: { params: Promise<{ id: string }> }) 
                       className="flex items-center gap-2 font-medium text-brand-700 hover:underline active:text-brand-900 pointer-coarse:min-h-10"
                     >
                       <FileText className="size-4 shrink-0" aria-hidden="true" />
-                      Cv openen
+                      Open CV
                     </a>
                   ) : (
                     <span className="flex items-center gap-2 text-muted pointer-coarse:min-h-10">
                       <FileText className="size-4 shrink-0" aria-hidden="true" />
-                      Nog geen cv geüpload
+                      No CV uploaded yet
                     </span>
                   )}
                 </li>
@@ -274,12 +274,12 @@ async function CandidateDetail({ params }: { params: Promise<{ id: string }> }) 
                       className="flex items-center gap-2 font-medium text-brand-700 hover:underline active:text-brand-900 pointer-coarse:min-h-10"
                     >
                       <Video className="size-4 shrink-0" aria-hidden="true" />
-                      Video-intro bekijken
+                      Watch video intro
                     </a>
                   ) : (
                     <span className="flex items-center gap-2 text-muted pointer-coarse:min-h-10">
                       <Video className="size-4 shrink-0" aria-hidden="true" />
-                      Nog geen video-intro
+                      No video intro yet
                     </span>
                   )}
                 </li>
@@ -292,12 +292,12 @@ async function CandidateDetail({ params }: { params: Promise<{ id: string }> }) 
                       className="flex items-center gap-2 font-medium text-brand-700 hover:underline active:text-brand-900 pointer-coarse:min-h-10"
                     >
                       <ExternalLink className="size-4 shrink-0" aria-hidden="true" />
-                      LinkedIn-profiel
+                      LinkedIn profile
                     </a>
                   ) : (
                     <span className="flex items-center gap-2 text-muted pointer-coarse:min-h-10">
                       <ExternalLink className="size-4 shrink-0" aria-hidden="true" />
-                      Geen LinkedIn
+                      No LinkedIn
                     </span>
                   )}
                 </li>

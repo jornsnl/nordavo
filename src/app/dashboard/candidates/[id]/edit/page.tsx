@@ -8,7 +8,7 @@ import { getCandidate, listStaffOptions } from "@/lib/data/candidates";
 import { MAX_UPLOAD_BYTES } from "@/lib/storage";
 
 export const metadata: Metadata = {
-  title: "Kandidaat bewerken",
+  title: "Edit candidate",
 };
 
 export default function Page({ params, searchParams }: PageProps<"/dashboard/candidates/[id]/edit">) {
@@ -39,15 +39,16 @@ async function EditCandidate({
 
   return (
     <>
-      <PageHeader eyebrow="Kandidaat bewerken" title={candidate.full_name} />
+      <PageHeader eyebrow="Edit candidate" title={candidate.full_name} />
       <div className="max-w-3xl">
         <CandidateForm
           candidate={candidate}
           owners={owners}
           maxUploadMb={Math.round(MAX_UPLOAD_BYTES / 1024 / 1024)}
           notice={
-            query.cv === "mislukt"
-              ? "De kandidaat is opgeslagen, maar het cv uploaden is mislukt. Probeer het hier opnieuw."
+            // "mislukt" is the old Dutch value of the same flag.
+            query.cv === "failed" || query.cv === "mislukt"
+              ? "The candidate was saved, but the CV upload failed. Please try again here."
               : undefined
           }
         />

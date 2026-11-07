@@ -16,11 +16,11 @@ import { TaskBoard } from "@/components/tasks/task-board";
 import { TaskList, type TaskGroup } from "@/components/tasks/task-list";
 
 export const metadata: Metadata = {
-  title: "Taken",
+  title: "Tasks",
 };
 
 type Filters = {
-  view: "lijst" | "bord";
+  view: "list" | "board";
   scope: "mine" | "all";
   priority?: TaskPriority;
 };
@@ -31,8 +31,10 @@ function first(value: string | string[] | undefined) {
 
 function parseFilters(params: Record<string, string | string[] | undefined>): Filters {
   const priority = first(params.priority);
+  const view = first(params.view);
   return {
-    view: first(params.view) === "bord" ? "bord" : "lijst",
+    // "bord" is the old Dutch value, still accepted for saved links.
+    view: view === "board" || view === "bord" ? "board" : "list",
     scope: first(params.scope) === "all" ? "all" : "mine",
     priority: isTaskPriority(priority) ? priority : undefined,
   };
@@ -41,7 +43,7 @@ function parseFilters(params: Record<string, string | string[] | undefined>): Fi
 function hrefFor(filters: Filters, change: Partial<Filters>) {
   const next = { ...filters, ...change };
   const params = new URLSearchParams();
-  if (next.view === "bord") params.set("view", "bord");
+  if (next.view === "board") params.set("view", "board");
   if (next.scope === "all") params.set("scope", "all");
   if (next.priority) params.set("priority", next.priority);
   const query = params.toString();
@@ -52,15 +54,15 @@ export default function TasksPage({ searchParams }: PageProps<"/dashboard/tasks"
   return (
     <>
       <PageHeader
-        eyebrow="Werk"
-        title="Taken"
-        description="Alles wat nog moet gebeuren, voor klanten, vacatures en kandidaten."
+        eyebrow="Work"
+        title="Tasks"
+        description="Everything that still needs doing, for clients, vacancies and candidates."
         actions={
           <Suspense
             fallback={
               <Button disabled>
                 <Plus aria-hidden="true" />
-                Nieuwe taak
+                New task
               </Button>
             }
           >
@@ -100,14 +102,14 @@ async function TasksView({ searchParams }: { searchParams: PageProps<"/dashboard
       {tasks.length === 0 ? (
         <EmptyState
           icon={CheckSquare}
-          title={filters.priority || filters.scope === "mine" ? "Geen taken gevonden" : "Nog geen taken"}
+          title={filters.priority || filters.scope === "mine" ? "No tasks found" : "No tasks yet"}
           description={
             filters.scope === "mine"
-              ? "Er staan geen taken op jouw naam met deze filters. Kijk bij alle taken of maak er een aan."
-              : "Maak een taak aan om bij te houden wat er nog moet gebeuren."
+              ? "No tasks assigned to you match these filters. Look at all tasks or create one."
+              : "Create a task to keep track of what still needs doing."
           }
         />
-      ) : filters.view === "bord" ? (
+      ) : filters.view === "board" ? (
         <TaskBoard tasks={tasks} staff={staff} currentUserId={user.id} today={today} />
       ) : (
         <TaskList
@@ -128,20 +130,20 @@ function addDays(iso: string, days: number) {
   return date.toISOString().slice(0, 10);
 }
 
-/** Te laat, Vandaag, Deze week (tot en met zondag), Later, Zonder datum. */
+/** Overdue, Today, This week (up to and including Sunday), Later, No date. */
 function groupByDue(tasks: TaskItem[], today: string): TaskGroup[] {
-  const weekday = new Date(`${today}T00:00:00Z`).getUTCDay(); // 0 = zondag
+  const weekday = new Date(`${today}T00:00:00Z`).getUTCDay(); // 0 = Sunday
   const endOfWeek = addDays(today, (7 - weekday) % 7);
   const rank = { high: 0, normal: 1, low: 2 } as const;
   const byDue = (a: TaskItem, b: TaskItem) =>
     (a.dueDate ?? "").localeCompare(b.dueDate ?? "") || rank[a.priority] - rank[b.priority];
 
   const groups: TaskGroup[] = [
-    { key: "overdue", label: "Te laat", tone: "danger", tasks: [] },
-    { key: "today", label: "Vandaag", tasks: [] },
-    { key: "week", label: "Deze week", tasks: [] },
+    { key: "overdue", label: "Overdue", tone: "danger", tasks: [] },
+    { key: "today", label: "Today", tasks: [] },
+    { key: "week", label: "This week", tasks: [] },
     { key: "later", label: "Later", tasks: [] },
-    { key: "none", label: "Zonder datum", tasks: [] },
+    { key: "none", label: "No date", tasks: [] },
   ];
   const [overdue, todayGroup, week, later, none] = groups;
 
@@ -163,16 +165,16 @@ function FilterBar({ filters }: { filters: Filters }) {
       {/* On phones the filters form one strip that scrolls sideways. */}
       <div className="-mx-4 flex scrollbar-none items-center gap-3 overflow-x-auto overscroll-x-contain px-4 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0">
         <Segmented
-          label="Wiens taken"
+          label="Whose tasks"
           options={[
-            { label: "Mijn taken", href: hrefFor(filters, { scope: "mine" }), active: filters.scope === "mine" },
-            { label: "Alle taken", href: hrefFor(filters, { scope: "all" }), active: filters.scope === "all" },
+            { label: "My tasks", href: hrefFor(filters, { scope: "mine" }), active: filters.scope === "mine" },
+            { label: "All tasks", href: hrefFor(filters, { scope: "all" }), active: filters.scope === "all" },
           ]}
         />
         <Segmented
-          label="Prioriteit"
+          label="Priority"
           options={[
-            { label: "Alle", href: hrefFor(filters, { priority: undefined }), active: !filters.priority },
+            { label: "All", href: hrefFor(filters, { priority: undefined }), active: !filters.priority },
             ...[...taskPriorities].reverse().map((p) => ({
               label: p.label,
               href: hrefFor(filters, { priority: p.value }),
@@ -182,20 +184,20 @@ function FilterBar({ filters }: { filters: Filters }) {
         />
       </div>
       <Segmented
-        label="Weergave"
+        label="View"
         className="max-sm:w-full max-sm:*:flex-1 max-sm:*:justify-center"
         options={[
           {
-            label: "Lijst",
+            label: "List",
             icon: <List className="size-4" aria-hidden="true" />,
-            href: hrefFor(filters, { view: "lijst" }),
-            active: filters.view === "lijst",
+            href: hrefFor(filters, { view: "list" }),
+            active: filters.view === "list",
           },
           {
-            label: "Bord",
+            label: "Board",
             icon: <Columns3 className="size-4" aria-hidden="true" />,
-            href: hrefFor(filters, { view: "bord" }),
-            active: filters.view === "bord",
+            href: hrefFor(filters, { view: "board" }),
+            active: filters.view === "board",
           },
         ]}
       />

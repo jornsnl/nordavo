@@ -16,20 +16,20 @@ const idSchema = z.guid();
 
 const clientSchema = z.object({
   name: z
-    .string({ error: "Vul een naam in." })
-    .min(1, "Vul een naam in.")
-    .max(200, "Gebruik maximaal 200 tekens."),
+    .string({ error: "Enter a name." })
+    .min(1, "Enter a name.")
+    .max(200, "Use at most 200 characters."),
   website: z
     .string()
-    .max(300, "Gebruik maximaal 300 tekens.")
+    .max(300, "Use at most 300 characters.")
     .transform((value) => (/^https?:\/\//i.test(value) ? value : `https://${value}`))
-    .pipe(z.url({ error: "Dit is geen geldige website." }))
+    .pipe(z.url({ error: "This is not a valid website." }))
     .optional(),
-  industry: z.string().max(200, "Gebruik maximaal 200 tekens.").optional(),
-  city: z.string().max(200, "Gebruik maximaal 200 tekens.").optional(),
-  status: z.enum(["lead", "active", "inactive"], { error: "Kies een status." }),
-  owner_id: z.guid({ error: "Kies een teamlid." }).optional(),
-  notes: z.string().max(5000, "Gebruik maximaal 5000 tekens.").optional(),
+  industry: z.string().max(200, "Use at most 200 characters.").optional(),
+  city: z.string().max(200, "Use at most 200 characters.").optional(),
+  status: z.enum(["lead", "active", "inactive"], { error: "Choose a status." }),
+  owner_id: z.guid({ error: "Choose a team member." }).optional(),
+  notes: z.string().max(5000, "Use at most 5000 characters.").optional(),
 });
 
 function toRow(data: z.infer<typeof clientSchema>) {
@@ -51,7 +51,7 @@ export async function createClientAction(
   await requireStaff();
   const parsed = clientSchema.safeParse(formValues(formData));
   if (!parsed.success) {
-    return { error: "Controleer de gemarkeerde velden.", fieldErrors: fieldErrorsFrom(parsed.error) };
+    return { error: "Check the highlighted fields.", fieldErrors: fieldErrorsFrom(parsed.error) };
   }
 
   const supabase = await createClient();
@@ -75,7 +75,7 @@ export async function updateClientAction(
   if (!idSchema.safeParse(id).success) return { error: GENERIC_ERROR };
   const parsed = clientSchema.safeParse(formValues(formData));
   if (!parsed.success) {
-    return { error: "Controleer de gemarkeerde velden.", fieldErrors: fieldErrorsFrom(parsed.error) };
+    return { error: "Check the highlighted fields.", fieldErrors: fieldErrorsFrom(parsed.error) };
   }
 
   const supabase = await createClient();
@@ -103,7 +103,7 @@ export async function deleteClientAction(
     if (error.code === "23503") {
       return {
         error:
-          "Deze klant heeft plaatsingen en kan daarom niet verwijderd worden. Zet de klant op inactief als je er niet meer mee werkt.",
+          "This client has placements, so it cannot be deleted. Set the client to inactive if you no longer work with them.",
       };
     }
     return { error: GENERIC_ERROR };
@@ -121,12 +121,12 @@ export async function deleteClientAction(
 const contactSchema = z.object({
   contact_id: z.guid().optional(),
   full_name: z
-    .string({ error: "Vul een naam in." })
-    .min(1, "Vul een naam in.")
-    .max(200, "Gebruik maximaal 200 tekens."),
-  email: z.email({ error: "Dit is geen geldig e-mailadres." }).optional(),
-  phone: z.string().max(50, "Gebruik maximaal 50 tekens.").optional(),
-  job_title: z.string().max(200, "Gebruik maximaal 200 tekens.").optional(),
+    .string({ error: "Enter a name." })
+    .min(1, "Enter a name.")
+    .max(200, "Use at most 200 characters."),
+  email: z.email({ error: "This is not a valid email address." }).optional(),
+  phone: z.string().max(50, "Use at most 50 characters.").optional(),
+  job_title: z.string().max(200, "Use at most 200 characters.").optional(),
   is_primary: z.literal("on").optional(),
 });
 
@@ -139,7 +139,7 @@ export async function saveContactAction(
   if (!idSchema.safeParse(clientId).success) return { error: GENERIC_ERROR };
   const parsed = contactSchema.safeParse(formValues(formData));
   if (!parsed.success) {
-    return { error: "Controleer de gemarkeerde velden.", fieldErrors: fieldErrorsFrom(parsed.error) };
+    return { error: "Check the highlighted fields.", fieldErrors: fieldErrorsFrom(parsed.error) };
   }
 
   const { contact_id, is_primary, ...fields } = parsed.data;
@@ -175,7 +175,7 @@ export async function saveContactAction(
   if (error) return { error: GENERIC_ERROR };
 
   revalidatePath(`/dashboard/clients/${clientId}`);
-  return { ok: true, message: contact_id ? "Contactpersoon bijgewerkt." : "Contactpersoon toegevoegd." };
+  return { ok: true, message: contact_id ? "Contact updated." : "Contact added." };
 }
 
 export async function deleteContactAction(
@@ -199,5 +199,5 @@ export async function deleteContactAction(
   if (error) return { error: GENERIC_ERROR };
 
   revalidatePath(`/dashboard/clients/${clientId}`);
-  return { ok: true, message: "Contactpersoon verwijderd." };
+  return { ok: true, message: "Contact deleted." };
 }

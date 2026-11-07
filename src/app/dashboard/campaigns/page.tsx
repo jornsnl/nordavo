@@ -7,7 +7,7 @@ import { ButtonLink } from "@/components/ui/button";
 import { ListSkeleton } from "@/components/ui/skeleton";
 
 export const metadata: Metadata = {
-  title: "Campagnes",
+  title: "Campaigns",
 };
 
 export default function Page() {
@@ -15,12 +15,12 @@ export default function Page() {
     <>
       <PageHeader
         eyebrow="Sales"
-        title="Campagnes"
-        description="Eén signaal per campagne, zodat je ziet wat werkt. Na 150 mails evalueren: onder 3% reply herschrijven of stoppen, boven 5% opschalen."
+        title="Campaigns"
+        description="One signal per campaign, so you can see what works. Review after 150 emails: below 3% replies, rewrite or stop; above 5%, scale up."
         actions={
           <ButtonLink href="/dashboard/lists?lijst=mailcampagne#voorbeeld">
             <ListChecks aria-hidden="true" />
-            Maillijst vullen
+            Fill mailing list
           </ButtonLink>
         }
       />
@@ -28,8 +28,8 @@ export default function Page() {
         <CampaignsTable />
       </Suspense>
       <p className="mt-4 text-sm text-muted">
-        Leads zijn contacten die in de campagne zijn gezet. Replies en afspraken tellen per contact; een afspraak telt mee als hij na
-        het eerste bericht uit de campagne is gepland.
+        Leads are contacts that were added to the campaign. Replies and meetings count per contact; a meeting counts if it was
+        booked after the first message of the campaign.
       </p>
     </>
   );

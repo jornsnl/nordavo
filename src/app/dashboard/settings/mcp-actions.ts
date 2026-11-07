@@ -14,12 +14,12 @@ const MAX_ACTIVE_TOKENS = 20;
 
 const createSchema = z.object({
   name: z
-    .string({ error: "Geef het token een naam" })
+    .string({ error: "Name the token" })
     .trim()
-    .min(1, { error: "Geef het token een naam" })
-    .max(80, { error: "Maximaal 80 tekens" }),
-  access: z.enum(["read", "write"], { error: "Kies lezen of lezen en schrijven" }),
-  expires: z.enum(["30", "90", "365", "never"], { error: "Kies een geldigheid" }),
+    .min(1, { error: "Name the token" })
+    .max(80, { error: "At most 80 characters" }),
+  access: z.enum(["read", "write"], { error: "Choose read or read and write" }),
+  expires: z.enum(["30", "90", "365", "never"], { error: "Choose an expiry" }),
 });
 
 export async function createMcpToken(
@@ -29,7 +29,7 @@ export async function createMcpToken(
   const user = await requireStaff();
   const parsed = createSchema.safeParse(formValues(formData));
   if (!parsed.success) {
-    return { error: "Controleer de gemarkeerde velden.", fieldErrors: fieldErrorsFrom(parsed.error) };
+    return { error: "Check the highlighted fields.", fieldErrors: fieldErrorsFrom(parsed.error) };
   }
 
   const supabase = await createClient();
@@ -45,7 +45,7 @@ export async function createMcpToken(
     return { error: GENERIC_ERROR };
   }
   if ((count ?? 0) >= MAX_ACTIVE_TOKENS) {
-    return { error: `Je hebt al ${MAX_ACTIVE_TOKENS} actieve tokens. Trek er eerst een in.` };
+    return { error: `You already have ${MAX_ACTIVE_TOKENS} active tokens. Revoke one first.` };
   }
 
   const { token, hash, prefix } = generateMcpToken();
@@ -70,7 +70,7 @@ export async function createMcpToken(
   refresh();
   return {
     ok: true,
-    message: "Token aangemaakt. Kopieer het nu: je ziet het hierna nooit meer.",
+    message: "Token created. Copy it now: you will not see it again.",
     token,
   };
 }
@@ -93,8 +93,8 @@ export async function revokeMcpToken(tokenId: string): Promise<ActionState> {
     console.error("revokeMcpToken", error.code, error.message);
     return { error: GENERIC_ERROR };
   }
-  if (data.length === 0) return { error: "Token niet gevonden of al ingetrokken." };
+  if (data.length === 0) return { error: "Token not found or already revoked." };
 
   refresh();
-  return { ok: true, message: "Token ingetrokken." };
+  return { ok: true, message: "Token revoked." };
 }

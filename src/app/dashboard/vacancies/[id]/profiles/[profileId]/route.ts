@@ -9,14 +9,14 @@ export async function GET(_request: Request, { params }: RouteContext<"/dashboar
   const { id, profileId } = await params;
   const file = await getProfileFile(profileId, id);
   if (!file) {
-    return new Response("Geen profiel gevonden.", {
+    return new Response("Profile not found.", {
       status: 404,
       headers: { "content-type": "text/plain; charset=utf-8" },
     });
   }
   const url = await createSignedUrl(file.path, 60);
   if (!url) {
-    return new Response("Het profiel kon niet worden geopend. Probeer het later opnieuw.", {
+    return new Response("The profile could not be opened. Please try again later.", {
       status: 502,
       headers: { "content-type": "text/plain; charset=utf-8" },
     });

@@ -82,12 +82,12 @@ export default function Page({ searchParams }: PageProps<"/dashboard/leads">) {
       <PageHeader
         eyebrow="Sales"
         title="Leads"
-        description="Alle bedrijven uit scrapes en oude lijsten, met het oordeel van Claude en het laatste signaal."
+        description="All companies from scrapes and old lists, with Claude's verdict and the latest signal."
         actions={
           <>
             <ButtonLink href="/dashboard/import" variant="secondary">
               <Upload aria-hidden="true" />
-              Importeren
+              Import
             </ButtonLink>
             <ButtonLink href="/dashboard/leads/new" variant="secondary">
               <Plus aria-hidden="true" />
@@ -124,15 +124,15 @@ async function Filters({ searchParams }: { searchParams: SearchParams }) {
   const active = [f.icp, f.segment, f.status, f.signalDays, f.minScore].filter(Boolean).length;
   // Quick filters on phones: sort and the ICP verdict, keeping the other filters.
   const chips = [
-    { label: "Hoogste score", href: hrefWith("/dashboard/leads", { ...params, sort: undefined }), active: f.sort !== "new" },
-    { label: "Nieuwste eerst", href: hrefWith("/dashboard/leads", { ...params, sort: "new" }), active: f.sort === "new" },
+    { label: "Highest score", href: hrefWith("/dashboard/leads", { ...params, sort: undefined }), active: f.sort !== "new" },
+    { label: "Newest first", href: hrefWith("/dashboard/leads", { ...params, sort: "new" }), active: f.sort === "new" },
     ...icpDecisions.map((o) => ({
       label: o.label,
       href: hrefWith("/dashboard/leads", { ...params, icp: f.icp === o.value ? undefined : o.value }),
       active: f.icp === o.value,
     })),
     {
-      label: "Nog niet beoordeeld",
+      label: "Not assessed yet",
       href: hrefWith("/dashboard/leads", { ...params, icp: f.icp === "none" ? undefined : "none" }),
       active: f.icp === "none",
     },
@@ -146,7 +146,7 @@ async function Filters({ searchParams }: { searchParams: SearchParams }) {
             aria-hidden="true"
           />
           <label htmlFor="lead-q" className="sr-only">
-            Zoek op naam of domein
+            Search by name or domain
           </label>
           <Input
             id="lead-q"
@@ -155,34 +155,34 @@ async function Filters({ searchParams }: { searchParams: SearchParams }) {
             enterKeyHint="search"
             autoComplete="off"
             defaultValue={f.q ?? ""}
-            placeholder="Zoek op naam of domein"
+            placeholder="Search by name or domain"
             className="pl-10"
           />
         </div>
         {/* On phones the sort is a chip below; the select stays in the form so a search keeps it. */}
         <div className="max-md:hidden">
           <label htmlFor="lead-sort" className="sr-only">
-            Sorteren
+            Sort
           </label>
           <Select id="lead-sort" name="sort" defaultValue={f.sort === "new" ? "new" : ""} className="sm:w-48">
-            <option value="">Hoogste score</option>
-            <option value="new">Nieuwste eerst</option>
+            <option value="">Highest score</option>
+            <option value="new">Newest first</option>
           </Select>
         </div>
-        <FilterSheet activeCount={active} resetHref="/dashboard/leads" title="Leads filteren" className="md:basis-full">
+        <FilterSheet activeCount={active} resetHref="/dashboard/leads" title="Filter leads" className="md:basis-full">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-[repeat(5,minmax(0,1fr))_auto]">
             <div>
               <label htmlFor="lead-icp" className="sr-only">
-                ICP oordeel
+                ICP verdict
               </label>
               <Select id="lead-icp" name="icp" defaultValue={f.icp ?? ""}>
-                <option value="">Elk oordeel</option>
+                <option value="">Any verdict</option>
                 {icpDecisions.map((o) => (
                   <option key={o.value} value={o.value}>
                     {o.label}
                   </option>
                 ))}
-                <option value="none">Nog niet beoordeeld</option>
+                <option value="none">Not assessed yet</option>
               </Select>
             </div>
             <div>
@@ -190,7 +190,7 @@ async function Filters({ searchParams }: { searchParams: SearchParams }) {
                 Segment
               </label>
               <Select id="lead-segment" name="segment" defaultValue={f.segment ?? ""}>
-                <option value="">Alle segmenten</option>
+                <option value="">All segments</option>
                 {segments.map((o) => (
                   <option key={o.value} value={o.value}>
                     {o.label}
@@ -203,7 +203,7 @@ async function Filters({ searchParams }: { searchParams: SearchParams }) {
                 Status
               </label>
               <Select id="lead-status" name="status" defaultValue={f.status ?? ""}>
-                <option value="">Alle statussen</option>
+                <option value="">All statuses</option>
                 {companyStatuses.map((o) => (
                   <option key={o.value} value={o.value}>
                     {o.label}
@@ -213,20 +213,20 @@ async function Filters({ searchParams }: { searchParams: SearchParams }) {
             </div>
             <div>
               <label htmlFor="lead-signal" className="sr-only">
-                Signaal in de laatste dagen
+                Signal in recent days
               </label>
               <Select id="lead-signal" name="signal" defaultValue={f.signalDays ? String(f.signalDays) : ""}>
-                <option value="">Elk signaal</option>
+                <option value="">Any signal</option>
                 {SIGNAL_WINDOWS.map((d) => (
                   <option key={d} value={d}>
-                    Signaal laatste {d} dagen
+                    Signal in the last {d} days
                   </option>
                 ))}
               </Select>
             </div>
             <div>
               <label htmlFor="lead-min" className="sr-only">
-                Minimale score
+                Minimum score
               </label>
               <Input
                 id="lead-min"
@@ -235,17 +235,17 @@ async function Filters({ searchParams }: { searchParams: SearchParams }) {
                 min={1}
                 max={100}
                 inputMode="numeric"
-                placeholder="Minimale score"
+                placeholder="Minimum score"
                 defaultValue={f.minScore ?? ""}
               />
             </div>
             <Button type="submit" variant="secondary" className="max-md:hidden">
-              Filteren
+              Filter
             </Button>
           </div>
         </FilterSheet>
       </div>
-      <ChipStrip label="Snelfilters" chips={chips} className="md:hidden" />
+      <ChipStrip label="Quick filters" chips={chips} className="md:hidden" />
     </Form>
   );
 }
@@ -259,11 +259,11 @@ async function LeadTable({ searchParams }: { searchParams: SearchParams }) {
     return (
       <EmptyState
         icon={Radar}
-        title={filtered ? "Geen leads gevonden" : "Nog geen leads"}
+        title={filtered ? "No leads found" : "No leads yet"}
         description={
           filtered
-            ? "Niets gevonden met deze filters. Pas ze aan of wis de zoekterm."
-            : "Leads komen binnen via de maandagflow (S1) of via een import van een oude lijst."
+            ? "Nothing matches these filters. Adjust them or clear the search."
+            : "Leads come in through the Monday flow (S1) or an import of an old list."
         }
       />
     );
@@ -280,10 +280,10 @@ async function LeadTable({ searchParams }: { searchParams: SearchParams }) {
             subtitle={lead.domain}
             meta={
               lead.latestSignal
-                ? `${lead.latestSignal.title ?? "Signaal"}, gezien ${formatRelativeDays(lead.latestSignal.lastSeenAt)}`
+                ? `${lead.latestSignal.title ?? "Signal"}, seen ${formatRelativeDays(lead.latestSignal.lastSeenAt)}`
                 : lead.lastActivityAt
-                  ? `Laatst benaderd ${formatDate(lead.lastActivityAt)}`
-                  : "Geen signaal, nog niet benaderd"
+                  ? `Last approached ${formatDate(lead.lastActivityAt)}`
+                  : "No signal, not approached yet"
             }
           >
             <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted">
@@ -291,7 +291,7 @@ async function LeadTable({ searchParams }: { searchParams: SearchParams }) {
               <SegmentBadge segment={lead.segment} />
               <CompanyStatusBadge status={lead.status} />
               <span className="tabular-nums">
-                {lead.contactsCount} {lead.contactsCount === 1 ? "contact" : "contacten"}
+                {lead.contactsCount} {lead.contactsCount === 1 ? "contact" : "contacts"}
               </span>
             </div>
           </MobileListItem>
@@ -300,13 +300,13 @@ async function LeadTable({ searchParams }: { searchParams: SearchParams }) {
       <Table className="hidden md:block">
         <THead>
           <tr>
-            <TH>Bedrijf</TH>
+            <TH>Company</TH>
             <TH>Segment</TH>
             <TH>ICP</TH>
-            <TH>Laatste signaal</TH>
-            <TH className="text-right">Contacten</TH>
+            <TH>Latest signal</TH>
+            <TH className="text-right">Contacts</TH>
             <TH>Status</TH>
-            <TH>Laatste activiteit</TH>
+            <TH>Last activity</TH>
           </tr>
         </THead>
         <TBody>
@@ -336,10 +336,10 @@ async function LeadTable({ searchParams }: { searchParams: SearchParams }) {
                         {lead.latestSignal.title}
                       </p>
                     )}
-                    <p className="text-xs text-muted">Gezien {formatRelativeDays(lead.latestSignal.lastSeenAt)}</p>
+                    <p className="text-xs text-muted">Seen {formatRelativeDays(lead.latestSignal.lastSeenAt)}</p>
                   </div>
                 ) : (
-                  <span className="text-muted">Geen signaal</span>
+                  <span className="text-muted">No signal</span>
                 )}
               </TD>
               <TD className="text-right tabular-nums">{lead.contactsCount}</TD>
@@ -347,7 +347,7 @@ async function LeadTable({ searchParams }: { searchParams: SearchParams }) {
                 <CompanyStatusBadge status={lead.status} />
               </TD>
               <TD className="text-muted">
-                {lead.lastActivityAt ? formatDate(lead.lastActivityAt) : "Nog niet benaderd"}
+                {lead.lastActivityAt ? formatDate(lead.lastActivityAt) : "Not approached yet"}
               </TD>
             </TR>
           ))}

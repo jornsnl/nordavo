@@ -8,16 +8,16 @@ import { isUuid, listStaffOptions } from "@/lib/data/candidates";
 import { MAX_UPLOAD_BYTES } from "@/lib/storage";
 
 export const metadata: Metadata = {
-  title: "Nieuwe kandidaat",
+  title: "New candidate",
 };
 
 export default function Page({ searchParams }: PageProps<"/dashboard/candidates/new">) {
   return (
     <>
       <PageHeader
-        eyebrow="Kandidaten"
-        title="Nieuwe kandidaat"
-        description="Leg het profiel vast. Skills, cv en video-intro helpen de klant straks kiezen."
+        eyebrow="Candidates"
+        title="New candidate"
+        description="Capture the profile. Skills, CV and video intro help the client choose later on."
       />
       <Suspense fallback={<ListSkeleton rows={8} />}>
         <NewCandidate searchParams={searchParams} />

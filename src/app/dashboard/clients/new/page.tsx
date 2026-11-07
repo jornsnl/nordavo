@@ -8,16 +8,16 @@ import { listStaffOptions } from "@/lib/data/clients";
 import { createClientAction } from "../actions";
 
 export const metadata: Metadata = {
-  title: "Nieuwe klant",
+  title: "New client",
 };
 
 export default function Page() {
   return (
     <>
       <PageHeader
-        eyebrow="Klanten"
-        title="Nieuwe klant"
-        description="Leg het bedrijf vast. Contactpersonen en vacatures voeg je daarna toe."
+        eyebrow="Clients"
+        title="New client"
+        description="Capture the company. You add contacts and vacancies afterwards."
       />
       <Card className="max-w-3xl">
         <CardBody className="py-6">
@@ -37,7 +37,7 @@ async function NewClientForm() {
       action={createClientAction}
       staff={staff}
       cancelHref="/dashboard/clients"
-      submitLabel="Klant toevoegen"
+      submitLabel="Add client"
     />
   );
 }

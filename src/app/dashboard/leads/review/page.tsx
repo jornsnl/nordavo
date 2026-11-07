@@ -26,12 +26,12 @@ export default function Page({ searchParams }: PageProps<"/dashboard/leads/revie
         className="mb-4 inline-flex items-center gap-1.5 text-sm font-medium text-muted hover:text-brand-700 max-md:-mt-2 max-md:mb-2 max-md:min-h-11 max-md:active:text-brand-700"
       >
         <ArrowLeft className="size-4" aria-hidden="true" />
-        Alle leads
+        All leads
       </Link>
       <PageHeader
         eyebrow="Sales"
         title="Review"
-        description="Bedrijven waar Claude twijfelt. Kies GO of No go; daarna komt direct het volgende bedrijf."
+        description="Companies Claude is unsure about. Choose GO or No go; the next company appears straight away."
       />
       <Suspense
         fallback={
@@ -58,8 +58,8 @@ async function ReviewQueue({ searchParams }: { searchParams: SearchParams }) {
         <LeadTabs active="review" reviewCount={0} />
         <EmptyState
           icon={PartyPopper}
-          title="Niets te beoordelen"
-          description="Alle bedrijven hebben een oordeel. Nieuwe twijfelgevallen komen hier na de maandagflow."
+          title="Nothing to review"
+          description="Every company has a verdict. New borderline cases appear here after the Monday flow."
         />
       </>
     );
@@ -84,8 +84,8 @@ async function ReviewQueue({ searchParams }: { searchParams: SearchParams }) {
         </div>
         <Card className="h-fit">
           <CardHeader
-            title="Wachtrij"
-            description={queue.length >= 100 ? "De eerste 100, hoogste score eerst." : "Hoogste score eerst."}
+            title="Queue"
+            description={queue.length >= 100 ? "The first 100, highest score first." : "Highest score first."}
           />
           <ol className="max-h-[70dvh] divide-y divide-border overflow-y-auto">
             {queue.map((c, i) => (

@@ -27,7 +27,7 @@ import { contactStatuses, contactTiers, emailStatuses } from "@/lib/labels";
 import type { ContactListItem } from "@/lib/data/gtm-contacts";
 
 export const metadata: Metadata = {
-  title: "Contacten",
+  title: "Contacts",
 };
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
@@ -36,9 +36,10 @@ function first(value: string | string[] | undefined) {
   return (Array.isArray(value) ? value[0] : value)?.trim() || undefined;
 }
 
+/** "ja", "nee" and "mobiel" are the old Dutch params, still accepted for saved links. */
 function yesNo(value: string | undefined): boolean | undefined {
-  if (value === "ja") return true;
-  if (value === "nee") return false;
+  if (value === "yes" || value === "ja") return true;
+  if (value === "no" || value === "nee") return false;
   return undefined;
 }
 
@@ -53,13 +54,13 @@ function readFilters(params: Record<string, string | string[] | undefined>): Con
     tier: tier === 1 || tier === 2 || tier === 3 ? tier : undefined,
     hasEmail: yesNo(first(params.email)),
     emailStatus: isEmailStatus(emailStatus) ? emailStatus : undefined,
-    hasMobile: yesNo(first(params.mobiel)),
+    hasMobile: yesNo(first(params.mobile) ?? first(params.mobiel)),
     inOnePage: yesNo(first(params.onepage)),
     page: Number.isInteger(page) && page > 1 ? page : 1,
   };
 }
 
-const yn = (value: boolean | undefined) => (value === true ? "ja" : value === false ? "nee" : undefined);
+const yn = (value: boolean | undefined) => (value === true ? "yes" : value === false ? "no" : undefined);
 
 function toParams(f: ContactFilters): Record<string, string | undefined> {
   return {
@@ -68,7 +69,7 @@ function toParams(f: ContactFilters): Record<string, string | undefined> {
     tier: f.tier ? String(f.tier) : undefined,
     email: yn(f.hasEmail),
     email_status: f.emailStatus,
-    mobiel: yn(f.hasMobile),
+    mobile: yn(f.hasMobile),
     onepage: yn(f.inOnePage),
   };
 }
@@ -78,8 +79,8 @@ export default function Page({ searchParams }: PageProps<"/dashboard/contacts">)
     <>
       <PageHeader
         eyebrow="Sales"
-        title="Contacten"
-        description="Alle beslissers bij leads, met hun mail, telefoon en wanneer we ze voor het laatst benaderden."
+        title="Contacts"
+        description="All decision makers at leads, with their email, phone and when we last approached them."
       />
       <Suspense fallback={<Skeleton className="mb-6 h-24 w-full" />}>
         <Filters searchParams={searchParams} />
@@ -98,9 +99,9 @@ function YesNoSelect({ id, name, label, value }: { id: string; name: string; lab
         {label}
       </label>
       <Select id={id} name={name} defaultValue={yn(value) ?? ""}>
-        <option value="">{label}: maakt niet uit</option>
-        <option value="ja">{label}: ja</option>
-        <option value="nee">{label}: nee</option>
+        <option value="">{label}: any</option>
+        <option value="yes">{label}: yes</option>
+        <option value="no">{label}: no</option>
       </Select>
     </div>
   );
@@ -118,18 +119,18 @@ async function Filters({ searchParams }: { searchParams: SearchParams }) {
       active: f.tier === Number(o.value),
     })),
     {
-      label: "Met mobiel",
-      href: hrefWith("/dashboard/contacts", { ...params, mobiel: f.hasMobile === true ? undefined : "ja" }),
+      label: "With mobile",
+      href: hrefWith("/dashboard/contacts", { ...params, mobile: f.hasMobile === true ? undefined : "yes" }),
       active: f.hasMobile === true,
     },
     {
-      label: "Met mailadres",
-      href: hrefWith("/dashboard/contacts", { ...params, email: f.hasEmail === true ? undefined : "ja" }),
+      label: "With email address",
+      href: hrefWith("/dashboard/contacts", { ...params, email: f.hasEmail === true ? undefined : "yes" }),
       active: f.hasEmail === true,
     },
     {
-      label: "Niet in OnePage",
-      href: hrefWith("/dashboard/contacts", { ...params, onepage: f.inOnePage === false ? undefined : "nee" }),
+      label: "Not in OnePage",
+      href: hrefWith("/dashboard/contacts", { ...params, onepage: f.inOnePage === false ? undefined : "no" }),
       active: f.inOnePage === false,
     },
   ];
@@ -142,7 +143,7 @@ async function Filters({ searchParams }: { searchParams: SearchParams }) {
             aria-hidden="true"
           />
           <label htmlFor="contact-q" className="sr-only">
-            Zoek op naam, mail of bedrijf
+            Search by name, email or company
           </label>
           <Input
             id="contact-q"
@@ -151,18 +152,18 @@ async function Filters({ searchParams }: { searchParams: SearchParams }) {
             enterKeyHint="search"
             autoComplete="off"
             defaultValue={f.q ?? ""}
-            placeholder="Zoek op naam, mail of bedrijf"
+            placeholder="Search by name, email or company"
             className="pl-10"
           />
         </div>
-        <FilterSheet activeCount={active} resetHref="/dashboard/contacts" title="Contacten filteren" className="md:basis-full">
+        <FilterSheet activeCount={active} resetHref="/dashboard/contacts" title="Filter contacts" className="md:basis-full">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-[repeat(6,minmax(0,1fr))_auto]">
             <div>
               <label htmlFor="contact-status" className="sr-only">
                 Status
               </label>
               <Select id="contact-status" name="status" defaultValue={f.status ?? ""}>
-                <option value="">Alle statussen</option>
+                <option value="">All statuses</option>
                 {contactStatuses.map((o) => (
                   <option key={o.value} value={o.value}>
                     {o.label}
@@ -175,7 +176,7 @@ async function Filters({ searchParams }: { searchParams: SearchParams }) {
                 Tier
               </label>
               <Select id="contact-tier" name="tier" defaultValue={f.tier ? String(f.tier) : ""}>
-                <option value="">Alle tiers</option>
+                <option value="">All tiers</option>
                 {contactTiers.map((o) => (
                   <option key={o.value} value={o.value}>
                     Tier {o.value}
@@ -183,13 +184,13 @@ async function Filters({ searchParams }: { searchParams: SearchParams }) {
                 ))}
               </Select>
             </div>
-            <YesNoSelect id="contact-email" name="email" label="Mailadres" value={f.hasEmail} />
+            <YesNoSelect id="contact-email" name="email" label="Email address" value={f.hasEmail} />
             <div>
               <label htmlFor="contact-email-status" className="sr-only">
-                Mailstatus
+                Email status
               </label>
               <Select id="contact-email-status" name="email_status" defaultValue={f.emailStatus ?? ""}>
-                <option value="">Elke mailstatus</option>
+                <option value="">Any email status</option>
                 {emailStatuses.map((o) => (
                   <option key={o.value} value={o.value}>
                     {o.label}
@@ -197,15 +198,15 @@ async function Filters({ searchParams }: { searchParams: SearchParams }) {
                 ))}
               </Select>
             </div>
-            <YesNoSelect id="contact-mobiel" name="mobiel" label="Mobiel" value={f.hasMobile} />
+            <YesNoSelect id="contact-mobile" name="mobile" label="Mobile" value={f.hasMobile} />
             <YesNoSelect id="contact-onepage" name="onepage" label="In OnePage" value={f.inOnePage} />
               <Button type="submit" variant="secondary" className="max-md:hidden">
-                Filteren
+                Filter
               </Button>
             </div>
         </FilterSheet>
       </div>
-      <ChipStrip label="Snelfilters" chips={chips} className="md:hidden" />
+      <ChipStrip label="Quick filters" chips={chips} className="md:hidden" />
     </Form>
   );
 }
@@ -220,11 +221,11 @@ async function ContactTable({ searchParams }: { searchParams: SearchParams }) {
     return (
       <EmptyState
         icon={Contact}
-        title={filtered ? "Geen contacten gevonden" : "Nog geen contacten"}
+        title={filtered ? "No contacts found" : "No contacts yet"}
         description={
           filtered
-            ? "Niets gevonden met deze filters. Pas ze aan of wis de zoekterm."
-            : "Contacten komen binnen via het zoeken naar beslissers (S3) of via een import van een oude lijst."
+            ? "Nothing matches these filters. Adjust them or clear the search."
+            : "Contacts come in through the decision maker search (S3) or an import of an old list."
         }
       />
     );
@@ -232,7 +233,7 @@ async function ContactTable({ searchParams }: { searchParams: SearchParams }) {
 
   return (
     <>
-      <MobileList label="Contacten" className="md:hidden">
+      <MobileList label="Contacts" className="md:hidden">
         {items.map((c) => (
           <ContactRow key={c.id} contact={c} />
         ))}
@@ -240,13 +241,13 @@ async function ContactTable({ searchParams }: { searchParams: SearchParams }) {
       <Table className="hidden md:block">
         <THead>
           <tr>
-            <TH>Naam</TH>
-            <TH>Bedrijf</TH>
+            <TH>Name</TH>
+            <TH>Company</TH>
             <TH>Tier</TH>
             <TH>Status</TH>
-            <TH>Mail</TH>
-            <TH>Telefoon</TH>
-            <TH>Laatst benaderd</TH>
+            <TH>Email</TH>
+            <TH>Phone</TH>
+            <TH>Last approached</TH>
           </tr>
         </THead>
         <TBody>
@@ -276,7 +277,7 @@ async function ContactTable({ searchParams }: { searchParams: SearchParams }) {
                     {c.company.name}
                   </Link>
                 ) : (
-                  <span className="text-muted">Onbekend</span>
+                  <span className="text-muted">Unknown</span>
                 )}
               </TD>
               <TD>
@@ -294,7 +295,7 @@ async function ContactTable({ searchParams }: { searchParams: SearchParams }) {
                     <EmailStatusBadge status={c.emailStatus} />
                   </div>
                 ) : (
-                  <span className="text-muted">Geen</span>
+                  <span className="text-muted">None</span>
                 )}
               </TD>
               <TD>
@@ -303,15 +304,15 @@ async function ContactTable({ searchParams }: { searchParams: SearchParams }) {
                     <p className="text-sm whitespace-nowrap">{c.phone}</p>
                     {c.phoneType && (
                       <Badge tone={c.phoneType === "mobiel" ? "brand" : "neutral"}>
-                        {c.phoneType === "mobiel" ? "Mobiel" : "Vast"}
+                        {c.phoneType === "mobiel" ? "Mobile" : "Landline"}
                       </Badge>
                     )}
                   </div>
                 ) : (
-                  <span className="text-muted">Geen</span>
+                  <span className="text-muted">None</span>
                 )}
               </TD>
-              <TD className="whitespace-nowrap text-muted">{formatDate(c.lastContactedAt, "Nooit")}</TD>
+              <TD className="whitespace-nowrap text-muted">{formatDate(c.lastContactedAt, "Never")}</TD>
             </TR>
           ))}
         </TBody>
@@ -336,13 +337,13 @@ function ContactRow({ contact: c }: { contact: ContactListItem }) {
     <>
       <p className="line-clamp-2 font-medium break-words text-ink">{c.name}</p>
       <p className="truncate text-sm text-muted">
-        {[c.title, c.company?.name].filter(Boolean).join(" bij ") || "Functie onbekend"}
+        {[c.title, c.company?.name].filter(Boolean).join(" at ") || "Role unknown"}
       </p>
       <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-xs text-muted">
         <TierBadge tier={c.tier} />
         <ContactStatusBadge status={c.status} />
         {c.onepageId && <Badge tone="accent">In OnePage</Badge>}
-        <span>Benaderd: {formatDate(c.lastContactedAt, "nooit")}</span>
+        <span>Approached: {formatDate(c.lastContactedAt, "never")}</span>
       </div>
     </>
   );
@@ -362,12 +363,12 @@ function ContactRow({ contact: c }: { contact: ContactListItem }) {
         <div className="min-h-14 min-w-0 flex-1 py-3 pl-4">{body}</div>
       )}
       {c.phone && (
-        <a href={`tel:${c.phone.replace(/[^\d+]/g, "")}`} className={action} aria-label={`${c.name} bellen, ${c.phone}`}>
+        <a href={`tel:${c.phone.replace(/[^\d+]/g, "")}`} className={action} aria-label={`Call ${c.name}, ${c.phone}`}>
           <Phone className="size-5" aria-hidden="true" />
         </a>
       )}
       {c.email && (
-        <a href={`mailto:${c.email}`} className={action} aria-label={`${c.name} mailen, ${c.email}`}>
+        <a href={`mailto:${c.email}`} className={action} aria-label={`Email ${c.name}, ${c.email}`}>
           <Mail className="size-5" aria-hidden="true" />
         </a>
       )}

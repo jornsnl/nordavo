@@ -18,7 +18,7 @@ import { buildWeeklyReport, isReportPeriod, periodRange, reportPeriods, type Rep
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = {
-  title: "Rapport",
+  title: "Report",
 };
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
@@ -32,8 +32,8 @@ export default function Page({ searchParams }: { searchParams: SearchParams }) {
     <>
       <PageHeader
         eyebrow="Sales"
-        title="Rapport"
-        description="Wat de outreach oplevert: benaderd, bereikt, replies en afspraken, en welk signaal, segment en kanaal ze opleverde. Plus de doorlooptijd van open vacatures."
+        title="Report"
+        description="What the outreach delivers: approached, reached, replies and meetings, and which signal, segment and channel produced them. Plus the lead time of open vacancies."
         actions={
           <Suspense fallback={<PeriodSelectorSkeleton />}>
             <Period searchParams={searchParams} />
@@ -63,7 +63,7 @@ async function ReportContent({ searchParams }: { searchParams: SearchParams }) {
   return (
     <>
       <p className="mb-4 text-sm text-muted">
-        {label}: {formatDate(range.from)} tot en met {formatDate(range.to)}.
+        {label}: {formatDate(range.from)} to {formatDate(range.to)}.
       </p>
       <WarningsBanner warnings={report.warnings} />
       {!hasActivity && <EmptyReportHint />}

@@ -16,9 +16,9 @@ export default function Page() {
   return (
     <>
       <PageHeader
-        eyebrow="Beheer"
+        eyebrow="Admin"
         title="Import"
-        description="Zet de oude leadlijsten uit Google Sheets in het systeem. Domeinen worden genormaliseerd en dubbelingen aangevuld."
+        description="Bring the old lead lists from Google Sheets into the system. Domains are normalised and duplicates are merged."
       />
       <Suspense fallback={<ListSkeleton rows={4} />}>
         <StaffOnly />

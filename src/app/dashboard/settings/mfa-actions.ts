@@ -27,13 +27,13 @@ function revalidateSecurityPages() {
 }
 
 const INSUFFICIENT_AAL =
-  "Log eerst opnieuw in met je wachtwoord en een code uit je authenticator app, en probeer het daarna nog eens.";
+  "First sign in again with your password and a code from your authenticator app, then try again.";
 
 const enrollSchema = z.object({
   friendly_name: z
-    .string({ error: "Geef de app een naam" })
-    .min(2, { error: "Geef de app een naam" })
-    .max(60, { error: "Maximaal 60 tekens" }),
+    .string({ error: "Name the app" })
+    .min(2, { error: "Name the app" })
+    .max(60, { error: "At most 60 characters" }),
 });
 
 /** Step 1 of adding an authenticator app: creates an unverified factor and returns its QR code. */
@@ -44,7 +44,7 @@ export async function startMfaEnrollment(
   await getCurrentUser();
   const parsed = enrollSchema.safeParse(formValues(formData));
   if (!parsed.success) {
-    return { error: "Controleer de naam.", fieldErrors: fieldErrorsFrom(parsed.error) };
+    return { error: "Check the name.", fieldErrors: fieldErrorsFrom(parsed.error) };
   }
 
   const supabase = await createClient();
@@ -68,13 +68,13 @@ export async function startMfaEnrollment(
     switch (error?.code) {
       case "mfa_factor_name_conflict":
         return {
-          error: "Je hebt al een app met deze naam.",
-          fieldErrors: { friendly_name: "Kies een andere naam" },
+          error: "You already have an app with this name.",
+          fieldErrors: { friendly_name: "Choose a different name" },
         };
       case "too_many_enrolled_mfa_factors":
-        return { error: "Je hebt het maximale aantal apps bereikt. Verwijder er eerst een." };
+        return { error: "You have reached the maximum number of apps. Remove one first." };
       case "mfa_totp_enroll_not_enabled":
-        return { error: "Tweestapsverificatie staat nog niet aan in Supabase. Vraag een beheerder." };
+        return { error: "Two-step verification is not enabled in Supabase yet. Ask an admin." };
       case "insufficient_aal":
         return { error: INSUFFICIENT_AAL };
       default:
@@ -94,8 +94,8 @@ export async function startMfaEnrollment(
 }
 
 const verifySchema = z.object({
-  factor_id: z.guid({ error: "Begin opnieuw met het toevoegen van de app" }),
-  code: z.string({ error: "Vul de code in" }).regex(/^\d{6}$/, { error: "Vul de 6 cijfers uit je app in" }),
+  factor_id: z.guid({ error: "Start adding the app again" }),
+  code: z.string({ error: "Enter the code" }).regex(/^\d{6}$/, { error: "Enter the 6 digits from your app" }),
 });
 
 /** Step 2: the first code from the app proves the QR code was scanned. Upgrades this session to aal2. */
@@ -109,7 +109,7 @@ export async function verifyMfaEnrollment(
     code: String(formData.get("code") ?? "").replace(/\s/g, ""),
   });
   if (!parsed.success) {
-    return { error: "Controleer de code.", fieldErrors: fieldErrorsFrom(parsed.error) };
+    return { error: "Check the code.", fieldErrors: fieldErrorsFrom(parsed.error) };
   }
 
   const supabase = await createClient();
@@ -122,21 +122,21 @@ export async function verifyMfaEnrollment(
     console.error("verifyMfaEnrollment", error.code, error.message);
     if (error.code === "mfa_verification_failed" || error.code === "mfa_verification_rejected") {
       return {
-        error: "Deze code klopt niet.",
-        fieldErrors: { code: "Gebruik de code die nu in je app staat" },
+        error: "This code is not correct.",
+        fieldErrors: { code: "Use the code currently shown in your app" },
       };
     }
     if (error.code === "mfa_factor_not_found") {
-      return { error: "Deze koppeling is verlopen. Begin opnieuw met het toevoegen van de app." };
+      return { error: "This setup has expired. Start adding the app again." };
     }
     if (error.status === 429) {
-      return { error: "Te veel pogingen. Wacht een paar minuten en probeer het opnieuw." };
+      return { error: "Too many attempts. Wait a few minutes and try again." };
     }
     return { error: GENERIC_ERROR };
   }
 
   revalidateSecurityPages();
-  return { ok: true, message: "Tweestapsverificatie staat aan. Bij de volgende keer inloggen vragen we om een code." };
+  return { ok: true, message: "Two-step verification is on. We will ask for a code the next time you sign in." };
 }
 
 /** Removes an unfinished enrollment when the user cancels. */
@@ -162,7 +162,7 @@ export async function removeMfaFactor(factorId: string): Promise<ActionState> {
   const supabase = await createClient();
   const { data: factors } = await supabase.auth.mfa.listFactors();
   if (!factors?.all.some((f) => f.id === factorId)) {
-    return { error: "Deze app staat niet (meer) op je account." };
+    return { error: "This app is not (or no longer) on your account." };
   }
 
   const { error } = await supabase.auth.mfa.unenroll({ factorId });
@@ -188,7 +188,7 @@ export async function removeMfaFactor(factorId: string): Promise<ActionState> {
   }
 
   revalidateSecurityPages();
-  return { ok: true, message: "De app is verwijderd." };
+  return { ok: true, message: "The app has been removed." };
 }
 
 /**
@@ -197,16 +197,16 @@ export async function removeMfaFactor(factorId: string): Promise<ActionState> {
  */
 export async function resetUserMfa(userId: string): Promise<ActionState> {
   const admin = await requireAdmin();
-  if (!z.guid().safeParse(userId).success) return { error: "Gebruiker niet gevonden." };
+  if (!z.guid().safeParse(userId).success) return { error: "User not found." };
   if (userId === admin.id) {
-    return { error: "Je eigen tweestapsverificatie reset je niet zelf. Vraag een andere beheerder." };
+    return { error: "You cannot reset your own two-step verification. Ask another admin." };
   }
 
   const client = createAdminClient();
   if (!client) {
     return {
       error:
-        "Resetten kan pas als SUPABASE_SECRET_KEY op de server is ingesteld. Verwijder de factor tot die tijd via het Supabase dashboard.",
+        "Resetting only works once SUPABASE_SECRET_KEY is set on the server. Until then, remove the factor from the Supabase dashboard.",
     };
   }
 
@@ -225,5 +225,5 @@ export async function resetUserMfa(userId: string): Promise<ActionState> {
   }
 
   revalidatePath("/dashboard/settings");
-  return { ok: true, message: "Tweestapsverificatie is gereset." };
+  return { ok: true, message: "Two-step verification has been reset." };
 }

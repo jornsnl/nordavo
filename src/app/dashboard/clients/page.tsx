@@ -16,7 +16,7 @@ import { isClientStatus, listClients } from "@/lib/data/clients";
 import { clientStatuses, optionFor } from "@/lib/labels";
 
 export const metadata: Metadata = {
-  title: "Klanten",
+  title: "Clients",
 };
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
@@ -31,13 +31,13 @@ export default function Page({ searchParams }: { searchParams: SearchParams }) {
   return (
     <>
       <PageHeader
-        eyebrow="Werving"
-        title="Klanten"
-        description="De Nederlandse groeibedrijven waarvoor we developers en data engineers zoeken."
+        eyebrow="Recruitment"
+        title="Clients"
+        description="The Dutch scale-ups we find developers and data engineers for."
         actions={
           <ButtonLink href="/dashboard/clients/new">
             <Plus aria-hidden="true" />
-            Nieuwe klant
+            New client
           </ButtonLink>
         }
       />
@@ -66,7 +66,7 @@ async function Filters({ searchParams }: { searchParams: SearchParams }) {
           aria-hidden="true"
         />
         <label htmlFor="client-q" className="sr-only">
-          Zoek op naam
+          Search by name
         </label>
         <Input
           id="client-q"
@@ -75,7 +75,7 @@ async function Filters({ searchParams }: { searchParams: SearchParams }) {
           enterKeyHint="search"
           autoComplete="off"
           defaultValue={q}
-          placeholder="Zoek op naam"
+          placeholder="Search by name"
           className="pl-10"
         />
       </div>
@@ -84,7 +84,7 @@ async function Filters({ searchParams }: { searchParams: SearchParams }) {
         label="Status"
         className="sm:hidden"
         chips={[
-          { label: "Alle", href: filterHref("/dashboard/clients", current, { status: undefined }), active: !status },
+          { label: "All", href: filterHref("/dashboard/clients", current, { status: undefined }), active: !status },
           ...clientStatuses.map((s) => ({
             label: s.label,
             href: filterHref("/dashboard/clients", current, { status: s.value }),
@@ -97,7 +97,7 @@ async function Filters({ searchParams }: { searchParams: SearchParams }) {
           Status
         </label>
         <Select id="client-status" name="status" defaultValue={status ?? ""}>
-          <option value="">Alle statussen</option>
+          <option value="">All statuses</option>
           {clientStatuses.map((s) => (
             <option key={s.value} value={s.value}>
               {s.label}
@@ -106,7 +106,7 @@ async function Filters({ searchParams }: { searchParams: SearchParams }) {
         </Select>
       </div>
       <Button type="submit" variant="secondary" className="max-sm:hidden">
-        Filteren
+        Filter
       </Button>
     </Form>
   );
@@ -121,11 +121,11 @@ async function ClientTable({ searchParams }: { searchParams: SearchParams }) {
     return (
       <EmptyState
         icon={Building2}
-        title={filtered ? "Geen klanten gevonden" : "Nog geen klanten"}
+        title={filtered ? "No clients found" : "No clients yet"}
         description={
           filtered
-            ? "Niets gevonden met deze zoekterm of status. Pas je filter aan."
-            : "Voeg je eerste klant toe om vacatures en contactpersonen bij te houden."
+            ? "Nothing matches this search or status. Adjust your filter."
+            : "Add your first client to keep track of vacancies and contacts."
         }
       />
     );
@@ -133,7 +133,7 @@ async function ClientTable({ searchParams }: { searchParams: SearchParams }) {
 
   return (
     <>
-      <MobileList label="Klanten" className="md:hidden">
+      <MobileList label="Clients" className="md:hidden">
         {clients.map((client) => {
           const statusOption = optionFor(clientStatuses, client.status);
           return (
@@ -146,8 +146,8 @@ async function ClientTable({ searchParams }: { searchParams: SearchParams }) {
                 </span>
               }
               title={client.name}
-              subtitle={[client.city, client.industry].filter(Boolean).join(" · ") || "Plaats onbekend"}
-              meta={`${client.openVacancies} open ${client.openVacancies === 1 ? "vacature" : "vacatures"} · ${client.ownerName ?? "Geen eigenaar"}`}
+              subtitle={[client.city, client.industry].filter(Boolean).join(" · ") || "Location unknown"}
+              meta={`${client.openVacancies} open ${client.openVacancies === 1 ? "vacancy" : "vacancies"} · ${client.ownerName ?? "No owner"}`}
               trailing={<Badge tone={statusOption.tone}>{statusOption.label}</Badge>}
             />
           );
@@ -156,12 +156,12 @@ async function ClientTable({ searchParams }: { searchParams: SearchParams }) {
       <Table className="hidden md:block">
         <THead>
           <tr>
-            <TH>Naam</TH>
+            <TH>Name</TH>
             <TH>Status</TH>
-            <TH>Plaats</TH>
-            <TH>Branche</TH>
-            <TH className="text-right">Open vacatures</TH>
-            <TH>Eigenaar</TH>
+            <TH>Location</TH>
+            <TH>Industry</TH>
+            <TH className="text-right">Open vacancies</TH>
+            <TH>Owner</TH>
           </tr>
         </THead>
         <TBody>
@@ -180,10 +180,10 @@ async function ClientTable({ searchParams }: { searchParams: SearchParams }) {
                 <TD>
                   <Badge tone={statusOption.tone}>{statusOption.label}</Badge>
                 </TD>
-                <TD className="text-muted">{client.city ?? "Onbekend"}</TD>
-                <TD className="text-muted">{client.industry ?? "Onbekend"}</TD>
+                <TD className="text-muted">{client.city ?? "Unknown"}</TD>
+                <TD className="text-muted">{client.industry ?? "Unknown"}</TD>
                 <TD className="text-right tabular-nums">{client.openVacancies}</TD>
-                <TD className="text-muted">{client.ownerName ?? "Niemand"}</TD>
+                <TD className="text-muted">{client.ownerName ?? "Nobody"}</TD>
               </TR>
             );
           })}
