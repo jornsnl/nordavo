@@ -45,7 +45,7 @@ export function TaskForm({ task, staff, currentUserId, onDone }: FormProps) {
       {task && <input type="hidden" name="id" value={task.id} />}
       <FormMessage error={state.error ?? deleteError} />
 
-      <Field label="Titel" htmlFor={`${id}-title`} required error={errors.title}>
+      <Field label="Title" htmlFor={`${id}-title`} required error={errors.title}>
         <Input
           id={`${id}-title`}
           name="title"
@@ -54,13 +54,13 @@ export function TaskForm({ task, staff, currentUserId, onDone }: FormProps) {
           autoComplete="off"
           enterKeyHint="done"
           defaultValue={task?.title}
-          placeholder="Bijvoorbeeld: Julius belt klant over profielen"
+          placeholder="For example: Julius calls the client about profiles"
           aria-invalid={errors.title ? true : undefined}
           aria-describedby={errors.title ? `${id}-title-error` : undefined}
         />
       </Field>
 
-      <Field label="Omschrijving" htmlFor={`${id}-description`} error={errors.description}>
+      <Field label="Description" htmlFor={`${id}-description`} error={errors.description}>
         <Textarea id={`${id}-description`} name="description" rows={3} defaultValue={task?.description ?? ""} />
       </Field>
 
@@ -74,7 +74,7 @@ export function TaskForm({ task, staff, currentUserId, onDone }: FormProps) {
             ))}
           </Select>
         </Field>
-        <Field label="Prioriteit" htmlFor={`${id}-priority`} error={errors.priority}>
+        <Field label="Priority" htmlFor={`${id}-priority`} error={errors.priority}>
           <Select id={`${id}-priority`} name="priority" defaultValue={task?.priority ?? "normal"}>
             {taskPriorities.map((p) => (
               <option key={p.value} value={p.value}>
@@ -86,17 +86,17 @@ export function TaskForm({ task, staff, currentUserId, onDone }: FormProps) {
         <Field label="Deadline" htmlFor={`${id}-due`} error={errors.due_date}>
           <Input id={`${id}-due`} name="due_date" type="date" defaultValue={task?.dueDate ?? ""} />
         </Field>
-        <Field label="Toegewezen aan" htmlFor={`${id}-assignee`} error={errors.assignee_id}>
+        <Field label="Assigned to" htmlFor={`${id}-assignee`} error={errors.assignee_id}>
           <Select
             id={`${id}-assignee`}
             name="assignee_id"
             defaultValue={task ? (task.assigneeId ?? "") : currentUserId}
           >
-            <option value="">Niemand</option>
+            <option value="">Nobody</option>
             {staff.map((member) => (
               <option key={member.id} value={member.id}>
                 {member.name}
-                {member.id === currentUserId ? " (jij)" : ""}
+                {member.id === currentUserId ? " (you)" : ""}
               </option>
             ))}
           </Select>
@@ -106,7 +106,7 @@ export function TaskForm({ task, staff, currentUserId, onDone }: FormProps) {
       <RecordPicker
         initial={
           task?.entityType && task.entityId
-            ? { type: task.entityType, id: task.entityId, label: task.record?.label ?? "Verwijderd record" }
+            ? { type: task.entityType, id: task.entityId, label: task.record?.label ?? "Deleted record" }
             : null
         }
         error={errors.entity_id}
@@ -117,8 +117,8 @@ export function TaskForm({ task, staff, currentUserId, onDone }: FormProps) {
         <div>
           {task &&
             (confirmDelete ? (
-              <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Verwijderen bevestigen">
-                <span className="text-sm text-ink">Weet je het zeker?</span>
+              <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Confirm delete">
+                <span className="text-sm text-ink">Are you sure?</span>
                 <Button
                   variant="danger"
                   size="sm"
@@ -131,26 +131,26 @@ export function TaskForm({ task, staff, currentUserId, onDone }: FormProps) {
                     })
                   }
                 >
-                  Ja, verwijderen
+                  Yes, delete
                 </Button>
                 <Button variant="ghost" size="sm" onClick={() => setConfirmDelete(false)}>
-                  Annuleren
+                  Cancel
                 </Button>
               </div>
             ) : (
               <Button variant="ghost" size="sm" className="text-danger hover:bg-danger-bg" onClick={() => setConfirmDelete(true)}>
                 <Trash2 aria-hidden="true" />
-                Verwijderen
+                Delete
               </Button>
             ))}
         </div>
         <div className="flex gap-2 max-sm:*:flex-1 sm:justify-end">
           <Button variant="secondary" onClick={onDone}>
-            Annuleren
+            Cancel
           </Button>
           <Button type="submit" disabled={pending || deleting} aria-busy={pending}>
             {pending && <LoaderCircle className="animate-spin" aria-hidden="true" />}
-            {task ? "Opslaan" : "Taak toevoegen"}
+            {task ? "Save" : "Add task"}
           </Button>
         </div>
       </div>
@@ -173,7 +173,7 @@ export function TaskModal({
   onClose: () => void;
 }) {
   return (
-    <Modal open={open} onClose={onClose} title={task ? "Taak bewerken" : "Nieuwe taak"} size="lg">
+    <Modal open={open} onClose={onClose} title={task ? "Edit task" : "New task"} size="lg">
       {/* A fresh form per task, so default values always match. */}
       <TaskForm key={task?.id ?? "new"} task={task} staff={staff} currentUserId={currentUserId} onDone={onClose} />
     </Modal>
@@ -187,7 +187,7 @@ export function NewTaskButton({ staff, currentUserId }: { staff: StaffMember[]; 
     <>
       <Button onClick={() => setOpen(true)}>
         <Plus aria-hidden="true" />
-        Nieuwe taak
+        New task
       </Button>
       <TaskModal open={open} task={null} staff={staff} currentUserId={currentUserId} onClose={() => setOpen(false)} />
     </>

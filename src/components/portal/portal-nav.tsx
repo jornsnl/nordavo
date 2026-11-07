@@ -16,7 +16,7 @@ export function PortalNavFallback() {
 
 function PortalNavLinks({ isActive }: { isActive: (href: string) => boolean }) {
   return (
-    <nav aria-label="Klantportaal" className="-mb-px flex gap-1">
+    <nav aria-label="Client portal" className="-mb-px flex gap-1">
       {portalNavItems.map(({ label, href }) => {
         const active = isActive(href);
         return (

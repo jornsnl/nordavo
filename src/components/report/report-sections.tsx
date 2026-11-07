@@ -17,7 +17,7 @@ export function WarningsBanner({ warnings }: { warnings: string[] }) {
     >
       <h2 id="report-warnings" className="flex items-center gap-2 font-display font-semibold text-brand-900">
         <AlertTriangle className="size-5 text-accent-600" aria-hidden="true" />
-        Let op: doorlooptijd
+        Heads up: lead time
       </h2>
       <ul className="mt-2 list-disc space-y-1 pl-6 text-sm text-brand-900">
         {warnings.map((warning) => (
@@ -31,18 +31,18 @@ export function WarningsBanner({ warnings }: { warnings: string[] }) {
 export function ReportStatCards({ report }: { report: WeeklyReport }) {
   const a = report.activity;
   const cards = [
-    { label: "Nieuwe bedrijven", value: report.newCompanies, icon: Building2 },
-    { label: "Gebeld", value: a.called, icon: Phone },
-    { label: "Bereikt", value: a.reached, icon: PhoneCall },
-    { label: "Gemaild", value: a.mailed, icon: Mail },
+    { label: "New companies", value: report.newCompanies, icon: Building2 },
+    { label: "Called", value: a.called, icon: Phone },
+    { label: "Reached", value: a.reached, icon: PhoneCall },
+    { label: "Mailed", value: a.mailed, icon: Mail },
     { label: "Replies", value: a.replies, icon: MessageSquare },
-    { label: "Positieve replies", value: a.positiveReplies, icon: ThumbsUp },
-    { label: "Afspraken", value: report.meetings, icon: CalendarCheck },
+    { label: "Positive replies", value: a.positiveReplies, icon: ThumbsUp },
+    { label: "Meetings", value: report.meetings, icon: CalendarCheck },
   ];
   return (
     <section aria-labelledby="report-stats" className="mb-8">
       <h2 id="report-stats" className="sr-only">
-        Kerncijfers
+        Key figures
       </h2>
       <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-7">
         {cards.map(({ label, value, icon: Icon }) => (
@@ -60,7 +60,7 @@ export function ReportStatCards({ report }: { report: WeeklyReport }) {
       </ul>
       {(a.meetingsApproved > 0 || a.meetingsRejected > 0) && (
         <p className="mt-3 text-sm text-muted">
-          Afspraken na de call beoordeeld: {a.meetingsApproved} goedgekeurd, {a.meetingsRejected} afgekeurd.
+          Meetings reviewed after the call: {a.meetingsApproved} approved, {a.meetingsRejected} rejected.
         </p>
       )}
     </section>
@@ -70,9 +70,9 @@ export function ReportStatCards({ report }: { report: WeeklyReport }) {
 export function GoPerSegmentCard({ report }: { report: WeeklyReport }) {
   return (
     <Card>
-      <CardHeader title="GO percentage per segment" description="Bedrijven die in deze periode zijn beoordeeld." />
+      <CardHeader title="GO percentage per segment" description="Companies reviewed in this period." />
       {report.goPerSegment.length === 0 ? (
-        <p className="px-5 py-6 text-sm text-muted">In deze periode zijn geen bedrijven beoordeeld.</p>
+        <p className="px-5 py-6 text-sm text-muted">No companies were reviewed in this period.</p>
       ) : (
         <dl className="space-y-4 px-5 py-4">
           {report.goPerSegment.map((row) => (
@@ -80,14 +80,14 @@ export function GoPerSegmentCard({ report }: { report: WeeklyReport }) {
               <div className="flex items-baseline justify-between gap-3 text-sm">
                 <dt className="font-medium text-ink">{row.label}</dt>
                 <dd className="text-muted tabular-nums">
-                  <span className="font-semibold text-brand-900">{row.goPct ?? 0}%</span> GO, {row.go} van {row.total}
+                  <span className="font-semibold text-brand-900">{row.goPct ?? 0}%</span> GO, {row.go} of {row.total}
                 </dd>
               </div>
               <div className="mt-1.5 flex h-2.5 overflow-hidden rounded-full bg-brand-50" aria-hidden="true">
                 <div className="h-full bg-emerald-500" style={{ width: `${(row.go / row.total) * 100}%` }} />
                 <div className="h-full bg-amber-400" style={{ width: `${(row.review / row.total) * 100}%` }} />
               </div>
-              {row.review > 0 && <p className="mt-1 text-xs text-muted">{row.review} wachten op review</p>}
+              {row.review > 0 && <p className="mt-1 text-xs text-muted">{row.review} awaiting review</p>}
             </div>
           ))}
         </dl>
@@ -100,7 +100,7 @@ export function FunnelCard({ funnel }: { funnel: CountRow[] }) {
   const max = Math.max(1, ...funnel.map((f) => f.count));
   return (
     <Card>
-      <CardHeader title="Funnel" description="Unieke contacten benaderd en bereikt, alle replies en afspraken." />
+      <CardHeader title="Funnel" description="Unique contacts approached and reached, all replies and meetings." />
       <dl className="space-y-2.5 px-5 py-4">
         {funnel.map((step, i) => (
           <div key={step.key} className="grid grid-cols-[minmax(0,6.5rem)_1fr_2.5rem] items-center gap-3">
@@ -125,7 +125,7 @@ function AttributionTable({ title, column, rows }: { title: string; column: stri
     <Card>
       <CardHeader title={title} />
       {rows.length === 0 ? (
-        <p className="px-5 py-6 text-sm text-muted">Geen afspraken in deze periode.</p>
+        <p className="px-5 py-6 text-sm text-muted">No meetings in this period.</p>
       ) : (
         <table className="w-full text-left text-sm">
           <thead className="border-b border-border bg-surface/60 text-xs font-semibold tracking-wide text-muted uppercase">
@@ -134,7 +134,7 @@ function AttributionTable({ title, column, rows }: { title: string; column: stri
                 {column}
               </th>
               <th scope="col" className="px-5 py-2.5 text-right font-semibold">
-                Afspraken
+                Meetings
               </th>
             </tr>
           </thead>
@@ -159,46 +159,46 @@ export function AttributionTables({ report }: { report: WeeklyReport }) {
   return (
     <section aria-labelledby="report-attribution" className="mb-8">
       <h2 id="report-attribution" className="mb-1 font-display text-lg font-semibold text-brand-900">
-        Waar komen de afspraken vandaan
+        Where the meetings come from
       </h2>
       <p className="mb-4 text-sm text-muted">
-        Per afspraak het signaal, segment en kanaal dat hem opleverde. Kanaal is de laatste benadering voor de afspraak.
+        For each meeting the signal, segment and channel that produced it. Channel is the last touch before the meeting.
       </p>
       <div className="grid gap-6 lg:grid-cols-3">
-        <AttributionTable title="Per signaal" column="Signaal" rows={report.attribution.bySignal} />
-        <AttributionTable title="Per segment" column="Segment" rows={report.attribution.bySegment} />
-        <AttributionTable title="Per kanaal" column="Kanaal" rows={report.attribution.byChannel} />
+        <AttributionTable title="By signal" column="Signal" rows={report.attribution.bySignal} />
+        <AttributionTable title="By segment" column="Segment" rows={report.attribution.bySegment} />
+        <AttributionTable title="By channel" column="Channel" rows={report.attribution.byChannel} />
       </div>
     </section>
   );
 }
 
 const levelBadge = {
-  ok: { tone: "success" as const, label: "Op schema" },
-  bijna: { tone: "warning" as const, label: "Richting 3 weken" },
-  over: { tone: "danger" as const, label: "Over 3 weken" },
+  ok: { tone: "success" as const, label: "On track" },
+  bijna: { tone: "warning" as const, label: "Nearing 3 weeks" },
+  over: { tone: "danger" as const, label: "Over 3 weeks" },
 };
 
 function Milestone({ value }: { value: string | null }) {
-  return value ? <>{formatDate(value)}</> : <span className="text-muted">Nog niet</span>;
+  return value ? <>{formatDate(value)}</> : <span className="text-muted">Not yet</span>;
 }
 
 export function LeadTimeTable({ rows }: { rows: LeadTimeRow[] }) {
   return (
     <section aria-labelledby="report-leadtime">
       <h2 id="report-leadtime" className="mb-1 font-display text-lg font-semibold text-brand-900">
-        Doorlooptijd open vacatures
+        Lead time of open vacancies
       </h2>
       <p className="mb-4 text-sm text-muted">
-        Dagen sinds de intake, of sinds de vacature openging. De belofte: profielen binnen 3 weken.
+        Days since the intake, or since the vacancy opened. The promise: profiles within 3 weeks.
       </p>
       {rows.length === 0 ? (
         <p className="rounded-2xl border border-dashed border-brand-200 bg-card px-5 py-8 text-center text-sm text-muted">
-          Er staan nu geen open vacatures.
+          There are no open vacancies right now.
         </p>
       ) : (
         <>
-          <MobileList label="Open vacatures" className="md:hidden">
+          <MobileList label="Open vacancies" className="md:hidden">
             {rows.map((row) => (
               <MobileListItem
                 key={row.vacancyId}
@@ -207,12 +207,12 @@ export function LeadTimeTable({ rows }: { rows: LeadTimeRow[] }) {
                 subtitle={[row.company, row.stageLabel].filter(Boolean).join(", ")}
                 meta={
                   row.profilesSentAt
-                    ? `Profielen op ${formatDate(row.profilesSentAt)}${row.daysToProfiles !== null ? `, na ${row.daysToProfiles} dagen` : ""}`
-                    : `Intake ${formatDate(row.startedAt)}, nog geen profielen`
+                    ? `Profiles on ${formatDate(row.profilesSentAt)}${row.daysToProfiles !== null ? `, after ${row.daysToProfiles} days` : ""}`
+                    : `Intake ${formatDate(row.startedAt)}, no profiles yet`
                 }
               >
                 <span className="flex flex-wrap items-center gap-2">
-                  <span className="text-sm font-semibold text-ink tabular-nums">{row.days} dagen</span>
+                  <span className="text-sm font-semibold text-ink tabular-nums">{row.days} days</span>
                   {!row.profilesSentAt && <Badge tone={levelBadge[row.level].tone}>{levelBadge[row.level].label}</Badge>}
                 </span>
               </MobileListItem>
@@ -221,12 +221,12 @@ export function LeadTimeTable({ rows }: { rows: LeadTimeRow[] }) {
           <Table className="hidden md:block">
             <THead>
               <tr>
-                <TH>Vacature</TH>
-                <TH>Fase</TH>
-                <TH className="text-right">Dagen</TH>
+                <TH>Vacancy</TH>
+                <TH>Stage</TH>
+                <TH className="text-right">Days</TH>
                 <TH>Intake</TH>
-                <TH>Profielen</TH>
-                <TH>Eerste gesprek</TH>
+                <TH>Profiles</TH>
+                <TH>First interview</TH>
                 <TH>Start</TH>
               </tr>
             </THead>
@@ -253,7 +253,7 @@ export function LeadTimeTable({ rows }: { rows: LeadTimeRow[] }) {
                   <TD className="whitespace-nowrap">
                     <Milestone value={row.profilesSentAt} />
                     {row.daysToProfiles !== null && (
-                      <span className="block text-xs text-muted">na {row.daysToProfiles} dagen</span>
+                      <span className="block text-xs text-muted">after {row.daysToProfiles} days</span>
                     )}
                   </TD>
                   <TD className="whitespace-nowrap">
@@ -276,14 +276,14 @@ export function EmptyReportHint() {
   return (
     <p className="mb-8 flex items-center gap-2 rounded-xl bg-brand-50 px-4 py-3 text-sm text-brand-900">
       <BarChart3 className="size-4 shrink-0 text-brand-600" aria-hidden="true" />
-      Nog geen activiteit in deze periode. De cijfers vullen zich zodra er gebeld, gemaild of afspraken geboekt worden.
+      No activity in this period yet. The figures fill in as soon as calls, emails or meetings are logged.
     </p>
   );
 }
 
 export function ReportSkeleton() {
   return (
-    <div aria-busy="true" aria-label="Rapport laden">
+    <div aria-busy="true" aria-label="Loading report">
       <div className="mb-8 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-7">
         {Array.from({ length: 7 }, (_, i) => (
           <Skeleton key={i} className="h-28 w-full rounded-2xl" />

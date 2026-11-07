@@ -56,7 +56,7 @@ export function PipelineColumn({
           onClick={onToggle}
           aria-expanded={false}
           aria-controls={`${headingId}-list`}
-          aria-label={`${label} uitklappen`}
+          aria-label={`Expand ${label}`}
           className="flex size-8 items-center justify-center rounded-lg text-muted hover:bg-white hover:text-ink active:bg-white pointer-coarse:size-10 focus-visible:outline-2 focus-visible:outline-brand-500"
         >
           <ChevronLeft className="size-4" aria-hidden="true" />
@@ -86,7 +86,7 @@ export function PipelineColumn({
           <span className={`size-2 shrink-0 rounded-full ${dotTones[tone]}`} aria-hidden="true" />
           <span className="truncate">{label}</span>
           <span className="rounded-full bg-white px-2 py-0.5 text-xs font-semibold text-muted tabular-nums ring-1 ring-border">
-            <span className="sr-only">Aantal: </span>
+            <span className="sr-only">Count: </span>
             {cards.length}
           </span>
         </h2>
@@ -96,7 +96,7 @@ export function PipelineColumn({
             onClick={onToggle}
             aria-expanded
             aria-controls={`${headingId}-list`}
-            aria-label={`${label} inklappen`}
+            aria-label={`Collapse ${label}`}
             className="flex size-8 items-center justify-center rounded-lg text-muted hover:bg-white hover:text-ink active:bg-white pointer-coarse:size-10 focus-visible:outline-2 focus-visible:outline-brand-500"
           >
             <ChevronRight className="size-4" aria-hidden="true" />
@@ -116,7 +116,7 @@ export function PipelineColumn({
           ))}
           {cards.length === 0 && (
             <li className="flex flex-1 items-center justify-center rounded-xl border border-dashed border-border px-3 py-6 text-center text-xs text-muted">
-              Sleep een kandidaat hierheen
+              Drag a candidate here
             </li>
           )}
         </ul>

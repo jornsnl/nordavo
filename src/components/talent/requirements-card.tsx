@@ -11,9 +11,9 @@ import { IntakePanel } from "./intake-panel";
 
 function budgetText(min: number | null, max: number | null) {
   if (min === null && max === null) return null;
-  if (min !== null && max !== null) return `${formatCurrency(min)} tot ${formatCurrency(max)} per maand`;
-  if (min !== null) return `Vanaf ${formatCurrency(min)} per maand`;
-  return `Tot ${formatCurrency(max)} per maand`;
+  if (min !== null && max !== null) return `${formatCurrency(min)} to ${formatCurrency(max)} per month`;
+  if (min !== null) return `From ${formatCurrency(min)} per month`;
+  return `Up to ${formatCurrency(max)} per month`;
 }
 
 function List({ items, empty }: { items: string[]; empty: string }) {
@@ -35,11 +35,11 @@ export function RequirementsCard({ vacancy }: { vacancy: Vacancy }) {
   return (
     <Card>
       <CardHeader
-        title="Vaste eisen"
+        title="Fixed requirements"
         description={
           vacancy.intake_at
-            ? `Intake op ${formatDate(vacancy.intake_at)}. Deze eisen gebruikt de matching.`
-            : "Nog geen intake. Lees de vacature uit, dan zet Claude de tekst om in vaste eisen."
+            ? `Intake on ${formatDate(vacancy.intake_at)}. Matching uses these requirements.`
+            : "No intake yet. Read the vacancy and Claude turns the text into fixed requirements."
         }
       />
       <CardBody className="space-y-5">
@@ -47,8 +47,8 @@ export function RequirementsCard({ vacancy }: { vacancy: Vacancy }) {
           <p role="alert" className="flex gap-2 rounded-xl border border-danger/20 bg-danger-bg px-3 py-2.5 text-sm text-danger">
             <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
             <span>
-              <strong className="font-semibold">No go:</strong> de developer moet direct contact hebben met de klanten van de klant.
-              Bespreek dit met de klant voor je kandidaten voorstelt.
+              <strong className="font-semibold">No go:</strong> the developer must have direct contact with the client&apos;s customers.
+              Discuss this with the client before you present candidates.
             </span>
           </p>
         )}
@@ -57,13 +57,13 @@ export function RequirementsCard({ vacancy }: { vacancy: Vacancy }) {
           <>
             <DetailList
               items={[
-                { label: "Senioriteit", value: optionFor(seniorities, vacancy.seniority).label },
-                { label: "Uren per week", value: vacancy.hours ? `${vacancy.hours} uur` : null },
-                { label: "Overlap tijdzone", value: vacancy.timezone_overlap },
+                { label: "Seniority", value: optionFor(seniorities, vacancy.seniority).label },
+                { label: "Hours per week", value: vacancy.hours ? `${vacancy.hours} hours` : null },
+                { label: "Time zone overlap", value: vacancy.timezone_overlap },
                 { label: "Budget", value: budgetText(vacancy.budget_min, vacancy.budget_max) },
                 {
-                  label: "Klantcontact",
-                  value: contact === null ? null : contact ? "Ja, direct met klanten van de klant" : "Nee",
+                  label: "Client contact",
+                  value: contact === null ? null : contact ? "Yes, directly with the client's customers" : "No",
                 },
               ]}
             />
@@ -78,29 +78,29 @@ export function RequirementsCard({ vacancy }: { vacancy: Vacancy }) {
                   ))}
                 </ul>
               ) : (
-                <p className="text-sm text-muted">Geen stack ingevuld.</p>
+                <p className="text-sm text-muted">No stack filled in.</p>
               )}
             </div>
             <div className="grid gap-5 sm:grid-cols-2">
               <div className="space-y-2">
                 <h3 className="text-xs font-medium tracking-wide text-muted uppercase">Must haves</h3>
-                <List items={vacancy.must_haves} empty="Geen must haves." />
+                <List items={vacancy.must_haves} empty="No must haves." />
               </div>
               <div className="space-y-2">
                 <h3 className="text-xs font-medium tracking-wide text-muted uppercase">Nice to haves</h3>
-                <List items={vacancy.nice_to_haves} empty="Geen nice to haves." />
+                <List items={vacancy.nice_to_haves} empty="No nice to haves." />
               </div>
             </div>
           </>
         ) : (
-          <p className="text-sm text-muted">Nog geen vaste eisen. Zonder stack of must haves kan de matching niet draaien.</p>
+          <p className="text-sm text-muted">No fixed requirements yet. Without a stack or must haves, matching cannot run.</p>
         )}
 
         {vacancy.unclear.length > 0 && (
           <div className="rounded-xl border border-amber-600/20 bg-amber-50 px-4 py-3">
             <h3 className="flex items-center gap-1.5 text-sm font-semibold text-amber-900">
               <CircleHelp className="size-4" aria-hidden="true" />
-              Nog navragen bij de klant
+              Still to ask the client
             </h3>
             <ul className="mt-2 space-y-1.5">
               {vacancy.unclear.map((item, i) => (
@@ -110,7 +110,7 @@ export function RequirementsCard({ vacancy }: { vacancy: Vacancy }) {
                     variant="ghost"
                     size="sm"
                     feedback={false}
-                    ariaLabel={`Afvinken: ${item}`}
+                    ariaLabel={`Check off: ${item}`}
                     className="-my-1 shrink-0"
                   >
                     <span aria-hidden="true" className="block size-4 rounded border-2 border-amber-700/60 bg-white" />
@@ -119,7 +119,7 @@ export function RequirementsCard({ vacancy }: { vacancy: Vacancy }) {
                 </li>
               ))}
             </ul>
-            <p className="mt-2 text-xs text-amber-800">Vink een vraag af zodra je het antwoord hebt en verwerk het in de eisen.</p>
+            <p className="mt-2 text-xs text-amber-800">Check off a question as soon as you have the answer and add it to the requirements.</p>
           </div>
         )}
 

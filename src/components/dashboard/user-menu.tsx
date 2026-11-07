@@ -26,8 +26,8 @@ export async function UserMenu() {
         <button
           type="submit"
           className="flex size-9 items-center justify-center rounded-lg text-brand-200/70 transition hover:bg-white/10 hover:text-white active:bg-white/10 pointer-coarse:size-11 focus-visible:outline-2 focus-visible:outline-accent-500"
-          aria-label="Uitloggen"
-          title="Uitloggen"
+          aria-label="Sign out"
+          title="Sign out"
         >
           <LogOut className="size-[18px]" aria-hidden="true" />
         </button>

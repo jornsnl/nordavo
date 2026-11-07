@@ -3,12 +3,12 @@ import { ShieldCheck } from "lucide-react";
 import { McpCodeBlock, mcpAddCommand } from "@/components/settings/security/mcp-code-block";
 
 const examplePrompts = [
-  "Welke vacatures staan langer dan 3 weken open en hebben nog geen 3 voorgestelde kandidaten?",
-  "Geef me een overzicht van de pipeline voor de vacature Senior React Developer bij Acme.",
-  "Zoek kandidaten met Python en minstens 5 jaar ervaring die beschikbaar zijn.",
-  "Welke van mijn taken zijn te laat of moeten deze week af?",
-  "Wat is er de afgelopen week gebeurd bij klant Acme?",
-  "Maak een taak voor mij om vrijdag de check-in met Priya te plannen. (schrijfrechten)",
+  "Which vacancies have been open for more than 3 weeks and do not have 3 presented candidates yet?",
+  "Give me an overview of the pipeline for the Senior React Developer vacancy at Acme.",
+  "Find available candidates with Python and at least 5 years of experience.",
+  "Which of my tasks are overdue or due this week?",
+  "What happened at client Acme in the past week?",
+  "Create a task for me to plan the check-in with Priya on Friday. (write access)",
 ];
 
 function Step({ n, title, children }: { n: number; title: string; children: ReactNode }) {
@@ -51,12 +51,12 @@ export function McpSetupGuide({ endpoint }: { endpoint: string }) {
   return (
     <section aria-labelledby="mcp-guide-heading" className="space-y-4 border-t border-border pt-6">
       <h3 id="mcp-guide-heading" className="text-sm font-semibold text-brand-900">
-        Zo stel je het in
+        How to set it up
       </h3>
       <ol className="space-y-5">
-        <Step n={1} title="Installeer Claude Code">
+        <Step n={1} title="Install Claude Code">
           <p className="text-sm text-muted">
-            Volg de installatie op{" "}
+            Follow the installation on{" "}
             <a
               href="https://code.claude.com/docs/en/setup"
               className="font-medium text-brand-700 underline underline-offset-2"
@@ -65,39 +65,39 @@ export function McpSetupGuide({ endpoint }: { endpoint: string }) {
             >
               code.claude.com/docs
             </a>
-            , bijvoorbeeld met npm:
+            , for example with npm:
           </p>
-          <McpCodeBlock code="npm install -g @anthropic-ai/claude-code" label="Installatiecommando" />
+          <McpCodeBlock code="npm install -g @anthropic-ai/claude-code" label="Install command" />
         </Step>
-        <Step n={2} title="Maak hierboven een token aan">
+        <Step n={2} title="Create a token above">
           <p className="text-sm text-muted">
-            Kies <strong>Lezen</strong>, tenzij Claude ook taken en notities voor je moet aanmaken. Kopieer het
-            token meteen: je ziet het maar één keer.
-          </p>
-        </Step>
-        <Step n={3} title="Koppel Nordavo aan Claude Code">
-          <p className="text-sm text-muted">
-            Plak dit in je terminal en vervang <Code>JOUW_TOKEN</Code> door je token (na het aanmaken staat het
-            commando kant-en-klaar hierboven). Voeg <Code>--scope user</Code> toe om Nordavo in al je projecten te
-            gebruiken.
-          </p>
-          <McpCodeBlock code={mcpAddCommand(endpoint, "JOUW_TOKEN")} label="Commando" />
-        </Step>
-        <Step n={4} title="Controleer de koppeling">
-          <p className="text-sm text-muted">
-            Start <Code>claude</Code> en typ <Code>/mcp</Code>. Je ziet <Code>nordavo</Code> met status connected
-            en de beschikbare tools. Buiten Claude Code kan het ook met <Code>claude mcp list</Code>.
+            Choose <strong>Read</strong>, unless Claude also needs to create tasks and notes for you. Copy the
+            token right away: you only see it once.
           </p>
         </Step>
-        <Step n={5} title="Of: zet het in een project zonder je token te committen">
+        <Step n={3} title="Connect Nordavo to Claude Code">
           <p className="text-sm text-muted">
-            Een <Code>.mcp.json</Code> in de root van een repository deelt de koppeling met je team. Het token komt
-            uit een omgevingsvariabele, zodat het nooit in git belandt. Zet bijvoorbeeld{" "}
-            <Code>export NORDAVO_MCP_TOKEN=nrd_...</Code> in je shellprofiel.
+            Paste this in your terminal and replace <Code>YOUR_TOKEN</Code> with your token (after you create it, the
+            ready-made command is shown above). Add <Code>--scope user</Code> to use Nordavo in all your
+            projects.
+          </p>
+          <McpCodeBlock code={mcpAddCommand(endpoint, "YOUR_TOKEN")} label="Command" />
+        </Step>
+        <Step n={4} title="Check the connection">
+          <p className="text-sm text-muted">
+            Start <Code>claude</Code> and type <Code>/mcp</Code>. You see <Code>nordavo</Code> with status connected
+            and the available tools. Outside Claude Code you can also use <Code>claude mcp list</Code>.
+          </p>
+        </Step>
+        <Step n={5} title="Or: add it to a project without committing your token">
+          <p className="text-sm text-muted">
+            A <Code>.mcp.json</Code> in the root of a repository shares the connection with your team. The token comes
+            from an environment variable, so it never ends up in git. For example, put{" "}
+            <Code>export NORDAVO_MCP_TOKEN=nrd_...</Code> in your shell profile.
           </p>
           <McpCodeBlock code={mcpJson} label=".mcp.json" />
         </Step>
-        <Step n={6} title="Stel je eerste vraag">
+        <Step n={6} title="Ask your first question">
           <ul className="list-disc space-y-1 pl-5 text-sm text-muted">
             {examplePrompts.map((prompt) => (
               <li key={prompt}>{prompt}</li>
@@ -109,14 +109,14 @@ export function McpSetupGuide({ endpoint }: { endpoint: string }) {
       <div className="rounded-xl border border-border bg-surface/60 px-4 py-3">
         <p className="flex items-center gap-2 text-sm font-medium text-brand-900">
           <ShieldCheck className="size-4" aria-hidden="true" />
-          Veilig gebruiken
+          Use it safely
         </p>
         <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-muted">
-          <li>Een token geeft toegang met jouw rechten: wie het heeft, ziet wat jij ziet.</li>
-          <li>Deel je token nooit, ook niet met collega&apos;s. Iedereen maakt een eigen token.</li>
-          <li>Zet het nooit in code, een repository of een chat. Gebruik een omgevingsvariabele.</li>
-          <li>Kwijt of gelekt? Trek het token hierboven meteen in en maak een nieuw.</li>
-          <li>Kies lezen, tenzij schrijven echt nodig is, en een zo kort mogelijke geldigheid.</li>
+          <li>A token gives access with your permissions: whoever has it sees what you see.</li>
+          <li>Never share your token, not even with colleagues. Everyone creates their own token.</li>
+          <li>Never put it in code, a repository or a chat. Use an environment variable.</li>
+          <li>Lost or leaked? Revoke the token above right away and create a new one.</li>
+          <li>Choose read unless write is really needed, and the shortest validity possible.</li>
         </ul>
       </div>
     </section>

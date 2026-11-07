@@ -21,7 +21,7 @@ export function ProfileForm({
     <form action={formAction} className="space-y-5" noValidate>
       <FormMessage error={state.error} success={state.ok ? state.message : undefined} />
       <div className="grid gap-5 sm:grid-cols-2">
-        <Field label="Naam" htmlFor="full_name" required error={errors.full_name}>
+        <Field label="Name" htmlFor="full_name" required error={errors.full_name}>
           <Input
             id="full_name"
             name="full_name"
@@ -37,16 +37,16 @@ export function ProfileForm({
           />
         </Field>
         <Field
-          label="E-mailadres"
+          label="Email address"
           htmlFor="profile_email"
-          hint="Wil je een ander e-mailadres? Vraag het een beheerder."
+          hint="Want a different email address? Ask an admin."
         >
           <Input id="profile_email" type="email" value={email} readOnly disabled />
         </Field>
       </div>
       {/* Full width on phones, within thumb reach. */}
       <div className="flex justify-end max-sm:*:w-full">
-        <SubmitButton pendingLabel="Bezig met opslaan">Naam opslaan</SubmitButton>
+        <SubmitButton pendingLabel="Saving">Save name</SubmitButton>
       </div>
     </form>
   );

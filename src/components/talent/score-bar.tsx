@@ -7,7 +7,7 @@ export function ScoreBar({ score }: { score: number | null }) {
       <div
         className="h-2.5 w-28 overflow-hidden rounded-full bg-brand-50 sm:w-36"
         role="meter"
-        aria-label="Matchscore"
+        aria-label="Match score"
         aria-valuemin={0}
         aria-valuemax={100}
         aria-valuenow={value}

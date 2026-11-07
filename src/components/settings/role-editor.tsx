@@ -41,7 +41,7 @@ export function RoleEditor({
     <form action={formAction} className={stacked ? "grid gap-2" : "flex flex-wrap items-center gap-2"}>
       <input type="hidden" name="user_id" value={userId} />
       <label htmlFor={idFor("role")} className="sr-only">
-        Rol van {userName}
+        Role of {userName}
       </label>
       <Select
         id={idFor("role")}
@@ -59,7 +59,7 @@ export function RoleEditor({
       {nextRole === "client" && (
         <>
           <label htmlFor={idFor("client")} className="sr-only">
-            Klant van {userName}
+            Client of {userName}
           </label>
           <Select
             id={idFor("client")}
@@ -69,7 +69,7 @@ export function RoleEditor({
             className={stacked ? "w-full" : "w-44 py-1.5"}
             aria-invalid={Boolean(state.fieldErrors?.client_id)}
           >
-            <option value="">Kies een klant</option>
+            <option value="">Pick a client</option>
             {clients.map((client) => (
               <option key={client.id} value={client.id}>
                 {client.name}
@@ -78,8 +78,8 @@ export function RoleEditor({
           </Select>
         </>
       )}
-      <SubmitButton size={stacked ? "md" : "sm"} variant="secondary" disabled={!changed} pendingLabel="Bezig">
-        Opslaan
+      <SubmitButton size={stacked ? "md" : "sm"} variant="secondary" disabled={!changed} pendingLabel="Saving">
+        Save
       </SubmitButton>
       {error && (
         <p role="alert" className="w-full text-xs font-medium text-danger">

@@ -17,16 +17,16 @@ export async function RecentActivity({ limit = 8 }: { limit?: number }) {
 
   return (
     <Card>
-      <CardHeader title="Recente activiteit" description="Wat er het laatst is veranderd in het portaal." />
+      <CardHeader title="Recent activity" description="What changed most recently in the portal." />
       {items.length === 0 ? (
         <div className="flex flex-col items-center px-5 py-10 text-center">
           <Activity className="mb-2 size-6 text-brand-600" aria-hidden="true" />
-          <p className="text-sm text-muted">Nog geen activiteit. Zodra je iets aanmaakt of wijzigt, zie je het hier.</p>
+          <p className="text-sm text-muted">No activity yet. As soon as you create or change something, you see it here.</p>
         </div>
       ) : (
         <ul className="divide-y divide-border">
           {items.map((item) => {
-            const actor = item.actorName ?? "Systeem";
+            const actor = item.actorName ?? "System";
             return (
               <li key={item.id} className="flex items-start gap-3 px-5 py-3">
                 <Avatar name={actor} size="sm" />

@@ -11,8 +11,8 @@ export function CopyButton({ text, label }: { text: string; label: string }) {
     <Button
       variant="ghost"
       size="sm"
-      aria-label={copied ? `${label} gekopieerd` : `${label} kopiëren`}
-      title={copied ? "Gekopieerd" : "Kopiëren"}
+      aria-label={copied ? `${label} copied` : `Copy ${label}`}
+      title={copied ? "Copied" : "Copy"}
       onClick={async () => {
         try {
           await navigator.clipboard.writeText(text);
@@ -24,7 +24,7 @@ export function CopyButton({ text, label }: { text: string; label: string }) {
       }}
     >
       {copied ? <Check aria-hidden="true" /> : <Copy aria-hidden="true" />}
-      <span className="sr-only sm:not-sr-only">{copied ? "Gekopieerd" : "Kopieer"}</span>
+      <span className="sr-only sm:not-sr-only">{copied ? "Copied" : "Copy"}</span>
     </Button>
   );
 }

@@ -33,22 +33,22 @@ export function PipelineSummary({
         title="Pipeline"
         description={
           summary.total === 0
-            ? "Nog geen kandidaten aan deze vacature gekoppeld."
-            : `${summary.active} actief in de pipeline, ${summary.rejected} afgewezen.`
+            ? "No candidates linked to this vacancy yet."
+            : `${summary.active} active in the pipeline, ${summary.rejected} rejected.`
         }
       />
       <CardBody className="space-y-6">
         <div>
           <div className="flex items-baseline justify-between gap-3">
-            <h3 className="text-sm font-medium text-ink">Voorgesteld aan de klant</h3>
+            <h3 className="text-sm font-medium text-ink">Presented to the client</h3>
             <p className="font-display text-lg font-bold text-brand-900 tabular-nums">
-              {summary.presented} <span className="text-sm font-medium text-muted">van {target}</span>
+              {summary.presented} <span className="text-sm font-medium text-muted">of {target}</span>
             </p>
           </div>
           <div
             className="mt-2 h-2.5 overflow-hidden rounded-full bg-brand-50"
             role="progressbar"
-            aria-label="Voorgesteld aan de klant"
+            aria-label="Presented to the client"
             aria-valuemin={0}
             aria-valuemax={target}
             aria-valuenow={Math.min(summary.presented, target)}
@@ -60,8 +60,8 @@ export function PipelineSummary({
           </div>
           <p className="mt-1.5 text-xs text-muted">
             {reached
-              ? "Doel gehaald: de klant heeft drie kandidaten gezien."
-              : `Nog ${target - summary.presented} te gaan voor de belofte van drie kandidaten.`}
+              ? "Goal reached: the client has seen three candidates."
+              : `${target - summary.presented} to go for the promise of three candidates.`}
           </p>
         </div>
 
@@ -102,7 +102,7 @@ export function PipelineSummary({
 
         <ButtonLink href={`/dashboard/vacancies/${vacancyId}/pipeline`} className="w-full sm:w-auto">
           <KanbanSquare aria-hidden="true" />
-          Pipeline openen
+          Open pipeline
           <ArrowRight aria-hidden="true" />
         </ButtonLink>
       </CardBody>

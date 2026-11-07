@@ -36,20 +36,20 @@ export function Pagination({
   const to = Math.min(total, page * pageSize);
 
   return (
-    <nav aria-label="Paginering" className="mt-4 flex flex-wrap items-center justify-between gap-3 text-sm text-muted max-md:flex-col max-md:items-stretch">
+    <nav aria-label="Pagination" className="mt-4 flex flex-wrap items-center justify-between gap-3 text-sm text-muted max-md:flex-col max-md:items-stretch">
       <p className="max-md:text-center">
-        {from} tot {to} van {total}
+        {from} to {to} of {total}
       </p>
       <div className="flex gap-2 max-md:*:flex-1">
         {page > 1 ? (
           <Link href={hrefFor(page - 1)} className={buttonClasses({ variant: "secondary", size: "sm", className: "max-md:min-h-12 max-md:text-base" })}>
             <ChevronLeft aria-hidden="true" />
-            Vorige
+            Previous
           </Link>
         ) : null}
         {page < pages ? (
           <Link href={hrefFor(page + 1)} className={buttonClasses({ variant: "secondary", size: "sm", className: "max-md:min-h-12 max-md:text-base" })}>
-            Volgende
+            Next
             <ChevronRight aria-hidden="true" />
           </Link>
         ) : null}

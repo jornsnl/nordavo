@@ -9,7 +9,7 @@ import { filterSummary, listDefinitions } from "@/lib/gtm/lists";
 
 function Destination({ value, campaignName }: { value: string | null; campaignName: string | null }) {
   if (value && /^https?:\/\//.test(value)) {
-    const label = value.includes("docs.google.com") ? "Google Sheet" : value.includes("instantly.ai") ? (campaignName ?? "Instantly") : "Openen";
+    const label = value.includes("docs.google.com") ? "Google Sheet" : value.includes("instantly.ai") ? (campaignName ?? "Instantly") : "Open";
     return (
       <a href={value} target="_blank" rel="noreferrer" className="font-medium text-brand-700 hover:underline max-md:inline-flex max-md:min-h-11 max-md:items-center">
         {label}
@@ -17,7 +17,7 @@ function Destination({ value, campaignName }: { value: string | null; campaignNa
     );
   }
   if (value?.startsWith("csv:")) return <span className="text-muted">CSV download</span>;
-  return <span className="text-muted">{value ?? "Onbekend"}</span>;
+  return <span className="text-muted">{value ?? "Unknown"}</span>;
 }
 
 export async function ExportHistory() {
@@ -26,14 +26,14 @@ export async function ExportHistory() {
     return (
       <EmptyState
         icon={History}
-        title="Nog geen exports"
-        description="Elke bellijst, mailcampagne en CSV voor Max komt hier te staan, met het filter dat je gebruikte."
+        title="No exports yet"
+        description="Every call list, mail campaign and CSV for Max shows up here, with the filter you used."
       />
     );
   }
   return (
     <>
-      <MobileList label="Exporthistorie" className="md:hidden">
+      <MobileList label="Export history" className="md:hidden">
         {items.map((item) => (
           <MobileListItem
             key={item.id}
@@ -43,12 +43,12 @@ export async function ExportHistory() {
                   {listDefinitions[item.type].label}
                 </Badge>
                 <span className="tabular-nums">
-                  {item.recordCount} {item.recordCount === 1 ? "contact" : "contacten"}
+                  {item.recordCount} {item.recordCount === 1 ? "contact" : "contacts"}
                 </span>
               </span>
             }
             subtitle={filterSummary(item.filterUsed)}
-            meta={`${formatDateTime(item.createdAt)}, ${item.createdBy ?? "automatisch"}`}
+            meta={`${formatDateTime(item.createdAt)}, ${item.createdBy ?? "automatic"}`}
           >
             <span className="text-sm">
               <Destination value={item.destination} campaignName={item.campaignName} />
@@ -59,12 +59,12 @@ export async function ExportHistory() {
       <Table className="hidden md:block">
         <THead>
           <tr>
-            <TH>Lijst</TH>
-            <TH className="text-right">Aantal</TH>
+            <TH>List</TH>
+            <TH className="text-right">Count</TH>
             <TH>Filter</TH>
-            <TH>Bestemming</TH>
-            <TH>Door</TH>
-            <TH>Wanneer</TH>
+            <TH>Destination</TH>
+            <TH>By</TH>
+            <TH>When</TH>
           </tr>
         </THead>
         <TBody>
@@ -80,7 +80,7 @@ export async function ExportHistory() {
               <TD>
                 <Destination value={item.destination} campaignName={item.campaignName} />
               </TD>
-              <TD className="text-muted">{item.createdBy ?? "Automatisch"}</TD>
+              <TD className="text-muted">{item.createdBy ?? "Automatic"}</TD>
               <TD className="whitespace-nowrap text-muted">{formatDateTime(item.createdAt)}</TD>
             </TR>
           ))}

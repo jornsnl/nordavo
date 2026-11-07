@@ -180,7 +180,7 @@ export function TaskBoard({
       const result = await moveTask({ id: String(active.id), status, position: finalPosition, reorder });
       if (result.error) {
         setColumns(before);
-        setError("Verplaatsen is niet gelukt. Probeer het opnieuw.");
+        setError("Moving failed. Try again.");
       }
     });
   }
@@ -193,20 +193,20 @@ export function TaskBoard({
   }
 
   const describe = (id: UniqueIdentifier) => {
-    if (isStatus(id)) return `kolom ${statusLabel(id)}`;
+    if (isStatus(id)) return `column ${statusLabel(id)}`;
     const status = findStatus(id);
     const index = status ? columns[status].findIndex((t) => t.id === id) : -1;
-    return status ? `plek ${index + 1} in ${statusLabel(status)}` : "een onbekende plek";
+    return status ? `position ${index + 1} in ${statusLabel(status)}` : "an unknown position";
   };
-  const titleOf = (id: UniqueIdentifier) => findTask(id)?.title ?? "taak";
+  const titleOf = (id: UniqueIdentifier) => findTask(id)?.title ?? "task";
 
   const announcements: Announcements = {
-    onDragStart: ({ active }) => `Taak ${titleOf(active.id)} opgepakt.`,
+    onDragStart: ({ active }) => `Picked up task ${titleOf(active.id)}.`,
     onDragOver: ({ active, over }) =>
-      over ? `Taak ${titleOf(active.id)} staat nu op ${describe(over.id)}.` : `Taak ${titleOf(active.id)} staat niet boven een kolom.`,
+      over ? `Task ${titleOf(active.id)} is now at ${describe(over.id)}.` : `Task ${titleOf(active.id)} is not over a column.`,
     onDragEnd: ({ active, over }) =>
-      over ? `Taak ${titleOf(active.id)} neergezet op ${describe(over.id)}.` : `Taak ${titleOf(active.id)} neergezet.`,
-    onDragCancel: ({ active }) => `Slepen geannuleerd. Taak ${titleOf(active.id)} staat weer op de oude plek.`,
+      over ? `Task ${titleOf(active.id)} dropped at ${describe(over.id)}.` : `Task ${titleOf(active.id)} dropped.`,
+    onDragCancel: ({ active }) => `Drag cancelled. Task ${titleOf(active.id)} is back in its old place.`,
   };
 
   const activeTask = activeId ? findTask(activeId) : null;
@@ -230,12 +230,12 @@ export function TaskBoard({
           announcements,
           screenReaderInstructions: {
             draggable:
-              "Druk op spatie of enter om de taak op te pakken. Verplaats hem met de pijltjestoetsen, zet hem neer met spatie of enter, of annuleer met escape.",
+              "Press space or enter to pick up the task. Move it with the arrow keys, drop it with space or enter, or cancel with escape.",
           },
         }}
       >
         <p className="mb-3 text-xs text-muted md:hidden">
-          Veeg opzij voor de andere kolommen. Houd een taak ingedrukt om hem te verplaatsen.
+          Swipe sideways for the other columns. Press and hold a task to move it.
         </p>
         {/* Phones: a swipeable strip of columns. From md: a three column grid. */}
         <div className="-mx-4 flex snap-strip scrollbar-none gap-3 px-4 sm:-mx-6 sm:px-6 md:mx-0 md:grid md:grid-cols-3 md:gap-4 md:overflow-visible md:px-0">
@@ -302,7 +302,7 @@ function BoardColumn({
           ))}
           {tasks.length === 0 && (
             <li className="flex flex-1 items-center justify-center rounded-xl border border-dashed border-brand-200 px-3 py-6 text-center text-xs text-muted">
-              Sleep een taak hierheen
+              Drag a task here
             </li>
           )}
         </ul>
@@ -341,7 +341,7 @@ function SortableTaskCard({
             ref={setActivatorNodeRef}
             {...attributes}
             {...listeners}
-            aria-label={`${task.title} verplaatsen`}
+            aria-label={`Move ${task.title}`}
             className="flex size-8 shrink-0 cursor-grab items-center justify-center rounded-lg text-muted hover:bg-brand-50 hover:text-ink active:bg-brand-50 focus-visible:outline-2 focus-visible:outline-brand-500 active:cursor-grabbing"
           >
             <GripVertical className="size-4" aria-hidden="true" />

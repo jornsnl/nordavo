@@ -17,8 +17,8 @@ const verdictTone: Record<CampaignVerdict["verdict"], Tone> = {
 };
 
 function percent(rate: number | null) {
-  if (rate === null) return "Geen";
-  return `${(rate * 100).toLocaleString("nl-NL", { maximumFractionDigits: 1 })}%`;
+  if (rate === null) return "None";
+  return `${(rate * 100).toLocaleString("en-GB", { maximumFractionDigits: 1 })}%`;
 }
 
 export async function CampaignsTable() {
@@ -27,14 +27,14 @@ export async function CampaignsTable() {
     return (
       <EmptyState
         icon={Megaphone}
-        title="Nog geen campagnes"
-        description="Campagnes ontstaan vanzelf als je een maillijst naar Instantly stuurt via Lijsten, één per signaal."
+        title="No campaigns yet"
+        description="Campaigns appear by themselves when you send a mail list to Instantly from Lists, one per signal."
       />
     );
   }
   return (
     <>
-      <MobileList label="Campagnes" className="md:hidden">
+      <MobileList label="Campaigns" className="md:hidden">
         {campaigns.map((c) => {
           const channel = optionFor(activityChannels, c.channel);
           const signal = c.signalType ? optionFor(signalTypes, c.signalType as SignalType) : null;
@@ -43,8 +43,8 @@ export async function CampaignsTable() {
             <MobileListItem
               key={c.id}
               title={c.name}
-              subtitle={[channel.label, signal?.label, segment?.label ?? "alle segmenten"].filter(Boolean).join(", ")}
-              meta={[c.variant ? `variant ${c.variant}` : null, c.startedAt ? `sinds ${formatDate(c.startedAt)}` : null]
+              subtitle={[channel.label, signal?.label, segment?.label ?? "all segments"].filter(Boolean).join(", ")}
+              meta={[c.variant ? `variant ${c.variant}` : null, c.startedAt ? `since ${formatDate(c.startedAt)}` : null]
                 .filter(Boolean)
                 .join(", ")}
             >
@@ -53,8 +53,8 @@ export async function CampaignsTable() {
                 {[
                   ["Leads", c.leads],
                   ["Replies", c.replies],
-                  ["Positief", c.positive],
-                  ["Afspraken", c.meetings],
+                  ["Positive", c.positive],
+                  ["Meetings", c.meetings],
                   ["Reply rate", percent(c.verdict.rate)],
                 ].map(([label, value]) => (
                   <div key={label} className="min-w-0">
@@ -70,16 +70,16 @@ export async function CampaignsTable() {
       <Table className="hidden md:block">
         <THead>
           <tr>
-            <TH>Campagne</TH>
-            <TH>Kanaal</TH>
-            <TH>Signaal</TH>
+            <TH>Campaign</TH>
+            <TH>Channel</TH>
+            <TH>Signal</TH>
             <TH>Segment</TH>
             <TH className="text-right">Leads</TH>
             <TH className="text-right">Replies</TH>
-            <TH className="text-right">Positief</TH>
-            <TH className="text-right">Afspraken</TH>
+            <TH className="text-right">Positive</TH>
+            <TH className="text-right">Meetings</TH>
             <TH className="text-right">Reply rate</TH>
-            <TH>Evaluatie</TH>
+            <TH>Verdict</TH>
           </tr>
         </THead>
         <TBody>
@@ -92,14 +92,14 @@ export async function CampaignsTable() {
                 <TD>
                   <div className="font-medium text-brand-900">{c.name}</div>
                   <div className="text-xs text-muted">
-                    {[c.variant, c.startedAt ? `sinds ${formatDate(c.startedAt)}` : null].filter(Boolean).join(", ")}
+                    {[c.variant, c.startedAt ? `since ${formatDate(c.startedAt)}` : null].filter(Boolean).join(", ")}
                   </div>
                 </TD>
                 <TD>
                   <Badge tone={channel.tone}>{channel.label}</Badge>
                 </TD>
-                <TD>{signal ? <Badge tone={signal.tone}>{signal.label}</Badge> : <span className="text-muted">Geen</span>}</TD>
-                <TD className="text-muted">{segment?.label ?? "Alle"}</TD>
+                <TD>{signal ? <Badge tone={signal.tone}>{signal.label}</Badge> : <span className="text-muted">None</span>}</TD>
+                <TD className="text-muted">{segment?.label ?? "All"}</TD>
                 <TD className="text-right tabular-nums">{c.leads}</TD>
                 <TD className="text-right tabular-nums">{c.replies}</TD>
                 <TD className="text-right tabular-nums">{c.positive}</TD>

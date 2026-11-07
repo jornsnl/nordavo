@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-/** "Alle leads" and "Review" tabs above the leads pages. */
+/** "All leads" and "Review" tabs above the leads pages. */
 export function LeadTabs({ active, reviewCount }: { active: "all" | "review"; reviewCount: number | null }) {
   const tab = (isActive: boolean) =>
     `inline-flex items-center gap-2 border-b-2 px-1 pb-3 text-sm max-md:min-h-11 max-md:pt-1 font-semibold transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500 ${
@@ -9,7 +9,7 @@ export function LeadTabs({ active, reviewCount }: { active: "all" | "review"; re
   return (
     <nav aria-label="Leads" className="mb-6 flex gap-6 border-b border-border">
       <Link href="/dashboard/leads" className={tab(active === "all")} aria-current={active === "all" ? "page" : undefined}>
-        Alle leads
+        All leads
       </Link>
       <Link
         href="/dashboard/leads/review"
@@ -24,7 +24,7 @@ export function LeadTabs({ active, reviewCount }: { active: "all" | "review"; re
             }`}
           >
             {reviewCount}
-            <span className="sr-only"> bedrijven te beoordelen</span>
+            <span className="sr-only"> companies to review</span>
           </span>
         )}
       </Link>

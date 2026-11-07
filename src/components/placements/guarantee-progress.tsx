@@ -23,14 +23,14 @@ export function GuaranteeProgress({
 
   const text =
     today < startDate
-      ? `Start op ${formatDate(startDate)}. Daarna loopt de garantie 30 dagen.`
+      ? `Starts on ${formatDate(startDate)}. The guarantee then runs for 30 days.`
       : daysLeft < 0
-        ? `Afgelopen op ${formatDate(until)}.`
+        ? `Ended on ${formatDate(until)}.`
         : status === "ended"
-          ? "De plaatsing is beëindigd binnen de garantieperiode."
+          ? "The placement ended within the guarantee period."
           : daysLeft === 0
-            ? "Loopt vandaag af."
-            : `Nog ${daysLeft} ${daysLeft === 1 ? "dag" : "dagen"}, tot en met ${formatDate(until)}.`;
+            ? "Ends today."
+            : `${daysLeft} ${daysLeft === 1 ? "day" : "days"} left, up to and including ${formatDate(until)}.`;
 
   const active = today >= startDate && daysLeft >= 0 && status !== "ended";
 
@@ -45,11 +45,11 @@ export function GuaranteeProgress({
       </div>
       <div
         role="progressbar"
-        aria-label="Garantieperiode"
+        aria-label="Guarantee period"
         aria-valuemin={0}
         aria-valuemax={total}
         aria-valuenow={elapsed}
-        aria-valuetext={`${elapsed} van ${total} dagen`}
+        aria-valuetext={`${elapsed} of ${total} days`}
         className="h-2.5 overflow-hidden rounded-full bg-brand-100"
       >
         <div
@@ -60,7 +60,7 @@ export function GuaranteeProgress({
         />
       </div>
       <p className="mt-2 text-xs text-muted">
-        Presteert de developer niet naar verwachting? Binnen 30 dagen vervangen we kosteloos.
+        Is the developer not performing as expected? Within 30 days we replace them at no cost.
       </p>
     </div>
   );

@@ -19,8 +19,8 @@ const entitySchema = z.object({
 const noteBody = z
   .string()
   .trim()
-  .min(1, "Schrijf eerst iets.")
-  .max(10000, "Deze notitie is te lang.");
+  .min(1, "Write something first.")
+  .max(10000, "This note is too long.");
 
 export async function addNote(_prev: ActionState, formData: FormData): Promise<ActionState> {
   await requireStaff();
@@ -29,7 +29,7 @@ export async function addNote(_prev: ActionState, formData: FormData): Promise<A
     entityId: formData.get("entityId"),
     body: formData.get("body") ?? "",
   });
-  if (!parsed.success) return { error: "Controleer je notitie.", fieldErrors: fieldErrorsFrom(parsed.error) };
+  if (!parsed.success) return { error: "Check your note.", fieldErrors: fieldErrorsFrom(parsed.error) };
 
   const supabase = await createClient();
   const { error } = await supabase.from("notes").insert({
@@ -49,7 +49,7 @@ export async function updateNote(_prev: ActionState, formData: FormData): Promis
     id: formData.get("id"),
     body: formData.get("body") ?? "",
   });
-  if (!parsed.success) return { error: "Controleer je notitie.", fieldErrors: fieldErrorsFrom(parsed.error) };
+  if (!parsed.success) return { error: "Check your note.", fieldErrors: fieldErrorsFrom(parsed.error) };
 
   const supabase = await createClient();
   const { data, error } = await supabase
@@ -59,7 +59,7 @@ export async function updateNote(_prev: ActionState, formData: FormData): Promis
     .eq("author_id", user.id)
     .select("id");
   if (error) return { error: GENERIC_ERROR };
-  if (data.length === 0) return { error: "Je kunt alleen je eigen notities aanpassen." };
+  if (data.length === 0) return { error: "You can only edit your own notes." };
   refresh();
   return { ok: true };
 }
@@ -77,7 +77,7 @@ export async function deleteNote(noteId: string): Promise<ActionState> {
     .eq("author_id", user.id)
     .select("id");
   if (error) return { error: GENERIC_ERROR };
-  if (data.length === 0) return { error: "Je kunt alleen je eigen notities verwijderen." };
+  if (data.length === 0) return { error: "You can only delete your own notes." };
   refresh();
   return { ok: true };
 }
@@ -94,8 +94,8 @@ const fileMetaSchema = z.object({
   size: z
     .number()
     .int()
-    .positive("Dit bestand is leeg.")
-    .max(MAX_UPLOAD_BYTES, `Bestanden mogen maximaal ${MAX_UPLOAD_BYTES / 1024 / 1024} MB zijn.`),
+    .positive("This file is empty.")
+    .max(MAX_UPLOAD_BYTES, `Files can be at most ${MAX_UPLOAD_BYTES / 1024 / 1024} MB.`),
 });
 
 export type UploadTarget = { ok: true; path: string; token: string } | { ok: false; error: string };
@@ -117,7 +117,7 @@ export async function createUploadTarget(input: {
   const path = buildStoragePath(entityType, entityId, fileName);
   const supabase = await createClient();
   const { data, error } = await supabase.storage.from(ATTACHMENTS_BUCKET).createSignedUploadUrl(path);
-  if (error || !data) return { ok: false, error: "Uploaden lukt nu niet. Probeer het later opnieuw." };
+  if (error || !data) return { ok: false, error: "Uploading does not work right now. Try again later." };
   return { ok: true, path: data.path, token: data.token };
 }
 
@@ -157,7 +157,7 @@ export async function saveAttachment(input: {
     return { error: GENERIC_ERROR };
   }
   refresh();
-  return { ok: true, message: "Bijlage toegevoegd." };
+  return { ok: true, message: "Attachment added." };
 }
 
 /** A short-lived link that downloads the file under its original name. */
@@ -174,12 +174,12 @@ export async function getAttachmentUrl(
     .select("storage_path, file_name")
     .eq("id", id.data)
     .maybeSingle();
-  if (!attachment) return { error: "Deze bijlage bestaat niet meer." };
+  if (!attachment) return { error: "This attachment no longer exists." };
 
   const { data, error } = await supabase.storage
     .from(ATTACHMENTS_BUCKET)
     .createSignedUrl(attachment.storage_path, 60, { download: attachment.file_name });
-  if (error || !data) return { error: "Downloaden lukt nu niet. Probeer het opnieuw." };
+  if (error || !data) return { error: "Downloading does not work right now. Try again." };
   return { url: data.signedUrl };
 }
 
@@ -194,7 +194,7 @@ export async function deleteAttachment(attachmentId: string): Promise<ActionStat
     .select("storage_path")
     .eq("id", id.data)
     .maybeSingle();
-  if (!attachment) return { error: "Deze bijlage bestaat niet meer." };
+  if (!attachment) return { error: "This attachment no longer exists." };
 
   const { error: storageError } = await supabase.storage
     .from(ATTACHMENTS_BUCKET)

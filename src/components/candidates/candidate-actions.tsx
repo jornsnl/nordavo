@@ -14,18 +14,18 @@ import { ConfirmButton } from "./confirm-button";
 export function DeleteCandidateButton({ candidateId, name }: { candidateId: string; name: string }) {
   return (
     <ConfirmButton
-      title="Kandidaat verwijderen?"
-      description={`${name} verdwijnt uit het systeem, inclusief cv en alle pipelines. Dit kun je niet ongedaan maken.`}
-      confirmLabel="Ja, verwijderen"
+      title="Delete candidate?"
+      description={`${name} is removed from the system, including the CV and all pipelines. You cannot undo this.`}
+      confirmLabel="Yes, delete"
       action={() => deleteCandidate(candidateId)}
     >
       <Trash2 aria-hidden="true" />
-      Verwijderen
+      Delete
     </ConfirmButton>
   );
 }
 
-/** "Aan vacature koppelen": pick an open vacancy and add the candidate in stage sourced. */
+/** "Link to vacancy": pick an open vacancy and add the candidate in stage sourced. */
 export function LinkVacancyButton({
   candidateId,
   vacancies,
@@ -54,13 +54,13 @@ export function LinkVacancyButton({
         }}
       >
         <Link2 aria-hidden="true" />
-        Aan vacature koppelen
+        Link to vacancy
       </Button>
       <Modal
         open={open}
         onClose={() => setOpen(false)}
-        title="Aan vacature koppelen"
-        description="De kandidaat komt in de fase Gesourcet van de pipeline."
+        title="Link to vacancy"
+        description="The candidate enters the Sourced stage of the pipeline."
       >
         <LinkVacancyForm
           key={formKey}
@@ -97,9 +97,9 @@ function LinkVacancyForm({
         <FormMessage success={state.message} />
         <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
           <Button variant="secondary" onClick={onClose}>
-            Sluiten
+            Close
           </Button>
-          <ButtonLink href={`/dashboard/vacancies/${vacancyId}/pipeline`}>Naar de pipeline</ButtonLink>
+          <ButtonLink href={`/dashboard/vacancies/${vacancyId}/pipeline`}>Go to pipeline</ButtonLink>
         </div>
       </div>
     );
@@ -108,7 +108,7 @@ function LinkVacancyForm({
   if (vacancies.length === 0) {
     return (
       <p className="text-sm text-muted">
-        Er zijn geen open vacatures waar deze kandidaat nog niet in staat. Maak eerst een vacature aan.
+        There are no open vacancies this candidate is not already in. Create a vacancy first.
       </p>
     );
   }
@@ -117,7 +117,7 @@ function LinkVacancyForm({
     <form onSubmit={onSubmit} className="space-y-5">
       <input type="hidden" name="candidate_id" value={candidateId} />
       <FormMessage error={state.error} />
-      <Field label="Vacature" htmlFor="link-vacancy" required error={state.fieldErrors?.vacancy_id}>
+      <Field label="Vacancy" htmlFor="link-vacancy" required error={state.fieldErrors?.vacancy_id}>
         <Select
           id="link-vacancy"
           name="vacancy_id"
@@ -127,7 +127,7 @@ function LinkVacancyForm({
         >
           {vacancies.map((v) => (
             <option key={v.id} value={v.id}>
-              {v.title} bij {v.clientName}
+              {v.title} at {v.clientName}
               {v.status !== "open" ? ` (${optionFor(vacancyStatuses, v.status).label})` : ""}
             </option>
           ))}
@@ -135,11 +135,11 @@ function LinkVacancyForm({
       </Field>
       <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
         <Button variant="secondary" onClick={onClose} disabled={pending}>
-          Annuleren
+          Cancel
         </Button>
         <Button type="submit" disabled={pending || !vacancyId} aria-busy={pending}>
           {pending && <LoaderCircle className="animate-spin" aria-hidden="true" />}
-          Koppelen
+          Link
         </Button>
       </div>
     </form>

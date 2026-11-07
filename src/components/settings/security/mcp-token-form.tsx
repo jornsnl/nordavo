@@ -34,11 +34,11 @@ export function McpTokenForm({
         <FormMessage error={state.error} />
         <div className="grid gap-5 sm:grid-cols-3">
           <Field
-            label="Naam"
+            label="Name"
             htmlFor="mcp_name"
             required
             error={errors.name}
-            hint="Bijvoorbeeld de laptop waarop je Claude Code gebruikt."
+            hint="For example the laptop you use Claude Code on."
           >
             <Input
               id="mcp_name"
@@ -46,7 +46,7 @@ export function McpTokenForm({
               maxLength={80}
               autoComplete="off"
               enterKeyHint="done"
-              placeholder="MacBook werk"
+              placeholder="Work MacBook"
               required
               disabled={!enabled}
               aria-invalid={Boolean(errors.name)}
@@ -54,30 +54,30 @@ export function McpTokenForm({
             />
           </Field>
           <Field
-            label="Rechten"
+            label="Access"
             htmlFor="mcp_access"
             required
             error={errors.access}
-            hint="Kies lezen, tenzij Claude ook taken en notities moet aanmaken."
+            hint="Choose read, unless Claude also needs to create tasks and notes."
           >
             <Select id="mcp_access" name="access" defaultValue="read" disabled={!enabled}>
-              <option value="read">Lezen</option>
-              <option value="write">Lezen en schrijven</option>
+              <option value="read">Read</option>
+              <option value="write">Read and write</option>
             </Select>
           </Field>
-          <Field label="Geldig" htmlFor="mcp_expires" required error={errors.expires}>
+          <Field label="Valid for" htmlFor="mcp_expires" required error={errors.expires}>
             <Select id="mcp_expires" name="expires" defaultValue="90" disabled={!enabled}>
-              <option value="30">30 dagen</option>
-              <option value="90">90 dagen</option>
-              <option value="365">365 dagen</option>
-              <option value="never">Nooit verlopen</option>
+              <option value="30">30 days</option>
+              <option value="90">90 days</option>
+              <option value="365">365 days</option>
+              <option value="never">Never expires</option>
             </Select>
           </Field>
         </div>
         <div className="flex justify-end max-sm:*:w-full">
-          <PendingSubmit pending={pending} disabled={!enabled} pendingLabel="Bezig met aanmaken">
+          <PendingSubmit pending={pending} disabled={!enabled} pendingLabel="Creating">
             <KeyRound aria-hidden="true" />
-            Token aanmaken
+            Create token
           </PendingSubmit>
         </div>
       </form>
@@ -92,17 +92,17 @@ export function McpTokenForm({
             {state.message}
           </p>
           <div className="space-y-1.5">
-            <p className="text-xs font-medium tracking-wide text-muted uppercase">Je token</p>
+            <p className="text-xs font-medium tracking-wide text-muted uppercase">Your token</p>
             <McpCodeBlock code={state.token} label="Token" />
           </div>
           <div className="space-y-1.5">
             <p className="text-xs font-medium tracking-wide text-muted uppercase">
-              Plak dit in je terminal
+              Paste this in your terminal
             </p>
-            <McpCodeBlock code={mcpAddCommand(endpoint, state.token, "user")} label="Commando" />
+            <McpCodeBlock code={mcpAddCommand(endpoint, state.token, "user")} label="Command" />
             <p className="text-xs text-muted">
-              Met <code className="font-mono">--scope user</code> werkt Nordavo in al je projecten. Laat
-              het weg om de koppeling alleen in de huidige map te gebruiken.
+              With <code className="font-mono">--scope user</code> Nordavo works in all your projects. Leave
+              it out to use the connection only in the current folder.
             </p>
           </div>
         </div>

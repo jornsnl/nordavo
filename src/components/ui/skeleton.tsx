@@ -5,7 +5,7 @@ export function Skeleton({ className = "" }: { className?: string }) {
 /** Placeholder for a table or list while it streams in. */
 export function ListSkeleton({ rows = 5 }: { rows?: number }) {
   return (
-    <div className="space-y-2 rounded-2xl border border-border bg-card p-4" aria-busy="true" aria-label="Laden">
+    <div className="space-y-2 rounded-2xl border border-border bg-card p-4" aria-busy="true" aria-label="Loading">
       {Array.from({ length: rows }, (_, i) => (
         <Skeleton key={i} className="h-10 w-full" />
       ))}
