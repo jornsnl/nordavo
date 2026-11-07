@@ -14,62 +14,81 @@ import {
 import type { VacancyStatus } from "@/lib/database.types";
 import { todayIso } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
+import { clockOnLink, ownerColumns } from "@/lib/talent/talent-pool";
 
 const idSchema = z.guid();
 
 const amount = z
   .string()
-  .regex(/^\d{1,8}([.,]\d{1,2})?$/, "Vul een bedrag in euro in, bijvoorbeeld 4500.")
+  .regex(/^\d{1,8}([.,]\d{1,2})?$/, "Enter an amount in euros, for example 4500.")
   .transform((value) => Number(value.replace(",", ".")));
 
 const vacancySchema = z
   .object({
-    owner_type: z.enum(["client", "company"], { error: "Kies een klant of een prospect." }),
-    client_id: z.guid({ error: "Kies een klant." }).optional(),
-    company_id: z.guid({ error: "Kies een bedrijf." }).optional(),
-    title: z
-      .string({ error: "Vul een functietitel in." })
-      .min(1, "Vul een functietitel in.")
-      .max(200, "Gebruik maximaal 200 tekens."),
-    description: z.string().max(20000, "Dit profiel is te lang.").optional(),
-    stack: z.string().max(1000, "Gebruik maximaal 1000 tekens.").optional(),
-    seniority: z.enum(["medior", "senior", "lead"], { error: "Kies een senioriteit." }),
-    status: z.enum(["open", "on_hold", "filled", "closed"], { error: "Kies een status." }),
-    talent_stage: z.enum(["intake", "zoeken", "profielen_verstuurd", "gesprekken", "geplaatst", "gesloten"], {
-      error: "Kies een fase.",
+    owner_type: z.enum(["client", "company", "talent_pool"], {
+      error: "Choose a client, a prospect or the talent pool.",
     }),
-    source: z.enum(["klant_eigen", "samen_opgesteld", "gescrapet"], { error: "Kies een bron." }).optional(),
+    client_id: z.guid({ error: "Choose a client." }).optional(),
+    company_id: z.guid({ error: "Choose a company." }).optional(),
+    title: z
+      .string({ error: "Enter a job title." })
+      .min(1, "Enter a job title.")
+      .max(200, "Use at most 200 characters."),
+    description: z.string().max(20000, "This profile is too long.").optional(),
+    stack: z.string().max(1000, "Use at most 1000 characters.").optional(),
+    seniority: z.enum(["medior", "senior", "lead"], { error: "Choose a seniority." }),
+    status: z.enum(["open", "on_hold", "filled", "closed"], { error: "Choose a status." }),
+    talent_stage: z.enum(["intake", "zoeken", "profielen_verstuurd", "gesprekken", "geplaatst", "gesloten"], {
+      error: "Choose a stage.",
+    }),
+    source: z.enum(["klant_eigen", "samen_opgesteld", "gescrapet"], { error: "Choose a source." }).optional(),
     onepage_deal_id: z
       .string()
-      .max(100, "Gebruik maximaal 100 tekens.")
-      .regex(/^[\w-]+$/, "Plak alleen de deal-id uit OnePageCRM, zonder spaties.")
+      .max(100, "Use at most 100 characters.")
+      .regex(/^[\w-]+$/, "Paste only the deal id from OnePageCRM, without spaces.")
       .optional(),
     monthly_budget: amount.optional(),
     budget_min: amount.optional(),
     budget_max: amount.optional(),
     hours: z.coerce
-      .number({ error: "Vul een aantal uren in." })
-      .int("Gebruik hele uren.")
-      .min(1, "Minimaal 1 uur.")
-      .max(60, "Maximaal 60 uur.")
+      .number({ error: "Enter a number of hours." })
+      .int("Use whole hours.")
+      .min(1, "At least 1 hour.")
+      .max(60, "At most 60 hours.")
       .optional(),
-    timezone_overlap: z.string().max(300, "Gebruik maximaal 300 tekens.").optional(),
+    timezone_overlap: z.string().max(300, "Use at most 300 characters.").optional(),
     client_contact_required: z.enum(["ja", "nee"]).optional(),
-    must_haves: z.string().max(4000, "Dit is te lang.").optional(),
-    nice_to_haves: z.string().max(4000, "Dit is te lang.").optional(),
-    unclear: z.string().max(4000, "Dit is te lang.").optional(),
-    desired_start_date: z.iso.date({ error: "Kies een geldige datum." }).optional(),
-    owner_id: z.guid({ error: "Kies een teamlid." }).optional(),
+    must_haves: z.string().max(4000, "This is too long.").optional(),
+    nice_to_haves: z.string().max(4000, "This is too long.").optional(),
+    unclear: z.string().max(4000, "This is too long.").optional(),
+    desired_start_date: z.iso.date({ error: "Choose a valid date." }).optional(),
+    owner_id: z.guid({ error: "Choose a team member." }).optional(),
   })
   .superRefine((data, ctx) => {
     if (data.owner_type === "client" && !data.client_id) {
-      ctx.addIssue({ code: "custom", path: ["client_id"], message: "Kies een klant." });
+      ctx.addIssue({ code: "custom", path: ["client_id"], message: "Choose a client." });
     }
     if (data.owner_type === "company" && !data.company_id) {
-      ctx.addIssue({ code: "custom", path: ["company_id"], message: "Kies een bedrijf." });
+      ctx.addIssue({ code: "custom", path: ["company_id"], message: "Choose a company." });
     }
     if (data.budget_min !== undefined && data.budget_max !== undefined && data.budget_min > data.budget_max) {
-      ctx.addIssue({ code: "custom", path: ["budget_max"], message: "Het maximum is lager dan het minimum." });
+      ctx.addIssue({ code: "custom", path: ["budget_max"], message: "The maximum is lower than the minimum." });
+    }
+  });
+
+/** Linking a talent pool vacancy from its detail page: only the owner. */
+const linkSchema = z
+  .object({
+    owner_type: z.enum(["client", "company"], { error: "Choose a client or a prospect." }),
+    client_id: z.guid({ error: "Choose a client." }).optional(),
+    company_id: z.guid({ error: "Choose a company." }).optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.owner_type === "client" && !data.client_id) {
+      ctx.addIssue({ code: "custom", path: ["client_id"], message: "Choose a client." });
+    }
+    if (data.owner_type === "company" && !data.company_id) {
+      ctx.addIssue({ code: "custom", path: ["company_id"], message: "Choose a company." });
     }
   });
 
@@ -85,10 +104,8 @@ function parseLines(value: string | undefined) {
 }
 
 function toRow(data: z.infer<typeof vacancySchema>) {
-  const isClient = data.owner_type === "client";
   return {
-    client_id: isClient ? (data.client_id ?? null) : null,
-    company_id: isClient ? null : (data.company_id ?? null),
+    ...ownerColumns(data.owner_type, data),
     title: data.title,
     description: data.description ?? null,
     stack: parseList(data.stack),
@@ -117,12 +134,16 @@ function revalidateOwners(row: { client_id: string | null; company_id: string | 
 }
 
 function foreignKeyError(): ActionState {
-  return { error: "De gekozen klant of het gekozen bedrijf bestaat niet meer.", fieldErrors: {} };
+  return { error: "The chosen client or company no longer exists.", fieldErrors: {} };
 }
 
 function invalid(error: z.ZodError): ActionState {
-  return { error: "Controleer de gemarkeerde velden.", fieldErrors: fieldErrorsFrom(error) };
+  return { error: "Check the highlighted fields.", fieldErrors: fieldErrorsFrom(error) };
 }
+
+const NOT_FOUND = "This vacancy no longer exists.";
+const NO_WAY_BACK =
+  "A vacancy linked to a client or prospect can't move back to the talent pool. Create a new talent pool vacancy instead.";
 
 export async function createVacancyAction(
   _prev: ActionState,
@@ -162,13 +183,16 @@ export async function updateVacancyAction(
   const supabase = await createClient();
   const { data: current, error: readError } = await supabase
     .from("vacancies")
-    .select("status, closed_at, client_id, company_id")
+    .select("status, closed_at, client_id, company_id, is_talent_pool, intake_at")
     .eq("id", id)
     .maybeSingle();
   if (readError) return { error: GENERIC_ERROR };
-  if (!current) return { error: "Deze vacature bestaat niet meer." };
+  if (!current) return { error: NOT_FOUND };
 
   const row = toRow(parsed.data);
+  if (row.is_talent_pool && !current.is_talent_pool) return { error: NO_WAY_BACK, fieldErrors: {} };
+  // Linking a talent pool vacancy starts the three-week clock now (see clockOnLink).
+  const clock = clockOnLink(current, row.is_talent_pool) ?? {};
   // Closing sets closed_at to today, reopening clears it. Keep the original date otherwise.
   const closedAt = CLOSED.includes(row.status)
     ? CLOSED.includes(current.status) && current.closed_at
@@ -178,7 +202,7 @@ export async function updateVacancyAction(
 
   const { error } = await supabase
     .from("vacancies")
-    .update({ ...row, closed_at: closedAt })
+    .update({ ...row, ...clock, closed_at: closedAt })
     .eq("id", id);
   if (error) {
     if (error.code === "23503") return foreignKeyError();
@@ -190,6 +214,51 @@ export async function updateVacancyAction(
   revalidateOwners(row);
   revalidateOwners(current);
   redirect(`/dashboard/vacatures/${id}`);
+}
+
+/**
+ * Links a talent pool vacancy to a client or prospect from its detail page,
+ * which turns it into a normal vacancy. The three-week clock starts at the
+ * moment of linking, not at creation: see clockOnLink for why.
+ */
+export async function linkTalentPoolVacancyAction(
+  id: string,
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  await requireStaff();
+  if (!idSchema.safeParse(id).success) return { error: GENERIC_ERROR };
+  const parsed = linkSchema.safeParse(formValues(formData));
+  if (!parsed.success) return invalid(parsed.error);
+
+  const supabase = await createClient();
+  const { data: current, error: readError } = await supabase
+    .from("vacancies")
+    .select("is_talent_pool, intake_at")
+    .eq("id", id)
+    .maybeSingle();
+  if (readError) return { error: GENERIC_ERROR };
+  if (!current) return { error: NOT_FOUND };
+  if (!current.is_talent_pool) return { error: "This vacancy is already linked to a client or prospect." };
+
+  const owner = ownerColumns(parsed.data.owner_type, parsed.data);
+  const { error } = await supabase
+    .from("vacancies")
+    .update({ ...owner, ...clockOnLink(current, false) })
+    .eq("id", id)
+    // Guards against a second link racing this one.
+    .eq("is_talent_pool", true);
+  if (error) {
+    if (error.code === "23503") return foreignKeyError();
+    return { error: GENERIC_ERROR };
+  }
+
+  revalidatePath("/dashboard");
+  revalidatePath("/dashboard/rapport");
+  revalidatePath("/dashboard/vacatures");
+  revalidatePath(`/dashboard/vacatures/${id}`);
+  revalidateOwners(owner);
+  return { ok: true, message: "Linked. The three-week clock starts today." };
 }
 
 export async function deleteVacancyAction(

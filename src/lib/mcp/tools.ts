@@ -100,7 +100,7 @@ function registerReadTools(server: McpServer, ctx: McpToolContext) {
         wanted.has("vacancy") &&
           db
             .from("vacancies")
-            .select("id, title, status, client:clients(name), company:companies(name)")
+            .select("id, title, status, is_talent_pool, client:clients(name), company:companies(name)")
             .ilike("title", pattern)
             .order("opened_at", { ascending: false })
             .limit(limit)
@@ -110,6 +110,7 @@ function registerReadTools(server: McpServer, ctx: McpToolContext) {
                 title: v.title,
                 status: v.status,
                 client: v.client?.name ?? v.company?.name ?? null,
+                is_talent_pool: v.is_talent_pool,
                 url: url("vacancy", v.id),
               }));
             }),
@@ -308,21 +309,25 @@ function registerReadTools(server: McpServer, ctx: McpToolContext) {
     {
       title: "Vacatures",
       description:
-        "List vacancies, oldest open first, with client, status, stack, days open and number of active candidates in the pipeline.",
+        "List vacancies, oldest open first, with client, status, stack, days open and number of active candidates in the pipeline. Talent pool vacancies (is_talent_pool) have no client or prospect yet and no three-week clock: their days_open is null.",
       inputSchema: {
         query: z.string().max(80).optional().describe("Filter on vacancy title."),
         status: z.array(vacancyStatus).optional().describe("Statuses to include. Default: open and on_hold."),
         client_id: idSchema.optional().describe("Only vacancies of this client."),
+        talent_pool: z
+          .boolean()
+          .optional()
+          .describe("True: only talent pool vacancies (no client yet). False: only vacancies of a client or prospect. Default: both."),
         limit: limitSchema,
         offset: offsetSchema,
       },
       annotations: READ_ONLY,
     },
-    async ({ query, status, client_id, limit, offset }) => {
+    async ({ query, status, client_id, talent_pool, limit, offset }) => {
       let q = db
         .from("vacancies")
         .select(
-          "id, title, status, seniority, stack, opened_at, closed_at, talent_stage, client_id, company_id, client:clients(name), company:companies(name), applications(stage)",
+          "id, title, status, seniority, stack, opened_at, closed_at, talent_stage, client_id, company_id, is_talent_pool, client:clients(name), company:companies(name), applications(stage)",
           { count: "exact" },
         )
         .in("status", status && status.length > 0 ? status : ["open", "on_hold"])
@@ -331,6 +336,7 @@ function registerReadTools(server: McpServer, ctx: McpToolContext) {
       const pattern = searchPattern(query);
       if (pattern) q = q.ilike("title", pattern);
       if (client_id) q = q.eq("client_id", client_id);
+      if (talent_pool !== undefined) q = q.eq("is_talent_pool", talent_pool);
       const r = await q;
       return ok({
         total: r.count,
@@ -341,12 +347,13 @@ function registerReadTools(server: McpServer, ctx: McpToolContext) {
           client: v.client?.name ?? null,
           company_id: v.company_id,
           company: v.company?.name ?? null,
+          is_talent_pool: v.is_talent_pool,
           status: v.status,
           talent_stage: v.talent_stage,
           seniority: v.seniority,
           stack: v.stack,
           opened_at: v.opened_at,
-          days_open: daysSince(v.opened_at, v.closed_at ?? new Date()),
+          days_open: v.is_talent_pool ? null : daysSince(v.opened_at, v.closed_at ?? new Date()),
           in_pipeline: v.applications.filter((a) => a.stage !== "rejected").length,
         })),
       });
@@ -358,7 +365,7 @@ function registerReadTools(server: McpServer, ctx: McpToolContext) {
     {
       title: "Vacature",
       description:
-        "One vacancy with its profile (description, stack, must-haves, budget) and the pipeline grouped per stage (sourced to placed, plus rejected), with candidate ids, scores and client decision.",
+        "One vacancy with its profile (description, stack, must-haves, budget) and the pipeline grouped per stage (sourced to placed, plus rejected), with candidate ids, scores and client decision. A talent pool vacancy (is_talent_pool) has no client yet and no three-week clock (days_open null).",
       inputSchema: { id: idSchema },
       annotations: READ_ONLY,
     },
@@ -367,7 +374,7 @@ function registerReadTools(server: McpServer, ctx: McpToolContext) {
         await db
           .from("vacancies")
           .select(
-            "id, title, status, seniority, description, stack, must_haves, nice_to_haves, monthly_budget, budget_min, budget_max, hours, timezone_overlap, desired_start_date, opened_at, closed_at, talent_stage, intake_at, profiles_sent_at, first_interview_at, client:clients(id, name), company:companies(id, name, domain), owner:profiles!vacancies_owner_id_fkey(full_name, email)",
+            "id, title, status, seniority, description, stack, must_haves, nice_to_haves, monthly_budget, budget_min, budget_max, hours, timezone_overlap, desired_start_date, opened_at, closed_at, talent_stage, is_talent_pool, intake_at, profiles_sent_at, first_interview_at, client:clients(id, name), company:companies(id, name, domain), owner:profiles!vacancies_owner_id_fkey(full_name, email)",
           )
           .eq("id", id)
           .maybeSingle(),
@@ -413,7 +420,7 @@ function registerReadTools(server: McpServer, ctx: McpToolContext) {
         ...vacancy,
         description: clip(vacancy.description, 4000),
         owner: personName(vacancy.owner),
-        days_open: daysSince(vacancy.opened_at, vacancy.closed_at ?? new Date()),
+        days_open: vacancy.is_talent_pool ? null : daysSince(vacancy.opened_at, vacancy.closed_at ?? new Date()),
         url: url("vacancy", vacancy.id),
         pipeline,
         recent_notes: notes,

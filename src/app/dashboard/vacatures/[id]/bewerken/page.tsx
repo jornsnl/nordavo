@@ -10,13 +10,13 @@ import { getVacancy, listCompanyOptions } from "@/lib/data/vacancies";
 import { updateVacancyAction } from "../../actions";
 
 export const metadata: Metadata = {
-  title: "Vacature bewerken",
+  title: "Edit vacancy",
 };
 
 export default function Page({ params }: PageProps<"/dashboard/vacatures/[id]/bewerken">) {
   return (
     <>
-      <PageHeader eyebrow="Vacatures" title="Vacature bewerken" />
+      <PageHeader eyebrow="Vacancies" title="Edit vacancy" />
       <Card className="max-w-3xl">
         <CardBody className="py-6">
           <Suspense fallback={<ListSkeleton rows={5} />}>
@@ -44,6 +44,7 @@ async function EditVacancyForm({ params }: { params: Promise<{ id: string }> }) 
       defaults={{
         client_id: vacancy.client_id ?? undefined,
         company_id: vacancy.company_id ?? undefined,
+        is_talent_pool: vacancy.is_talent_pool,
         talent_stage: vacancy.talent_stage,
         source: vacancy.source,
         onepage_deal_id: vacancy.onepage_deal_id,
@@ -68,7 +69,10 @@ async function EditVacancyForm({ params }: { params: Promise<{ id: string }> }) 
       companies={companies}
       staff={staff}
       cancelHref={`/dashboard/vacatures/${vacancy.id}`}
-      submitLabel="Wijzigingen opslaan"
+      submitLabel="Save changes"
+      // A linked vacancy does not move back to the talent pool; a talent
+      // pool vacancy can be linked here or from its detail page.
+      allowTalentPool={vacancy.is_talent_pool}
     />
   );
 }

@@ -283,6 +283,7 @@ export type Database = {
           profiles_sent_at: string | null;
           first_interview_at: string | null;
           start_at: string | null;
+          is_talent_pool: boolean;
         };
         Insert: {
           id?: string;
@@ -317,6 +318,7 @@ export type Database = {
           profiles_sent_at?: string | null;
           first_interview_at?: string | null;
           start_at?: string | null;
+          is_talent_pool?: boolean;
         };
         Update: {
           id?: string;
@@ -351,6 +353,7 @@ export type Database = {
           profiles_sent_at?: string | null;
           first_interview_at?: string | null;
           start_at?: string | null;
+          is_talent_pool?: boolean;
         };
         Relationships: [
           {
