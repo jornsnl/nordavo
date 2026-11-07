@@ -1,9 +1,11 @@
-import type { PoolCandidate } from "@/lib/integrations/airtable";
+import type { PoolCandidate } from "@/lib/talent/pool";
 import { foldText, redactIdentifiers } from "@/lib/talent/anonymize";
 
 /**
- * T2 step one: a cheap prefilter in code (stack overlap and seniority), so
- * Claude only scores the most promising candidates. Pure, unit tested.
+ * T2 step one: a cheap prefilter (stack overlap and seniority), so Claude
+ * only scores the most promising candidates. A coarse version runs in SQL
+ * (public.t2_candidate_pool with poolPatterns below) to bound the set read
+ * from the portal; prefilterCandidates ranks that set exactly. Pure, unit tested.
  */
 
 export type VacancyRequirements = {
@@ -53,6 +55,38 @@ export function normalizeSkill(skill: string) {
   return ALIASES[folded] ?? folded;
 }
 
+function escapeRegex(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/** The wanted skills of a vacancy: the stack plus short must haves (three words or fewer). */
+export function wantedSkills(vacancy: Pick<VacancyRequirements, "stack" | "must_haves">) {
+  return [...new Set([...vacancy.stack, ...vacancy.must_haves.filter((m) => m.split(/\s+/).length <= 3)])];
+}
+
+/**
+ * Patterns for the SQL prefilter: per wanted skill one regex that matches the
+ * skill, its normalised form or any alias as a whole word in the lower-cased
+ * skills, summary and CV text. Deliberately wider than skillOverlap, so the
+ * SQL step never drops a candidate the exact prefilter would keep. Stack
+ * skills weigh 10, other must haves 4 (as in prefilterCandidates).
+ */
+export function poolPatterns(vacancy: Pick<VacancyRequirements, "stack" | "must_haves">) {
+  const stack = new Set(vacancy.stack);
+  const patterns: string[] = [];
+  const weights: number[] = [];
+  for (const skill of wantedSkills(vacancy)) {
+    const norm = normalizeSkill(skill);
+    if (!norm) continue;
+    const plain = foldText(skill).replace(/\s*\(.*?\)\s*/g, " ").trim();
+    const variants = new Set([norm, plain, ...Object.keys(ALIASES).filter((alias) => ALIASES[alias] === norm)]);
+    const alternatives = [...variants].filter(Boolean).map(escapeRegex).join("|");
+    patterns.push(`(^|[^a-z0-9])(${alternatives})($|[^a-z0-9#+])`);
+    weights.push(stack.has(skill) ? 10 : 4);
+  }
+  return { patterns, weights };
+}
+
 /** Skills a candidate has that match the wanted list (also found in summary text). */
 export function skillOverlap(wanted: string[], candidate: Pick<PoolCandidate, "skills" | "summary" | "cvText">) {
   const have = new Set(candidate.skills.map(normalizeSkill));
@@ -97,7 +131,7 @@ export type PrefilterResult = { candidate: PoolCandidate; points: number; hits: 
  * or must have overlap (when the vacancy has a stack), then sort by overlap.
  */
 export function prefilterCandidates(vacancy: VacancyRequirements, candidates: PoolCandidate[], limit = 25): PrefilterResult[] {
-  const wanted = [...new Set([...vacancy.stack, ...vacancy.must_haves.filter((m) => m.split(/\s+/).length <= 3)])];
+  const wanted = wantedSkills(vacancy);
   const results: PrefilterResult[] = [];
   for (const candidate of candidates) {
     if (!seniorityFits(vacancy.seniority, candidate)) continue;

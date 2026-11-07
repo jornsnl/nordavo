@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import Link from "next/link";
 import { Check, Download, FileText, RefreshCw, Send, ShieldCheck } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
@@ -27,7 +28,7 @@ function Step({ done, title, children }: { done: boolean; title: string; childre
       <div className="min-w-0 flex-1 space-y-1.5">
         <p className={`text-sm font-medium ${done ? "text-ink" : "text-muted"}`}>
           {title}
-          <span className="sr-only">{done ? ", gedaan" : ", nog niet gedaan"}</span>
+          <span className="sr-only">{done ? ", done" : ", not done yet"}</span>
         </p>
         {children}
       </div>
@@ -39,24 +40,25 @@ function Step({ done, title, children }: { done: boolean; title: string; childre
 export function ProfilePanel({ vacancyId, match }: { vacancyId: string; match: MatchWithCandidate }) {
   const profile = match.profile;
   const content = profile?.content;
-  const airtableConsent = match.candidate?.consent ?? null;
-  const consentOk = Boolean(profile?.consentConfirmed) || airtableConsent === true;
+  const candidateConsent = match.candidate?.consent ?? null;
+  const consentOk = Boolean(profile?.consentConfirmed) || candidateConsent === true;
+  const candidateHref = match.candidate ? `/dashboard/kandidaten/${match.candidate.id}/bewerken` : null;
 
   if (!profile) {
     return (
       <div className="rounded-xl border border-dashed border-border px-4 py-3">
         <p className="text-sm text-muted">
-          Nog geen anoniem profiel. Claude schrijft het in Nordavo opmaak zonder naam, contactgegevens of werkgevers; een check in
-          de code keurt het af als er toch iets herleidbaars in staat.
+          No anonymous profile yet. Claude writes it in the Nordavo format without name, contact details or employers; a check in
+          the code rejects it if anything identifying is still in it.
         </p>
         <ActionButton
           action={generateProfileAction.bind(null, vacancyId, match.id)}
           variant="primary"
-          pendingLabel="Profiel wordt gemaakt"
+          pendingLabel="Making the profile"
           className="mt-3"
         >
           <FileText aria-hidden="true" />
-          Anoniem profiel maken
+          Make anonymous profile
         </ActionButton>
       </div>
     );
@@ -66,11 +68,11 @@ export function ProfilePanel({ vacancyId, match }: { vacancyId: string; match: M
     <div className="space-y-4 rounded-xl border border-border bg-surface/60 p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="text-xs font-medium tracking-wide text-muted uppercase">Anoniem profiel {content?.code}</p>
-          <p className="font-display text-base font-semibold text-brand-900">{content?.headline ?? "Profiel"}</p>
+          <p className="text-xs font-medium tracking-wide text-muted uppercase">Anonymous profile {content?.code}</p>
+          <p className="font-display text-base font-semibold text-brand-900">{content?.headline ?? "Profile"}</p>
           <p className="text-xs text-muted">
-            Gemaakt {formatDateTime(profile.createdAt)}
-            {match.profileCount > 1 ? `, versie ${match.profileCount}` : ""}
+            Made {formatDateTime(profile.createdAt)}
+            {match.profileCount > 1 ? `, version ${match.profileCount}` : ""}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -81,9 +83,9 @@ export function ProfilePanel({ vacancyId, match }: { vacancyId: string; match: M
             </ButtonLink>
           )}
           {!profile.sentAt && (
-            <ActionButton action={generateProfileAction.bind(null, vacancyId, match.id)} pendingLabel="Bezig" variant="ghost">
+            <ActionButton action={generateProfileAction.bind(null, vacancyId, match.id)} pendingLabel="Working" variant="ghost">
               <RefreshCw aria-hidden="true" />
-              Opnieuw maken
+              Make again
             </ActionButton>
           )}
         </div>
@@ -93,10 +95,10 @@ export function ProfilePanel({ vacancyId, match }: { vacancyId: string; match: M
         <div className="space-y-3 rounded-xl border border-border bg-card p-4 text-sm">
           <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             {[
-              ["Niveau", content.seniority],
-              ["Ervaring", content.years_experience === null ? "Onbekend" : `${content.years_experience} jaar`],
-              ["Engels", content.english_level],
-              ["Beschikbaar", content.availability],
+              ["Level", content.seniority],
+              ["Experience", content.years_experience === null ? "Unknown" : `${content.years_experience} years`],
+              ["English", content.english_level],
+              ["Available", content.availability],
             ].map(([label, value]) => (
               <div key={label}>
                 <dt className="text-xs text-muted">{label}</dt>
@@ -104,7 +106,7 @@ export function ProfilePanel({ vacancyId, match }: { vacancyId: string; match: M
               </div>
             ))}
           </dl>
-          <ul className="flex flex-wrap gap-1.5" aria-label="Kernskills">
+          <ul className="flex flex-wrap gap-1.5" aria-label="Core skills">
             {content.core_skills.map((s, i) => (
               <li key={`${s}-${i}`}>
                 <Badge tone="brand">{s}</Badge>
@@ -118,22 +120,22 @@ export function ProfilePanel({ vacancyId, match }: { vacancyId: string; match: M
               ))}
             </ul>
           )}
-          {content.sectors.length > 0 && <p className="text-muted">Sectoren: {content.sectors.join(", ")}</p>}
+          {content.sectors.length > 0 && <p className="text-muted">Sectors: {content.sectors.join(", ")}</p>}
           <div className="border-l-2 border-accent-500 pl-3">
-            <p className="text-xs font-medium tracking-wide text-muted uppercase">Beoordeling door Nordavo</p>
+            <p className="text-xs font-medium tracking-wide text-muted uppercase">Assessment by Nordavo</p>
             <p className="mt-1 leading-relaxed whitespace-pre-line text-ink">{content.assessment}</p>
           </div>
         </div>
       )}
 
       <ol className="space-y-3">
-        <Step done={Boolean(profile.approvedAt)} title={profile.approvedAt ? `Goedgekeurd op ${formatDateTime(profile.approvedAt)}` : "Goedkeuren"}>
+        <Step done={Boolean(profile.approvedAt)} title={profile.approvedAt ? `Approved on ${formatDateTime(profile.approvedAt)}` : "Approve"}>
           {!profile.approvedAt && (
             <>
-              <p className="text-xs text-muted">Floris of de recruiter leest het profiel na. Pas daarna mag het naar de klant.</p>
-              <ActionButton action={approveProfileAction.bind(null, profile.id)} pendingLabel="Bezig">
+              <p className="text-xs text-muted">Floris or the recruiter reviews the profile. Only then may it go to the client.</p>
+              <ActionButton action={approveProfileAction.bind(null, profile.id)} pendingLabel="Working">
                 <ShieldCheck aria-hidden="true" />
-                Profiel goedkeuren
+                Approve profile
               </ActionButton>
             </>
           )}
@@ -143,33 +145,44 @@ export function ProfilePanel({ vacancyId, match }: { vacancyId: string; match: M
           title={
             consentOk
               ? content?.consent_source === "staff"
-                ? "Toestemming bevestigd door het team"
-                : "Toestemming gegeven (Airtable)"
-              : "Toestemming van de kandidaat"
+                ? "Consent confirmed by the team"
+                : "Consent given (candidate profile)"
+              : "Candidate consent"
           }
         >
-          {!consentOk && airtableConsent === false && (
-            <p className="text-sm text-danger">In Airtable staat dat de kandidaat geen toestemming gaf. Dit profiel kan niet naar de klant.</p>
+          {!consentOk && candidateConsent === false && (
+            <p className="text-sm text-danger">
+              The candidate&apos;s profile says they did not give consent. This profile cannot go to the client.
+              {candidateHref && (
+                <>
+                  {" "}
+                  <Link href={candidateHref} className="font-medium underline">
+                    Edit the candidate
+                  </Link>
+                </>
+              )}
+            </p>
           )}
-          {!consentOk && airtableConsent === null && (
+          {!consentOk && candidateConsent === null && (
             <>
               <p className="text-xs text-muted">
-                Airtable heeft (nog) geen toestemmingsveld ingevuld voor deze kandidaat. Bevestig alleen als de kandidaat echt akkoord gaf.
+                Consent is not filled in on the candidate yet. Only confirm if the candidate really agreed; you can also set it on the
+                candidate&apos;s page.
               </p>
               <ConsentForm action={confirmConsentAction.bind(null, profile.id)} id={profile.id} />
             </>
           )}
         </Step>
-        <Step done={Boolean(profile.sentAt)} title={profile.sentAt ? `Verstuurd op ${formatDateTime(profile.sentAt)}` : "Naar de klant"}>
+        <Step done={Boolean(profile.sentAt)} title={profile.sentAt ? `Sent on ${formatDateTime(profile.sentAt)}` : "To the client"}>
           {!profile.sentAt && profile.approvedAt && consentOk && (
             <>
               <p className="text-xs text-muted">
-                Stuur de PDF zelf naar de klant en markeer hem daarna als verstuurd. Is er een deal in OnePageCRM, dan komt er een notitie
-                en een volgende actie bij.
+                Send the PDF to the client yourself, then mark it as sent. If there is a deal in OnePageCRM, a note and a next action
+                are added.
               </p>
-              <ActionButton action={markProfileSentAction.bind(null, profile.id)} variant="primary" pendingLabel="Bezig">
+              <ActionButton action={markProfileSentAction.bind(null, profile.id)} variant="primary" pendingLabel="Working">
                 <Send aria-hidden="true" />
-                Markeer als verstuurd
+                Mark as sent
               </ActionButton>
             </>
           )}

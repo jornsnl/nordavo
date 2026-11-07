@@ -84,9 +84,9 @@ Huidige stack:
 | Cal.com | Afspraken, aparte saleslink en salesmailbox | Draait |
 | n8n en Make | Automatisering | Beide in gebruik |
 | OnePageCRM | Sales CRM | Gekozen, nog niet ingericht |
-| Airtable | Talentenpool en sollicitanten (o.a. bases "Sollicitanten fase 2" en "Hiring"), Fillout formulieren, Make automatiseringen met Claude scoring, AVG verwijdering | Draait |
+| Portaal (kandidaten) | Talentenpool en sollicitanten staan in het portaal (tabel candidates); T2 matcht daarop | Draait |
 
-Eerder gebruikt: Clay (tabellen Dev Data Master, Magento, Legacy, Data Agencies bestaan nog), Smartlead, Meta lead ads (slechte kwaliteit), een oude Airtable sales base.
+Eerder gebruikt: Clay (tabellen Dev Data Master, Magento, Legacy, Data Agencies bestaan nog), Smartlead, Meta lead ads (slechte kwaliteit), een oude sales base.
 
 Huidige salesflow (handmatig):
 1. Apify scrapet vacatures
@@ -119,7 +119,7 @@ Wat er misgaat:
 | OnePageCRM | Werkplek van Julius: gekwalificeerde contacten en deals met verplichte volgende actie |
 | OnePageCRM MCP | Claude (claude.ai en Claude Code) kan in het CRM lezen en schrijven. Server: https://app.onepagecrm.com/mcp |
 | Supabase MCP | Alleen lezen, zodat Julius vragen kan stellen over alle data |
-| Airtable | Blijft de bron voor kandidaten. Supabase leest alleen via de API |
+| Portaal (candidates) | De enige bron voor kandidaten. T2 matcht op deze tabel |
 | Apify | Vacatures en beslissers |
 | Prospeo | Mailadressen |
 | Max | Telefoonnummers via CSV in en uit |
@@ -164,18 +164,18 @@ id, type (bellijst, mailcampagne, max_verrijking), filter_used, record_ids, crea
 **job_runs**
 id, job_name, started_at, finished_at, status, records_in, records_out, error
 
-### Talent (koppeling met Airtable)
+### Talent
 
 **vacancies**
 id, company_id, onepage_deal_id, source (klant_eigen, samen_opgesteld, gescrapet), raw_text, stack, seniority, hours, timezone_overlap, budget_min, budget_max, client_contact_required (bool), status (intake, zoeken, profielen_verstuurd, gesprekken, geplaatst, gesloten), intake_at, profiles_sent_at, first_interview_at, start_at
 
 **matches**
-id, vacancy_id, airtable_candidate_id, score (0 tot 100), reason, risks, source (eigen_pool, linkedin, naukri), status (voorgesteld, goedgekeurd, verstuurd, gesprek, aangenomen, afgewezen), approved_by, created_at
+id, vacancy_id, candidate_id (verwijst naar candidates.id), score (0 tot 100), reason, risks, source (eigen_pool, linkedin, naukri), status (voorgesteld, goedgekeurd, verstuurd, gesprek, aangenomen, afgewezen), approved_by, created_at
 
 **anonymous_profiles**
 id, match_id, file_url, created_at, approved_by, sent_at
 
-Belangrijk: kandidaatgegevens blijven in Airtable. Supabase slaat alleen de Airtable ID, de score en de status op, geen persoonsgegevens van kandidaten.
+Belangrijk: kandidaatgegevens staan alleen in het portaal (tabel candidates, met velden voor matching zoals seniority, employers, cv_text, english_level, availability en profile_consent). matches verwijst met candidate_id naar de kandidaat.
 
 
 ## 7. Statussen
@@ -208,11 +208,11 @@ Elk contact in OnePageCRM heeft altijd een volgende actie met datum.
 8. In OnePageCRM komen alleen gekwalificeerde contacten, nooit ruwe scrape data.
 9. Claude twijfelt? Dan REVIEW, nooit raden. client_contact_risk ja betekent altijd NO_GO.
 10. Afmeldingen gaan direct naar suppression.
-11. Airtable blijft de bron voor kandidaten, geen tweede kopie in Supabase.
+11. Het portaal is de enige bron voor kandidaten (tabel candidates). Airtable wordt niet meer gebruikt: de koppeling is verwijderd (feedback punt 8).
 12. Een anoniem profiel bevat geen naam, foto, contactgegevens of herleidbare werkgevers.
 13. Een profiel wordt alleen gedeeld als de kandidaat daar toestemming voor heeft gegeven.
 14. Een mens keurt elk profiel goed voordat het naar een klant gaat.
-15. De automatische AVG verwijdering in Airtable blijft werken.
+15. AVG verwijdering gebeurt in het portaal: een verwijderde kandidaat neemt zijn matches en anonieme profielen mee.
 
 
 ## 9. Workflows sales
@@ -276,9 +276,9 @@ Het proces van afspraak tot plaatsing:
 1. Afspraak: klant wil verder na het salesgesprek
 2. Intake: samen een vacature opstellen, of de klant heeft er al één
 3. Vaste eisen: Claude zet de vacature om in stack, niveau, uren, overlap, budget en klantcontact
-4. Eerst matchen in de eigen talentenpool in Airtable
+4. Eerst matchen in de eigen talentenpool in het portaal
 5. Te weinig match: zoeken op LinkedIn en Naukri
-6. Nieuwe kandidaten komen via Fillout in Airtable, altijd in de pool
+6. Nieuwe kandidaten komen in het portaal (Kandidaten), altijd in de pool
 7. Screening door recruiter en technical recruiter
 8. Claude scoort kandidaten op de eisen en geeft een top 3 met reden
 9. Anoniem profiel automatisch in Nordavo opmaak
@@ -294,13 +294,13 @@ Het proces van afspraak tot plaatsing:
 * Uit: vacancies, status intake
 
 **T2. Matchen in eigen pool**
-* Wat: kandidaten uit Airtable ophalen, Claude scoort elke kandidaat tegen de eisen
+* Wat: kandidaten uit het portaal ophalen (voorselectie in SQL, alleen beschikbaar of in proces, niet al in de pipeline van de vacature), Claude scoort de beste kandidaten tegen de eisen
 * Uit: top 3 in matches met score, reden en risico's, status voorgesteld
 
 **T3. Zoekopdracht buiten de pool**
 * Trigger: minder dan 3 matches met score 70 of hoger
 * Wat: Claude maakt zoektermen en booleans voor LinkedIn en Naukri op basis van de eisen
-* Uit: zoekopdracht voor de recruiter. Nieuwe kandidaten gaan via Fillout in Airtable en daarna opnieuw door T2
+* Uit: zoekopdracht voor de recruiter. Nieuwe kandidaten gaan in het portaal en daarna opnieuw door T2
 
 **T4. Anoniem profiel**
 * Trigger: match op goedgekeurd door recruiter
@@ -448,7 +448,7 @@ Content en inzicht:
 
 1. Nieuw OnePageCRM account met MCP toegang (de oude trial is verlopen)
 2. Supabase project voor Nordavo
-3. API keys: Apify, Prospeo, Instantly, Anthropic, Cal.com, Airtable
+3. API keys: Apify, Prospeo, Instantly, Anthropic, Cal.com
 4. Toegang tot alle oude leadsheets in Drive
 5. Afspraak met Max over vaste CSV kolommen
 6. Git repository op naam van Nordavo
@@ -463,10 +463,10 @@ Sales:
 4. Hoeveel bedrijven per week willen we verwerken?
 
 Talent:
-5. Staan CV's als PDF in Airtable of als ingevulde velden?
+5. Staan CV's als PDF of als tekst? Nu leest de matching het veld CV text van de kandidaat, geen PDF.
 6. Is er een vaste opmaak voor een Nordavo profiel?
 7. Wie keurt profielen goed: Floris of de recruiter?
-8. Vraagt het Fillout formulier toestemming om een anoniem profiel te delen met klanten?
+8. Hoe vragen we kandidaten om toestemming om een anoniem profiel te delen? Nu: veld bij de kandidaat (onbekend, ja, nee).
 9. Welke toegang hebben we tot Naukri en LinkedIn Recruiter?
 10. Op welk moment in het proces vragen we om payslips?
 

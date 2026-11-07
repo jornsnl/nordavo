@@ -46,7 +46,27 @@ const candidateSchema = z.object({
   summary: z.string().max(5000, { error: "De samenvatting is te lang." }).optional(),
   status: z.enum(statusValues, { error: "Kies een status." }).default("available"),
   owner_id: z.string().refine(isUuid, { error: "Kies een teamlid." }).optional(),
+  // Matching fields (T2 and the anonymous profile).
+  seniority: z.enum(["junior", "medior", "senior", "lead"], { error: "Choose a seniority." }).optional(),
+  english_level: z.string().max(100, { error: "This English level is too long." }).optional(),
+  availability: z.string().max(200, { error: "This availability is too long." }).optional(),
+  profile_consent: z.enum(["yes", "no"], { error: "Choose yes, no or unknown." }).optional(),
+  employers: z.string().max(2000, { error: "Too many employers." }).optional(),
+  project_types: z.string().max(2000, { error: "Too many project types." }).optional(),
+  sectors: z.string().max(2000, { error: "Too many sectors." }).optional(),
+  cv_text: z.string().max(100000, { error: "The CV text is too long (at most 100,000 characters)." }).optional(),
 });
+
+/** A comma separated list without empty items and case-insensitive duplicates. */
+function uniqueList(value: string | undefined) {
+  const seen = new Set<string>();
+  return parseList(value).filter((item) => {
+    const key = item.toLowerCase();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
 
 const CV_EXTENSIONS = [".pdf", ".doc", ".docx"];
 const CV_MIME_TYPES = [
@@ -139,6 +159,14 @@ export async function saveCandidate(_prev: ActionState, formData: FormData): Pro
     summary: input.summary ?? null,
     status: input.status,
     owner_id: input.owner_id ?? null,
+    seniority: input.seniority ?? null,
+    english_level: input.english_level ?? null,
+    availability: input.availability ?? null,
+    profile_consent: input.profile_consent ? input.profile_consent === "yes" : null,
+    employers: uniqueList(input.employers),
+    project_types: uniqueList(input.project_types),
+    sectors: uniqueList(input.sectors),
+    cv_text: input.cv_text ?? null,
   };
 
   const supabase = await createClient();

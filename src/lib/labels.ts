@@ -220,12 +220,12 @@ export const talentStages: Option<TalentStage>[] = [
 ];
 
 export const matchStatuses: Option<MatchStatus>[] = [
-  { value: "voorgesteld", label: "Voorgesteld", tone: "neutral" },
-  { value: "goedgekeurd", label: "Goedgekeurd", tone: "brand" },
-  { value: "verstuurd", label: "Verstuurd", tone: "accent" },
-  { value: "gesprek", label: "Gesprek", tone: "accent" },
-  { value: "aangenomen", label: "Aangenomen", tone: "success" },
-  { value: "afgewezen", label: "Afgewezen", tone: "danger" },
+  { value: "voorgesteld", label: "Suggested", tone: "neutral" },
+  { value: "goedgekeurd", label: "Approved", tone: "brand" },
+  { value: "verstuurd", label: "Sent", tone: "accent" },
+  { value: "gesprek", label: "Interview", tone: "accent" },
+  { value: "aangenomen", label: "Hired", tone: "success" },
+  { value: "afgewezen", label: "Rejected", tone: "danger" },
 ];
 
 export const entityTypes: Record<EntityType, { label: string; href: (id: string) => string }> = {
