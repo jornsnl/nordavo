@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { CircleCheck, CircleX, ExternalLink, Link2, Mail, Phone } from "lucide-react";
 import { buttonClasses } from "@/components/ui/button";
 import { ContactStatusBadge, EmailStatusBadge, TierBadge } from "@/components/leads/badges";
@@ -37,10 +38,13 @@ export function ContactsPanel({
   contacts,
   crmActionFor,
   crmBlockedReason,
+  actions,
 }: {
   contacts: CompanyContact[];
   crmActionFor: (contactId: string) => FormAction;
   crmBlockedReason: string | null;
+  /** Header buttons, e.g. "Add contact". */
+  actions?: ReactNode;
 }) {
   return (
     <Card>
@@ -51,6 +55,7 @@ export function ContactsPanel({
             ? "Beslissers komen binnen via S3 of een import."
             : `${contacts.length} ${contacts.length === 1 ? "beslisser" : "beslissers"}, doel is 2 per bedrijf.`
         }
+        actions={actions}
       />
       {contacts.length === 0 ? (
         <CardBody>

@@ -154,6 +154,12 @@ export function describeActivity(
     return names.length > 0 ? names.join(", ") : null;
   };
 
+  // A contact added by hand to a lead (trigger log_manual_contact).
+  if (action === "updated" && changes.contact_added) {
+    const name = changes.contact_added.to;
+    return { verb: "contact toegevoegd", detail: typeof name === "string" && name ? name : null };
+  }
+
   switch (action) {
     case "created":
       return { verb: "aangemaakt", detail: null };
