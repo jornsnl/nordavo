@@ -33,7 +33,7 @@ export async function listCandidates({ q, status, skill }: CandidateFilter) {
   if (status) query = query.eq("status", status);
 
   const { data, error } = await query;
-  if (error) throw new Error(`Kandidaten laden mislukt: ${error.message}`);
+  if (error) throw new Error(`Could not load candidates: ${error.message}`);
 
   // Search and skill filter run here so they are case-insensitive (and partial
   // for search) on skills too, which PostgREST cannot do on a text[] column.
@@ -62,7 +62,7 @@ export async function listCandidateSkills() {
   const supabase = await createClient();
 
   const { data, error } = await supabase.from("candidates").select("skills");
-  if (error) throw new Error(`Skills laden mislukt: ${error.message}`);
+  if (error) throw new Error(`Could not load skills: ${error.message}`);
 
   const unique = new Map<string, string>();
   for (const row of data) {
@@ -85,7 +85,7 @@ export async function getCandidate(id: string) {
     .eq("id", id)
     .maybeSingle();
 
-  if (error) throw new Error(`Kandidaat laden mislukt: ${error.message}`);
+  if (error) throw new Error(`Could not load candidate: ${error.message}`);
   return data;
 }
 
@@ -102,8 +102,8 @@ export async function listStaffOptions() {
     .in("role", ["admin", "member"])
     .order("full_name");
 
-  if (error) throw new Error(`Teamleden laden mislukt: ${error.message}`);
-  return data.map((p) => ({ id: p.id, name: p.full_name || p.email || "Teamlid" }));
+  if (error) throw new Error(`Could not load team members: ${error.message}`);
+  return data.map((p) => ({ id: p.id, name: p.full_name || p.email || "Team member" }));
 }
 
 /** Lightweight list for pickers, e.g. adding a candidate to a pipeline. */
@@ -117,7 +117,7 @@ export async function listCandidateOptions() {
     .order("full_name")
     .limit(1000);
 
-  if (error) throw new Error(`Kandidaten laden mislukt: ${error.message}`);
+  if (error) throw new Error(`Could not load candidates: ${error.message}`);
   return data;
 }
 

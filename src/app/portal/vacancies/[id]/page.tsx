@@ -22,7 +22,7 @@ export default function PortalVacancyPage({ params }: PageProps<"/portal/vacanci
         className="mb-6 inline-flex items-center gap-1.5 text-sm font-medium text-muted hover:text-brand-900 active:text-brand-900 max-sm:-my-2 max-sm:mb-4 max-sm:min-h-11"
       >
         <ArrowLeft className="size-4" aria-hidden="true" />
-        Terug naar overzicht
+        Back to overview
       </Link>
       <Suspense fallback={<VacancySkeleton />}>
         <VacancyDetail params={params} />
@@ -43,7 +43,7 @@ async function VacancyDetail({ params }: { params: Promise<{ id: string }> }) {
   return (
     <>
       <PageHeader
-        eyebrow="Vacature"
+        eyebrow="Vacancy"
         title={vacancy.title}
         description={presentedLabel(vacancy.candidates.length)}
         // The wrapper takes the full width on phones, the badge keeps its size.
@@ -58,19 +58,19 @@ async function VacancyDetail({ params }: { params: Promise<{ id: string }> }) {
         <section aria-labelledby="candidates-heading" className="min-w-0 space-y-6 lg:col-span-2">
           <div>
             <h2 id="candidates-heading" className="font-display text-lg font-semibold text-brand-900">
-              Voorgestelde kandidaten
+              Presented candidates
             </h2>
             <p className="mt-1 text-sm text-muted">
-              Geef per kandidaat aan of je verder wilt. Na je akkoord plannen wij de eindgesprekken, ongeveer
-              drie keer 45 minuten. Kies je iemand, dan regelen wij contract, payroll en onboarding.
+              Tell us for each candidate whether you want to continue. Once you approve, we schedule the final
+              interviews, about three times 45 minutes. Once you choose someone, we arrange the contract, payroll and onboarding.
             </p>
           </div>
 
           {vacancy.candidates.length === 0 ? (
             <EmptyState
               icon={Search}
-              title="We zijn nog aan het selecteren"
-              description="Iedere kandidaat doet eerst een technische test en een interview in het Engels. Binnen 2 tot 3 weken na de start stellen we drie kandidaten aan je voor. Je ziet ze dan hier."
+              title="We are still selecting"
+              description="Every candidate first takes a technical test and an interview in English. Within 2 to 3 weeks of the start we present three candidates to you. You will see them here."
             />
           ) : (
             <ul className="space-y-4 sm:space-y-6">
@@ -85,19 +85,19 @@ async function VacancyDetail({ params }: { params: Promise<{ id: string }> }) {
 
         <aside className="min-w-0 space-y-6">
           <Card>
-            <CardHeader title="Over de vacature" />
+            <CardHeader title="About the vacancy" />
             <CardBody className="space-y-5">
               <DetailList
                 items={[
-                  { label: "Niveau", value: optionFor(seniorities, vacancy.seniority).label },
-                  { label: "Geopend", value: formatDate(vacancy.openedAt) },
+                  { label: "Level", value: optionFor(seniorities, vacancy.seniority).label },
+                  { label: "Opened", value: formatDate(vacancy.openedAt) },
                   {
-                    label: isOpen ? "Open sinds" : "Gesloten",
+                    label: isOpen ? "Open for" : "Closed",
                     value: isOpen
-                      ? `${days} ${days === 1 ? "dag" : "dagen"}`
-                      : formatDate(vacancy.closedAt, "Onbekend"),
+                      ? `${days} ${days === 1 ? "day" : "days"}`
+                      : formatDate(vacancy.closedAt, "Unknown"),
                   },
-                  { label: "Gewenste start", value: formatDate(vacancy.desiredStartDate, "In overleg") },
+                  { label: "Desired start", value: formatDate(vacancy.desiredStartDate, "To be agreed") },
                 ]}
               />
               {vacancy.stack.length > 0 && (
@@ -114,7 +114,7 @@ async function VacancyDetail({ params }: { params: Promise<{ id: string }> }) {
               )}
               {vacancy.description && (
                 <div>
-                  <p className="text-xs font-medium tracking-wide text-muted uppercase">Omschrijving</p>
+                  <p className="text-xs font-medium tracking-wide text-muted uppercase">Description</p>
                   <p className="mt-2 text-sm leading-relaxed whitespace-pre-line text-ink">{vacancy.description}</p>
                 </div>
               )}
@@ -129,7 +129,7 @@ async function VacancyDetail({ params }: { params: Promise<{ id: string }> }) {
 
 function VacancySkeleton() {
   return (
-    <div className="space-y-8" aria-busy="true" aria-label="Laden">
+    <div className="space-y-8" aria-busy="true" aria-label="Loading">
       <div className="space-y-3">
         <Skeleton className="h-3 w-20" />
         <Skeleton className="h-8 w-72 max-w-full" />

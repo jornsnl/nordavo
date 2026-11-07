@@ -9,22 +9,22 @@ import { deliverNotifications } from "@/lib/work/notify";
  */
 export const workNotify = defineJob({
   name: "work-notify",
-  description: "Work: verstuur openstaande directe meldingen (vangnet, elk kwartier)",
+  description: "Work: send pending instant notifications (safety net, every 15 minutes)",
   async run(ctx) {
     const result = await deliverNotifications("instant", ctx.db);
     ctx.countIn(result.claimed);
     ctx.countOut(result.mails);
-    if (result.failed) ctx.log(`${result.failed} mails niet verstuurd, volgende ronde opnieuw`);
+    if (result.failed) ctx.log(`${result.failed} mails not sent, retrying next round`);
   },
 });
 
 export const workDaily = defineJob({
   name: "work-daily",
-  description: "Work: deadlines, verlopen toegang, dagelijks overzicht per mail en de prullenbak legen",
+  description: "Work: deadlines, expired access, the daily mail digest and emptying the trash",
   async run(ctx) {
     const { data: checks, error } = await ctx.db.rpc("work_daily_checks");
     if (error) throw new Error(`work_daily_checks: ${error.message}`);
-    ctx.log(`controles: ${JSON.stringify(checks)}`);
+    ctx.log(`checks: ${JSON.stringify(checks)}`);
     ctx.meta.checks = checks;
 
     // Deadline mails may be instant for some people; send those first.
@@ -32,7 +32,7 @@ export const workDaily = defineJob({
     const digest = await deliverNotifications("digest", ctx.db);
     ctx.countIn(digest.claimed);
     ctx.countOut(digest.mails);
-    ctx.log(`dagelijks overzicht: ${digest.mails} mails, ${digest.failed} mislukt`);
+    ctx.log(`daily digest: ${digest.mails} mails, ${digest.failed} failed`);
 
     // Trash older than 30 days: rows first, then their files.
     const { data: paths, error: purgeError } = await ctx.db.rpc("work_purge_trash");
@@ -41,24 +41,24 @@ export const workDaily = defineJob({
     const names = files.map((p) => (typeof p === "string" ? p : p.work_purge_trash));
     for (let i = 0; i < names.length; i += 100) {
       const { error: removeError } = await ctx.db.storage.from("work").remove(names.slice(i, i + 100));
-      if (removeError) ctx.log(`bestanden verwijderen mislukt: ${removeError.message}`);
+      if (removeError) ctx.log(`could not remove files: ${removeError.message}`);
     }
-    ctx.log(`prullenbak: ${names.length} bestanden verwijderd`);
+    ctx.log(`trash: ${names.length} files removed`);
   },
 });
 
 export const clickupImport = defineJob({
   name: "clickup-import",
-  description: "Work: eenmalige import uit ClickUp (open taken en taken op review). --dry-run=true telt alleen",
+  description: "Work: one-off import from ClickUp (open tasks and tasks in review). --dry-run=true only counts",
   async run(ctx) {
     const token = process.env.CLICKUP_API_TOKEN;
-    if (!token) throw new Error("CLICKUP_API_TOKEN ontbreekt (ClickUp > Settings > Apps > API Token).");
+    if (!token) throw new Error("CLICKUP_API_TOKEN is missing (ClickUp > Settings > Apps > API Token).");
     let map: Record<string, string> | undefined;
     if (process.env.CLICKUP_IMPORT_MAP) {
       try {
         map = JSON.parse(process.env.CLICKUP_IMPORT_MAP) as Record<string, string>;
       } catch {
-        throw new Error('CLICKUP_IMPORT_MAP is geen geldige JSON, bijvoorbeeld {"9012345":"nordavo"}');
+        throw new Error('CLICKUP_IMPORT_MAP is not valid JSON, for example {"9012345":"nordavo"}');
       }
     }
     const counts = await importFromClickUp({
@@ -72,6 +72,6 @@ export const clickupImport = defineJob({
     ctx.meta.counts = counts;
     ctx.countIn(counts.tasks + counts.skipped);
     ctx.countOut(counts.tasks);
-    ctx.log(`klaar: ${JSON.stringify(counts)}`);
+    ctx.log(`done: ${JSON.stringify(counts)}`);
   },
 });

@@ -52,7 +52,7 @@ test("buildContactPayload maps our fields to OnePageCRM", () => {
 
 test("buildContactPayload never sends an empty name", () => {
   const payload = buildContactPayload({ contact: { ...contact, first_name: null, last_name: null }, company });
-  assert.equal(payload.last_name, "Onbekend");
+  assert.equal(payload.last_name, "Unknown");
 });
 
 test("mergeContactPayload only adds what is missing", () => {
@@ -82,7 +82,7 @@ test("mergeContactPayload only adds what is missing", () => {
 test("working days skip the weekend", () => {
   assert.equal(addWorkingDays("2026-10-23", 2), "2026-10-27"); // Friday + 2 = Tuesday
   assert.equal(addWorkingDays("2026-10-26", 2), "2026-10-28");
-  assert.deepEqual(defaultNextAction("positieve reply", "2026-10-24"), { text: "Opvolgen: positieve reply", date: "2026-10-27" });
+  assert.deepEqual(defaultNextAction("positive reply", "2026-10-24"), { text: "Follow up: positive reply", date: "2026-10-27" });
 });
 
 test("stage mapping is configurable and maps back to the nearest lower stage", () => {
@@ -93,7 +93,7 @@ test("stage mapping is configurable and maps back to the nearest lower stage", (
   const map = dealStageMap('{"afspraak_gepland": 35}');
   assert.equal(map.afspraak_gepland, 35);
   assert.equal(map.gesprekken, 90);
-  assert.throws(() => dealStageMap("{nope"), /geen geldige JSON/);
+  assert.throws(() => dealStageMap("{nope"), /not valid JSON/);
   assert.equal(stageForTrigger("afspraak"), "afspraak_gepland");
   assert.equal(stageForTrigger("reply_positief"), "benaderd");
   assert.equal(stageForTrigger(null), "gekwalificeerd");
@@ -180,7 +180,7 @@ test("createContact posts the payload and fails loudly on an odd response", asyn
   assert.equal((await createContact(payload)).id, "new1");
   assert.equal(calls[0].method, "POST");
   assert.deepEqual(calls[0].body, payload);
-  await assert.rejects(() => createContact(payload), /onverwachte vorm/);
+  await assert.rejects(() => createContact(payload), /unexpected shape/);
 });
 
 test("API errors carry the OnePageCRM message", async () => {
@@ -222,7 +222,7 @@ test("pushContactToCrm refuses contacts that are not qualified (rule 8)", async 
   const base = { id: "c1", company_id: "co1", ...contact, status: "verrijkt", onepage_id: null };
   await assert.rejects(
     () => pushContactToCrm(fakeDb({ ...base, company: { ...company, id: "co1", icp_decision: "REVIEW" } }), "c1", { reason: "test" }),
-    /niet gekwalificeerd \(ICP besluit is geen GO\)/,
+    /not qualified \(ICP decision is not GO\)/,
   );
   await assert.rejects(
     () => pushContactToCrm(fakeDb({ ...base, status: "nieuw", company: { ...company, id: "co1", icp_decision: "GO" } }), "c1", { reason: "test" }),

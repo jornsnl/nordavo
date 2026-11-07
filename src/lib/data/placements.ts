@@ -29,7 +29,7 @@ export async function listPlacements({ statuses, clientId }: PlacementFilter) {
   if (clientId) query = query.eq("client_id", clientId);
 
   const { data, error } = await query;
-  if (error) throw new Error(`Plaatsingen laden mislukt: ${error.message}`);
+  if (error) throw new Error(`Could not load placements: ${error.message}`);
   return data;
 }
 
@@ -54,7 +54,7 @@ export async function getPlacement(id: string) {
     .eq("id", id)
     .maybeSingle();
 
-  if (error) throw new Error(`Plaatsing laden mislukt: ${error.message}`);
+  if (error) throw new Error(`Could not load placement: ${error.message}`);
   return data;
 }
 
@@ -71,7 +71,7 @@ export async function listCheckins(placementId: string) {
     .order("checkin_date", { ascending: false })
     .order("created_at", { ascending: false });
 
-  if (error) throw new Error(`Check-ins laden mislukt: ${error.message}`);
+  if (error) throw new Error(`Could not load check-ins: ${error.message}`);
   return data;
 }
 
@@ -92,7 +92,7 @@ export async function getPlacementFormOptions() {
   ]);
 
   const error = clients.error ?? candidates.error ?? vacancies.error;
-  if (error) throw new Error(`Formuliergegevens laden mislukt: ${error.message}`);
+  if (error) throw new Error(`Could not load form data: ${error.message}`);
 
   return {
     clients: clients.data ?? [],
@@ -108,7 +108,7 @@ export async function listPlacementClientOptions() {
   await requireStaff();
   const supabase = await createClient();
   const { data, error } = await supabase.from("clients").select("id, name").order("name");
-  if (error) throw new Error(`Klanten laden mislukt: ${error.message}`);
+  if (error) throw new Error(`Could not load clients: ${error.message}`);
   return data;
 }
 
@@ -129,7 +129,7 @@ export async function getApplicationForPlacement(applicationId: string) {
     .eq("id", applicationId)
     .maybeSingle();
 
-  if (error) throw new Error(`Sollicitatie laden mislukt: ${error.message}`);
+  if (error) throw new Error(`Could not load application: ${error.message}`);
   return data;
 }
 

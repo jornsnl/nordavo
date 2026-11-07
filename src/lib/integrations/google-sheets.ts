@@ -44,15 +44,15 @@ const serviceAccountSchema = z.looseObject({
 
 /** Parse the service account JSON from the environment. Accepts escaped newlines in the key. */
 export function parseServiceAccount(raw: string | undefined): { client_email: string; private_key: string } {
-  if (!raw) throw new Error("GOOGLE_SERVICE_ACCOUNT_JSON ontbreekt. Zet de JSON van het service account op één regel in de omgeving.");
+  if (!raw) throw new Error("GOOGLE_SERVICE_ACCOUNT_JSON is missing. Put the service account JSON on one line in the environment.");
   let json: unknown;
   try {
     json = JSON.parse(raw);
   } catch {
-    throw new Error("GOOGLE_SERVICE_ACCOUNT_JSON is geen geldige JSON.");
+    throw new Error("GOOGLE_SERVICE_ACCOUNT_JSON is not valid JSON.");
   }
   const parsed = serviceAccountSchema.safeParse(json);
-  if (!parsed.success) throw new Error("GOOGLE_SERVICE_ACCOUNT_JSON mist client_email of private_key.");
+  if (!parsed.success) throw new Error("GOOGLE_SERVICE_ACCOUNT_JSON lacks client_email or private_key.");
   return {
     client_email: parsed.data.client_email,
     private_key: parsed.data.private_key.replace(/\\n/g, "\n"),
@@ -126,7 +126,7 @@ async function accessToken(): Promise<string> {
     jwt = new JWT({ email: account.client_email, key: account.private_key, scopes: SCOPES });
   }
   const { token } = await jwt.getAccessToken();
-  if (!token) throw new Error("Google gaf geen access token terug voor het service account.");
+  if (!token) throw new Error("Google returned no access token for the service account.");
   return token;
 }
 
@@ -144,11 +144,12 @@ async function googleFetch(url: string, init: RequestInit & { json?: unknown } =
   });
   const text = await response.text();
   if (!response.ok) {
-    throw new Error(`Google API ${response.status} bij ${new URL(url).pathname}: ${text.slice(0, 300)}`);
+    throw new Error(`Google API ${response.status} at ${new URL(url).pathname}: ${text.slice(0, 300)}`);
   }
   return text ? JSON.parse(text) : {};
 }
 
+/** Tab name in the call sheet, which goes to Web Partners (Dutch). */
 const SHEET_TITLE = "Lijst";
 
 /** Create a new spreadsheet with one tab, share it, and return its URL. */

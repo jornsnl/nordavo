@@ -14,7 +14,7 @@ export async function GET(_request: NextRequest, ctx: RouteContext<"/portal/cv/[
   const signedUrl = path ? await createSignedUrl(path, 60) : null;
 
   if (!signedUrl) {
-    return new NextResponse("Dit CV is niet beschikbaar. Neem contact op met Nordavo via info@nordavo.nl.", {
+    return new NextResponse("This CV is not available. Contact Nordavo at info@nordavo.nl.", {
       status: 404,
       headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store" },
     });

@@ -30,9 +30,9 @@ function intParam(ctx: JobContext, name: string, fallback: number, max: number) 
 
 export const s3DecisionMakers = defineJob({
   name: "s3-decision-makers",
-  description: "S3: twee beslissers per GO-bedrijf zoeken via Apify",
+  description: "S3: find two decision makers per GO company through Apify",
   run: async (ctx) => {
-    if (!hasApify()) throw new Error("APIFY_TOKEN ontbreekt. Zet deze in de omgevingsvariabelen.");
+    if (!hasApify()) throw new Error("APIFY_TOKEN is missing. Set it in the environment variables.");
     const actor = requireActor("APIFY_PEOPLE_ACTOR");
     const limit = intParam(ctx, "limit", 50, 500);
     const retry = ctx.params.retry === "true";
@@ -52,7 +52,7 @@ export const s3DecisionMakers = defineJob({
       .filter((company) => company.contactLinkedin.length < TARGET_CONTACTS)
       .slice(0, limit);
     ctx.countIn(companies.length);
-    ctx.log(`${companies.length} GO-bedrijven met minder dan ${TARGET_CONTACTS} contacten`);
+    ctx.log(`${companies.length} GO companies with fewer than ${TARGET_CONTACTS} contacts`);
 
     let created = 0;
     let noneFound = 0;
@@ -105,6 +105,6 @@ export const s3DecisionMakers = defineJob({
     });
 
     Object.assign(ctx.meta, { contacts_created: created, companies_without_match: noneFound });
-    ctx.log(`${created} nieuwe beslissers, ${noneFound} bedrijven zonder passende beslisser`);
+    ctx.log(`${created} new decision makers, ${noneFound} companies without a matching decision maker`);
   },
 });

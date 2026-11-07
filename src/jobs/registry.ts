@@ -41,17 +41,17 @@ export const jobs: Record<string, Job> = Object.fromEntries(
  */
 export const chains: Record<string, { description: string; jobs: string[]; stopOnFailure: boolean }> = {
   maandag: {
-    description: "Maandag 06:00: signalen, kwalificatie, beslissers en mailadressen (S1 tot en met S4)",
+    description: "Monday 06:00: signals, qualification, decision makers and e-mail addresses (S1 to S4)",
     jobs: ["s1-signals", "s2-qualify", "s3-decision-makers", "s4-email-enrich"],
     stopOnFailure: true,
   },
   dagelijks: {
-    description: "Elke ochtend: uitkomsten terug uit Instantly, Web Partners en OnePageCRM (S8, S9)",
+    description: "Every morning: outcomes back from Instantly, Web Partners and OnePageCRM (S8, S9)",
     jobs: ["s8-instantly-sync", "s8-webpartners-import", "s9-onepage-push", "s9-onepage-pull"],
     stopOnFailure: false,
   },
   vrijdag: {
-    description: "Vrijdag: weekrapport (S10)",
+    description: "Friday: weekly report (S10)",
     jobs: ["s10-weekly-report"],
     stopOnFailure: false,
   },

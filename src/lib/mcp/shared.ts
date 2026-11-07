@@ -46,7 +46,7 @@ export function fail(message: string): CallToolResult {
 
 /** Throws a short error for a failed query; the SDK turns it into an isError result. */
 export function check<T>(result: { data: T; error: { message: string } | null }, what: string): NonNullable<T> {
-  if (result.error) throw new Error(`${what} laden mislukt: ${result.error.message}`);
+  if (result.error) throw new Error(`Could not load ${what}: ${result.error.message}`);
   return (result.data ?? []) as NonNullable<T>;
 }
 
@@ -159,7 +159,7 @@ export async function resolveLabels(
         .in("id", placements)
         .then(({ data }) => {
           for (const r of data ?? []) {
-            labels.set(key("placement", r.id), `${r.candidate?.full_name ?? "Plaatsing"} bij ${r.client?.name ?? "?"}`);
+            labels.set(key("placement", r.id), `${r.candidate?.full_name ?? "Placement"} at ${r.client?.name ?? "?"}`);
           }
         }),
     );
@@ -172,7 +172,7 @@ export async function resolveLabels(
         .in("id", applications)
         .then(({ data }) => {
           for (const r of data ?? []) {
-            labels.set(key("application", r.id), `${r.candidate?.full_name ?? "?"} voor ${r.vacancy?.title ?? "?"}`);
+            labels.set(key("application", r.id), `${r.candidate?.full_name ?? "?"} for ${r.vacancy?.title ?? "?"}`);
           }
         }),
     );
@@ -199,6 +199,6 @@ export async function recordExists(db: McpDb, type: LinkableType, id: string): P
     company: "companies",
   } as const satisfies Record<LinkableType, keyof Database["public"]["Tables"]>;
   const { data, error } = await db.from(table[type]).select("id").eq("id", id).maybeSingle();
-  if (error) throw new Error(`Record controleren mislukt: ${error.message}`);
+  if (error) throw new Error(`Could not check the record: ${error.message}`);
   return Boolean(data);
 }

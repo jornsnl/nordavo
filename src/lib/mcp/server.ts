@@ -11,7 +11,7 @@ function instructions(ctx: McpTokenContext) {
   const lines = [
     "Nordavo is a Dutch recruitment portal that places Indian tech talent at Dutch companies.",
     "Records: clients (with contact persons), vacancies (with a pipeline of applications per stage: sourced, screening, technical_test, english_interview, presented, final_interview, placed, rejected; a vacancy belongs to a client, a GTM prospect or the talent pool, which has no client yet and no three-week clock), candidates, placements (30-day guarantee, monthly check-ins), tasks, notes and an activity log. The GTM side has companies (prospects), contacts and hiring signals.",
-    "Use search to find ids, then the get_* tools for details. Lists return at most 100 rows; use offset to page. Dates are YYYY-MM-DD in Europe/Amsterdam. Labels and notes are mostly Dutch.",
+    "Use search to find ids, then the get_* tools for details. Lists return at most 100 rows; use offset to page. Dates are YYYY-MM-DD in Europe/Amsterdam. Notes are often in Dutch.",
     `You act as ${ctx.name} with this token (${ctx.access === "write" ? "read and write" : "read only"}).`,
   ];
   if (ctx.access === "write") {

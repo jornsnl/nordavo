@@ -39,7 +39,7 @@ export async function getOverviewStats() {
   ]);
 
   const error = clients.error ?? vacancies.error ?? applications.error ?? placements.error;
-  if (error) throw new Error(`Kerncijfers laden mislukt: ${error.message}`);
+  if (error) throw new Error(`Could not load key figures: ${error.message}`);
 
   return {
     activeClients: clients.count ?? 0,
@@ -63,7 +63,7 @@ export async function getVacanciesNeedingAttention(limit = 6) {
     .eq("is_talent_pool", false)
     .order("opened_at", { ascending: true });
 
-  if (error) throw new Error(`Vacatures laden mislukt: ${error.message}`);
+  if (error) throw new Error(`Could not load vacancies: ${error.message}`);
 
   const today = todayIso();
   const rows = data.map((vacancy) => {
@@ -130,14 +130,14 @@ export async function getUpcomingMoments() {
     )
     .in("status", ["active", "notice"]);
 
-  if (error) throw new Error(`Momenten laden mislukt: ${error.message}`);
+  if (error) throw new Error(`Could not load moments: ${error.message}`);
 
   const moments: Moment[] = [];
   for (const p of data) {
     const base = {
       placementId: p.id,
-      candidateName: p.candidate?.full_name ?? "Onbekende kandidaat",
-      clientName: p.client?.name ?? "Onbekende klant",
+      candidateName: p.candidate?.full_name ?? "Unknown candidate",
+      clientName: p.client?.name ?? "Unknown client",
     };
     if (p.next_checkin_at && p.next_checkin_at <= in14) {
       moments.push({ ...base, kind: "checkin", date: p.next_checkin_at, overdue: p.next_checkin_at < today });
@@ -164,7 +164,7 @@ export async function getPipelineFunnel() {
     .eq("vacancies.status", "open")
     .eq("vacancies.is_talent_pool", false);
 
-  if (error) throw new Error(`Pipeline laden mislukt: ${error.message}`);
+  if (error) throw new Error(`Could not load pipeline: ${error.message}`);
 
   const counts = new Map<ApplicationStage, number>();
   for (const row of data) {

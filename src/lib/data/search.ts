@@ -127,8 +127,8 @@ async function searchType(type: SearchableType, pattern: string, limit: number):
   return (data ?? []).map((p) => ({
     type: "placement" as const,
     id: p.id,
-    label: p.candidate?.full_name ?? "Plaatsing",
-    sublabel: p.client?.name ? `bij ${p.client.name}` : null,
+    label: p.candidate?.full_name ?? "Placement",
+    sublabel: p.client?.name ? `at ${p.client.name}` : null,
     href: entityTypes.placement.href(p.id),
   }));
 }
@@ -242,8 +242,8 @@ export async function resolveRecords(
         .then(({ data }) => {
           for (const p of data ?? []) {
             result.set(recordKey("placement", p.id), {
-              label: p.candidate?.full_name ?? "Plaatsing",
-              sublabel: p.client?.name ? `bij ${p.client.name}` : null,
+              label: p.candidate?.full_name ?? "Placement",
+              sublabel: p.client?.name ? `at ${p.client.name}` : null,
               href: entityTypes.placement.href(p.id),
             });
           }
@@ -256,8 +256,8 @@ export async function resolveRecords(
         .then(({ data }) => {
           for (const a of data ?? []) {
             result.set(recordKey("application", a.id), {
-              label: a.candidate?.full_name ?? "Sollicitatie",
-              sublabel: a.vacancy?.title ? `voor ${a.vacancy.title}` : null,
+              label: a.candidate?.full_name ?? "Application",
+              sublabel: a.vacancy?.title ? `for ${a.vacancy.title}` : null,
               href: applicationHref(a.vacancy_id),
             });
           }

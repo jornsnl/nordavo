@@ -103,7 +103,7 @@ export async function listLeads(filters: LeadFilters): Promise<{ items: LeadList
           .order("created_at", { ascending: false });
 
   const { data, error, count } = await query.range(from, from + LEADS_PAGE_SIZE - 1);
-  if (error) throw new Error(`Leads laden mislukt: ${error.message}`);
+  if (error) throw new Error(`Could not load leads: ${error.message}`);
 
   const items = data.map((c) => {
     const signal = c.signals[0];
@@ -134,7 +134,7 @@ export async function countReview(): Promise<number> {
     .from("companies")
     .select("id", { count: "exact", head: true })
     .eq("icp_decision", "REVIEW");
-  if (error) throw new Error(`Reviewlijst laden mislukt: ${error.message}`);
+  if (error) throw new Error(`Could not load review list: ${error.message}`);
   return count ?? 0;
 }
 
@@ -201,7 +201,7 @@ export async function listReviewQueue(limit = 50): Promise<ReviewItem[]> {
     .order("last_seen_at", { referencedTable: "signals", ascending: false })
     .limit(10, { referencedTable: "signals" })
     .limit(limit);
-  if (error) throw new Error(`Reviewlijst laden mislukt: ${error.message}`);
+  if (error) throw new Error(`Could not load review list: ${error.message}`);
 
   return data.map((c) => ({
     id: c.id,
@@ -233,7 +233,7 @@ export async function getCompany(id: string) {
     )
     .eq("id", id)
     .maybeSingle();
-  if (error) throw new Error(`Bedrijf laden mislukt: ${error.message}`);
+  if (error) throw new Error(`Could not load company: ${error.message}`);
   return data;
 }
 
@@ -248,7 +248,7 @@ export async function getCompanySignals(companyId: string): Promise<SignalItem[]
     .eq("company_id", companyId)
     .order("last_seen_at", { ascending: false })
     .limit(100);
-  if (error) throw new Error(`Signalen laden mislukt: ${error.message}`);
+  if (error) throw new Error(`Could not load signals: ${error.message}`);
   return data.map(toSignal);
 }
 
@@ -282,7 +282,7 @@ export async function getCompanySuppressions(
     .select("id, company_id, contact_id, email, reason, scope, notes, created_at")
     .or(parts.join(","))
     .order("created_at", { ascending: false });
-  if (error) throw new Error(`Uitsluitingen laden mislukt: ${error.message}`);
+  if (error) throw new Error(`Could not load suppressions: ${error.message}`);
   return data.map((s) => ({
     id: s.id,
     companyId: s.company_id,

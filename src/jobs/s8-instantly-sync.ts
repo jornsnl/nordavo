@@ -16,9 +16,9 @@ const FIRST_RUN_DAYS = 14;
 
 export const s8InstantlySync = defineJob({
   name: "s8-instantly-sync",
-  description: "S8: replies, bounces en afmeldingen uit Instantly ophalen",
+  description: "S8: fetch replies, bounces and unsubscribes from Instantly",
   run: async (ctx) => {
-    if (!hasInstantly()) throw new Error("INSTANTLY_API_KEY ontbreekt. Zet de API key van Instantly in de omgeving.");
+    if (!hasInstantly()) throw new Error("INSTANTLY_API_KEY is missing. Set the Instantly API key in the environment.");
     const db = ctx.db;
 
     let since = ctx.params.since && !Number.isNaN(Date.parse(ctx.params.since)) ? new Date(ctx.params.since).toISOString() : null;
@@ -40,14 +40,14 @@ export const s8InstantlySync = defineJob({
 
     const events = await fetchEvents(since, maxPages);
     ctx.countIn(events.length);
-    ctx.log(`${events.length} events sinds ${since}.`);
+    ctx.log(`${events.length} events since ${since}.`);
     if (events.length === 0) return;
 
     // Contacts by email (stored lowercase by the contacts trigger).
     const contacts = new Map<string, { id: string; company_id: string; status: string }>();
     for (const emails of chunk([...new Set(events.map((e) => e.email))], 100)) {
       const { data, error } = await db.from("contacts").select("id, company_id, email, status").in("email", emails);
-      if (error) throw new Error(`Contacten zoeken mislukt: ${error.message}`);
+      if (error) throw new Error(`Could not look up contacts: ${error.message}`);
       for (const c of data) if (c.email && !contacts.has(c.email)) contacts.set(c.email, c);
     }
 
@@ -56,7 +56,7 @@ export const s8InstantlySync = defineJob({
     const campaignIds = [...new Set(events.map((e) => e.campaignId).filter((id): id is string => Boolean(id)))];
     for (const ids of chunk(campaignIds, 100)) {
       const { data, error } = await db.from("campaigns").select("id, external_id").in("external_id", ids);
-      if (error) throw new Error(`Campagnes zoeken mislukt: ${error.message}`);
+      if (error) throw new Error(`Could not look up campaigns: ${error.message}`);
       for (const c of data) if (c.external_id) campaigns.set(c.external_id, c.id);
     }
 
@@ -73,7 +73,7 @@ export const s8InstantlySync = defineJob({
           email: event.email,
           reason: "afgemeld",
           scope: "alle_kanalen",
-          notes: `Afgemeld via Instantly (${event.id}), geen bekend contact.`,
+          notes: `Unsubscribed through Instantly (${event.id}), no known contact.`,
         });
         if (error) throw error;
         counts.suppressedUnknown += 1;
@@ -94,7 +94,7 @@ export const s8InstantlySync = defineJob({
             outcome,
             source: "instantly",
             external_id: `instantly:${event.type === "reply" ? `reply:${event.id}` : event.id}`,
-            notes: event.subject ? `Onderwerp: ${event.subject.slice(0, 200)}` : null,
+            notes: event.subject ? `Subject: ${event.subject.slice(0, 200)}` : null,
           },
           { onConflict: "external_id", ignoreDuplicates: true },
         )
@@ -113,6 +113,6 @@ export const s8InstantlySync = defineJob({
     ctx.meta.activities = counts.activities;
     ctx.meta.unknown_emails = counts.unknown;
     ctx.meta.suppressed_unknown = counts.suppressedUnknown;
-    ctx.log(`${counts.activities} activiteiten, ${counts.unknown} onbekende mailadressen, ${counts.suppressedUnknown} afmeldingen zonder contact uitgesloten.`);
+    ctx.log(`${counts.activities} activities, ${counts.unknown} unknown e-mail addresses, ${counts.suppressedUnknown} unsubscribes without a contact suppressed.`);
   },
 });

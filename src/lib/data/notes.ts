@@ -23,13 +23,13 @@ export async function listNotes(entityType: EntityType, entityId: string): Promi
     .eq("entity_id", entityId)
     .order("created_at", { ascending: false })
     .limit(200);
-  if (error) throw new Error(`Notities laden mislukt: ${error.message}`);
+  if (error) throw new Error(`Could not load notes: ${error.message}`);
 
   return data.map((n) => ({
     id: n.id,
     body: n.body,
     authorId: n.author_id,
-    authorName: n.author?.full_name || n.author?.email || "Onbekend",
+    authorName: n.author?.full_name || n.author?.email || "Unknown",
     createdAt: n.created_at,
     updatedAt: n.updated_at,
   }));

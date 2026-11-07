@@ -32,7 +32,7 @@ export default function PortalOverviewPage() {
 
           <section aria-labelledby="vacancies-heading">
             <h2 id="vacancies-heading" className="mb-3 font-display sm:mb-4 text-lg font-semibold text-brand-900">
-              Jouw vacatures
+              Your vacancies
             </h2>
             <Suspense fallback={<VacancyGridSkeleton />}>
               <VacancyGrid />
@@ -55,11 +55,11 @@ async function Greeting() {
   const [user, company] = await Promise.all([requireClient(), getPortalCompany()]);
   const firstName = user.name.split(" ")[0];
   const hour = Number(
-    new Intl.DateTimeFormat("nl-NL", { hour: "numeric", hour12: false, timeZone: "Europe/Amsterdam" }).format(
+    new Intl.DateTimeFormat("en-GB", { hour: "numeric", hour12: false, timeZone: "Europe/Amsterdam" }).format(
       new Date(),
     ),
   );
-  const greeting = hour < 12 ? "Goedemorgen" : hour < 18 ? "Goedemiddag" : "Goedenavond";
+  const greeting = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
 
   return (
     <header className="mb-6 sm:mb-8">
@@ -70,7 +70,7 @@ async function Greeting() {
         {greeting}, {firstName}
       </h1>
       <p className="mt-2 max-w-2xl text-muted">
-        Hier volg je jouw vacatures en de kandidaten die we voor je hebben geselecteerd.
+        Follow your vacancies and the candidates we selected for you.
       </p>
     </header>
   );
@@ -93,12 +93,12 @@ async function PendingReviews() {
   return (
     <section aria-labelledby="pending-heading" className="rounded-2xl border border-accent-500/40 bg-accent-100/50 p-4 shadow-xs sm:p-5">
       <h2 id="pending-heading" className="font-display text-lg font-semibold text-brand-900">
-        Wacht op jouw reactie
+        Waiting for your response
       </h2>
       <p className="mt-1 text-sm text-muted">
         {pending.length === 1
-          ? "Er staat één kandidaat voor je klaar. Laat ons weten wat je ervan vindt."
-          : `Er staan ${pending.length} kandidaten voor je klaar. Laat ons weten wat je ervan vindt.`}
+          ? "One candidate is ready for you. Let us know what you think."
+          : `${pending.length} candidates are ready for you. Let us know what you think.`}
       </p>
       <ul className="mt-4 divide-y divide-accent-500/20 overflow-hidden rounded-xl border border-accent-500/20 bg-white">
         {pending.map((item) => {
@@ -112,7 +112,7 @@ async function PendingReviews() {
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-medium text-brand-900">{item.candidateName}</p>
                   <p className="truncate text-sm text-muted">
-                    {item.candidateTitle ? `${item.candidateTitle}, voor ` : "Voor "}
+                    {item.candidateTitle ? `${item.candidateTitle}, for ` : "For "}
                     {item.vacancyTitle}
                   </p>
                 </div>
@@ -137,8 +137,8 @@ async function VacancyGrid() {
     return (
       <EmptyState
         icon={BriefcaseBusiness}
-        title="Nog geen vacatures"
-        description="Zodra we samen het functieprofiel hebben opgesteld, zie je de vacature hier. Binnen 2 tot 3 weken stellen we drie kandidaten aan je voor, met video intro en assessmentuitslagen."
+        title="No vacancies yet"
+        description="Once we have drawn up the job profile together, the vacancy shows up here. Within 2 to 3 weeks we present three candidates to you, with a video intro and assessment results."
       />
     );
   }
@@ -156,7 +156,7 @@ async function VacancyGrid() {
 
 function VacancyGridSkeleton() {
   return (
-    <div className="grid gap-4 sm:grid-cols-2" aria-busy="true" aria-label="Laden">
+    <div className="grid gap-4 sm:grid-cols-2" aria-busy="true" aria-label="Loading">
       <Skeleton className="h-44" />
       <Skeleton className="h-44" />
     </div>
@@ -170,12 +170,12 @@ async function PlacementsSummary() {
   return (
     <Card>
       <CardHeader
-        title="Plaatsingen"
+        title="Placements"
         description={
           current.length === 1
-            ? "1 developer werkt nu in je team."
+            ? "1 developer now works in your team."
             : current.length > 1
-              ? `${current.length} developers werken nu in je team.`
+              ? `${current.length} developers now work in your team.`
               : undefined
         }
       />
@@ -184,7 +184,7 @@ async function PlacementsSummary() {
           <div className="flex items-start gap-3 text-sm text-muted">
             <Handshake className="mt-0.5 size-5 shrink-0 text-brand-600" aria-hidden="true" />
             <p>
-              Nog geen lopende plaatsingen. Kies je een kandidaat, dan regelen wij contract, payroll en onboarding.
+              No current placements yet. Once you choose a candidate, we arrange the contract, payroll and onboarding.
             </p>
           </div>
         ) : (
@@ -195,7 +195,7 @@ async function PlacementsSummary() {
                 <div className="min-w-0 text-sm">
                   <p className="truncate font-medium text-brand-900">{p.candidateName ?? "Developer"}</p>
                   <p className="truncate text-muted">
-                    {p.status === "notice" ? "Opgezegd" : `Gestart op ${formatDate(p.startDate)}`}
+                    {p.status === "notice" ? "Notice given" : `Started on ${formatDate(p.startDate)}`}
                   </p>
                 </div>
               </li>
@@ -207,7 +207,7 @@ async function PlacementsSummary() {
             href="/portal/placements"
             className="mt-4 inline-flex items-center gap-1.5 text-sm font-semibold text-brand-600 hover:text-brand-800 active:text-brand-800 max-sm:-mb-2 max-sm:min-h-11"
           >
-            Alle plaatsingen
+            All placements
             <ArrowRight className="size-4" aria-hidden="true" />
           </Link>
         )}

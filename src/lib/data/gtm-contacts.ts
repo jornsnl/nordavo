@@ -17,7 +17,7 @@ export function isEmailStatus(value: unknown): value is EmailStatus {
 }
 
 export function contactName(c: { first_name: string | null; last_name: string | null }) {
-  return [c.first_name, c.last_name].filter(Boolean).join(" ") || "Naam onbekend";
+  return [c.first_name, c.last_name].filter(Boolean).join(" ") || "Name unknown";
 }
 
 export type ContactFilters = {
@@ -100,7 +100,7 @@ export async function listGtmContacts(
   const { data, error, count } = await query
     .order("updated_at", { ascending: false })
     .range(from, from + CONTACTS_PAGE_SIZE - 1);
-  if (error) throw new Error(`Contacten laden mislukt: ${error.message}`);
+  if (error) throw new Error(`Could not load contacts: ${error.message}`);
 
   const items = data.map((c) => ({
     id: c.id,
@@ -176,14 +176,14 @@ function explain(
         (s.email !== null && contact.email !== null && s.email.toLowerCase() === contact.email)),
   );
   if (hit) {
-    const target = hit.contactId === contact.id ? "contact" : hit.companyId === companyId ? "bedrijf" : "mailadres";
-    return { ok: false, reason: `In uitsluiting (${target}): ${optionFor(suppressionReasons, hit.reason).label.toLowerCase()}` };
+    const target = hit.contactId === contact.id ? "contact" : hit.companyId === companyId ? "company" : "e-mail address";
+    return { ok: false, reason: `On the suppression list (${target}): ${optionFor(suppressionReasons, hit.reason).label.toLowerCase()}` };
   }
   if (contact.last_contacted_at) {
-    return { ok: false, reason: `Benaderd op ${formatDate(contact.last_contacted_at)}` };
+    return { ok: false, reason: `Contacted on ${formatDate(contact.last_contacted_at)}` };
   }
-  if (ok === null) return { ok: false, reason: "Niet te controleren" };
-  return { ok: false, reason: "Recent benaderd" };
+  if (ok === null) return { ok: false, reason: "Could not be checked" };
+  return { ok: false, reason: "Contacted recently" };
 }
 
 export async function getCompanyContacts(
@@ -199,7 +199,7 @@ export async function getCompanyContacts(
     .eq("company_id", companyId)
     .order("tier", { ascending: true, nullsFirst: false })
     .order("created_at", { ascending: true });
-  if (error) throw new Error(`Contacten laden mislukt: ${error.message}`);
+  if (error) throw new Error(`Could not load contacts: ${error.message}`);
 
   const [suppressions, checks] = await Promise.all([
     getCompanySuppressions(companyId, data.map((c) => ({ id: c.id, email: c.email }))),

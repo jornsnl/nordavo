@@ -56,23 +56,23 @@ type Resolved = { job: ScrapedJob; domain: string };
 
 export const s1Signals = defineJob({
   name: "s1-signals",
-  description: "S1: vacatures ophalen via Apify (LinkedIn, Indeed) en als signalen opslaan",
+  description: "S1: fetch vacancies through Apify (LinkedIn, Indeed) and store them as signals",
   run: async (ctx) => {
     const limit = intParam(ctx, "limit", 200, 2000);
     const days = intParam(ctx, "days", 7, 60);
     // Fail early and clearly when configuration is missing (no half runs).
-    if (!hasApify()) throw new Error("APIFY_TOKEN ontbreekt. Zet deze in de omgevingsvariabelen.");
+    if (!hasApify()) throw new Error("APIFY_TOKEN is missing. Set it in the environment variables.");
     const linkedinActor = requireActor("APIFY_LINKEDIN_JOBS_ACTOR");
     const indeedActor = requireActor("APIFY_INDEED_JOBS_ACTOR");
 
     const now = new Date();
     const jobs: ScrapedJob[] = [];
 
-    ctx.log(`LinkedIn: ${linkedinActor}, max ${limit} vacatures van de laatste ${days} dagen`);
+    ctx.log(`LinkedIn: ${linkedinActor}, max ${limit} vacancies from the last ${days} days`);
     const linkedinItems = await runActorSync(linkedinActor, buildLinkedinJobsInput({ days, limit }), { maxItems: limit });
     jobs.push(...linkedinItems.map((item) => mapLinkedinJob(item, now)));
 
-    ctx.log(`Indeed: ${indeedActor}, max ${limit} vacatures`);
+    ctx.log(`Indeed: ${indeedActor}, max ${limit} vacancies`);
     const indeedItems = await runActorSync(indeedActor, buildIndeedJobsInput({ days, limit }), { maxItems: limit });
     jobs.push(...indeedItems.map((item) => mapIndeedJob(item, now)));
 
@@ -104,7 +104,7 @@ export const s1Signals = defineJob({
       resolved.push({ job, domain });
     }
     ctx.meta.skipped_no_domain = noDomain;
-    if (noDomain > 0) ctx.log(`${noDomain} vacatures overgeslagen: geen bedrijfsdomein te vinden`);
+    if (noDomain > 0) ctx.log(`${noDomain} vacancies skipped: no company domain found`);
 
     // Pass 1: company + vacature signal (+ remote_extern) per job.
     const companies = new Map<string, string>(); // domain -> company id
@@ -207,8 +207,8 @@ export const s1Signals = defineJob({
       meerdere_rollen_created: multipleRoleSignals,
     });
     ctx.log(
-      `${techJobs.length} techvacatures, ${companies.size} bedrijven (${companiesCreated} nieuw), ${signalsCreated} nieuwe vacaturesignalen, ` +
-        `extra: ${longOpenSignals} lang open, ${multipleRoleSignals} meerdere rollen, ${remoteSignals} remote of extern`,
+      `${techJobs.length} tech vacancies, ${companies.size} companies (${companiesCreated} new), ${signalsCreated} new vacancy signals, ` +
+        `extra: ${longOpenSignals} open for long, ${multipleRoleSignals} multiple roles, ${remoteSignals} remote or external`,
     );
   },
 });

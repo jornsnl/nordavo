@@ -54,8 +54,8 @@ test("goPerSegment computes GO percentage per segment in segment order", () => {
   ]);
   assert.deepEqual(rows, [
     { segment: "saas", label: "SaaS", total: 3, go: 2, review: 1, noGo: 0, goPct: 67 },
-    { segment: "productie", label: "Productie", total: 1, go: 0, review: 0, noGo: 1, goPct: 0 },
-    { segment: "onbekend", label: "Geen segment", total: 1, go: 0, review: 0, noGo: 1, goPct: 0 },
+    { segment: "productie", label: "Manufacturing", total: 1, go: 0, review: 0, noGo: 1, goPct: 0 },
+    { segment: "onbekend", label: "No segment", total: 1, go: 0, review: 0, noGo: 1, goPct: 0 },
   ]);
 });
 
@@ -67,12 +67,12 @@ test("attributionBreakdown groups meetings by signal, segment and channel", () =
     { segment: null, channel: "meeting", signal_type: null },
   ]);
   assert.deepEqual(result.bySignal, [
-    { key: "vacature", label: "Vacature", count: 2 },
-    { key: "onbekend", label: "Geen signaal", count: 1 },
-    { key: "lang_open", label: "Lang open", count: 1 },
+    { key: "vacature", label: "Vacancy", count: 2 },
+    { key: "onbekend", label: "No signal", count: 1 },
+    { key: "lang_open", label: "Open for long", count: 1 },
   ]);
   assert.deepEqual(result.bySegment[0], { key: "saas", label: "SaaS", count: 2 });
-  assert.deepEqual(result.byChannel[0], { key: "bellen", label: "Bellen", count: 2 });
+  assert.deepEqual(result.byChannel[0], { key: "bellen", label: "Call", count: 2 });
 });
 
 test("buildFunnel", () => {
@@ -117,8 +117,8 @@ test("leadTimeRows warns when approaching or past 21 days without profiles", () 
   assert.equal(rows.find((r) => r.vacancyId === "sent")?.daysToProfiles, 15);
   const warnings = leadTimeWarnings(rows);
   assert.equal(warnings.length, 2);
-  assert.match(warnings[0], /Backend developer bij Acme loopt al 23 dagen/);
-  assert.match(warnings[1], /Nog 5 dagen tot 3 weken/);
+  assert.match(warnings[0], /Backend developer at Acme has been running for 23 days/);
+  assert.match(warnings[1], /5 days left until 3 weeks/);
 });
 
 test("periodRange uses Amsterdam weeks starting Monday", () => {
@@ -140,10 +140,10 @@ test("renderReportHtml puts warnings first and escapes data", () => {
     funnel: buildFunnel(summarizeActivities(activities), 3),
     attribution: attributionBreakdown([{ segment: "saas", channel: "bellen", signal_type: "vacature" }]),
     leadTimes: leadTimeRows([vacancy({ id: "late", title: "Dev <script>" })], now),
-    warnings: ["Dev <script> bij Acme loopt al 23 dagen"],
+    warnings: ["Dev <script> at Acme has been running for 23 days"],
   };
   const html = renderReportHtml(report, "https://portal.nordavo.nl/dashboard/report");
-  assert.ok(html.indexOf("Let op") < html.indexOf("GO percentage per segment"));
+  assert.ok(html.indexOf("Attention") < html.indexOf("GO percentage per segment"));
   assert.ok(!html.includes("<script>"));
   assert.ok(html.includes("Dev &lt;script&gt;"));
   assert.ok(html.includes("#0a1a2f"));

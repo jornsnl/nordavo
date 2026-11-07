@@ -19,7 +19,7 @@ export async function listCandidateApplications(candidateId: string) {
     .eq("candidate_id", candidateId)
     .order("created_at", { ascending: false });
 
-  if (error) throw new Error(`Sollicitaties laden mislukt: ${error.message}`);
+  if (error) throw new Error(`Could not load applications: ${error.message}`);
   return data;
 }
 
@@ -36,12 +36,12 @@ export async function listOpenVacancyOptions() {
     .in("status", ["open", "on_hold"])
     .order("opened_at", { ascending: false });
 
-  if (error) throw new Error(`Vacatures laden mislukt: ${error.message}`);
+  if (error) throw new Error(`Could not load vacancies: ${error.message}`);
   return data.map((v) => ({
     id: v.id,
     title: v.title,
     status: v.status,
-    clientName: v.client?.name ?? "Onbekende klant",
+    clientName: v.client?.name ?? "Unknown client",
   }));
 }
 
@@ -73,10 +73,10 @@ export async function getPipeline(vacancyId: string) {
   ]);
 
   if (vacancyResult.error) {
-    throw new Error(`Vacature laden mislukt: ${vacancyResult.error.message}`);
+    throw new Error(`Could not load vacancy: ${vacancyResult.error.message}`);
   }
   if (applicationsResult.error) {
-    throw new Error(`Pipeline laden mislukt: ${applicationsResult.error.message}`);
+    throw new Error(`Could not load pipeline: ${applicationsResult.error.message}`);
   }
   if (!vacancyResult.data) return null;
 
@@ -105,6 +105,6 @@ export async function getApplicationVacancyId(applicationId: string) {
     .eq("id", applicationId)
     .maybeSingle();
 
-  if (error) throw new Error(`Sollicitatie laden mislukt: ${error.message}`);
+  if (error) throw new Error(`Could not load application: ${error.message}`);
   return data?.vacancy_id ?? null;
 }

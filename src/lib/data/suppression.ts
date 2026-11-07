@@ -49,7 +49,7 @@ export async function listSuppressions({
   if (reason) query = query.eq("reason", reason);
   if (scope) query = query.eq("scope", scope);
   const { data, error, count } = await query;
-  if (error) throw new Error(`Uitsluitingen laden mislukt: ${error.message}`);
+  if (error) throw new Error(`Could not load suppressions: ${error.message}`);
 
   const items: SuppressionItem[] = data.map((row) => {
     const company = Array.isArray(row.company) ? row.company[0] : row.company;
@@ -68,7 +68,7 @@ export async function listSuppressions({
       contact: contact
         ? {
             id: contact.id,
-            name: [contact.first_name, contact.last_name].filter(Boolean).join(" ") || contact.email || "Onbekend",
+            name: [contact.first_name, contact.last_name].filter(Boolean).join(" ") || contact.email || "Unknown",
             email: contact.email,
             companyName: contactCompany?.name ?? null,
           }

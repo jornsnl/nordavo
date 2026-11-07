@@ -31,7 +31,7 @@ export type PasskeySignInResult = { error?: string };
 
 // One message for every failure, so nobody learns whether an account or passkey exists.
 const SIGN_IN_FAILED =
-  "Inloggen met deze passkey lukt niet. Probeer het opnieuw of log in met je wachtwoord.";
+  "Signing in with this passkey did not work. Try again or sign in with your password.";
 
 /** Step 1: a challenge for the browser prompt. No e-mail needed: the passkey knows who you are. */
 export async function startPasskeySignIn(): Promise<{
@@ -45,7 +45,7 @@ export async function startPasskeySignIn(): Promise<{
   });
 
   if (!(await storeChallenge("authentication", options.challenge, null))) {
-    return { error: "Inloggen met een passkey is nu niet mogelijk. Log in met je wachtwoord." };
+    return { error: "Signing in with a passkey is not possible right now. Sign in with your password." };
   }
   return { options };
 }
@@ -80,7 +80,7 @@ export async function finishPasskeySignIn(
   const challenge = await consumeChallenge("authentication", null);
   if (!parsed.success) return { error: SIGN_IN_FAILED };
   if (!challenge) {
-    return { error: "Dit duurde te lang. Probeer het opnieuw." };
+    return { error: "This took too long. Please try again." };
   }
 
   const admin = createAdminClient();

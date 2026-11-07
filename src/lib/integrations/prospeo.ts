@@ -33,7 +33,7 @@ export function hasProspeo() {
 
 function requireKey(): string {
   const key = process.env.PROSPEO_API_KEY;
-  if (!key) throw new Error("PROSPEO_API_KEY ontbreekt. Zet deze in de omgevingsvariabelen.");
+  if (!key) throw new Error("PROSPEO_API_KEY is missing. Set it in the environment variables.");
   return key;
 }
 
@@ -128,7 +128,7 @@ function isNoMatch(json: unknown): boolean {
 function failure(path: string, status: number, json: unknown): Error {
   const parsed = responseSchema.safeParse(json);
   const detail = parsed.success ? (parsed.data.error_code ?? parsed.data.message ?? "") : "";
-  return new Error(`Prospeo ${path} gaf HTTP ${status}${detail ? ` (${detail})` : ""}.`);
+  return new Error(`Prospeo ${path} returned HTTP ${status}${detail ? ` (${detail})` : ""}.`);
 }
 
 /**
@@ -147,7 +147,7 @@ export async function findEmail(input: {
   if (input.companyDomain) data.company_website = input.companyDomain;
   if (input.linkedinUrl) data.linkedin_url = input.linkedinUrl.startsWith("http") ? input.linkedinUrl : `https://www.${input.linkedinUrl}`;
   if (!data.linkedin_url && !(data.first_name && data.last_name && data.company_website)) {
-    throw new Error("Te weinig gegevens voor Prospeo: LinkedIn URL of voornaam, achternaam en domein nodig.");
+    throw new Error("Too little data for Prospeo: needs a LinkedIn URL, or first name, last name and domain.");
   }
 
   const { status, json } = await post("/enrich-person", { only_verified_email: false, data });

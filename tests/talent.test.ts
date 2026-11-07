@@ -120,7 +120,7 @@ test("redactIdentifiers removes identifiers before text goes to Claude", () => {
 test("collectText flattens profile JSON and leakMessage names kinds only", () => {
   assert.equal(collectText({ a: "x", b: ["y", { c: "z" }], n: 3 }), "x\ny\nz\n3");
   const message = leakMessage([{ kind: "naam", match: "Priya" }]);
-  assert.ok(message.includes("naam"));
+  assert.ok(message.includes("a name"));
   assert.ok(!message.includes("Priya"));
 });
 

@@ -19,7 +19,7 @@ export const metadata: Metadata = {
     template: "%s · Nordavo Portal",
   },
   description:
-    "Het portaal van Nordavo: de brug tussen Nederlandse groeibedrijven en Indiaas tech talent.",
+    "The Nordavo portal: the bridge between Dutch scale-ups and Indian tech talent.",
   robots: { index: false, follow: false },
   applicationName: "Nordavo",
   // Added to the home screen, the portal opens full screen like an app.
@@ -44,7 +44,7 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
-      lang="nl"
+      lang="en"
       className={`${inter.variable} ${jakarta.variable} h-full antialiased`}
     >
       <body className="min-h-full font-sans">{children}</body>

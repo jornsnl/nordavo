@@ -13,7 +13,7 @@ export async function runByName(
 
   for (const jobName of names) {
     const job = jobs[jobName];
-    if (!job) throw new Error(`Onbekende job: ${jobName}`);
+    if (!job) throw new Error(`Unknown job: ${jobName}`);
     const result = await runJob(job, options);
     results.push({ job: jobName, result });
     if (result.status === "failed" && chain?.stopOnFailure) break;

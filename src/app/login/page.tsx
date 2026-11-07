@@ -7,24 +7,24 @@ import { LoginForm } from "./login-form";
 import { PasskeySignIn } from "./passkey-sign-in";
 
 export const metadata: Metadata = {
-  title: "Inloggen",
+  title: "Sign in",
 };
 
 const highlights = [
   {
     icon: Users,
-    title: "3 kandidaten in 3 weken",
-    text: "Gescreend, technisch getest en klaar voor jouw eindgesprek.",
+    title: "3 candidates in 3 weeks",
+    text: "Screened, technically tested and ready for your final interview.",
   },
   {
     icon: Clock,
-    title: "4 tot 5 uur overlap",
-    text: "Bangalore loopt 3,5 tot 4,5 uur voor. Genoeg tijd om samen te bouwen.",
+    title: "4 to 5 hours of overlap",
+    text: "Bangalore is 3.5 to 4.5 hours ahead. Plenty of time to build together.",
   },
   {
     icon: Handshake,
-    title: "Eén aanspreekpunt",
-    text: "Groningen voor jouw vraag, Bangalore voor selectie en begeleiding.",
+    title: "One point of contact",
+    text: "Groningen for your request, Bangalore for selection and support.",
   },
 ];
 
@@ -43,11 +43,11 @@ export default function LoginPage() {
             Groningen ↔ Bangalore
           </p>
           <h1 className="font-display text-4xl leading-tight font-bold tracking-tight xl:text-5xl">
-            De brug tussen Nederlandse groeibedrijven en Indiaas tech talent.
+            The bridge between Dutch scale-ups and Indian tech talent.
           </h1>
           <p className="mt-5 text-lg leading-relaxed text-brand-100/80">
-            Alles rond klanten, vacatures en kandidaten op één plek. Helder,
-            snel en zonder gedoe.
+            Everything about clients, vacancies and candidates in one place. Clear,
+            fast and hassle-free.
           </p>
         </div>
 
@@ -74,10 +74,10 @@ export default function LoginPage() {
             <Logo className="mb-8 sm:mb-12 lg:hidden" />
 
             <h2 className="font-display text-[1.75rem] leading-tight font-bold tracking-tight text-brand-900 sm:text-3xl">
-              Welkom terug
+              Welcome back
             </h2>
             <p className="mt-2 text-muted">
-              Log in om verder te gaan in het Nordavo portaal.
+              Sign in to continue to the Nordavo portal.
             </p>
 
             {/* Passkey first on phones: one tap, no keyboard. */}
@@ -92,7 +92,7 @@ export default function LoginPage() {
           </div>
 
           <p className="mt-8 text-sm text-muted max-sm:pt-2 max-sm:text-center">
-            Nog geen account of wachtwoord kwijt? Mail naar{" "}
+            No account yet, or forgot your password? Mail{" "}
             <a
               href="mailto:info@nordavo.nl"
               className="font-medium text-brand-600 underline-offset-4 hover:underline"

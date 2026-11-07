@@ -55,7 +55,7 @@ export function hasOnePage() {
 
 export function requireOnePage() {
   if (!hasOnePage()) {
-    throw new Error("OnePageCRM is niet gekoppeld: ONEPAGE_USER_ID en ONEPAGE_API_KEY ontbreken.");
+    throw new Error("OnePageCRM is not connected: ONEPAGE_USER_ID and ONEPAGE_API_KEY are missing.");
   }
 }
 
@@ -75,13 +75,13 @@ export const dealStageKeys = [
 export type DealStageKey = (typeof dealStageKeys)[number];
 
 export const dealStageLabels: Record<DealStageKey, string> = {
-  gekwalificeerd: "Gekwalificeerd",
-  benaderd: "Benaderd",
-  gesprek_gehad: "Gesprek gehad",
-  afspraak_gepland: "Afspraak gepland",
-  intake_gedaan: "Intake gedaan",
-  profielen_verstuurd: "Profielen verstuurd",
-  gesprekken: "Gesprekken met kandidaten",
+  gekwalificeerd: "Qualified",
+  benaderd: "Contacted",
+  gesprek_gehad: "Call held",
+  afspraak_gepland: "Meeting booked",
+  intake_gedaan: "Intake done",
+  profielen_verstuurd: "Profiles sent",
+  gesprekken: "Interviews with candidates",
 };
 
 /** Stage percentages in the OnePageCRM pipeline. Gewonnen/verloren is the deal status. */
@@ -101,10 +101,10 @@ export function dealStageMap(raw = process.env.ONEPAGE_DEAL_STAGES): Record<Deal
   try {
     parsed = JSON.parse(raw);
   } catch {
-    throw new Error("ONEPAGE_DEAL_STAGES is geen geldige JSON.");
+    throw new Error("ONEPAGE_DEAL_STAGES is not valid JSON.");
   }
   const result = z.record(z.string(), z.number()).safeParse(parsed);
-  if (!result.success) throw new Error("ONEPAGE_DEAL_STAGES moet een object met getallen zijn.");
+  if (!result.success) throw new Error("ONEPAGE_DEAL_STAGES must be an object of numbers.");
   const map = { ...DEFAULT_DEAL_STAGES };
   for (const key of dealStageKeys) {
     if (typeof result.data[key] === "number") map[key] = result.data[key];
@@ -184,7 +184,7 @@ export function addWorkingDays(isoDate: string, days: number): string {
 }
 
 export function defaultNextAction(reason: string, today = amsterdamDate()) {
-  return { text: `Opvolgen: ${reason}`, date: addWorkingDays(today, 2) };
+  return { text: `Follow up: ${reason}`, date: addWorkingDays(today, 2) };
 }
 
 // ---------------------------------------------------------------------------
@@ -270,12 +270,12 @@ async function request(method: "GET" | "POST" | "PUT", path: string, { query, bo
       json && typeof json === "object"
         ? String((json as Record<string, unknown>).error_message ?? (json as Record<string, unknown>).message ?? "")
         : text.slice(0, 200);
-    throw new OnePageError(`OnePageCRM ${method} ${path} gaf ${response.status}: ${detail}`);
+    throw new OnePageError(`OnePageCRM ${method} ${path} returned ${response.status}: ${detail}`);
   }
   const envelope = envelopeSchema.safeParse(json);
-  if (!envelope.success) throw new OnePageError(`OnePageCRM ${method} ${path}: onverwacht antwoord.`);
+  if (!envelope.success) throw new OnePageError(`OnePageCRM ${method} ${path}: unexpected response.`);
   if (envelope.data.status !== undefined && envelope.data.status !== 0) {
-    throw new OnePageError(`OnePageCRM ${method} ${path}: ${envelope.data.message ?? "fout"}`);
+    throw new OnePageError(`OnePageCRM ${method} ${path}: ${envelope.data.message ?? "error"}`);
   }
   return envelope.data.data;
 }
@@ -283,7 +283,7 @@ async function request(method: "GET" | "POST" | "PUT", path: string, { query, bo
 function parseOrThrow<T>(schema: z.ZodType<T>, value: unknown, what: string): T {
   const result = schema.safeParse(value);
   if (!result.success) {
-    throw new OnePageError(`OnePageCRM: ${what} heeft een onverwachte vorm (${result.error.issues[0]?.message ?? "onbekend"}).`);
+    throw new OnePageError(`OnePageCRM: ${what} has an unexpected shape (${result.error.issues[0]?.message ?? "unknown"}).`);
   }
   return result.data;
 }
@@ -364,7 +364,7 @@ export function buildContactPayload(input: {
   const { contact, company } = input;
   // OnePageCRM needs a last name or a company; fall back so a create never fails on it.
   const first = contact.first_name?.trim() || "";
-  const last = contact.last_name?.trim() || (first ? "" : "Onbekend");
+  const last = contact.last_name?.trim() || (first ? "" : "Unknown");
   const urls: { type: string; value: string }[] = [];
   urls.push({ type: "website", value: company.website?.trim() || `https://${company.domain}` });
   if (contact.linkedin_url) urls.push({ type: "linkedin", value: toUrl(contact.linkedin_url) });
@@ -491,10 +491,10 @@ export async function upsertCompanyDeal(input: {
   return { dealId: unwrapOne(data, "deal", onePageDealSchema).id, created: true };
 }
 
-/** Add a note to a deal, for example "Anoniem profiel verstuurd: <link>". */
+/** Add a note to a deal, for example "Anonymous profile sent: <link>". */
 export async function addDealNote(dealId: string, text: string): Promise<void> {
   const deal = await getDeal(dealId);
-  if (!deal.contact_id) throw new Error(`OnePageCRM deal ${dealId} heeft geen contact.`);
+  if (!deal.contact_id) throw new Error(`OnePageCRM deal ${dealId} has no contact.`);
   await request("POST", "notes.json", { body: { contact_id: deal.contact_id, text, linked_deal_id: dealId } });
 }
 
@@ -550,7 +550,7 @@ export function mapDealChange(deal: OnePageDeal, map = DEFAULT_DEAL_STAGES): Crm
       stateKey: `onepage:deal:${deal.id}:won`,
       externalId: `onepage:deal:${deal.id}:won:${date}`,
       outcome: "gewonnen",
-      notes: `Deal gewonnen${name}${deal.text ? `: ${deal.text}` : ""}`,
+      notes: `Deal won${name}${deal.text ? `: ${deal.text}` : ""}`,
       contactStatus: "klant",
       companyWon: true,
     };
@@ -561,7 +561,7 @@ export function mapDealChange(deal: OnePageDeal, map = DEFAULT_DEAL_STAGES): Crm
       stateKey: `onepage:deal:${deal.id}:lost`,
       externalId: `onepage:deal:${deal.id}:lost:${date}`,
       outcome: "verloren",
-      notes: `Deal verloren${name}${deal.text ? `: ${deal.text}` : ""}`,
+      notes: `Deal lost${name}${deal.text ? `: ${deal.text}` : ""}`,
       contactStatus: "verloren",
       companyWon: false,
     };
@@ -577,7 +577,7 @@ export function mapDealChange(deal: OnePageDeal, map = DEFAULT_DEAL_STAGES): Crm
     stateKey: `onepage:deal:${deal.id}:${stage}`,
     externalId: `onepage:deal:${deal.id}:${stage}:${date}`,
     outcome,
-    notes: `Deal naar fase ${dealStageLabels[stage]}${name}`,
+    notes: `Deal moved to stage ${dealStageLabels[stage]}${name}`,
     contactStatus: "kans",
     companyWon: false,
   };
@@ -587,14 +587,14 @@ export function mapDealChange(deal: OnePageDeal, map = DEFAULT_DEAL_STAGES): Crm
 export function mapCompletedAction(action: OnePageAction): CrmChange | null {
   if (!action.contact_id || !isCompletedAction(action)) return null;
   const date = action.done_at ?? action.modified_at ?? new Date().toISOString();
-  const text = action.text?.trim() || "Actie";
+  const text = action.text?.trim() || "Action";
   const isConversation = /gesprek|call|meeting|bellen|gebeld|intake|demo/i.test(text);
   return {
     stateKey: `onepage:action:${action.id}`,
     externalId: `onepage:action:${action.id}:${date}`,
     onepageContactId: action.contact_id,
     outcome: isConversation ? "gesprek_gehad" : "notitie",
-    notes: `Actie afgerond in OnePageCRM: ${text}`,
+    notes: `Action completed in OnePageCRM: ${text}`,
     date,
     contactStatus: null,
     companyWon: false,
@@ -633,15 +633,15 @@ export async function pushContactToCrm(
     .eq("id", contactId)
     .maybeSingle();
   if (error) throw error;
-  if (!contact) throw new Error("Contact niet gevonden.");
+  if (!contact) throw new Error("Contact not found.");
   const company = contact.company;
 
   // Hard rule 8: only qualified contacts, never raw scrape data.
   if (company.icp_decision !== "GO") {
-    throw new Error(`Niet naar OnePageCRM: ${company.name} is niet gekwalificeerd (ICP besluit is geen GO).`);
+    throw new Error(`Not sent to OnePageCRM: ${company.name} is not qualified (ICP decision is not GO).`);
   }
   if (contact.status === "nieuw" || contact.status === "uitgesloten") {
-    throw new Error(`Niet naar OnePageCRM: dit contact heeft status ${contact.status} en is dus niet gekwalificeerd.`);
+    throw new Error(`Not sent to OnePageCRM: this contact has status ${contact.status}, so it is not qualified.`);
   }
 
   const [{ data: trigger }, { data: signal }, { data: colleagues }] = await Promise.all([
@@ -718,7 +718,7 @@ export async function pushContactToCrm(
     company_id: company.id,
     channel,
     outcome: "notitie",
-    notes: `Naar OnePageCRM: ${options.reason}`,
+    notes: `Sent to OnePageCRM: ${options.reason}`,
     source: "onepage",
     // One log line per contact per day, however often the push runs.
     external_id: `onepage:push:${contactId}:${amsterdamDate()}`,

@@ -183,10 +183,18 @@ export function collectText(value: unknown): string {
   return "";
 }
 
-/** Dutch, human message for a rejected profile. Mentions kinds only, never the values. */
+const leakKindLabels: Record<IdentifierLeak["kind"], string> = {
+  naam: "a name",
+  "e-mail": "an e-mail address",
+  telefoon: "a phone number",
+  werkgever: "an employer",
+  link: "a link",
+};
+
+/** Human message for staff about a rejected profile. Mentions kinds only, never the values. */
 export function leakMessage(leaks: IdentifierLeak[]) {
-  const kinds = [...new Set(leaks.map((l) => l.kind))];
-  return `Profiel afgekeurd door de anonimiteitscheck: het bevat nog ${kinds.join(", ")}. Maak het profiel opnieuw.`;
+  const kinds = [...new Set(leaks.map((l) => leakKindLabels[l.kind]))];
+  return `Profile rejected by the anonymity check: it still contains ${kinds.join(", ")}. Make the profile again.`;
 }
 
 /** File and display code for a profile, never derived from candidate data. */

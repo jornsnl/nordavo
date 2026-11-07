@@ -141,15 +141,15 @@ export async function authenticateMcpToken(
 export function mcpAuthErrorMessage(reason: Exclude<McpAuthResult, { ok: true }>["reason"]): string {
   switch (reason) {
     case "missing":
-      return "Geen token meegestuurd. Stuur de header Authorization: Bearer <token> mee. Maak een token aan in Nordavo onder Instellingen.";
+      return "No token sent. Send the header Authorization: Bearer <token>. Create a token in Nordavo under Settings.";
     case "malformed":
     case "invalid":
-      return "Ongeldig token. Controleer of je het volledige token hebt geplakt.";
+      return "Invalid token. Check that you pasted the whole token.";
     case "revoked":
-      return "Dit token is ingetrokken. Maak een nieuw token aan onder Instellingen.";
+      return "This token has been revoked. Create a new token under Settings.";
     case "expired":
-      return "Dit token is verlopen. Maak een nieuw token aan onder Instellingen.";
+      return "This token has expired. Create a new token under Settings.";
     case "forbidden":
-      return "Dit account heeft geen toegang tot de MCP server.";
+      return "This account has no access to the MCP server.";
   }
 }

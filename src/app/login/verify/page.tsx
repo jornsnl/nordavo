@@ -11,7 +11,7 @@ import { pathAfterSignIn } from "./redirect";
 import { VerifyForm } from "./verify-form";
 
 export const metadata: Metadata = {
-  title: "Verificatie",
+  title: "Verification",
 };
 
 type SearchParams = Promise<{ next?: string | string[] }>;
@@ -31,29 +31,29 @@ export default function VerificationPage({ searchParams }: { searchParams: Searc
         <div className="relative max-w-lg">
           <p className="mb-4 inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3 py-1 text-xs font-medium tracking-wide text-brand-100">
             <span className="size-1.5 rounded-full bg-accent-500" />
-            Tweestapsverificatie
+            Two-step verification
           </p>
           <h1 className="font-display text-4xl leading-tight font-bold tracking-tight xl:text-5xl">
-            Nog één stap: laat zien dat jij het bent.
+            One more step: show that it is you.
           </h1>
           <p className="mt-5 text-lg leading-relaxed text-brand-100/80">
-            Je wachtwoord klopt. Vul nu de code in uit de authenticator app op je telefoon.
+            Your password is correct. Now enter the code from the authenticator app on your phone.
           </p>
         </div>
 
         <ul className="relative grid gap-5 xl:grid-cols-2">
           <li className="rounded-2xl border border-white/10 bg-white/[0.04] p-5 backdrop-blur-sm">
             <Smartphone className="mb-3 size-5 text-accent-500" aria-hidden="true" />
-            <p className="font-display text-sm font-semibold">Open je app</p>
+            <p className="font-display text-sm font-semibold">Open your app</p>
             <p className="mt-1 text-sm leading-relaxed text-brand-100/70">
-              Bijvoorbeeld Google Authenticator, Microsoft Authenticator, 1Password of Authy.
+              For example Google Authenticator, Microsoft Authenticator, 1Password or Authy.
             </p>
           </li>
           <li className="rounded-2xl border border-white/10 bg-white/[0.04] p-5 backdrop-blur-sm">
             <LifeBuoy className="mb-3 size-5 text-accent-500" aria-hidden="true" />
-            <p className="font-display text-sm font-semibold">Telefoon kwijt?</p>
+            <p className="font-display text-sm font-semibold">Lost your phone?</p>
             <p className="mt-1 text-sm leading-relaxed text-brand-100/70">
-              Vraag een beheerder om je tweestapsverificatie te resetten.
+              Ask an admin to reset your two-step verification.
             </p>
           </li>
         </ul>
@@ -66,10 +66,10 @@ export default function VerificationPage({ searchParams }: { searchParams: Searc
             <Logo className="mb-8 sm:mb-12 lg:hidden" />
 
             <h2 className="font-display text-[1.75rem] leading-tight font-bold tracking-tight text-brand-900 sm:text-3xl">
-              Code invullen
+              Enter code
             </h2>
             <p className="mt-2 text-muted">
-              Vul de code van 6 cijfers in uit je authenticator app.
+              Enter the 6-digit code from your authenticator app.
             </p>
 
             <div className="mt-8">
@@ -83,13 +83,13 @@ export default function VerificationPage({ searchParams }: { searchParams: Searc
                 type="submit"
                 className="text-sm font-medium text-brand-600 underline-offset-4 hover:underline active:text-brand-800 max-sm:flex max-sm:min-h-11 max-sm:w-full max-sm:items-center max-sm:justify-center focus-visible:outline-2 focus-visible:outline-brand-500"
               >
-                Uitloggen
+                Sign out
               </button>
             </form>
           </div>
 
           <p className="mt-8 text-sm text-muted max-sm:pt-2 max-sm:text-center">
-            Telefoon kwijt of lukt het niet? Mail naar{" "}
+            Lost your phone, or not working? Mail{" "}
             <a
               href="mailto:info@nordavo.nl"
               className="font-medium text-brand-600 underline-offset-4 hover:underline"
@@ -137,7 +137,7 @@ async function Verification({ searchParams }: { searchParams: SearchParams }) {
         role="alert"
         className="rounded-xl border border-danger/20 bg-danger-bg px-4 py-3 text-sm text-danger"
       >
-        Je sessie kon niet worden gecontroleerd. Log uit en log opnieuw in.
+        Your session could not be checked. Sign out and sign in again.
       </p>
     );
   }
@@ -147,7 +147,7 @@ async function Verification({ searchParams }: { searchParams: SearchParams }) {
 
 function FormSkeleton() {
   return (
-    <div className="space-y-5" aria-busy="true" aria-label="Laden">
+    <div className="space-y-5" aria-busy="true" aria-label="Loading">
       <span className="block h-4 w-40 animate-pulse rounded bg-brand-100" />
       <span className="block h-12 w-full animate-pulse rounded-xl bg-brand-100" />
       <span className="block h-12 w-full animate-pulse rounded-xl bg-brand-100" />

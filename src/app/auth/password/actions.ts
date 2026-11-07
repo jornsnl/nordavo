@@ -17,7 +17,7 @@ export async function setPassword(_prev: ActionState, formData: FormData): Promi
 
   const parsed = passwordSchema.safeParse(passwordValues(formData));
   if (!parsed.success) {
-    return { error: "Controleer je wachtwoord.", fieldErrors: fieldErrorsFrom(parsed.error) };
+    return { error: "Check your password.", fieldErrors: fieldErrorsFrom(parsed.error) };
   }
 
   const supabase = await createClient();

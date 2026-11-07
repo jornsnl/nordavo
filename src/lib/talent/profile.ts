@@ -288,10 +288,10 @@ export async function markProfileSent(db: Db, profileId: string): Promise<{ vaca
   if (vacancy.onepage_deal_id && hasOnePage()) {
     const code = readProfileContent(profile.content)?.code || profileCode(profileId);
     try {
-      await addDealNote(vacancy.onepage_deal_id, `Anoniem profiel ${code} verstuurd voor ${vacancy.title}.`);
+      await addDealNote(vacancy.onepage_deal_id, `Anonymous profile ${code} sent for ${vacancy.title}.`);
       const contactId = await findOnepageContact(db, vacancy);
       if (contactId) {
-        await setNextAction(contactId, { text: `Feedback vragen op profiel ${code} (${vacancy.title})`, date: addWorkdays(new Date(), 2) });
+        await setNextAction(contactId, { text: `Ask for feedback on profile ${code} (${vacancy.title})`, date: addWorkdays(new Date(), 2) });
       } else {
         warning = "The note is on the deal, but no OnePageCRM contact was found for the next action. Set it yourself.";
       }

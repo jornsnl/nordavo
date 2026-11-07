@@ -190,7 +190,7 @@ export const getPendingReviews = cache(async (): Promise<PendingReview[]> => {
       applicationId: row.id,
       presentedAt: row.presented_at,
       stage: row.stage,
-      candidateName: row.candidate?.full_name ?? "Kandidaat",
+      candidateName: row.candidate?.full_name ?? "Candidate",
       candidateTitle: row.candidate?.current_title ?? null,
       vacancyId: row.vacancy.id,
       vacancyTitle: row.vacancy.title,

@@ -10,10 +10,10 @@ import { hasGoogleSheets } from "@/lib/integrations/google-sheets";
  */
 export const s6CallList = defineJob({
   name: "s6-call-list",
-  description: "S6: bellijst voor Web Partners naar Google Sheet",
+  description: "S6: call list for Web Partners to a Google Sheet",
   run: async (ctx) => {
     if (!hasGoogleSheets()) {
-      throw new Error("GOOGLE_SERVICE_ACCOUNT_JSON ontbreekt. Maak de bellijst als CSV via Lijsten in het dashboard, of zet het service account in de omgeving.");
+      throw new Error("GOOGLE_SERVICE_ACCOUNT_JSON is missing. Make the call list as a CSV under Lists in the dashboard, or set the service account in the environment.");
     }
     const filter = parseListFilter(ctx.params);
     ctx.meta.filter = filterToJson(filter);
@@ -24,7 +24,7 @@ export const s6CallList = defineJob({
       ctx.meta.export_id = result.exportId;
       ctx.meta.destination = result.destination;
     } else {
-      ctx.log("Geen contacten voor de bellijst met dit filter. Er is niets gemaakt.");
+      ctx.log("No contacts for the call list with this filter. Nothing was created.");
     }
   },
 });

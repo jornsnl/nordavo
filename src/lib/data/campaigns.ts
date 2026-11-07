@@ -41,7 +41,7 @@ export async function listCampaignStats(): Promise<CampaignStats[]> {
     .from("campaigns")
     .select("id, name, channel, signal_type, segment, message_variant, external_id, started_at, created_at")
     .order("created_at", { ascending: false });
-  if (error) throw new Error(`Campagnes laden mislukt: ${error.message}`);
+  if (error) throw new Error(`Could not load campaigns: ${error.message}`);
   if (campaigns.length === 0) return [];
 
   const activities: ActivityRow[] = [];
@@ -53,7 +53,7 @@ export async function listCampaignStats(): Promise<CampaignStats[]> {
       .in("outcome", ["verstuurd", ...REPLIES])
       .order("date")
       .range(from, from + PAGE - 1);
-    if (actError) throw new Error(`Activiteiten laden mislukt: ${actError.message}`);
+    if (actError) throw new Error(`Could not load activities: ${actError.message}`);
     activities.push(...data);
     if (data.length < PAGE) break;
   }
@@ -65,7 +65,7 @@ export async function listCampaignStats(): Promise<CampaignStats[]> {
       .select("contact_id, date")
       .order("date")
       .range(from, from + PAGE - 1);
-    if (apptError) throw new Error(`Afspraken laden mislukt: ${apptError.message}`);
+    if (apptError) throw new Error(`Could not load meetings: ${apptError.message}`);
     appointments.push(...data);
     if (data.length < PAGE) break;
   }

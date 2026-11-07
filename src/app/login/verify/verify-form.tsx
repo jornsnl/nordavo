@@ -59,7 +59,7 @@ export function VerifyForm({
 
       <div className="space-y-2">
         <label htmlFor="code" className="block text-sm font-medium text-ink">
-          Code uit je app
+          Code from your app
         </label>
         <input
           id="code"
@@ -85,7 +85,7 @@ export function VerifyForm({
           className={`${inputClass} font-mono text-lg tracking-[0.4em] max-sm:py-3.5 max-sm:text-center`}
         />
         <p id="code-hint" className="text-xs text-muted">
-          6 cijfers. De code verandert elke 30 seconden.
+          6 digits. The code changes every 30 seconds.
         </p>
       </div>
 
@@ -97,11 +97,11 @@ export function VerifyForm({
         {pending ? (
           <>
             <LoaderCircle className="size-5 animate-spin" aria-hidden="true" />
-            Bezig met controleren
+            Checking
           </>
         ) : (
           <>
-            Bevestigen
+            Confirm
             <ArrowRight
               className="size-5 transition group-hover:translate-x-0.5"
               aria-hidden="true"

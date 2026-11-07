@@ -1,5 +1,5 @@
 /**
- * The form side of the sign in screens (login, verificatie, wachtwoord).
+ * The form side of the sign in screens (login, verify, password).
  * Desktop: centred next to the brand panel. Phones: full height from the
  * top, clear of the notch and the home indicator.
  */

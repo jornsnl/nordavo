@@ -20,9 +20,9 @@ export function LoginForm() {
   const error =
     state.error ??
     (linkError === "link"
-      ? "Deze link is verlopen of al gebruikt. Vraag een nieuwe uitnodiging aan."
+      ? "This link has expired or was already used. Ask for a new invitation."
       : linkError === "account"
-        ? "Je account is nog niet gekoppeld aan een bedrijf. Neem contact op met Nordavo."
+        ? "Your account is not linked to a company yet. Contact Nordavo."
         : undefined);
 
   return (
@@ -40,7 +40,7 @@ export function LoginForm() {
 
       <div className="space-y-2">
         <label htmlFor="email" className="block text-sm font-medium text-ink">
-          E-mailadres
+          E-mail address
         </label>
         <input
           id="email"
@@ -54,14 +54,14 @@ export function LoginForm() {
           enterKeyHint="next"
           required
           defaultValue={state.email}
-          placeholder="naam@bedrijf.nl"
+          placeholder="name@company.com"
           className={inputClass}
         />
       </div>
 
       <div className="space-y-2">
         <label htmlFor="password" className="block text-sm font-medium text-ink">
-          Wachtwoord
+          Password
         </label>
         <div className="relative">
           <input
@@ -79,7 +79,7 @@ export function LoginForm() {
             type="button"
             onClick={() => setShowPassword((v) => !v)}
             className="absolute inset-y-0 right-0 flex w-12 items-center justify-center rounded-r-xl text-muted transition hover:text-ink active:text-ink focus-visible:outline-2 focus-visible:outline-brand-500"
-            aria-label={showPassword ? "Verberg wachtwoord" : "Toon wachtwoord"}
+            aria-label={showPassword ? "Hide password" : "Show password"}
             aria-pressed={showPassword}
           >
             {showPassword ? (
@@ -99,11 +99,11 @@ export function LoginForm() {
         {pending ? (
           <>
             <LoaderCircle className="size-5 animate-spin" aria-hidden="true" />
-            Bezig met inloggen
+            Signing in
           </>
         ) : (
           <>
-            Inloggen
+            Sign in
             <ArrowRight
               className="size-5 transition group-hover:translate-x-0.5"
               aria-hidden="true"
