@@ -59,7 +59,7 @@ test("findEmail throws on other errors; verifyEmail maps the status", async () =
   process.env.PROSPEO_API_KEY = "secret";
   globalThis.fetch = async () => new Response(JSON.stringify({ error: true, error_code: "INVALID_API_KEY" }), { status: 401 });
   await assert.rejects(findEmail({ linkedinUrl: "linkedin.com/in/jan" }), /HTTP 401/);
-  await assert.rejects(findEmail({ firstName: "Jan" }), /Te weinig gegevens/);
+  await assert.rejects(findEmail({ firstName: "Jan" }), /Too little data/);
   globalThis.fetch = async () => new Response(JSON.stringify({ error: false, response: { email_status: "INVALID" } }), { status: 200 });
   assert.equal(await verifyEmail("x@acme.nl"), "invalid");
 });

@@ -39,9 +39,9 @@ test("parseListFilter reads valid values and ignores the rest", () => {
 test("filterToJson and filterSummary round-trip for the export history", () => {
   const json = filterToJson({ segment: "saas", signalType: "vacature", tier: 1, minScore: 70, limit: 100 }, { deliver: "sheet" });
   assert.deepEqual(json, { limit: 100, segment: "saas", signal_type: "vacature", tier: 1, min_score: 70, deliver: "sheet" });
-  assert.equal(filterSummary(json), "SaaS, Vacature, tier 1, score 70+, max 100");
-  assert.equal(filterSummary({}), "Geen filter");
-  assert.equal(filterSummary(null), "Geen filter");
+  assert.equal(filterSummary(json), "SaaS, Vacancy, tier 1, score 70+, max 100");
+  assert.equal(filterSummary({}), "No filter");
+  assert.equal(filterSummary(null), "No filter");
 });
 
 test("callReason prefers the opening line, then the signal", () => {
@@ -117,7 +117,7 @@ test("openingLineMatchesSignal reuses the company line only for the same signal"
 
 test("evaluateCampaign applies the 150 mails rule", () => {
   assert.equal(evaluateCampaign(0, 0).verdict, "te_vroeg");
-  assert.equal(evaluateCampaign(100, 10).label, "Nog 50 mails tot evaluatie");
+  assert.equal(evaluateCampaign(100, 10).label, "50 more mails until evaluation");
   assert.equal(evaluateCampaign(150, 4).verdict, "herschrijven");
   assert.equal(evaluateCampaign(200, 8).verdict, "doorgaan");
   assert.equal(evaluateCampaign(200, 11).verdict, "opschalen");
@@ -134,8 +134,8 @@ test("isSuppressedFor mirrors is_suppressed per channel", () => {
 });
 
 test("campaignName is stable per signal, segment and variant", () => {
-  assert.equal(campaignName("lang_open", "saas", "v1"), "Nordavo · Lang open · SaaS · v1");
-  assert.equal(campaignName("vacature", null, "v2"), "Nordavo · Vacature · Alle segmenten · v2");
+  assert.equal(campaignName("lang_open", "saas", "v1"), "Nordavo · Open for long · SaaS · v1");
+  assert.equal(campaignName("vacature", null, "v2"), "Nordavo · Vacancy · All segments · v2");
 });
 
 test("checkOpeningLine blocks claims Nordavo cannot back", () => {

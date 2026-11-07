@@ -1,11 +1,11 @@
-const dateFormatter = new Intl.DateTimeFormat("nl-NL", {
+const dateFormatter = new Intl.DateTimeFormat("en-GB", {
   day: "numeric",
   month: "short",
   year: "numeric",
   timeZone: "Europe/Amsterdam",
 });
 
-const dateTimeFormatter = new Intl.DateTimeFormat("nl-NL", {
+const dateTimeFormatter = new Intl.DateTimeFormat("en-GB", {
   day: "numeric",
   month: "short",
   hour: "2-digit",
@@ -13,14 +13,14 @@ const dateTimeFormatter = new Intl.DateTimeFormat("nl-NL", {
   timeZone: "Europe/Amsterdam",
 });
 
-const currencyFormatter = new Intl.NumberFormat("nl-NL", {
+const currencyFormatter = new Intl.NumberFormat("en-GB", {
   style: "currency",
   currency: "EUR",
   maximumFractionDigits: 0,
 });
 
-/** "3 nov. 2026", or the fallback when empty. */
-export function formatDate(value: string | null | undefined, fallback = "Geen datum") {
+/** "3 Nov 2026", or the fallback when empty. */
+export function formatDate(value: string | null | undefined, fallback = "No date") {
   if (!value) return fallback;
   return dateFormatter.format(new Date(value));
 }
@@ -30,7 +30,7 @@ export function formatDateTime(value: string | null | undefined) {
   return dateTimeFormatter.format(new Date(value));
 }
 
-export function formatCurrency(value: number | null | undefined, fallback = "Onbekend") {
+export function formatCurrency(value: number | null | undefined, fallback = "Unknown") {
   if (value === null || value === undefined) return fallback;
   return currencyFormatter.format(value);
 }
@@ -41,15 +41,15 @@ export function daysBetween(a: string | Date, b: string | Date = new Date()) {
   return Math.floor(ms / 86_400_000);
 }
 
-/** "vandaag", "gisteren", "3 dagen geleden", "over 2 dagen". */
+/** "today", "yesterday", "3 days ago", "in 2 days". */
 export function formatRelativeDays(value: string | null | undefined) {
   if (!value) return "";
   const days = daysBetween(value);
-  if (days === 0) return "vandaag";
-  if (days === 1) return "gisteren";
-  if (days === -1) return "morgen";
-  if (days > 1) return `${days} dagen geleden`;
-  return `over ${-days} dagen`;
+  if (days === 0) return "today";
+  if (days === 1) return "yesterday";
+  if (days === -1) return "tomorrow";
+  if (days > 1) return `${days} days ago`;
+  return `in ${-days} days`;
 }
 
 export function initials(name: string) {

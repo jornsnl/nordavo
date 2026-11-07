@@ -29,7 +29,7 @@ export function SetPasswordForm({
 
       <div className="space-y-2">
         <label htmlFor="password" className="block text-sm font-medium text-ink">
-          Nieuw wachtwoord
+          New password
         </label>
         <div className="relative">
           <input
@@ -49,7 +49,7 @@ export function SetPasswordForm({
             type="button"
             onClick={() => setShowPassword((v) => !v)}
             className="absolute inset-y-0 right-0 flex w-12 items-center justify-center rounded-r-xl text-muted transition hover:text-ink active:text-ink focus-visible:outline-2 focus-visible:outline-brand-500"
-            aria-label={showPassword ? "Verberg wachtwoord" : "Toon wachtwoord"}
+            aria-label={showPassword ? "Hide password" : "Show password"}
             aria-pressed={showPassword}
           >
             {showPassword ? (
@@ -65,14 +65,14 @@ export function SetPasswordForm({
           </p>
         ) : (
           <p id="password-hint" className="text-xs text-muted">
-            Minimaal 8 tekens.
+            At least 8 characters.
           </p>
         )}
       </div>
 
       <div className="space-y-2">
         <label htmlFor="confirm" className="block text-sm font-medium text-ink">
-          Herhaal wachtwoord
+          Repeat password
         </label>
         <input
           id="confirm"
@@ -101,11 +101,11 @@ export function SetPasswordForm({
         {pending ? (
           <>
             <LoaderCircle className="size-5 animate-spin" aria-hidden="true" />
-            Bezig met opslaan
+            Saving
           </>
         ) : (
           <>
-            Wachtwoord opslaan
+            Save password
             <ArrowRight
               className="size-5 transition group-hover:translate-x-0.5"
               aria-hidden="true"

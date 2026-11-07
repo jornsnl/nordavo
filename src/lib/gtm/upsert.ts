@@ -59,7 +59,7 @@ export type CompanyInput = {
 
 export async function upsertCompany(db: Db, input: CompanyInput, source: string) {
   const domain = normalizeDomain(input.domain ?? input.website);
-  if (!domain) throw new Error(`Ongeldig domein: ${input.domain}`);
+  if (!domain) throw new Error(`Invalid domain: ${input.domain}`);
 
   const { data: existing, error: findError } = await db
     .from("companies")

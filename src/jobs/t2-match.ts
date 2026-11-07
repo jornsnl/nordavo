@@ -24,7 +24,7 @@ export const t2Match = defineJob({
   run: async (ctx) => {
     const vacancyId = ctx.params.vacancy;
     if (!vacancyId || !/^[0-9a-f-]{36}$/i.test(vacancyId)) {
-      throw new Error("Geef een vacature mee: npm run job -- t2-match --vacancy=<id>");
+      throw new Error("Pass a vacancy: npm run job -- t2-match --vacancy=<id>");
     }
     const keepAboveParam = ctx.params["keep-above"];
     const summary = await runMatching(ctx.db, vacancyId, {
@@ -41,6 +41,6 @@ export const t2Match = defineJob({
     ctx.meta.scored = summary.scored;
     ctx.meta.strong = summary.strong;
     ctx.meta.search_brief = summary.searchBrief;
-    ctx.log(`${summary.scored} gescoord, ${summary.stored} opgeslagen, ${summary.strong} met score 70 of hoger.`);
+    ctx.log(`${summary.scored} scored, ${summary.stored} stored, ${summary.strong} with a score of 70 or higher.`);
   },
 });

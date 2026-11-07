@@ -7,9 +7,9 @@ import { requireClient } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 
 const reviewSchema = z.object({
-  applicationId: z.guid("Onbekende kandidaat."),
-  decision: z.enum(["approved", "rejected"], "Kies akkoord of afwijzen."),
-  feedback: z.string().max(2000, "Houd je feedback onder de 2000 tekens.").optional(),
+  applicationId: z.guid("Unknown candidate."),
+  decision: z.enum(["approved", "rejected"], "Choose approve or reject."),
+  feedback: z.string().max(2000, "Keep your feedback under 2,000 characters.").optional(),
 });
 
 /** Client approves or rejects a presented candidate, only through the RPC. */
@@ -19,7 +19,7 @@ export async function reviewApplication(_prev: ActionState, formData: FormData):
   const parsed = reviewSchema.safeParse(formValues(formData));
   if (!parsed.success) {
     const fieldErrors = fieldErrorsFrom(parsed.error);
-    return { error: fieldErrors.decision ?? fieldErrors.applicationId ?? "Controleer je invoer.", fieldErrors };
+    return { error: fieldErrors.decision ?? fieldErrors.applicationId ?? "Check your input.", fieldErrors };
   }
 
   const { applicationId, decision, feedback } = parsed.data;
@@ -32,8 +32,8 @@ export async function reviewApplication(_prev: ActionState, formData: FormData):
 
   if (error) {
     return {
-      error: error.message.includes("Kandidaat niet gevonden")
-        ? "Je kunt je reactie op deze kandidaat niet meer aanpassen. Neem contact met ons op als je iets wilt wijzigen."
+      error: /Candidate not found|Kandidaat niet gevonden/.test(error.message)
+        ? "You can no longer change your response to this candidate. Contact us if you want to change something."
         : GENERIC_ERROR,
     };
   }
@@ -43,7 +43,7 @@ export async function reviewApplication(_prev: ActionState, formData: FormData):
     ok: true,
     message:
       decision === "approved"
-        ? "Dank je. We nemen contact met je op om de eindgesprekken te plannen."
-        : "Dank je voor je feedback. Die nemen we mee in onze selectie.",
+        ? "Thank you. We will contact you to schedule the final interviews."
+        : "Thank you for your feedback. We take it into account in our selection.",
   };
 }

@@ -18,7 +18,7 @@ export function hasClaude() {
 
 function getClient() {
   if (!process.env.ANTHROPIC_API_KEY) {
-    throw new Error("ANTHROPIC_API_KEY ontbreekt. Zet deze in de omgevingsvariabelen.");
+    throw new Error("ANTHROPIC_API_KEY is missing. Set it in the environment variables.");
   }
   client ??= new Anthropic();
   return client;
@@ -26,7 +26,7 @@ function getClient() {
 
 export class ClaudeRefusalError extends Error {
   constructor(public category: string | null) {
-    super(`Claude weigerde het verzoek${category ? ` (${category})` : ""}.`);
+    super(`Claude declined the request${category ? ` (${category})` : ""}.`);
   }
 }
 
@@ -68,7 +68,7 @@ export async function askJson<T extends z.ZodType>({
     throw new ClaudeRefusalError(response.stop_details?.category ?? null);
   }
   if (response.parsed_output == null) {
-    throw new Error(`Claude gaf geen geldige JSON terug (stop_reason: ${response.stop_reason}).`);
+    throw new Error(`Claude did not return valid JSON (stop_reason: ${response.stop_reason}).`);
   }
   return response.parsed_output as z.infer<T>;
 }

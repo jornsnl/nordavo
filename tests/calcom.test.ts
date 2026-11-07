@@ -62,9 +62,9 @@ test("parseCalWebhook keeps the original uid on a reschedule and skips the organ
 
 test("parseCalWebhook ignores other events and incomplete payloads", () => {
   assert.deepEqual(parseCalWebhook({ triggerEvent: "PING", payload: {} }), { ignored: "event PING" });
-  assert.deepEqual(parseCalWebhook({ triggerEvent: "BOOKING_CREATED", payload: { attendees: [] } }), { ignored: "geen booking uid" });
-  assert.deepEqual(parseCalWebhook({ nope: true }), { ignored: "onbekend formaat" });
+  assert.deepEqual(parseCalWebhook({ triggerEvent: "BOOKING_CREATED", payload: { attendees: [] } }), { ignored: "no booking uid" });
+  assert.deepEqual(parseCalWebhook({ nope: true }), { ignored: "unknown format" });
   assert.deepEqual(parseCalWebhook({ triggerEvent: "BOOKING_CANCELLED", payload: { uid: "x", attendees: [] } }), {
-    ignored: "geen deelnemer met mailadres",
+    ignored: "no attendee with an e-mail address",
   });
 });

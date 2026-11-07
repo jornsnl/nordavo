@@ -13,7 +13,7 @@ De eigen talentenpool gaf te weinig sterke matches voor een vacature. Maak een z
 - titles: 4 tot 8 functietitels zoals ze in India op profielen staan (bijvoorbeeld "Senior Software Engineer", "SDE 2", "Data Engineer II").
 - locations: steden in volgorde van voorkeur. Altijd Bangalore (Bengaluru) eerst, daarna steden van waaruit mensen bereid zijn te verhuizen naar Bangalore.
 - min_years: minimaal aantal jaren ervaring om op te filteren.
-- notes: maximaal drie korte tips in het Nederlands voor de recruiter (bijvoorbeeld waar de must haves het moeilijkst te vinden zijn).
+- notes: maximaal drie korte tips in het Engels voor de recruiter (bijvoorbeeld waar de must haves het moeilijkst te vinden zijn).
 
 Baseer alles op de vaste eisen. Verzin geen eisen die er niet staan.`;
 

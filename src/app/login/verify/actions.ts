@@ -22,7 +22,7 @@ export async function verifyCode(_prev: VerifyState, formData: FormData): Promis
     code: String(formData.get("code") ?? "").replace(/\s/g, ""),
   });
   if (!parsed.success) {
-    return { error: "Vul de 6 cijfers uit je authenticator app in." };
+    return { error: "Enter the 6 digits from your authenticator app." };
   }
 
   const supabase = await createClient();
@@ -40,16 +40,16 @@ export async function verifyCode(_prev: VerifyState, formData: FormData): Promis
   if (error) {
     console.error("verifyCode", error.code, error.message);
     if (error.status === 429) {
-      return { error: "Te veel pogingen. Wacht een paar minuten en probeer het opnieuw." };
+      return { error: "Too many attempts. Wait a few minutes and try again." };
     }
     switch (error.code) {
       case "mfa_verification_failed":
       case "mfa_verification_rejected":
-        return { error: "Deze code klopt niet. Gebruik de code die nu in je app staat." };
+        return { error: "This code is not correct. Use the code your app shows now." };
       case "mfa_challenge_expired":
-        return { error: "De code is verlopen. Vul de nieuwe code uit je app in." };
+        return { error: "The code has expired. Enter the new code from your app." };
       case "mfa_factor_not_found":
-        return { error: "Deze authenticator app staat niet meer op je account. Log uit en log opnieuw in." };
+        return { error: "This authenticator app is no longer on your account. Sign out and sign in again." };
       default:
         return { error: GENERIC_ERROR };
     }

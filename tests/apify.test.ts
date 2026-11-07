@@ -170,7 +170,7 @@ test("runActorSync posts the input and returns items", async () => {
 test("runActorSync fails loudly on errors and odd bodies", async () => {
   process.env.APIFY_TOKEN = "test-token";
   globalThis.fetch = async () => new Response("timeout", { status: 408 });
-  await assert.rejects(runActorSync("user~actor", {}), /Verlaag --limit/);
+  await assert.rejects(runActorSync("user~actor", {}), /Lower --limit/);
   globalThis.fetch = async () => new Response(JSON.stringify({ data: {} }), { status: 200 });
-  await assert.rejects(runActorSync("user~actor", {}), /geen lijst/);
+  await assert.rejects(runActorSync("user~actor", {}), /did not return a list/);
 });

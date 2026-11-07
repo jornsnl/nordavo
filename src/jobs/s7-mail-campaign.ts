@@ -9,9 +9,9 @@ import { hasInstantly } from "@/lib/integrations/instantly";
  */
 export const s7MailCampaign = defineJob({
   name: "s7-mail-campaign",
-  description: "S7: mailcampagnes in Instantly vullen, één per signaaltype",
+  description: "S7: fill mail campaigns in Instantly, one per signal type",
   run: async (ctx) => {
-    if (!hasInstantly()) throw new Error("INSTANTLY_API_KEY ontbreekt. Zet de API key van Instantly in de omgeving.");
+    if (!hasInstantly()) throw new Error("INSTANTLY_API_KEY is missing. Set the Instantly API key in the environment.");
     const filter = parseListFilter(ctx.params, 100);
     const variant = (ctx.params.variant ?? "v1").trim().slice(0, 40) || "v1";
     ctx.meta.filter = filterToJson(filter, { variant });

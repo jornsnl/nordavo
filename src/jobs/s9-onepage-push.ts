@@ -5,21 +5,22 @@ import { pushContactToCrm, requireOnePage } from "@/lib/integrations/onepage";
 /**
  * S9 push: contacts that earned a place in OnePageCRM (hard rule 8).
  * Triggers: a positive reply, a booked meeting, or a manual mark (the latest
- * activity is a note starting with "Naar CRM"). The sales UI pushes directly
+ * activity is a note starting with "To CRM", or the older Dutch "Naar CRM").
+ * The sales UI pushes directly
  * with pushContactToCrm; this job is the daily safety net.
  *
  * Params: --limit=100 (contacts per run), --days=60 (how far back to look).
  */
 
 const triggerLabels: Record<string, string> = {
-  reply_positief: "positieve reply",
-  afspraak: "afspraak geboekt",
-  afspraak_goedgekeurd: "afspraak goedgekeurd",
+  reply_positief: "positive reply",
+  afspraak: "meeting booked",
+  afspraak_goedgekeurd: "meeting approved",
 };
 
 export const s9OnepagePush = defineJob({
   name: "s9-onepage-push",
-  description: "S9: gekwalificeerde contacten naar OnePageCRM",
+  description: "S9: qualified contacts to OnePageCRM",
   run: async (ctx) => {
     requireOnePage();
     const limit = Number(ctx.params.limit) || 100;
@@ -38,12 +39,12 @@ export const s9OnepagePush = defineJob({
       .limit(limit * 3);
     if (error) throw error;
 
-    // 2. Manual marks: a note starting with "Naar CRM" that is still the latest activity.
+    // 2. Manual marks: a note starting with "To CRM" (or "Naar CRM") that is still the latest activity.
     const { data: marks, error: markError } = await ctx.db
       .from("activities")
       .select("id, contact_id, notes, date, contact:contacts!inner(id, onepage_id, status, company:companies!inner(icp_decision))")
       .eq("outcome", "notitie")
-      .ilike("notes", "Naar CRM%")
+      .or('notes.ilike."To CRM%",notes.ilike."Naar CRM%"')
       .not("contact_id", "is", null)
       .gte("date", since)
       .order("date", { ascending: false })
@@ -65,8 +66,8 @@ export const s9OnepagePush = defineJob({
         .limit(1)
         .maybeSingle();
       if (latest?.id !== mark.id) continue;
-      const note = mark.notes?.replace(/^Naar CRM[:\s]*/i, "").trim();
-      queue.set(mark.contact_id, { reason: note || "handmatig gemarkeerd", qualified: qualified(mark.contact) });
+      const note = mark.notes?.replace(/^(To|Naar) CRM[:\s]*/i, "").trim();
+      queue.set(mark.contact_id, { reason: note || "marked by hand", qualified: qualified(mark.contact) });
     }
     for (const row of triggered ?? []) {
       if (!row.contact_id || queue.has(row.contact_id)) continue;
@@ -76,7 +77,7 @@ export const s9OnepagePush = defineJob({
     const items = [...queue.entries()].slice(0, limit);
     ctx.countIn(items.length);
     const skipped = items.filter(([, item]) => !item.qualified).map(([id]) => id);
-    if (skipped.length) ctx.log(`${skipped.length} contacten overgeslagen: bedrijf niet GO of contact nog niet gekwalificeerd (regel 8).`);
+    if (skipped.length) ctx.log(`${skipped.length} contacts skipped: company not GO or contact not qualified yet (rule 8).`);
 
     const pushed: string[] = [];
     await forEachSafe(
@@ -93,6 +94,6 @@ export const s9OnepagePush = defineJob({
     ctx.meta.pushed = pushed.length;
     ctx.meta.skipped_not_qualified = skipped.length;
     ctx.meta.skipped_contact_ids = skipped.slice(0, 50) as unknown as Json;
-    ctx.log(`${pushed.length} contacten naar OnePageCRM.`);
+    ctx.log(`${pushed.length} contacts to OnePageCRM.`);
   },
 });

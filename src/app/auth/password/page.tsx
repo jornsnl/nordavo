@@ -8,7 +8,7 @@ import { setPassword } from "./actions";
 import { SetPasswordForm } from "./set-password-form";
 
 export const metadata: Metadata = {
-  title: "Wachtwoord instellen",
+  title: "Set password",
 };
 
 export default function SetPasswordPage() {
@@ -26,29 +26,29 @@ export default function SetPasswordPage() {
         <div className="relative max-w-lg">
           <p className="mb-4 inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3 py-1 text-xs font-medium tracking-wide text-brand-100">
             <span className="size-1.5 rounded-full bg-accent-500" />
-            Bijna klaar
+            Almost done
           </p>
           <h1 className="font-display text-4xl leading-tight font-bold tracking-tight xl:text-5xl">
-            Nog één stap en je kunt aan de slag.
+            One more step and you are ready to go.
           </h1>
           <p className="mt-5 text-lg leading-relaxed text-brand-100/80">
-            Kies een wachtwoord. Daarna log je voortaan in met je e-mailadres en dit wachtwoord.
+            Choose a password. From then on you sign in with your e-mail address and this password.
           </p>
         </div>
 
         <ul className="relative grid gap-5 xl:grid-cols-2">
           <li className="rounded-2xl border border-white/10 bg-white/[0.04] p-5 backdrop-blur-sm">
             <KeyRound className="mb-3 size-5 text-accent-500" aria-hidden="true" />
-            <p className="font-display text-sm font-semibold">Minimaal 8 tekens</p>
+            <p className="font-display text-sm font-semibold">At least 8 characters</p>
             <p className="mt-1 text-sm leading-relaxed text-brand-100/70">
-              Een zin van een paar woorden is sterk en makkelijk te onthouden.
+              A sentence of a few words is strong and easy to remember.
             </p>
           </li>
           <li className="rounded-2xl border border-white/10 bg-white/[0.04] p-5 backdrop-blur-sm">
             <ShieldCheck className="mb-3 size-5 text-accent-500" aria-hidden="true" />
-            <p className="font-display text-sm font-semibold">Alleen voor jou</p>
+            <p className="font-display text-sm font-semibold">Just for you</p>
             <p className="mt-1 text-sm leading-relaxed text-brand-100/70">
-              Gebruik het nergens anders en deel het met niemand, ook niet met ons.
+              Do not use it anywhere else and share it with no one, not even us.
             </p>
           </li>
         </ul>
@@ -61,7 +61,7 @@ export default function SetPasswordPage() {
             <Logo className="mb-8 sm:mb-12 lg:hidden" />
 
             <h2 className="font-display text-[1.75rem] leading-tight font-bold tracking-tight text-brand-900 sm:text-3xl">
-              Wachtwoord instellen
+              Set password
             </h2>
 
             <Suspense fallback={<FormSkeleton />}>
@@ -70,7 +70,7 @@ export default function SetPasswordPage() {
           </div>
 
           <p className="mt-8 text-sm text-muted max-sm:pt-2 max-sm:text-center">
-            Lukt het niet? Mail naar{" "}
+            Not working? Mail{" "}
             <a
               href="mailto:info@nordavo.nl"
               className="font-medium text-brand-600 underline-offset-4 hover:underline"
@@ -91,7 +91,7 @@ async function SetPassword() {
   return (
     <>
       <p className="mt-2 text-muted">
-        Hoi {user.name.split(" ")[0]}, kies een wachtwoord voor{" "}
+        Hi {user.name.split(" ")[0]}, choose a password for{" "}
         <span className="font-medium text-ink">{user.email}</span>.
       </p>
       <div className="mt-8">
@@ -103,7 +103,7 @@ async function SetPassword() {
 
 function FormSkeleton() {
   return (
-    <div className="mt-8 space-y-5" aria-busy="true" aria-label="Laden">
+    <div className="mt-8 space-y-5" aria-busy="true" aria-label="Loading">
       <span className="block h-4 w-64 animate-pulse rounded bg-brand-100" />
       <span className="block h-12 w-full animate-pulse rounded-xl bg-brand-100" />
       <span className="block h-12 w-full animate-pulse rounded-xl bg-brand-100" />

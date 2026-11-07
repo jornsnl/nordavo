@@ -21,14 +21,17 @@ export type ActivityItem = {
   id: number;
   entityType: string;
   entityId: string;
-  /** Dutch name of the record type, e.g. "Kandidaat". */
+  /** Name of the record type, e.g. "Candidate". */
   typeLabel: string;
   action: ActivityAction;
-  /** Short Dutch verb phrase, e.g. "status gewijzigd". */
+  /** Short verb phrase, e.g. "status changed". */
   verb: string;
-  /** Extra detail, e.g. "van Lead naar Actief" or "Gewijzigd: naam, website". */
+  /** Extra detail, e.g. "from Lead to Active" or "Changed: name, website". */
   detail: string | null;
-  /** The summary stored by the database trigger, includes the record name at that time. */
+  /**
+   * "<record name at the time> <verb>": the summary the database trigger
+   * stored, with the verb in English, also for older Dutch rows.
+   */
   summary: string;
   record: RecordLink | null;
   actorName: string | null;
@@ -37,59 +40,59 @@ export type ActivityItem = {
 
 const typeLabels: Record<string, string> = {
   ...Object.fromEntries(Object.entries(entityTypes).map(([key, value]) => [key, value.label])),
-  task: "Taak",
+  task: "Task",
 };
 
 const fieldLabels: Record<string, string> = {
-  name: "naam",
-  title: "titel",
-  full_name: "naam",
+  name: "name",
+  title: "title",
+  full_name: "name",
   website: "website",
-  industry: "branche",
-  city: "plaats",
-  notes: "notities",
-  owner_id: "eigenaar",
-  client_id: "klant",
-  description: "omschrijving",
+  industry: "industry",
+  city: "city",
+  notes: "notes",
+  owner_id: "owner",
+  client_id: "client",
+  description: "description",
   stack: "stack",
-  seniority: "senioriteit",
-  monthly_budget: "maandbudget",
-  desired_start_date: "gewenste startdatum",
-  opened_at: "geopend op",
-  closed_at: "gesloten op",
-  email: "e-mailadres",
-  phone: "telefoon",
-  location: "locatie",
-  current_title: "huidige functie",
-  years_experience: "jaren ervaring",
-  skills: "vaardigheden",
+  seniority: "seniority",
+  monthly_budget: "monthly budget",
+  desired_start_date: "desired start date",
+  opened_at: "opened on",
+  closed_at: "closed on",
+  email: "e-mail address",
+  phone: "phone",
+  location: "location",
+  current_title: "current title",
+  years_experience: "years of experience",
+  skills: "skills",
   linkedin_url: "LinkedIn",
   video_url: "video",
-  cv_path: "cv",
-  summary: "samenvatting",
+  cv_path: "CV",
+  summary: "summary",
   status: "status",
-  stage: "fase",
-  technical_score: "technische score",
-  english_score: "Engelse score",
-  assessment_notes: "assessmentnotities",
-  presented_at: "voorgesteld op",
-  client_decision: "beslissing klant",
-  client_feedback: "feedback klant",
-  client_decided_at: "beslist op",
-  rejection_reason: "reden afwijzing",
-  candidate_id: "kandidaat",
-  vacancy_id: "vacature",
-  application_id: "sollicitatie",
-  start_date: "startdatum",
-  end_date: "einddatum",
-  monthly_rate: "maandtarief",
-  notice_given_at: "opgezegd op",
-  next_checkin_at: "volgende check-in",
-  priority: "prioriteit",
+  stage: "stage",
+  technical_score: "technical score",
+  english_score: "English score",
+  assessment_notes: "assessment notes",
+  presented_at: "presented on",
+  client_decision: "client decision",
+  client_feedback: "client feedback",
+  client_decided_at: "decided on",
+  rejection_reason: "rejection reason",
+  candidate_id: "candidate",
+  vacancy_id: "vacancy",
+  application_id: "application",
+  start_date: "start date",
+  end_date: "end date",
+  monthly_rate: "monthly rate",
+  notice_given_at: "notice given on",
+  next_checkin_at: "next check-in",
+  priority: "priority",
   due_date: "deadline",
-  assignee_id: "toegewezen aan",
-  entity_type: "gekoppeld record",
-  entity_id: "gekoppeld record",
+  assignee_id: "assignee",
+  entity_type: "linked record",
+  entity_id: "linked record",
 };
 
 /** Fields that change as a side effect and say nothing on their own. */
@@ -107,7 +110,7 @@ function statusLabel(entityType: string, value: string) {
 }
 
 function valueLabel(entityType: string, field: string, value: Json | undefined): string {
-  if (value === null || value === undefined || value === "") return "leeg";
+  if (value === null || value === undefined || value === "") return "empty";
   if (typeof value !== "string") return String(value);
   if (field === "status") return statusLabel(entityType, value);
   if (field === "stage") return applicationStages.find((o) => o.value === value)?.label ?? value;
@@ -131,7 +134,7 @@ function asChanges(changes: Json): Record<string, Change> {
   return result;
 }
 
-/** Turn a raw activity row into a Dutch verb and detail line. */
+/** Turn a raw activity row into a verb and detail line. */
 export function describeActivity(
   entityType: string,
   action: ActivityAction,
@@ -141,7 +144,7 @@ export function describeActivity(
   const fromTo = (field: string) => {
     const change = changes[field];
     if (!change) return null;
-    return `van ${valueLabel(entityType, field, change.from)} naar ${valueLabel(entityType, field, change.to)}`;
+    return `from ${valueLabel(entityType, field, change.from)} to ${valueLabel(entityType, field, change.to)}`;
   };
   const otherFields = (skip: string[]) => {
     const names = [
@@ -157,33 +160,64 @@ export function describeActivity(
   // A contact added by hand to a lead (trigger log_manual_contact).
   if (action === "updated" && changes.contact_added) {
     const name = changes.contact_added.to;
-    return { verb: "contact toegevoegd", detail: typeof name === "string" && name ? name : null };
+    // Rows from before the English messages migration say "Onbekend" for a contact without name or e-mail.
+    const detail = typeof name === "string" && name ? name.replace(/^Onbekend(?=,|$)/, "Unknown") : null;
+    return { verb: "contact added", detail };
   }
 
   switch (action) {
     case "created":
-      return { verb: "aangemaakt", detail: null };
+      return { verb: "created", detail: null };
     case "deleted":
-      return { verb: "verwijderd", detail: null };
+      return { verb: "deleted", detail: null };
     case "stage_changed": {
       const others = otherFields(["stage"]);
       return {
-        verb: "fase gewijzigd",
-        detail: [fromTo("stage"), others && `ook gewijzigd: ${others}`].filter(Boolean).join(". ") || null,
+        verb: "stage changed",
+        detail: [fromTo("stage"), others && `also changed: ${others}`].filter(Boolean).join(". ") || null,
       };
     }
     case "status_changed": {
       const others = otherFields(["status"]);
       return {
-        verb: "status gewijzigd",
-        detail: [fromTo("status"), others && `ook gewijzigd: ${others}`].filter(Boolean).join(". ") || null,
+        verb: "status changed",
+        detail: [fromTo("status"), others && `also changed: ${others}`].filter(Boolean).join(". ") || null,
       };
     }
     default: {
       const fields = otherFields([]);
-      return { verb: "bijgewerkt", detail: fields ? `Gewijzigd: ${fields}` : null };
+      return { verb: "updated", detail: fields ? `Changed: ${fields}` : null };
     }
   }
+}
+
+/**
+ * Verbs the activity triggers append to the summary: the English ones, and
+ * the Dutch ones of rows written before migration 20261107040000.
+ */
+const SUMMARY_VERBS = [
+  "contact added",
+  "stage changed",
+  "status changed",
+  "created",
+  "deleted",
+  "updated",
+  "contact toegevoegd",
+  "fase gewijzigd",
+  "status gewijzigd",
+  "aangemaakt",
+  "verwijderd",
+  "bijgewerkt",
+];
+
+/** The record name in a stored summary, without the verb. */
+export function summaryRecordName(summary: string): string {
+  const trimmed = summary.trim();
+  for (const verb of SUMMARY_VERBS) {
+    if (trimmed === verb) return "";
+    if (trimmed.endsWith(` ${verb}`)) return trimmed.slice(0, -verb.length - 1).trim();
+  }
+  return trimmed;
 }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -217,7 +251,7 @@ async function toActivityItems(rows: ActivityRow[]): Promise<ActivityItem[]> {
       action: r.action,
       verb,
       detail,
-      summary: r.summary,
+      summary: [summaryRecordName(r.summary), verb].filter(Boolean).join(" "),
       record: records.get(recordKey(r.entity_type, r.entity_id)) ?? null,
       actorName: r.actor?.full_name || r.actor?.email || null,
       createdAt: r.created_at,
@@ -234,7 +268,7 @@ export async function listRecentActivity(limit: number): Promise<ActivityItem[]>
     .select(ACTIVITY_COLUMNS)
     .order("created_at", { ascending: false })
     .limit(limit);
-  if (error) throw new Error(`Activiteit laden mislukt: ${error.message}`);
+  if (error) throw new Error(`Could not load activity: ${error.message}`);
   return toActivityItems(data);
 }
 
@@ -283,6 +317,6 @@ export async function listEntityActivity(
     .or(filters.join(","))
     .order("created_at", { ascending: false })
     .limit(limit);
-  if (error) throw new Error(`Activiteit laden mislukt: ${error.message}`);
+  if (error) throw new Error(`Could not load activity: ${error.message}`);
   return toActivityItems(data);
 }

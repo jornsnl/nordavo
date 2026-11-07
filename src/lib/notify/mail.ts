@@ -19,7 +19,7 @@ export async function sendMail({
   const apiKey = process.env.RESEND_API_KEY;
   const from = process.env.MAIL_FROM;
   if (!apiKey || !from || !to) {
-    console.warn(`[mail] niet verstuurd (RESEND_API_KEY, MAIL_FROM of REPORT_EMAIL_TO ontbreekt): ${subject}`);
+    console.warn(`[mail] not sent (RESEND_API_KEY, MAIL_FROM or REPORT_EMAIL_TO missing): ${subject}`);
     return false;
   }
 
@@ -29,7 +29,7 @@ export async function sendMail({
     body: JSON.stringify({ from, to: to.split(",").map((a) => a.trim()), subject, html, text }),
   });
   if (!response.ok) {
-    console.error(`[mail] versturen mislukt (${response.status}): ${await response.text()}`);
+    console.error(`[mail] sending failed (${response.status}): ${await response.text()}`);
     return false;
   }
   return true;

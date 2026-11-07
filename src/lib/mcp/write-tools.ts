@@ -47,13 +47,13 @@ async function isStaffMember(db: McpDb, userId: string) {
 /** Only called for tokens with write access; every handler checks again. */
 export function registerWriteTools(server: McpServer, ctx: McpToolContext) {
   const { db } = ctx;
-  const denied = () => fail("Dit token mag alleen lezen. Maak een token met schrijfrechten aan onder Instellingen.");
+  const denied = () => fail("This token can only read. Create a token with write access under Settings.");
 
   // -------------------------------------------------------------------------
   server.registerTool(
     "create_task",
     {
-      title: "Taak aanmaken",
+      title: "Create task",
       description:
         "Create a task in Nordavo, optionally linked to a record. Assigned to the token owner unless assignee_id is given. Only call after the user asked for it.",
       inputSchema: {
@@ -69,13 +69,13 @@ export function registerWriteTools(server: McpServer, ctx: McpToolContext) {
     },
     async ({ title, description, priority, due_date, assignee_id, entity_type, entity_id }) => {
       if (ctx.access !== "write") return denied();
-      if (Boolean(entity_type) !== Boolean(entity_id)) return fail("Geef entity_type en entity_id samen op.");
+      if (Boolean(entity_type) !== Boolean(entity_id)) return fail("Give entity_type and entity_id together.");
       if (entity_type && entity_id && !(await recordExists(db, entity_type, entity_id))) {
-        return fail("Het gekoppelde record bestaat niet.");
+        return fail("The linked record does not exist.");
       }
       const assignee = assignee_id ?? ctx.userId;
       if (assignee !== ctx.userId && !(await isStaffMember(db, assignee))) {
-        return fail("assignee_id is geen teamlid van Nordavo.");
+        return fail("assignee_id is not a Nordavo team member.");
       }
 
       const since = attributionStart();
@@ -95,7 +95,7 @@ export function registerWriteTools(server: McpServer, ctx: McpToolContext) {
         })
         .select("id, title, status, priority, due_date, assignee_id, entity_type, entity_id")
         .single();
-      if (error) return fail(`Taak aanmaken mislukt: ${error.message}`);
+      if (error) return fail(`Could not create task: ${error.message}`);
 
       await attributeActivity(db, "task", data.id, ctx.userId, since);
       return ok({ created: data, url: recordUrl(ctx.siteUrl, "task", data.id) });
@@ -106,7 +106,7 @@ export function registerWriteTools(server: McpServer, ctx: McpToolContext) {
   server.registerTool(
     "update_task_status",
     {
-      title: "Taakstatus wijzigen",
+      title: "Change task status",
       description: "Set the status of a task: todo, in_progress or done. Only call after the user asked for it.",
       inputSchema: {
         id: idSchema.describe("Task id."),
@@ -123,8 +123,8 @@ export function registerWriteTools(server: McpServer, ctx: McpToolContext) {
         .eq("id", id)
         .select("id, title, status, completed_at")
         .maybeSingle();
-      if (error) return fail(`Taak bijwerken mislukt: ${error.message}`);
-      if (!data) return fail("Taak niet gevonden.");
+      if (error) return fail(`Could not update task: ${error.message}`);
+      if (!data) return fail("Task not found.");
 
       await attributeActivity(db, "task", data.id, ctx.userId, since);
       return ok({ updated: data });
@@ -135,7 +135,7 @@ export function registerWriteTools(server: McpServer, ctx: McpToolContext) {
   server.registerTool(
     "add_note",
     {
-      title: "Notitie toevoegen",
+      title: "Add note",
       description:
         "Add a note to a client, vacancy, candidate, application, placement or GTM company, written as the token owner. Only call after the user asked for it.",
       inputSchema: {
@@ -147,14 +147,14 @@ export function registerWriteTools(server: McpServer, ctx: McpToolContext) {
     },
     async ({ entity_type, entity_id, body }) => {
       if (ctx.access !== "write") return denied();
-      if (!(await recordExists(db, entity_type, entity_id))) return fail("Het record bestaat niet.");
+      if (!(await recordExists(db, entity_type, entity_id))) return fail("The record does not exist.");
 
       const { data, error } = await db
         .from("notes")
         .insert({ entity_type, entity_id, body, author_id: ctx.userId })
         .select("id, entity_type, entity_id, created_at")
         .single();
-      if (error) return fail(`Notitie toevoegen mislukt: ${error.message}`);
+      if (error) return fail(`Could not add note: ${error.message}`);
       return ok({ created: data, url: recordUrl(ctx.siteUrl, entity_type, entity_id) });
     },
   );

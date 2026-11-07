@@ -7,7 +7,7 @@ import { useWebAuthnSupport } from "@/components/settings/security/passkey-suppo
 import { finishPasskeySignIn, startPasskeySignIn } from "./passkey-actions";
 
 /**
- * "Inloggen met passkey" under the password form; above it on phones.
+ * "Sign in with a passkey" under the password form; above it on phones.
  * Hidden when the browser has no passkey support. Reads ?next= only on
  * click, so it needs no Suspense boundary and renders with the page.
  */
@@ -35,7 +35,7 @@ export function PasskeySignIn() {
         if (cause instanceof Error && (cause.name === "NotAllowedError" || cause.name === "AbortError")) {
           return;
         }
-        setError("Inloggen met een passkey lukt niet op dit apparaat. Log in met je wachtwoord.");
+        setError("Signing in with a passkey does not work on this device. Sign in with your password.");
         return;
       }
 
@@ -52,7 +52,7 @@ export function PasskeySignIn() {
       <div className="flex items-center gap-3 text-xs font-medium tracking-wide text-muted uppercase">
         <span className="h-px flex-1 bg-border" aria-hidden="true" />
         <span>
-          of<span className="sm:hidden"> met je wachtwoord</span>
+          or<span className="sm:hidden"> with your password</span>
         </span>
         <span className="h-px flex-1 bg-border" aria-hidden="true" />
       </div>
@@ -76,12 +76,12 @@ export function PasskeySignIn() {
         {pending ? (
           <>
             <LoaderCircle className="size-5 animate-spin" aria-hidden="true" />
-            Bezig met inloggen
+            Signing in
           </>
         ) : (
           <>
             <KeyRound className="size-5" aria-hidden="true" />
-            Inloggen met passkey
+            Sign in with a passkey
           </>
         )}
       </button>

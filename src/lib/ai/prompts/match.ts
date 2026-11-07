@@ -11,8 +11,8 @@ Je krijgt de vaste eisen van de vacature en een lijst kandidaten. Elke kandidaat
 
 Geef voor elke kandidaat precies één beoordeling terug met dezelfde ref:
 - score: geheel getal van 0 tot 100. Opbouw: must haves en stack (50), relevante ervaring en senioriteit (25), type projecten en sector (10), Engels en beschikbaarheid (15). 70 of hoger betekent: zou je met een gerust hart aan de klant voorstellen. Ontbreekt een must have, dan maximaal 65.
-- reason: maximaal twee zinnen in het Nederlands, concreet: waarom deze kandidaat wel of niet past.
-- risks: korte punten in het Nederlands (bijvoorbeeld "Engels niveau onbekend", "weinig ervaring met grote datasets", "pas over 2 maanden beschikbaar"). Leeg als er geen risico's zijn.
+- reason: maximaal twee zinnen in het Engels (alleen het team van Nordavo leest dit), concreet: waarom deze kandidaat wel of niet past.
+- risks: korte punten in het Engels (bijvoorbeeld "English level unknown", "little experience with large datasets", "available only in 2 months"). Leeg als er geen risico's zijn.
 - missing: de must haves uit de vacature die je niet terugziet bij de kandidaat, in de bewoording van de vacature. Leeg als alles er is.
 
 Beoordeel alleen op de gegeven gegevens. Ontbreekt informatie, noem dat als risico en geef geen hoge score op aannames. Noem geen namen of werkgevers.`;

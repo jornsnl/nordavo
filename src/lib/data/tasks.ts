@@ -81,8 +81,8 @@ export async function listStaff(): Promise<StaffMember[]> {
     .select("id, full_name, email")
     .in("role", ["admin", "member"])
     .order("full_name");
-  if (error) throw new Error(`Teamleden laden mislukt: ${error.message}`);
-  return data.map((p) => ({ id: p.id, name: p.full_name || p.email || "Onbekend" }));
+  if (error) throw new Error(`Could not load team members: ${error.message}`);
+  return data.map((p) => ({ id: p.id, name: p.full_name || p.email || "Unknown" }));
 }
 
 /**
@@ -122,8 +122,8 @@ export async function listTasks({
   }
 
   const [openResult, doneResult] = await Promise.all([open, done]);
-  if (openResult.error) throw new Error(`Taken laden mislukt: ${openResult.error.message}`);
-  if (doneResult.error) throw new Error(`Taken laden mislukt: ${doneResult.error.message}`);
+  if (openResult.error) throw new Error(`Could not load tasks: ${openResult.error.message}`);
+  if (doneResult.error) throw new Error(`Could not load tasks: ${doneResult.error.message}`);
 
   const doneSorted = [...doneResult.data].sort((a, b) => a.position - b.position);
   return toTaskItems([...openResult.data, ...doneSorted]);
@@ -141,7 +141,7 @@ export async function listTasksForEntity(entityType: EntityType, entityId: strin
     .order("due_date", { ascending: true, nullsFirst: false })
     .order("created_at")
     .limit(100);
-  if (error) throw new Error(`Taken laden mislukt: ${error.message}`);
+  if (error) throw new Error(`Could not load tasks: ${error.message}`);
 
   const items = await toTaskItems(data, false);
   return [...items.filter((t) => t.status !== "done"), ...items.filter((t) => t.status === "done")];
@@ -159,7 +159,7 @@ export async function listMyOpenTasks(limit: number) {
     .order("due_date", { ascending: true, nullsFirst: false })
     .order("created_at")
     .limit(limit);
-  if (error) throw new Error(`Taken laden mislukt: ${error.message}`);
+  if (error) throw new Error(`Could not load tasks: ${error.message}`);
   const rank = { high: 0, normal: 1, low: 2 } as const;
   const tasks = (await toTaskItems(data)).sort(
     (a, b) =>

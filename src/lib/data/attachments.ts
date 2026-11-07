@@ -23,14 +23,14 @@ export async function listAttachments(entityType: EntityType, entityId: string):
     .eq("entity_id", entityId)
     .order("created_at", { ascending: false })
     .limit(200);
-  if (error) throw new Error(`Bijlagen laden mislukt: ${error.message}`);
+  if (error) throw new Error(`Could not load attachments: ${error.message}`);
 
   return data.map((a) => ({
     id: a.id,
     fileName: a.file_name,
     mimeType: a.mime_type,
     sizeBytes: a.size_bytes,
-    uploaderName: a.uploader?.full_name || a.uploader?.email || "Onbekend",
+    uploaderName: a.uploader?.full_name || a.uploader?.email || "Unknown",
     createdAt: a.created_at,
   }));
 }

@@ -252,7 +252,7 @@ export async function importLeadRows(
       const email = cell(row, mapping.email);
       const domain = domainForRow(cell(row, mapping.domain), email);
       if (!domain) {
-        result.skipped.push({ row: rowNumber, reason: "Geen bruikbaar domein of website" });
+        result.skipped.push({ row: rowNumber, reason: "No usable domain or website" });
         continue;
       }
 
@@ -334,7 +334,7 @@ export async function importLeadRows(
     } catch (error) {
       result.skipped.push({
         row: rowNumber,
-        reason: `Fout: ${error instanceof Error ? error.message : String((error as { message?: string })?.message ?? error)}`.slice(0, 300),
+        reason: `Error: ${error instanceof Error ? error.message : String((error as { message?: string })?.message ?? error)}`.slice(0, 300),
       });
     }
   }

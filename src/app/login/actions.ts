@@ -18,7 +18,7 @@ export async function login(
   const password = String(formData.get("password") ?? "");
 
   if (!email || !password) {
-    return { error: "Vul je e-mailadres en wachtwoord in.", email };
+    return { error: "Enter your e-mail address and password.", email };
   }
 
   const supabase = await createClient();
@@ -28,8 +28,8 @@ export async function login(
     return {
       error:
         error.code === "email_not_confirmed"
-          ? "Je e-mailadres is nog niet bevestigd. Check je inbox voor de uitnodiging."
-          : "Deze combinatie van e-mailadres en wachtwoord klopt niet.",
+          ? "Your e-mail address is not confirmed yet. Check your inbox for the invitation."
+          : "This e-mail address and password do not match.",
       email,
     };
   }

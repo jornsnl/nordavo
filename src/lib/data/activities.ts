@@ -39,7 +39,7 @@ export async function getCompanyActivities(
     .or(filter)
     .order("date", { ascending: false })
     .limit(limit);
-  if (error) throw new Error(`Activiteiten laden mislukt: ${error.message}`);
+  if (error) throw new Error(`Could not load activities: ${error.message}`);
 
   return data.map((a) => ({
     id: a.id,

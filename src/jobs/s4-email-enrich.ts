@@ -26,9 +26,9 @@ const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export const s4EmailEnrich = defineJob({
   name: "s4-email-enrich",
-  description: "S4: mailadressen zoeken en verifiëren via Prospeo",
+  description: "S4: find and verify e-mail addresses through Prospeo",
   run: async (ctx) => {
-    if (!hasProspeo()) throw new Error("PROSPEO_API_KEY ontbreekt. Zet deze in de omgevingsvariabelen.");
+    if (!hasProspeo()) throw new Error("PROSPEO_API_KEY is missing. Set it in the environment variables.");
     const limit = intParam(ctx, "limit", 100, 1000);
     const delay = intParam(ctx, "delay", 1200, 60_000);
     const retry = ctx.params.retry === "true";
@@ -45,7 +45,7 @@ export const s4EmailEnrich = defineJob({
     const { data: contacts, error } = await query;
     if (error) throw error;
     ctx.countIn(contacts.length);
-    ctx.log(`${contacts.length} contacten zonder mailadres bij GO-bedrijven`);
+    ctx.log(`${contacts.length} contacts without an e-mail address at GO companies`);
 
     const counts = { valid: 0, catch_all: 0, invalid: 0, unknown: 0, not_found: 0, skipped: 0 };
     let first = true;
@@ -90,7 +90,7 @@ export const s4EmailEnrich = defineJob({
       let savedId = contact.id;
       if (contact.linkedin_url) {
         const saved = await upsertContact(ctx.db, { ...identity, email: found.email, email_status: status }, SOURCE);
-        if (saved.id !== contact.id) ctx.log(`Let op: mailadres van ${contact.id} kwam bij contact ${saved.id} terecht`);
+        if (saved.id !== contact.id) ctx.log(`Note: the e-mail address of ${contact.id} ended up on contact ${saved.id}`);
         savedId = saved.id;
       } else {
         // Without a LinkedIn URL, upsertContact looks a person up by email and
@@ -125,8 +125,8 @@ export const s4EmailEnrich = defineJob({
 
     Object.assign(ctx.meta, counts);
     ctx.log(
-      `Gevonden: ${counts.valid} geldig, ${counts.catch_all} catch-all, ${counts.invalid} ongeldig, ${counts.unknown} onbekend; ` +
-        `${counts.not_found} niet gevonden, ${counts.skipped} overgeslagen`,
+      `Found: ${counts.valid} valid, ${counts.catch_all} catch-all, ${counts.invalid} invalid, ${counts.unknown} unknown; ` +
+        `${counts.not_found} not found, ${counts.skipped} skipped`,
     );
   },
 });

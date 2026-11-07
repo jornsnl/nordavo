@@ -9,7 +9,7 @@ import { sendMail } from "@/lib/notify/mail";
  */
 export const s10WeeklyReport = defineJob({
   name: "s10-weekly-report",
-  description: "S10: weekrapport naar Julius",
+  description: "S10: weekly report to Julius",
   run: async (ctx) => {
     const days = Number(ctx.params.days) || 7;
     const now = new Date();
@@ -36,9 +36,9 @@ export const s10WeeklyReport = defineJob({
     });
     ctx.meta.mail_sent = sent;
     if (!sent) {
-      throw new Error("Weekrapport niet verstuurd: controleer RESEND_API_KEY, MAIL_FROM en REPORT_EMAIL_TO. De cijfers staan in job_runs.meta.");
+      throw new Error("Weekly report not sent: check RESEND_API_KEY, MAIL_FROM and REPORT_EMAIL_TO. The numbers are in job_runs.meta.");
     }
     ctx.countOut();
-    ctx.log(`Weekrapport verstuurd: ${report.meetings} afspraken, ${report.warnings.length} waarschuwingen.`);
+    ctx.log(`Weekly report sent: ${report.meetings} meetings, ${report.warnings.length} warnings.`);
   },
 });

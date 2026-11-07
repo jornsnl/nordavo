@@ -5,7 +5,7 @@ import { MfaSection } from "@/components/settings/security/mfa-section";
 import { PasskeySection } from "@/components/settings/security/passkey-section";
 
 export const metadata: Metadata = {
-  title: "Beveiliging",
+  title: "Security",
 };
 
 /** Account security for client portal users: two-step verification and passkeys. */
@@ -13,9 +13,9 @@ export default function Page() {
   return (
     <>
       <div className="mb-6">
-        <h1 className="font-display text-2xl font-bold tracking-tight text-brand-900">Beveiliging</h1>
+        <h1 className="font-display text-2xl font-bold tracking-tight text-brand-900">Security</h1>
         <p className="mt-1 text-muted">
-          Bescherm je account met tweestapsverificatie of log voortaan in met een passkey.
+          Protect your account with two-step verification, or sign in with a passkey from now on.
         </p>
       </div>
       <div className="space-y-6">

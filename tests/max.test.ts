@@ -61,5 +61,5 @@ test("parseMaxCsv accepts other phone column names and infers the type", () => {
 
 test("parseMaxCsv fails clearly without the needed columns", () => {
   assert.throws(() => parseMaxCsv("firstname,phone\nJan,0612345678"), /LinkedIn/);
-  assert.throws(() => parseMaxCsv("person linkedin,name\nx,y"), /telefoonnummer/);
+  assert.throws(() => parseMaxCsv("person linkedin,name\nx,y"), /phone number/);
 });

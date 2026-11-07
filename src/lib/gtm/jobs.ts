@@ -46,7 +46,7 @@ export type JobResult = {
 
 export function requireJobDb(): JobDb {
   const db = createAdminClient();
-  if (!db) throw new Error("SUPABASE_SECRET_KEY ontbreekt: jobs schrijven met de service role.");
+  if (!db) throw new Error("SUPABASE_SECRET_KEY is missing: jobs write with the service role.");
   return db;
 }
 
@@ -101,7 +101,7 @@ export async function runJob(
     return { runId, status: "success", recordsIn, recordsOut, logs };
   } catch (error) {
     const message = error instanceof Error ? `${error.message}\n${error.stack ?? ""}` : String(error);
-    console.error(`[${job.name}] mislukt:`, error);
+    console.error(`[${job.name}] failed:`, error);
     if (runId) {
       await db
         .from("job_runs")
@@ -116,10 +116,10 @@ export async function runJob(
         .eq("id", runId);
     }
     await sendMail({
-      subject: `Nordavo job mislukt: ${job.name}`,
-      html: `<p>De job <strong>${escapeHtml(job.name)}</strong> is mislukt.</p>
+      subject: `Nordavo job failed: ${job.name}`,
+      html: `<p>The job <strong>${escapeHtml(job.name)}</strong> failed.</p>
 <pre style="white-space:pre-wrap">${escapeHtml(message.slice(0, 4000))}</pre>
-<p>Verwerkt: ${recordsIn} in, ${recordsOut} uit. Bekijk de details onder Beheer, Jobs.</p>`,
+<p>Processed: ${recordsIn} in, ${recordsOut} out. See the details in the portal under Jobs.</p>`,
     }).catch(() => false);
     return { runId, status: "failed", recordsIn, recordsOut, error: message, logs };
   }
@@ -140,7 +140,7 @@ export async function forEachSafe<T>(
       ok += 1;
     } catch (error) {
       failed += 1;
-      ctx.log(`Fout bij ${label(item)}: ${error instanceof Error ? error.message : String(error)}`);
+      ctx.log(`Error for ${label(item)}: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
   if (failed > 0) ctx.meta.failed_items = failed;

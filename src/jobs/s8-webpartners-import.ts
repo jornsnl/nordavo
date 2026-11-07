@@ -16,31 +16,31 @@ import { amsterdamDate, promoteContactStatus } from "@/lib/integrations/onepage"
  */
 export const s8WebpartnersImport = defineJob({
   name: "s8-webpartners-import",
-  description: "S8: afsprakensheet van Web Partners importeren",
+  description: "S8: import the Web Partners appointments sheet",
   run: async (ctx) => {
     const sheetId = process.env.WEBPARTNERS_APPOINTMENTS_SHEET_ID;
-    if (!sheetId) throw new Error("WEBPARTNERS_APPOINTMENTS_SHEET_ID ontbreekt: geen afsprakensheet om te importeren.");
-    if (!hasGoogleSheets()) throw new Error("GOOGLE_SERVICE_ACCOUNT_JSON ontbreekt: kan de sheet van Web Partners niet lezen.");
+    if (!sheetId) throw new Error("WEBPARTNERS_APPOINTMENTS_SHEET_ID is missing: no appointments sheet to import.");
+    if (!hasGoogleSheets()) throw new Error("GOOGLE_SERVICE_ACCOUNT_JSON is missing: cannot read the Web Partners sheet.");
 
     const range = ctx.params.range || "A1:Z";
     const limit = Number(ctx.params.limit) || 500;
     const sheet = await readSheet(sheetId, range);
     const { rows, missingHeaders } = parseWebPartnersRows(sheet);
     if (missingHeaders.length === 3) {
-      throw new Error("Afsprakensheet niet herkend: geen kolom bedrijf, naam of telefoon gevonden in de eerste rij.");
+      throw new Error("Appointments sheet not recognised: no company, name or phone column in the first row.");
     }
-    if (missingHeaders.length > 0) ctx.log(`Kolommen niet gevonden: ${missingHeaders.join(", ")}`);
+    if (missingHeaders.length > 0) ctx.log(`Columns not found: ${missingHeaders.join(", ")}`);
 
     const batch = rows.slice(0, limit);
     ctx.countIn(batch.length);
-    ctx.log(`${rows.length} afspraken in de sheet, ${batch.length} in deze run.`);
+    ctx.log(`${rows.length} appointments in the sheet, ${batch.length} in this run.`);
 
     const today = amsterdamDate();
     let created = 0;
     let updated = 0;
     const unmatched: { rij: number; bedrijf: string | null; naam: string | null; telefoon: string | null }[] = [];
 
-    await forEachSafe(ctx, batch, (row) => `rij ${row.rowNumber}`, async (row) => {
+    await forEachSafe(ctx, batch, (row) => `row ${row.rowNumber}`, async (row) => {
       const { data: existing, error: findError } = await ctx.db
         .from("activities")
         .select("id, outcome")
@@ -86,7 +86,7 @@ export const s8WebpartnersImport = defineJob({
         notes: notesFor(row),
         // The sheet date is the appointment; a future date means the call was today.
         date: row.date && row.date < today ? `${row.date}T12:00:00Z` : new Date().toISOString(),
-        next_action: row.outcome === "afspraak" && row.date && row.date >= today ? "Salesgesprek" : null,
+        next_action: row.outcome === "afspraak" && row.date && row.date >= today ? "Sales call" : null,
         next_action_date: row.outcome === "afspraak" && row.date && row.date >= today ? row.date : null,
         source: "webpartners",
         external_id: row.externalId,
@@ -103,13 +103,13 @@ export const s8WebpartnersImport = defineJob({
     ctx.meta.updated = updated;
     ctx.meta.unmatched_count = unmatched.length;
     ctx.meta.unmatched = unmatched.slice(0, 100) as unknown as Json;
-    ctx.log(`${created} nieuw, ${updated} bijgewerkt, ${unmatched.length} niet gekoppeld.`);
+    ctx.log(`${created} new, ${updated} updated, ${unmatched.length} not linked.`);
   },
 });
 
 function notesFor(row: WebPartnersRow) {
-  const parts = [row.reason ?? "Afspraak via Web Partners"];
-  if (row.date) parts.push(`Afspraak op ${row.date}`);
-  if (row.approval) parts.push(`Na de call ${row.approval}`);
+  const parts = [row.reason ?? "Meeting through Web Partners"];
+  if (row.date) parts.push(`Meeting on ${row.date}`);
+  if (row.approval) parts.push(`After the call: ${row.approval === "goedgekeurd" ? "approved" : "rejected"}`);
   return parts.join(". ");
 }

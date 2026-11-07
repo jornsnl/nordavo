@@ -48,7 +48,7 @@ function registerReadTools(server: McpServer, ctx: McpToolContext) {
   server.registerTool(
     "whoami",
     {
-      title: "Wie ben ik",
+      title: "Who am I",
       description:
         "Who this token belongs to (name, email, role) and whether it can only read or also write. Call this first if unsure which tools are allowed.",
       annotations: READ_ONLY,
@@ -70,7 +70,7 @@ function registerReadTools(server: McpServer, ctx: McpToolContext) {
   server.registerTool(
     "search",
     {
-      title: "Zoeken",
+      title: "Search",
       description:
         "Search the Nordavo portal by name or title across clients, vacancies, candidates (name, title), placements (by candidate name), GTM companies (name, domain) and GTM contacts (name, email). Returns ids to use with the get_* tools.",
       inputSchema: {
@@ -82,7 +82,7 @@ function registerReadTools(server: McpServer, ctx: McpToolContext) {
     },
     async ({ query, types, limit }) => {
       const pattern = searchPattern(query);
-      if (!pattern) return fail("Zoekterm te kort: gebruik minstens 2 tekens.");
+      if (!pattern) return fail("Search text too short: use at least 2 characters.");
       const wanted = new Set(types ?? searchTypes);
       const result: Record<string, unknown[]> = {};
 
@@ -95,7 +95,7 @@ function registerReadTools(server: McpServer, ctx: McpToolContext) {
             .order("name")
             .limit(limit)
             .then((r) => {
-              result.client = check(r, "Klanten").map((c) => ({ ...c, url: url("client", c.id) }));
+              result.client = check(r, "clients").map((c) => ({ ...c, url: url("client", c.id) }));
             }),
         wanted.has("vacancy") &&
           db
@@ -105,7 +105,7 @@ function registerReadTools(server: McpServer, ctx: McpToolContext) {
             .order("opened_at", { ascending: false })
             .limit(limit)
             .then((r) => {
-              result.vacancy = check(r, "Vacatures").map((v) => ({
+              result.vacancy = check(r, "vacancies").map((v) => ({
                 id: v.id,
                 title: v.title,
                 status: v.status,
@@ -122,13 +122,13 @@ function registerReadTools(server: McpServer, ctx: McpToolContext) {
             .order("full_name")
             .limit(limit)
             .then((r) => {
-              result.candidate = check(r, "Kandidaten").map((c) => ({ ...c, url: url("candidate", c.id) }));
+              result.candidate = check(r, "candidates").map((c) => ({ ...c, url: url("candidate", c.id) }));
             }),
         wanted.has("placement") &&
           (async () => {
             const candidates = check(
               await db.from("candidates").select("id").ilike("full_name", pattern).limit(50),
-              "Kandidaten",
+              "candidates",
             );
             if (candidates.length === 0) {
               result.placement = [];
@@ -144,7 +144,7 @@ function registerReadTools(server: McpServer, ctx: McpToolContext) {
                 )
                 .order("start_date", { ascending: false })
                 .limit(limit),
-              "Plaatsingen",
+              "placements",
             );
             result.placement = rows.map((p) => ({
               id: p.id,
@@ -163,7 +163,7 @@ function registerReadTools(server: McpServer, ctx: McpToolContext) {
             .order("icp_score", { ascending: false, nullsFirst: false })
             .limit(limit)
             .then((r) => {
-              result.company = check(r, "Bedrijven").map((c) => ({ ...c, url: url("company", c.id) }));
+              result.company = check(r, "companies").map((c) => ({ ...c, url: url("company", c.id) }));
             }),
         wanted.has("contact") &&
           db
@@ -173,7 +173,7 @@ function registerReadTools(server: McpServer, ctx: McpToolContext) {
             .order("last_name")
             .limit(limit)
             .then((r) => {
-              result.contact = check(r, "Contacten").map((c) => ({
+              result.contact = check(r, "contacts").map((c) => ({
                 id: c.id,
                 name: [c.first_name, c.last_name].filter(Boolean).join(" ") || null,
                 title: c.title,
@@ -193,7 +193,7 @@ function registerReadTools(server: McpServer, ctx: McpToolContext) {
   server.registerTool(
     "list_clients",
     {
-      title: "Klanten",
+      title: "Clients",
       description: "List clients (companies Nordavo works for), sorted by name, with status, city and number of open vacancies.",
       inputSchema: {
         query: z.string().max(80).optional().describe("Filter on client name."),
@@ -215,7 +215,7 @@ function registerReadTools(server: McpServer, ctx: McpToolContext) {
       if (pattern) q = q.ilike("name", pattern);
       if (status) q = q.eq("status", status);
       const r = await q;
-      const rows = check(r, "Klanten");
+      const rows = check(r, "clients");
       return ok({
         total: r.count,
         clients: rows.map((c) => ({
@@ -235,7 +235,7 @@ function registerReadTools(server: McpServer, ctx: McpToolContext) {
   server.registerTool(
     "get_client",
     {
-      title: "Klant",
+      title: "Client",
       description: "One client with its contact persons, vacancies, placements and latest notes.",
       inputSchema: { id: idSchema },
       annotations: READ_ONLY,
@@ -247,9 +247,9 @@ function registerReadTools(server: McpServer, ctx: McpToolContext) {
           .select("id, name, status, city, industry, website, notes, created_at, owner:profiles!clients_owner_id_fkey(full_name, email)")
           .eq("id", id)
           .maybeSingle(),
-        "Klant",
+        "client",
       );
-      if (!client || Array.isArray(client)) return fail("Klant niet gevonden.");
+      if (!client || Array.isArray(client)) return fail("Client not found.");
 
       const [contacts, vacancies, placements, notes] = await Promise.all([
         db
@@ -279,8 +279,8 @@ function registerReadTools(server: McpServer, ctx: McpToolContext) {
         owner: personName(client.owner),
         notes: clip(client.notes),
         url: url("client", client.id),
-        contacts: check(contacts, "Contactpersonen"),
-        vacancies: check(vacancies, "Vacatures").map((v) => ({
+        contacts: check(contacts, "contact persons"),
+        vacancies: check(vacancies, "vacancies").map((v) => ({
           id: v.id,
           title: v.title,
           status: v.status,
@@ -288,7 +288,7 @@ function registerReadTools(server: McpServer, ctx: McpToolContext) {
           opened_at: v.opened_at,
           days_open: daysSince(v.opened_at, v.closed_at ?? new Date()),
         })),
-        placements: check(placements, "Plaatsingen").map((p) => ({
+        placements: check(placements, "placements").map((p) => ({
           id: p.id,
           candidate_id: p.candidate?.id ?? null,
           candidate: p.candidate?.full_name ?? null,
@@ -307,7 +307,7 @@ function registerReadTools(server: McpServer, ctx: McpToolContext) {
   server.registerTool(
     "list_vacancies",
     {
-      title: "Vacatures",
+      title: "Vacancies",
       description:
         "List vacancies, oldest open first, with client, status, stack, days open and number of active candidates in the pipeline. Talent pool vacancies (is_talent_pool) have no client or prospect yet and no three-week clock: their days_open is null.",
       inputSchema: {
@@ -340,7 +340,7 @@ function registerReadTools(server: McpServer, ctx: McpToolContext) {
       const r = await q;
       return ok({
         total: r.count,
-        vacancies: check(r, "Vacatures").map((v) => ({
+        vacancies: check(r, "vacancies").map((v) => ({
           id: v.id,
           title: v.title,
           client_id: v.client_id,
@@ -363,7 +363,7 @@ function registerReadTools(server: McpServer, ctx: McpToolContext) {
   server.registerTool(
     "get_vacancy",
     {
-      title: "Vacature",
+      title: "Vacancy",
       description:
         "One vacancy with its profile (description, stack, must-haves, budget) and the pipeline grouped per stage (sourced to placed, plus rejected), with candidate ids, scores and client decision. A talent pool vacancy (is_talent_pool) has no client yet and no three-week clock (days_open null).",
       inputSchema: { id: idSchema },
@@ -378,9 +378,9 @@ function registerReadTools(server: McpServer, ctx: McpToolContext) {
           )
           .eq("id", id)
           .maybeSingle(),
-        "Vacature",
+        "vacancy",
       );
-      if (!vacancy || Array.isArray(vacancy)) return fail("Vacature niet gevonden.");
+      if (!vacancy || Array.isArray(vacancy)) return fail("Vacancy not found.");
 
       const [applications, notes] = await Promise.all([
         db
@@ -393,7 +393,7 @@ function registerReadTools(server: McpServer, ctx: McpToolContext) {
           .limit(300),
         latestNotes(ctx, "vacancy", id),
       ]);
-      const rows = check(applications, "Pipeline");
+      const rows = check(applications, "pipeline");
       const pipeline = applicationStages.map((s) => {
         const inStage = rows.filter((a) => a.stage === s.value);
         return {
@@ -432,7 +432,7 @@ function registerReadTools(server: McpServer, ctx: McpToolContext) {
   server.registerTool(
     "list_candidates",
     {
-      title: "Kandidaten",
+      title: "Candidates",
       description:
         "List candidates (Indian tech talent), sorted by name, with title, experience, skills, status and number of active applications. query matches name, title and skills; skill is an exact (case-insensitive) skill.",
       inputSchema: {
@@ -455,7 +455,7 @@ function registerReadTools(server: McpServer, ctx: McpToolContext) {
       // so text filters run here on a bounded set, like the candidates page.
       const filtered = Boolean(term || skillKey);
       const r = await (filtered ? q.limit(2000) : q.range(offset, offset + limit - 1));
-      let rows = check(r, "Kandidaten");
+      let rows = check(r, "candidates");
       let total = r.count;
       if (filtered) {
         rows = rows.filter(
@@ -482,7 +482,7 @@ function registerReadTools(server: McpServer, ctx: McpToolContext) {
   server.registerTool(
     "get_candidate",
     {
-      title: "Kandidaat",
+      title: "Candidate",
       description: "One candidate with profile, skills, all applications (vacancy, client, stage, scores, client decision), placements and latest notes.",
       inputSchema: { id: idSchema },
       annotations: READ_ONLY,
@@ -496,9 +496,9 @@ function registerReadTools(server: McpServer, ctx: McpToolContext) {
           )
           .eq("id", id)
           .maybeSingle(),
-        "Kandidaat",
+        "candidate",
       );
-      if (!candidate || Array.isArray(candidate)) return fail("Kandidaat niet gevonden.");
+      if (!candidate || Array.isArray(candidate)) return fail("Candidate not found.");
 
       const [applications, placements, notes] = await Promise.all([
         db
@@ -525,7 +525,7 @@ function registerReadTools(server: McpServer, ctx: McpToolContext) {
         has_cv: Boolean(cv_path),
         owner: personName(owner),
         url: url("candidate", candidate.id),
-        applications: check(applications, "Sollicitaties").map((a) => ({
+        applications: check(applications, "applications").map((a) => ({
           application_id: a.id,
           vacancy_id: a.vacancy?.id ?? null,
           vacancy: a.vacancy?.title ?? null,
@@ -541,7 +541,7 @@ function registerReadTools(server: McpServer, ctx: McpToolContext) {
           presented_at: a.presented_at,
           updated_at: a.updated_at,
         })),
-        placements: check(placements, "Plaatsingen").map((p) => ({
+        placements: check(placements, "placements").map((p) => ({
           id: p.id,
           client_id: p.client?.id ?? null,
           client: p.client?.name ?? null,
@@ -561,7 +561,7 @@ function registerReadTools(server: McpServer, ctx: McpToolContext) {
   server.registerTool(
     "list_placements",
     {
-      title: "Plaatsingen",
+      title: "Placements",
       description:
         "List placements (candidates working at a client), newest start first, with monthly rate, 30-day guarantee end and next check-in.",
       inputSchema: {
@@ -588,7 +588,7 @@ function registerReadTools(server: McpServer, ctx: McpToolContext) {
       const r = await q;
       return ok({
         total: r.count,
-        placements: check(r, "Plaatsingen").map((p) => ({
+        placements: check(r, "placements").map((p) => ({
           id: p.id,
           candidate_id: p.candidate?.id ?? null,
           candidate: p.candidate?.full_name ?? null,
@@ -613,7 +613,7 @@ function registerReadTools(server: McpServer, ctx: McpToolContext) {
   server.registerTool(
     "get_company",
     {
-      title: "Bedrijf (GTM)",
+      title: "Company (GTM)",
       description:
         "One GTM company (sales prospect) with ICP qualification, its contacts and latest hiring signals. Use search with type company to find ids.",
       inputSchema: { id: idSchema },
@@ -628,9 +628,9 @@ function registerReadTools(server: McpServer, ctx: McpToolContext) {
           )
           .eq("id", id)
           .maybeSingle(),
-        "Bedrijf",
+        "company",
       );
-      if (!company || Array.isArray(company)) return fail("Bedrijf niet gevonden.");
+      if (!company || Array.isArray(company)) return fail("Company not found.");
 
       const [contacts, signals, notes] = await Promise.all([
         db
@@ -652,8 +652,8 @@ function registerReadTools(server: McpServer, ctx: McpToolContext) {
         ...company,
         icp_reason: clip(company.icp_reason, 1000),
         url: url("company", company.id),
-        contacts: check(contacts, "Contacten"),
-        signals: check(signals, "Signalen"),
+        contacts: check(contacts, "contacts"),
+        signals: check(signals, "signals"),
         recent_notes: notes,
       });
     },
@@ -663,7 +663,7 @@ function registerReadTools(server: McpServer, ctx: McpToolContext) {
   server.registerTool(
     "list_tasks",
     {
-      title: "Taken",
+      title: "Tasks",
       description:
         "List tasks, earliest due date first. Filter on your own tasks (mine), status, due window or a linked record. Dates are YYYY-MM-DD in Europe/Amsterdam.",
       inputSchema: {
@@ -684,7 +684,7 @@ function registerReadTools(server: McpServer, ctx: McpToolContext) {
       annotations: READ_ONLY,
     },
     async ({ mine, status, due, entity_type, entity_id, limit, offset }) => {
-      if (Boolean(entity_type) !== Boolean(entity_id)) return fail("Geef entity_type en entity_id samen op.");
+      if (Boolean(entity_type) !== Boolean(entity_id)) return fail("Give entity_type and entity_id together.");
       const today = amsterdamDate();
       let q = db
         .from("tasks")
@@ -705,7 +705,7 @@ function registerReadTools(server: McpServer, ctx: McpToolContext) {
       if (entity_type && entity_id) q = q.eq("entity_type", entity_type).eq("entity_id", entity_id);
 
       const r = await q;
-      const rows = check(r, "Taken");
+      const rows = check(r, "tasks");
       const labels = await resolveLabels(
         db,
         rows.flatMap((t) => (t.entity_type && t.entity_id ? [{ type: t.entity_type, id: t.entity_id }] : [])),
@@ -741,7 +741,7 @@ function registerReadTools(server: McpServer, ctx: McpToolContext) {
   server.registerTool(
     "get_activity",
     {
-      title: "Activiteit",
+      title: "Activity",
       description:
         "Activity log (who changed what, newest first). With entity_type and entity_id: the timeline of that record, including its pipeline (applications) and linked tasks. Without: the latest activity across the portal.",
       inputSchema: {
@@ -752,7 +752,7 @@ function registerReadTools(server: McpServer, ctx: McpToolContext) {
       annotations: READ_ONLY,
     },
     async ({ entity_type, entity_id, limit }) => {
-      if (Boolean(entity_type) !== Boolean(entity_id)) return fail("Geef entity_type en entity_id samen op.");
+      if (Boolean(entity_type) !== Boolean(entity_id)) return fail("Give entity_type and entity_id together.");
 
       let q = db
         .from("activity_log")
@@ -769,21 +769,21 @@ function registerReadTools(server: McpServer, ctx: McpToolContext) {
               .select("id")
               .eq(entity_type === "vacancy" ? "vacancy_id" : "candidate_id", entity_id)
               .limit(100),
-            "Sollicitaties",
+            "applications",
           );
           if (apps.length) filters.push(`and(entity_type.eq.application,entity_id.in.(${apps.map((a) => a.id).join(",")}))`);
         }
         if (entity_type !== "task") {
           const tasks = check(
             await db.from("tasks").select("id").eq("entity_type", entity_type).eq("entity_id", entity_id).limit(100),
-            "Taken",
+            "tasks",
           );
           if (tasks.length) filters.push(`and(entity_type.eq.task,entity_id.in.(${tasks.map((t) => t.id).join(",")}))`);
         }
         q = q.or(filters.join(","));
       }
 
-      const rows = check(await q, "Activiteit");
+      const rows = check(await q, "activity");
       const labels = await resolveLabels(db, rows.map((a) => ({ type: a.entity_type, id: a.entity_id })));
       return ok({
         activity: rows.map((a) => ({
@@ -811,7 +811,7 @@ async function latestNotes(ctx: McpToolContext, entityType: (typeof linkableType
       .eq("entity_id", entityId)
       .order("created_at", { ascending: false })
       .limit(10),
-    "Notities",
+    "notes",
   );
   return rows.map((n) => ({ id: n.id, at: n.created_at, by: personName(n.author), body: clip(n.body, 1000) }));
 }

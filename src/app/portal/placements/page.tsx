@@ -16,9 +16,9 @@ export default function PortalPlacementsPage() {
   return (
     <>
       <PageHeader
-        eyebrow="Plaatsingen"
-        title="Jouw developers"
-        description="De developers die via Nordavo in je team werken. Opzeggen kan met een maand opzegtermijn, er is geen minimale looptijd."
+        eyebrow="Placements"
+        title="Your developers"
+        description="The developers who work in your team through Nordavo. You can cancel with one month's notice; there is no minimum term."
       />
       <Suspense fallback={<ListSkeleton rows={4} />}>
         <PlacementsTable />
@@ -28,14 +28,14 @@ export default function PortalPlacementsPage() {
         <CardBody className="flex items-start gap-3 text-sm">
           <ShieldCheck className="mt-0.5 size-5 shrink-0 text-brand-600" aria-hidden="true" />
           <div className="space-y-1 text-muted">
-            <p className="font-medium text-brand-900">Zo werken onze afspraken</p>
+            <p className="font-medium text-brand-900">How our agreements work</p>
             <p>
-              Past een developer in de eerste 30 dagen toch niet, dan zoeken we vervanging zonder extra kosten. Je zit
-              nergens aan vast: opzeggen kan per maand, met een maand opzegtermijn. Mail ons op{" "}
+              If a developer turns out not to fit within the first 30 days, we find a replacement at no extra cost. You are
+              not locked in: you can cancel monthly, with one month&apos;s notice. Mail us at{" "}
               <a href="mailto:info@nordavo.nl" className="font-medium text-brand-700 hover:underline">
                 info@nordavo.nl
               </a>{" "}
-              of bel +31 6 80227346.
+              or call +31 6 80227346.
             </p>
           </div>
         </CardBody>
@@ -52,15 +52,15 @@ async function PlacementsTable() {
     return (
       <EmptyState
         icon={Handshake}
-        title="Nog geen plaatsingen"
-        description="Kies je een van onze kandidaten, dan regelen wij contract, payroll en onboarding. Daarna zie je de plaatsing hier, met startdatum en garantieperiode."
+        title="No placements yet"
+        description="Once you choose one of our candidates, we arrange the contract, payroll and onboarding. The placement then shows up here, with its start date and guarantee period."
       />
     );
   }
 
   return (
     <>
-      <MobileList label="Plaatsingen" className="md:hidden">
+      <MobileList label="Placements" className="md:hidden">
         {placements.map((p) => {
           const status = optionFor(placementStatuses, p.status);
           return (
@@ -69,12 +69,12 @@ async function PlacementsTable() {
               leading={<Avatar name={p.candidateName ?? "Developer"} />}
               title={p.candidateName ?? "Developer"}
               subtitle={[p.candidateTitle, p.vacancyTitle].filter(Boolean).join(", ") || undefined}
-              meta={`Gestart op ${formatDate(p.startDate)}`}
+              meta={`Started on ${formatDate(p.startDate)}`}
               trailing={<Badge tone={status.tone}>{status.label}</Badge>}
             >
               <div className="space-y-1 text-xs">
                 <p className="text-ink">
-                  {p.monthlyRate === null ? "Tarief volgens offerte" : `${formatCurrency(p.monthlyRate)} per maand`}
+                  {p.monthlyRate === null ? "Rate as quoted" : `${formatCurrency(p.monthlyRate)} per month`}
                 </p>
                 <NoticeInfo placement={p} />
                 <p>
@@ -92,8 +92,8 @@ async function PlacementsTable() {
             <TH>Developer</TH>
             <TH>Start</TH>
             <TH>Status</TH>
-            <TH>Garantie</TH>
-            <TH className="text-right">Tarief per maand</TH>
+            <TH>Guarantee</TH>
+            <TH className="text-right">Monthly rate</TH>
           </tr>
         </THead>
         <TBody>
@@ -113,7 +113,7 @@ async function PlacementsTable() {
                 <TD className="text-sm">
                   <GuaranteeInfo guaranteeUntil={p.guaranteeUntil} today={today} ended={p.status === "ended"} />
                 </TD>
-                <TD className="text-right whitespace-nowrap">{formatCurrency(p.monthlyRate, "Volgens offerte")}</TD>
+                <TD className="text-right whitespace-nowrap">{formatCurrency(p.monthlyRate, "As quoted")}</TD>
               </TR>
             );
           })}
@@ -127,15 +127,15 @@ function NoticeInfo({ placement }: { placement: PortalPlacement }) {
   if (placement.status === "notice") {
     return (
       <p className="mt-1 text-xs text-muted">
-        {placement.noticeGivenAt ? `Opgezegd op ${formatDate(placement.noticeGivenAt)}` : "Opgezegd"}
-        {placement.endDate ? `, laatste werkdag ${formatDate(placement.endDate)}` : ""}
+        {placement.noticeGivenAt ? `Notice given on ${formatDate(placement.noticeGivenAt)}` : "Notice given"}
+        {placement.endDate ? `, last working day ${formatDate(placement.endDate)}` : ""}
       </p>
     );
   }
   if (placement.status === "ended") {
-    return placement.endDate ? <p className="mt-1 text-xs text-muted">Gestopt op {formatDate(placement.endDate)}</p> : null;
+    return placement.endDate ? <p className="mt-1 text-xs text-muted">Ended on {formatDate(placement.endDate)}</p> : null;
   }
-  return <p className="mt-1 text-xs text-muted">Een maand opzegtermijn</p>;
+  return <p className="mt-1 text-xs text-muted">One month&apos;s notice</p>;
 }
 
 function GuaranteeInfo({
@@ -147,9 +147,9 @@ function GuaranteeInfo({
   today: string;
   ended: boolean;
 }) {
-  if (!guaranteeUntil || ended) return <span className="text-muted">Niet van toepassing</span>;
+  if (!guaranteeUntil || ended) return <span className="text-muted">Not applicable</span>;
   if (guaranteeUntil >= today) {
-    return <span className="text-ink">Vervanging zonder extra kosten tot {formatDate(guaranteeUntil)}</span>;
+    return <span className="text-ink">Free replacement until {formatDate(guaranteeUntil)}</span>;
   }
-  return <span className="text-muted">Garantieperiode liep tot {formatDate(guaranteeUntil)}</span>;
+  return <span className="text-muted">Guarantee period ended on {formatDate(guaranteeUntil)}</span>;
 }

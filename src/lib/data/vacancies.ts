@@ -76,7 +76,7 @@ export async function listVacancies({
   if (talentPool !== undefined) query = query.eq("is_talent_pool", talentPool);
 
   const { data, error } = await query;
-  if (error) throw new Error(`Vacatures laden mislukt: ${error.message}`);
+  if (error) throw new Error(`Could not load vacancies: ${error.message}`);
 
   return data.map((v) => ({
     id: v.id,
@@ -107,7 +107,7 @@ export async function getVacancy(id: string) {
     )
     .eq("id", id)
     .maybeSingle();
-  if (error) throw new Error(`Vacature laden mislukt: ${error.message}`);
+  if (error) throw new Error(`Could not load vacancy: ${error.message}`);
   if (!data) return null;
   return { ...data, daysOpen: vacancyDaysOpen(data), leadTime: leadTime(data) };
 }
@@ -125,7 +125,7 @@ export async function listCompanyOptions(selectedId?: string | null): Promise<{ 
     .or("icp_decision.eq.GO,status.in.(actief,klant)")
     .order("name")
     .limit(500);
-  if (error) throw new Error(`Bedrijven laden mislukt: ${error.message}`);
+  if (error) throw new Error(`Could not load companies: ${error.message}`);
   const options = data.map((c) => ({ id: c.id, label: `${c.name} (${c.domain})` }));
   if (selectedId && isUuid(selectedId) && !options.some((o) => o.id === selectedId)) {
     const { data: selected } = await supabase.from("companies").select("id, name, domain").eq("id", selectedId).maybeSingle();
@@ -149,7 +149,7 @@ export async function getVacancyPipelineSummary(vacancyId: string): Promise<Pipe
     .from("applications")
     .select("stage, presented_at")
     .eq("vacancy_id", vacancyId);
-  if (error) throw new Error(`Pipeline laden mislukt: ${error.message}`);
+  if (error) throw new Error(`Could not load pipeline: ${error.message}`);
 
   const counts = new Map<ApplicationStage, number>();
   for (const a of data) counts.set(a.stage, (counts.get(a.stage) ?? 0) + 1);

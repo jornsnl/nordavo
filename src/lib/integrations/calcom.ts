@@ -78,10 +78,10 @@ export type CalBooking = {
 /** Raw webhook JSON to a booking, or a reason to ignore it. Pure. */
 export function parseCalWebhook(json: unknown): { booking: CalBooking } | { ignored: string } {
   const parsed = webhookSchema.safeParse(json);
-  if (!parsed.success) return { ignored: "onbekend formaat" };
+  if (!parsed.success) return { ignored: "unknown format" };
   const { triggerEvent, payload } = parsed.data;
   if (!(handledTriggers as readonly string[]).includes(triggerEvent)) return { ignored: `event ${triggerEvent}` };
-  if (!payload?.uid) return { ignored: "geen booking uid" };
+  if (!payload?.uid) return { ignored: "no booking uid" };
 
   const organizerDomain = normalizeEmail(payload.organizer?.email)?.split("@")[1];
   const attendee = (payload.attendees ?? []).find((a) => {
@@ -89,7 +89,7 @@ export function parseCalWebhook(json: unknown): { booking: CalBooking } | { igno
     return email && email.split("@")[1] !== organizerDomain;
   });
   const email = normalizeEmail(attendee?.email);
-  if (!email) return { ignored: "geen deelnemer met mailadres" };
+  if (!email) return { ignored: "no attendee with an e-mail address" };
 
   return {
     booking: {
@@ -139,20 +139,20 @@ async function resolveContact(db: Db, booking: CalBooking) {
 
 export async function handleCalBooking(db: Db, booking: CalBooking): Promise<CalResult> {
   const contact = await resolveContact(db, booking);
-  if (!contact) return { status: "ignored", reason: "privé mailadres zonder bekend contact" };
+  if (!contact) return { status: "ignored", reason: "personal e-mail address without a known contact" };
 
   const meetingDate = booking.startTime ? amsterdamDate(booking.startTime) : null;
   const when = booking.startTime
-    ? new Intl.DateTimeFormat("nl-NL", { dateStyle: "medium", timeStyle: "short", timeZone: "Europe/Amsterdam" }).format(
+    ? new Intl.DateTimeFormat("en-GB", { dateStyle: "medium", timeStyle: "short", timeZone: "Europe/Amsterdam" }).format(
         new Date(booking.startTime),
       )
-    : "onbekend moment";
+    : "unknown time";
 
   let outcome: TablesInsert<"activities">["outcome"] = "afspraak";
-  let notes = `Afspraak geboekt via Cal.com voor ${when}${booking.title ? `: ${booking.title}` : ""}`;
+  let notes = `Meeting booked through Cal.com for ${when}${booking.title ? `: ${booking.title}` : ""}`;
   if (booking.trigger === "BOOKING_CANCELLED") {
     outcome = "notitie";
-    notes = `Afspraak geannuleerd (${when})${booking.cancellationReason ? `: ${booking.cancellationReason}` : ""}`;
+    notes = `Meeting cancelled (${when})${booking.cancellationReason ? `: ${booking.cancellationReason}` : ""}`;
   } else if (booking.trigger === "BOOKING_RESCHEDULED") {
     // A reschedule is the same meeting: log it as a note when we already
     // counted the original booking, so the report does not count it twice.
@@ -166,7 +166,7 @@ export async function handleCalBooking(db: Db, booking: CalBooking): Promise<Cal
       : { data: [] };
     if (previous.data && previous.data.length > 0) {
       outcome = "notitie";
-      notes = `Afspraak verzet naar ${when}`;
+      notes = `Meeting moved to ${when}`;
     }
   }
 
@@ -176,7 +176,7 @@ export async function handleCalBooking(db: Db, booking: CalBooking): Promise<Cal
     channel: "meeting",
     outcome,
     notes,
-    next_action: booking.trigger === "BOOKING_CANCELLED" ? "Nieuwe afspraak voorstellen" : "Salesgesprek",
+    next_action: booking.trigger === "BOOKING_CANCELLED" ? "Propose a new meeting" : "Sales call",
     next_action_date: booking.trigger === "BOOKING_CANCELLED" ? amsterdamDate() : meetingDate,
     source: "calcom",
     external_id: `calcom:${booking.uid}:${booking.trigger}`,

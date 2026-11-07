@@ -39,9 +39,9 @@ type RawVacancy = {
 
 export const s2Qualify = defineJob({
   name: "s2-qualify",
-  description: "S2: bedrijven zonder ICP-besluit laten kwalificeren door Claude",
+  description: "S2: have Claude qualify companies without an ICP decision",
   run: async (ctx) => {
-    if (!hasClaude()) throw new Error("ANTHROPIC_API_KEY ontbreekt. Zet deze in de omgevingsvariabelen.");
+    if (!hasClaude()) throw new Error("ANTHROPIC_API_KEY is missing. Set it in the environment variables.");
     const limit = intParam(ctx, "limit", 100, 1000);
 
     const { data: companies, error } = await ctx.db
@@ -52,7 +52,7 @@ export const s2Qualify = defineJob({
       .limit(limit);
     if (error) throw error;
     ctx.countIn(companies.length);
-    ctx.log(`${companies.length} bedrijven zonder ICP-besluit`);
+    ctx.log(`${companies.length} companies without an ICP decision`);
 
     const counts = { GO: 0, NO_GO: 0, REVIEW: 0, regel: 0, fout_review: 0 };
 
@@ -132,16 +132,16 @@ export const s2Qualify = defineJob({
         const why =
           askError instanceof ClaudeRefusalError
             ? askError.message
-            : `Antwoord van Claude niet te lezen: ${askError instanceof Error ? askError.message.slice(0, 200) : String(askError)}`;
+            : `Could not read the answer from Claude: ${askError instanceof Error ? askError.message.slice(0, 200) : String(askError)}`;
         counts.fout_review += 1;
         ctx.log(`${company.domain}: REVIEW, ${why}`);
         output = {
           decision: "REVIEW",
           segment: null,
           score: 0,
-          reason: `Automatische kwalificatie mislukt, kijk zelf. ${why}`.slice(0, 500),
+          reason: `Automatic qualification failed, check it yourself. ${why}`.slice(0, 500),
           client_contact_risk: false,
-          red_flags: ["kwalificatie mislukt"],
+          red_flags: ["qualification failed"],
           opening_line: "",
         };
       }
@@ -155,6 +155,6 @@ export const s2Qualify = defineJob({
       rule_based: counts.regel,
       review_after_error: counts.fout_review,
     });
-    ctx.log(`GO ${counts.GO}, NO_GO ${counts.NO_GO}, REVIEW ${counts.REVIEW} (waarvan ${counts.fout_review} na een fout)`);
+    ctx.log(`GO ${counts.GO}, NO_GO ${counts.NO_GO}, REVIEW ${counts.REVIEW} (of which ${counts.fout_review} after an error)`);
   },
 });
