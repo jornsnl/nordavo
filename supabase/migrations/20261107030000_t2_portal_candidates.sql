@@ -7,9 +7,11 @@
 -- 1. Candidates get the fields the matcher and the anonymous profile need.
 -- 2. matches.airtable_candidate_id is replaced by matches.candidate_id.
 --    The old matches pointed at external records that were never copied into
---    the portal, so they cannot be linked to a candidate. They are deleted
---    (with their anonymous profiles, by cascade); re-run matching on the
---    vacancy to score the portal candidates. Vacancy history (talent stage,
+--    the portal, so they cannot be linked to a candidate. They are first
+--    copied to archive.matches_airtable and archive.anonymous_profiles_airtable
+--    (staff and clients cannot read that schema; only the service role and the
+--    SQL editor can), then removed from the live tables. Re-run matching on
+--    the vacancy to score the portal candidates. Vacancy history (talent stage,
 --    intake, profiles sent and first interview dates, search brief) is kept.
 --    Profile PDFs of deleted profiles stay in storage under
 --    vacancy/<vacancy id>/profiles/ and can be removed by hand.
@@ -42,7 +44,14 @@ comment on column public.candidates.profile_consent is 'Consent to share an anon
 -- 2. Matches reference portal candidates
 -- ---------------------------------------------------------------------------
 
--- Old matches reference external records only (see the header).
+-- Old matches reference external records only (see the header). Keep a copy
+-- before removing them, so nothing that was sent to a client is lost.
+create schema if not exists archive;
+revoke all on schema archive from public, anon, authenticated;
+create table archive.matches_airtable as table public.matches;
+create table archive.anonymous_profiles_airtable as table public.anonymous_profiles;
+comment on table archive.matches_airtable is 'T2 matches from the Airtable era (before 2026-11-07), kept when matching moved to portal candidates.';
+comment on table archive.anonymous_profiles_airtable is 'Anonymous profiles of the Airtable-era matches, kept for reference.';
 delete from public.matches;
 
 alter table public.matches drop column airtable_candidate_id;
