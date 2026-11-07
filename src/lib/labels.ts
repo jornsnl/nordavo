@@ -121,7 +121,7 @@ export const companyStatuses: Option<CompanyStatus>[] = [
   { value: "actief", label: "Active", tone: "brand" },
   { value: "klant", label: "Client", tone: "success" },
   { value: "verloren", label: "Lost", tone: "neutral" },
-  { value: "uitgesloten", label: "Excluded", tone: "danger" },
+  { value: "uitgesloten", label: "Suppressed", tone: "danger" },
 ];
 
 export const contactStatuses: Option<ContactStatus>[] = [
@@ -135,7 +135,7 @@ export const contactStatuses: Option<ContactStatus>[] = [
   { value: "kans", label: "Opportunity", tone: "success" },
   { value: "klant", label: "Client", tone: "success" },
   { value: "verloren", label: "Lost", tone: "neutral" },
-  { value: "uitgesloten", label: "Excluded", tone: "danger" },
+  { value: "uitgesloten", label: "Suppressed", tone: "danger" },
 ];
 
 /** Contact tiers: who to approach first. */

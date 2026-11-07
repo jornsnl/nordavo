@@ -15,18 +15,18 @@ export async function POST(request: Request) {
   const rawBody = await request.text();
 
   if (!secret) {
-    console.error("[calcom] CALCOM_WEBHOOK_SECRET ontbreekt: webhook geweigerd.");
-    return NextResponse.json({ error: "Webhook niet geconfigureerd" }, { status: 401 });
+    console.error("[calcom] CALCOM_WEBHOOK_SECRET is missing: webhook refused.");
+    return NextResponse.json({ error: "Webhook not configured" }, { status: 401 });
   }
   if (!verifyCalSignature(rawBody, request.headers.get("x-cal-signature-256"), secret)) {
-    return NextResponse.json({ error: "Ongeldige handtekening" }, { status: 401 });
+    return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
   }
 
   let json: unknown;
   try {
     json = JSON.parse(rawBody);
   } catch {
-    return NextResponse.json({ status: "ignored", reason: "geen JSON" });
+    return NextResponse.json({ status: "ignored", reason: "not JSON" });
   }
 
   const parsed = parseCalWebhook(json);
@@ -36,7 +36,7 @@ export async function POST(request: Request) {
     const result = await handleCalBooking(requireJobDb(), parsed.booking);
     return NextResponse.json(result);
   } catch (error) {
-    console.error("[calcom] verwerken mislukt:", error instanceof Error ? error.message : error);
-    return NextResponse.json({ error: "Verwerken mislukt" }, { status: 500 });
+    console.error("[calcom] processing failed:", error instanceof Error ? error.message : error);
+    return NextResponse.json({ error: "Processing failed" }, { status: 500 });
   }
 }

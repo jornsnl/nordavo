@@ -17,7 +17,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
   const triggeredBy = await authorize(request);
   if (!triggeredBy) {
-    return NextResponse.json({ error: "Niet toegestaan" }, { status: 401 });
+    return NextResponse.json({ error: "Not allowed" }, { status: 401 });
   }
 
   const body = (await request.json().catch(() => ({}))) as { params?: Record<string, string> };
