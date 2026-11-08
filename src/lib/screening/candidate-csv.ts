@@ -9,6 +9,9 @@ import { normalizeLinkedin } from "@/lib/gtm/normalize";
  * Pure functions, shared by the wizard (preview) and the server import.
  */
 
+/** Rows per server call of the import wizard. */
+export const IMPORT_CHUNK_SIZE = 200;
+
 /** One CSV row: column name -> cell value. */
 export type CandidateCsvRow = Record<string, string>;
 

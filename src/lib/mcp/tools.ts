@@ -21,6 +21,7 @@ import {
   type McpToolContext,
 } from "@/lib/mcp/shared";
 import { registerWriteTools } from "@/lib/mcp/write-tools";
+import { talentPoolTop } from "@/lib/screening/talent-search";
 
 const READ_ONLY = { readOnlyHint: true, openWorldHint: false } as const;
 
@@ -797,6 +798,55 @@ function registerReadTools(server: McpServer, ctx: McpToolContext) {
           by: personName(a.actor) ?? "systeem",
         })),
       });
+    },
+  );
+
+  // -------------------------------------------------------------------------
+  // Recruitment brief 2.15: who are the best candidates for a profile?
+  server.registerTool(
+    "talent_pool_top",
+    {
+      title: "Talent pool top candidates",
+      description:
+        "The best candidates in Nordavo's talent pool for a profile: give a free text profile (for example 'senior data engineer, Python and dbt, Snowflake a plus') or a vacancy_id. The pool is prefiltered on stack and seniority (placed, unavailable and junior candidates are left out; for a vacancy also everyone already in its pipeline) and Claude ranks the shortlist. Returns per candidate the score (null when Claude is not connected and only keywords ranked), the reason, risks, missing must haves, skills, project experience, location and seniority. No contact details.",
+      inputSchema: {
+        profile: z.string().min(3).max(4000).optional().describe("Free text description of the wanted profile."),
+        vacancy_id: idSchema.optional().describe("Use the stack and must haves of this vacancy instead of free text."),
+        limit: z.number().int().min(1).max(10).default(5).describe("How many candidates (default 5, max 10)."),
+      },
+      annotations: { readOnlyHint: true, openWorldHint: true },
+    },
+    async ({ profile, vacancy_id, limit }) => {
+      if (!profile && !vacancy_id) return fail("Give a profile or a vacancy_id.");
+      try {
+        const answer = await talentPoolTop(db, { query: vacancy_id ? undefined : profile, vacancyId: vacancy_id, limit });
+        return ok({
+          looked_for: { title: answer.requirements.title, stack: answer.requirements.stack, seniority: answer.requirements.seniority, must_haves: answer.requirements.must_haves },
+          pool_matches: answer.poolSize,
+          shortlisted: answer.shortlisted,
+          ranked_by: answer.rankedBy,
+          candidates: answer.hits.map((h) => ({
+            id: h.candidateId,
+            name: h.name,
+            url: url("candidate", h.candidateId),
+            score: h.score,
+            reason: h.reason,
+            risks: h.risks,
+            missing: h.missing,
+            skills: h.skills,
+            project_types: h.projectTypes,
+            sectors: h.sectors,
+            location: h.location,
+            seniority: h.seniority,
+            years_experience: h.yearsExperience,
+            current_title: h.currentTitle,
+            availability: h.availability,
+            english_level: h.englishLevel,
+          })),
+        });
+      } catch (error) {
+        return fail(error instanceof Error ? error.message : "The talent pool could not be searched.");
+      }
     },
   );
 }

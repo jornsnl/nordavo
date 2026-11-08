@@ -11,6 +11,7 @@ import { LinkClientCard } from "@/components/vacancies/link-client-card";
 import { PipelineSummary } from "@/components/vacancies/pipeline-summary";
 import { sourceLabel } from "@/components/vacancies/talent-labels";
 import { MatchesSection } from "@/components/talent/matches-section";
+import { ScreeningCard } from "@/components/screening/screening-card";
 import { RequirementsCard } from "@/components/talent/requirements-card";
 import { SearchBriefCard } from "@/components/talent/search-brief-card";
 import { TimelineCard } from "@/components/talent/timeline-card";
@@ -141,6 +142,9 @@ async function VacancyDetail({ params }: { params: Params }) {
           )}
 
           <PipelineSummary vacancyId={vacancy.id} summary={summary} target={PRESENTED_TARGET} />
+          <Suspense fallback={<ListSkeleton rows={3} />}>
+            <ScreeningCard vacancyId={vacancy.id} />
+          </Suspense>
 
           <Card>
             <CardHeader title="Details" />

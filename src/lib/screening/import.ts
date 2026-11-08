@@ -1,6 +1,6 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Candidate, CandidateOrigin, CandidateSource, Database, TablesInsert } from "@/lib/database.types";
+import type { Candidate, CandidateOrigin, CandidateSource, Database, TablesInsert, TablesUpdate } from "@/lib/database.types";
 import {
   CandidateIndex,
   dedupeKeys,
@@ -158,7 +158,11 @@ export async function importCandidateRows(
   for (const r of resolved.filter((x) => x.existing)) {
     const current = byId.get(r.candidateId!);
     if (!current) continue;
-    const update = fillEmpty(current, r.draft);
+    const update: TablesUpdate<"candidates"> = fillEmpty(current, r.draft);
+    if (!current.source) {
+      update.source = options.source;
+      update.origin = options.origin;
+    }
     if (Object.keys(update).length > 0) {
       await db.from("candidates").update(update).eq("id", current.id);
     }

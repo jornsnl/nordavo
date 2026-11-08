@@ -34,7 +34,9 @@ alter table public.candidates
   -- pending: a CV file is stored but its text could not be read yet (PDF without Claude);
   -- read: cv_text comes from the uploaded file; failed: the file could not be read.
   add column cv_text_status text check (cv_text_status in ('pending', 'read', 'failed')),
-  add column cv_read_at timestamptz;
+  add column cv_read_at timestamptz,
+  -- Lists show whether there is CV text without loading it.
+  add column has_cv_text boolean generated always as (coalesce(char_length(btrim(cv_text)), 0) > 0) stored;
 
 create index on public.candidates (cv_text_status) where cv_text_status = 'pending';
 

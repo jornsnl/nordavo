@@ -3,7 +3,7 @@ import { Suspense } from "react";
 import Link from "next/link";
 import Form from "next/form";
 import { redirect } from "next/navigation";
-import { Plus, Search, SearchX, Users } from "lucide-react";
+import { Plus, Search, SearchX, Sparkles, Users } from "lucide-react";
 import { EmptyState } from "@/components/dashboard/empty-state";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { AutoSubmitSelects } from "@/components/entity/auto-submit";
@@ -38,10 +38,16 @@ export default function Page({ searchParams }: PageProps<"/dashboard/candidates"
         title="Candidates"
         description="Developers and data engineers from Bangalore, from screening to final interview."
         actions={
-          <ButtonLink href="/dashboard/candidates/new">
-            <Plus aria-hidden="true" />
-            New candidate
-          </ButtonLink>
+          <>
+            <ButtonLink href="/dashboard/candidates/talent-pool" variant="secondary">
+              <Sparkles aria-hidden="true" />
+              Talent pool
+            </ButtonLink>
+            <ButtonLink href="/dashboard/candidates/new">
+              <Plus aria-hidden="true" />
+              New candidate
+            </ButtonLink>
+          </>
         }
       />
       <Suspense fallback={<ListSkeleton rows={6} />}>

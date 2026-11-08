@@ -462,6 +462,7 @@ export type Database = {
           origin: CandidateOrigin;
           cv_text_status: CvTextStatus | null;
           cv_read_at: string | null;
+          has_cv_text: boolean;
         };
         Insert: {
           id?: string;
@@ -494,6 +495,7 @@ export type Database = {
           origin?: CandidateOrigin;
           cv_text_status?: CvTextStatus | null;
           cv_read_at?: string | null;
+          has_cv_text?: boolean;
         };
         Update: {
           id?: string;
@@ -526,6 +528,7 @@ export type Database = {
           origin?: CandidateOrigin;
           cv_text_status?: CvTextStatus | null;
           cv_read_at?: string | null;
+          has_cv_text?: boolean;
         };
         Relationships: [
           {

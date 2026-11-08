@@ -8,6 +8,7 @@ import { EntityExtras } from "@/components/entity/entity-extras";
 import { QuickActions, telHref, type QuickAction } from "@/components/entity/quick-actions";
 import { DeleteCandidateButton, LinkVacancyButton } from "@/components/candidates/candidate-actions";
 import { MatchingProfileCard } from "@/components/candidates/matching-profile-card";
+import { CandidateScreeningCard } from "@/components/screening/candidate-screening-card";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
@@ -27,6 +28,9 @@ import {
 export const metadata: Metadata = {
   title: "Candidate",
 };
+
+// Read CV and CV scoring call Claude from this page.
+export const maxDuration = 300;
 
 export default function Page({ params }: PageProps<"/dashboard/candidates/[id]">) {
   return (
@@ -236,6 +240,10 @@ async function CandidateDetail({ params }: { params: Promise<{ id: string }> }) 
               </ul>
             )}
           </Card>
+
+          <Suspense fallback={<ListSkeleton rows={3} />}>
+            <CandidateScreeningCard candidateId={id} />
+          </Suspense>
 
           <Suspense fallback={<ListSkeleton rows={3} />}>
             <MatchingProfileCard candidate={candidate} />
