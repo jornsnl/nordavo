@@ -27,6 +27,8 @@ import {
 import { formatDateTime, formatRelativeDays } from "@/lib/format";
 import { jobStatuses, optionFor } from "@/lib/labels";
 import { chains, jobs } from "@/jobs/registry";
+import { getCurrentUser } from "@/lib/auth";
+import { jobModule } from "@/lib/modules";
 import { runJobAction } from "./actions";
 
 export const metadata: Metadata = {
@@ -90,7 +92,14 @@ export default function Page({ searchParams }: PageProps<"/dashboard/jobs">) {
 }
 
 async function JobsOverview() {
-  const names = Object.keys(jobs);
+  // Only the jobs of the user's modules (2.5); the run history follows RLS.
+  const user = await getCurrentUser();
+  const visible = (name: string) => {
+    const module = jobModule(name);
+    return module === null || user.modules.includes(module);
+  };
+  const names = Object.keys(jobs).filter(visible);
+  const visibleChains = Object.entries(chains).filter(([, chain]) => chain.jobs.every(visible));
   const needsVacancy = names.some((n) => JOB_REQUIRED_PARAMS[n]?.name === "vacancy");
   const [lastRuns, vacancies] = await Promise.all([
     getLastRuns(names),
@@ -125,7 +134,7 @@ async function JobsOverview() {
       <Card>
         <CardHeader title="Chains" description="Run on a schedule through GitHub Actions. A chain runs its jobs one after the other." />
         <ul className="divide-y divide-border">
-          {Object.entries(chains).map(([name, chain]) => (
+          {visibleChains.map(([name, chain]) => (
             <li key={name} className="flex flex-col gap-3 px-5 py-4 lg:flex-row lg:items-start lg:justify-between">
               <div className="min-w-0 space-y-1">
                 <p className="font-medium text-ink capitalize">{name}</p>

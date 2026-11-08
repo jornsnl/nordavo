@@ -7,6 +7,7 @@ import { formValues, type ActionState } from "@/lib/action-state";
 import { JOB_REQUIRED_PARAMS } from "@/lib/data/jobs";
 import { chains, jobs } from "@/jobs/registry";
 import { runByName } from "@/jobs/run";
+import { jobModule } from "@/lib/modules";
 
 const paramsSchema = z.object({
   vacancy: z.guid({ error: "Choose a vacancy." }).optional(),
@@ -25,6 +26,14 @@ function firstLine(text: string | undefined) {
 export async function runJobAction(name: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
   const user = await requireStaff();
   if (!jobs[name] && !chains[name]) return { error: `Unknown job: ${name}` };
+  // Jobs write with the service role, so check the modules here (2.5).
+  const allowed = (job: string) => {
+    const module = jobModule(job);
+    return module === null || user.modules.includes(module);
+  };
+  if (!(chains[name] ? chains[name].jobs : [name]).every(allowed)) {
+    return { error: "This job belongs to a module you do not have. Ask an admin under Settings, Users." };
+  }
   if (!process.env.SUPABASE_SECRET_KEY) {
     return { error: "SUPABASE_SECRET_KEY is missing on the server. Jobs write with the service role and cannot run right now." };
   }
