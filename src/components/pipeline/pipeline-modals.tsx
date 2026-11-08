@@ -33,6 +33,7 @@ import {
 } from "@/lib/labels";
 import { formStatus, isExitStage } from "@/lib/recruitment/pipeline";
 import { ConfirmButton } from "@/components/candidates/confirm-button";
+import { CompensationSection } from "@/components/forms/compensation-section";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button, ButtonLink } from "@/components/ui/button";
@@ -250,6 +251,8 @@ function ApplicationDetails({
           </div>
         )}
       </div>
+
+      <CompensationSection applicationId={card.id} />
 
       <div className="flex justify-start border-t border-border pt-4">
         <ConfirmButton

@@ -14,6 +14,7 @@ import { s10WeeklyReport } from "./s10-weekly-report";
 import { t2Match } from "./t2-match";
 import { interviewReminders } from "./interview-reminders";
 import { clickupImport, workDaily, workNotify } from "./work";
+import { formsReminders } from "./forms-reminders";
 
 /** Every job, by name. Run with `npm run job -- <name>` or POST /api/jobs/<name>. */
 export const jobs: Record<string, Job> = Object.fromEntries(
@@ -34,6 +35,7 @@ export const jobs: Record<string, Job> = Object.fromEntries(
   workNotify,
   workDaily,
   clickupImport,
+  formsReminders,
   ].map((job) => [job.name, job]),
 );
 

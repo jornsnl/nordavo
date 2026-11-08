@@ -3,6 +3,7 @@
 // once the project exists, then keep the aliases at the bottom.
 
 import type { WorkFunctions, WorkTables } from "@/lib/work/database";
+import type { FormsFunctions, FormsTables } from "@/lib/forms/database";
 
 export type Json =
   | string
@@ -478,6 +479,9 @@ export type Database = {
           topper_reason: string | null;
           topper_by: string | null;
           topper_at: string | null;
+          current_company: string | null;
+          notice_period: string | null;
+          willing_to_relocate: boolean | null;
         };
         Insert: {
           id?: string;
@@ -513,6 +517,9 @@ export type Database = {
           topper_reason?: string | null;
           topper_by?: string | null;
           topper_at?: string | null;
+          current_company?: string | null;
+          notice_period?: string | null;
+          willing_to_relocate?: boolean | null;
         };
         Update: {
           id?: string;
@@ -548,6 +555,9 @@ export type Database = {
           topper_reason?: string | null;
           topper_by?: string | null;
           topper_at?: string | null;
+          current_company?: string | null;
+          notice_period?: string | null;
+          willing_to_relocate?: boolean | null;
         };
         Relationships: [
           {
@@ -2006,7 +2016,7 @@ export type Database = {
         };
         Relationships: [];
       };
-    } & WorkTables;
+    } & WorkTables & FormsTables;
     Views: {
       call_list_candidates: { Row: ListCandidateBase & { phone: string; linkedin_url: string | null }; Relationships: [] };
       mail_list_candidates: { Row: ListCandidateBase & { email: string }; Relationships: [] };
@@ -2093,7 +2103,7 @@ export type Database = {
         Args: { p_entity: CustomFieldEntity; p_new: Json; p_old?: Json };
         Returns: CustomFieldValues;
       };
-    } & WorkFunctions;
+    } & WorkFunctions & FormsFunctions;
     Enums: { [_ in never]: never };
     CompositeTypes: { [_ in never]: never };
   };

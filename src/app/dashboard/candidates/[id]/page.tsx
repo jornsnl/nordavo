@@ -11,6 +11,7 @@ import { MatchingProfileCard } from "@/components/candidates/matching-profile-ca
 import { CustomFieldsCard } from "@/components/custom-fields/custom-fields-card";
 import { RecruitmentPanel } from "@/components/candidates/recruitment-panel";
 import { InterviewsCard } from "@/components/interviews/interviews-card";
+import { CompensationCard } from "@/components/forms/compensation-card";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
@@ -312,6 +313,7 @@ async function CandidateDetail({ params }: { params: Promise<{ id: string }> }) 
             </CardBody>
           </Card>
 
+          <CompensationCard candidateId={id} />
           <Suspense fallback={<ListSkeleton rows={3} />}>
             <EntityExtras entityType="candidate" entityId={id} />
           </Suspense>

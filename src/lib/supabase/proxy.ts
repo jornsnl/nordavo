@@ -15,7 +15,8 @@ const TOKEN_API_PATHS = ["/api/webhooks", "/api/mcp", "/api/work"];
 // needs its second step.
 // The task tool has its own sign-in page, and invite links must open signed out.
 const WORK_SIGN_IN = "/work/sign-in";
-const PUBLIC_PATHS = ["/login", "/auth", "/api/jobs", WORK_SIGN_IN, "/work/invite", ...TOKEN_API_PATHS];
+// /apply/<token> is the public application form for candidates (no account).
+const PUBLIC_PATHS = ["/login", "/auth", "/api/jobs", WORK_SIGN_IN, "/work/invite", "/apply", ...TOKEN_API_PATHS];
 
 // All a session may reach before its second step: the code form, signing out
 // and the e-mail link landing point (it only swaps tokens and redirects).

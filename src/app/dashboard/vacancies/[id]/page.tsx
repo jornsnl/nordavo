@@ -11,6 +11,7 @@ import { DaysOpen } from "@/components/vacancies/days-open";
 import { LinkClientCard } from "@/components/vacancies/link-client-card";
 import { PipelineSummary } from "@/components/vacancies/pipeline-summary";
 import { ParkVacancyCard } from "@/components/vacancies/park-vacancy-card";
+import { VacancyFormCard } from "@/components/forms/vacancy-form-card";
 import { sourceLabel } from "@/components/vacancies/talent-labels";
 import { MatchesSection } from "@/components/talent/matches-section";
 import { RequirementsCard } from "@/components/talent/requirements-card";
@@ -144,6 +145,7 @@ async function VacancyDetail({ params }: { params: Params }) {
 
           <PipelineSummary vacancyId={vacancy.id} summary={summary} target={PRESENTED_TARGET} />
           <ParkVacancyCard vacancyId={vacancy.id} status={vacancy.status} parkReason={vacancy.park_reason} parkedAt={vacancy.parked_at} />
+          <VacancyFormCard vacancyId={vacancy.id} />
 
           <Card>
             <CardHeader title="Details" />
