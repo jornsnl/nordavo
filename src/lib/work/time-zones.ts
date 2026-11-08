@@ -14,6 +14,15 @@ const RENAMED: Record<string, string> = {
   "Pacific/Truk": "Pacific/Chuuk",
   "Pacific/Ponape": "Pacific/Pohnpei",
   "Pacific/Enderbury": "Pacific/Kanton",
+  // Links Postgres does not always ship (no "backward" tzdata file).
+  "Africa/Asmera": "Africa/Asmara",
+  "America/Buenos_Aires": "America/Argentina/Buenos_Aires",
+  "America/Catamarca": "America/Argentina/Catamarca",
+  "America/Cordoba": "America/Argentina/Cordoba",
+  "America/Indianapolis": "America/Indiana/Indianapolis",
+  "America/Jujuy": "America/Argentina/Jujuy",
+  "America/Louisville": "America/Kentucky/Louisville",
+  "America/Mendoza": "America/Argentina/Mendoza",
 };
 
 /** Zones people here pick most, shown first in the picker. */
@@ -51,19 +60,37 @@ export function allTimeZones(): string[] {
 }
 
 /**
- * Server side check for a submitted zone: it must be on the picker's list.
- * An old name of a listed zone ("Asia/Calcutta") is accepted too, so values
- * stored before this list existed keep working.
+ * Server side check for a submitted zone: it must be on the picker's list,
+ * directly or as another name of a listed zone, so values stored before this
+ * list existed keep working. Store normalizeTimeZone(zone).
  */
 export function isListedTimeZone(zone: unknown): zone is string {
-  if (typeof zone !== "string" || zone.length === 0 || zone.length > 64) return false;
-  const list = allTimeZones();
-  return list.includes(zone) || list.includes(RENAMED[zone] ?? "");
+  if (typeof zone !== "string" || zone.length === 0 || zone.length > 64 || zone !== zone.trim()) return false;
+  return allTimeZones().includes(normalizeTimeZone(zone));
 }
 
-/** The stored form of a zone: current name for a renamed one. */
+/** What Intl calls a zone ("America/Argentina/Buenos_Aires" is "America/Buenos_Aires"), or null when unknown. */
+function intlName(zone: string): string | null {
+  try {
+    return new Intl.DateTimeFormat("en-GB", { timeZone: zone }).resolvedOptions().timeZone;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * The listed form of a zone: the name itself when listed, else the listed
+ * name of the same zone (old names and links such as "Asia/Calcutta" or
+ * "US/Eastern"). Unknown zones come back unchanged, and are not listed.
+ */
 export function normalizeTimeZone(zone: string): string {
-  return RENAMED[zone] ?? zone;
+  const list = allTimeZones();
+  if (list.includes(zone)) return zone;
+  if (RENAMED[zone]) return RENAMED[zone];
+  const resolved = intlName(zone);
+  if (!resolved) return zone;
+  const named = RENAMED[resolved] ?? resolved;
+  return list.includes(named) ? named : zone;
 }
 
 /** "UTC+05:30" for a zone at a moment. */

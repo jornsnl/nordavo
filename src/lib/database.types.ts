@@ -66,6 +66,19 @@ export type EntityType = "client" | "vacancy" | "candidate" | "application" | "p
 export type PasskeyDeviceType = "singleDevice" | "multiDevice";
 export type WebauthnChallengeKind = "registration" | "authentication";
 export type McpTokenAccess = "read" | "write";
+// Custom fields (20261108050000_custom_fields_and_extras.sql)
+export type CustomFieldEntity = "candidate" | "vacancy" | "application";
+export type CustomFieldType =
+  | "text"
+  | "long_text"
+  | "number"
+  | "date"
+  | "boolean"
+  | "single_choice"
+  | "multi_choice"
+  | "url";
+/** Values by field key: string (text, long_text, date, single_choice, url), number, boolean or string[] (multi_choice). */
+export type CustomFieldValues = { [key: string]: string | number | boolean | string[] };
 
 export type ActivityAction = "created" | "updated" | "deleted" | "stage_changed" | "status_changed";
 
@@ -316,6 +329,7 @@ export type Database = {
           is_talent_pool: boolean;
           park_reason: string | null;
           parked_at: string | null;
+          custom_fields: CustomFieldValues;
         };
         Insert: {
           id?: string;
@@ -353,6 +367,7 @@ export type Database = {
           is_talent_pool?: boolean;
           park_reason?: string | null;
           parked_at?: string | null;
+          custom_fields?: CustomFieldValues;
         };
         Update: {
           id?: string;
@@ -390,6 +405,7 @@ export type Database = {
           is_talent_pool?: boolean;
           park_reason?: string | null;
           parked_at?: string | null;
+          custom_fields?: CustomFieldValues;
         };
         Relationships: [
           {
@@ -445,6 +461,7 @@ export type Database = {
           parked_at: string | null;
           source: CandidateSource | null;
           origin: CandidateOrigin;
+          custom_fields: CustomFieldValues;
         };
         Insert: {
           id?: string;
@@ -475,6 +492,7 @@ export type Database = {
           parked_at?: string | null;
           source?: CandidateSource | null;
           origin?: CandidateOrigin;
+          custom_fields?: CustomFieldValues;
         };
         Update: {
           id?: string;
@@ -505,6 +523,7 @@ export type Database = {
           parked_at?: string | null;
           source?: CandidateSource | null;
           origin?: CandidateOrigin;
+          custom_fields?: CustomFieldValues;
         };
         Relationships: [
           {
@@ -552,6 +571,7 @@ export type Database = {
           shortlisted_at: string | null;
           background_check_status: BackgroundCheckStatus;
           background_check_notes: string | null;
+          custom_fields: CustomFieldValues;
         };
         Insert: {
           id?: string;
@@ -588,6 +608,7 @@ export type Database = {
           shortlisted_at?: string | null;
           background_check_status?: BackgroundCheckStatus;
           background_check_notes?: string | null;
+          custom_fields?: CustomFieldValues;
         };
         Update: {
           id?: string;
@@ -624,6 +645,7 @@ export type Database = {
           shortlisted_at?: string | null;
           background_check_status?: BackgroundCheckStatus;
           background_check_notes?: string | null;
+          custom_fields?: CustomFieldValues;
         };
         Relationships: [
           {
@@ -1749,6 +1771,50 @@ export type Database = {
         };
         Relationships: [];
       };
+      custom_field_definitions: {
+        Row: {
+          id: string;
+          entity: CustomFieldEntity;
+          key: string;
+          label: string;
+          field_type: CustomFieldType;
+          options: string[];
+          help_text: string | null;
+          position: number;
+          show_in_list: boolean;
+          archived_at: string | null;
+          created_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          entity: CustomFieldEntity;
+          key: string;
+          label: string;
+          field_type: CustomFieldType;
+          options?: string[];
+          help_text?: string | null;
+          position?: number;
+          show_in_list?: boolean;
+          archived_at?: string | null;
+          created_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          label?: string;
+          field_type?: CustomFieldType;
+          options?: string[];
+          help_text?: string | null;
+          position?: number;
+          show_in_list?: boolean;
+          archived_at?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
     } & WorkTables;
     Views: {
       call_list_candidates: { Row: ListCandidateBase & { phone: string; linkedin_url: string | null }; Relationships: [] };
@@ -1792,6 +1858,14 @@ export type Database = {
       t2_candidate_pool: {
         Args: { p_vacancy_id: string; p_patterns?: string[]; p_weights?: number[]; p_require_hit?: boolean; p_limit?: number };
         Returns: PublicTables["candidates"]["Row"][];
+      };
+      set_custom_field: {
+        Args: { p_entity: CustomFieldEntity; p_id: string; p_key: string; p_value: Json | null };
+        Returns: CustomFieldValues;
+      };
+      validate_custom_fields: {
+        Args: { p_entity: CustomFieldEntity; p_new: Json; p_old?: Json };
+        Returns: CustomFieldValues;
       };
     } & WorkFunctions;
     Enums: { [_ in never]: never };

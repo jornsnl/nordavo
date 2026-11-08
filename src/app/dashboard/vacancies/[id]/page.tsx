@@ -4,6 +4,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, Building2, KanbanSquare, Pencil } from "lucide-react";
 import { EntityExtras } from "@/components/entity/entity-extras";
+import { CustomFieldsCard } from "@/components/custom-fields/custom-fields-card";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { ConfirmDeleteButton } from "@/components/clients/confirm-delete-button";
 import { DaysOpen } from "@/components/vacancies/days-open";
@@ -202,6 +203,7 @@ async function VacancyDetail({ params }: { params: Params }) {
         </div>
 
         <div className="min-w-0 space-y-4 sm:space-y-6">
+          <CustomFieldsCard entity="vacancy" recordId={vacancy.id} />
           <Suspense fallback={<ListSkeleton rows={3} />}>
             <EntityExtras entityType="vacancy" entityId={vacancy.id} />
           </Suspense>

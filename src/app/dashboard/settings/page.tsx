@@ -18,6 +18,7 @@ import { InviteForm } from "@/components/settings/invite-form";
 import { PasswordForm } from "@/components/settings/password-form";
 import { ProfileForm } from "@/components/settings/profile-form";
 import { RoleEditor } from "@/components/settings/role-editor";
+import { CustomFieldsSettings } from "@/components/custom-fields/custom-fields-settings";
 import { McpSection } from "@/components/settings/security/mcp-section";
 import { MfaSection } from "@/components/settings/security/mfa-section";
 import { PasskeySection } from "@/components/settings/security/passkey-section";
@@ -68,6 +69,8 @@ export default function Page() {
         <Suspense fallback={<ListSkeleton rows={2} />}>
           <McpSection />
         </Suspense>
+
+        <CustomFieldsSettings />
 
         <Suspense fallback={<ListSkeleton rows={4} />}>
           <UsersSection />
