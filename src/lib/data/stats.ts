@@ -31,7 +31,8 @@ export async function getOverviewStats() {
       .from("applications")
       .select("id, vacancies!inner(is_talent_pool)", { count: "exact", head: true })
       .eq("vacancies.is_talent_pool", false)
-      .not("stage", "in", "(placed,rejected)"),
+      // Parked and rejected candidates are apart from the flow, not in selection.
+      .not("stage", "in", "(placed,parked,rejected)"),
     supabase
       .from("placements")
       .select("id", { count: "exact", head: true })

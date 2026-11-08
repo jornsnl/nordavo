@@ -210,7 +210,7 @@ const READ_TOOLS = [
   "search",
   "whoami",
 ];
-const WRITE_TOOLS = ["add_note", "create_task", "update_task_status"];
+const WRITE_TOOLS = ["add_note", "create_task", "mark_topper", "move_candidates", "update_task_status"];
 
 test("a read token only gets read tools", async () => {
   const { names, tools, whoami, instructions } = await listToolNames("read");
