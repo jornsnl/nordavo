@@ -4,12 +4,14 @@ import { applicationStages } from "@/lib/labels";
 /** Candidates per pipeline stage, across open vacancies. */
 export async function PipelineFunnel() {
   const counts = await getPipelineFunnel();
-  const stages = applicationStages.filter((s) => s.value !== "rejected");
+  // The flow stages as bars; parked and rejected are apart from the flow.
+  const stages = applicationStages.filter((s) => s.value !== "rejected" && s.value !== "parked");
   const max = Math.max(1, ...stages.map((s) => counts.get(s.value) ?? 0));
   const rejected = counts.get("rejected") ?? 0;
+  const parked = counts.get("parked") ?? 0;
   const total = stages.reduce((sum, s) => sum + (counts.get(s.value) ?? 0), 0);
 
-  if (total === 0 && rejected === 0) {
+  if (total === 0 && rejected === 0 && parked === 0) {
     return (
       <p className="px-5 py-6 text-sm text-muted">
         No candidates in the pipeline of open vacancies yet.
@@ -36,9 +38,9 @@ export async function PipelineFunnel() {
           );
         })}
       </dl>
-      {rejected > 0 && (
+      {(rejected > 0 || parked > 0) && (
         <p className="mt-4 border-t border-border pt-3 text-xs text-muted">
-          {rejected} rejected on open vacancies.
+          Apart from the flow: {parked} parked and {rejected} rejected on open vacancies.
         </p>
       )}
     </div>

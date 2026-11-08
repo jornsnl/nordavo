@@ -3,6 +3,8 @@ import { Suspense } from "react";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { getCurrentUser } from "@/lib/auth";
+import { isPortalModule, portalModules } from "@/lib/modules";
+import { IfModule } from "@/components/dashboard/if-module";
 import { RecentActivity } from "@/components/entity/recent-activity";
 import { AttentionVacancies } from "@/components/overview/attention-vacancies";
 import { PipelineFunnel } from "@/components/overview/pipeline-funnel";
@@ -39,36 +41,46 @@ const process = [
   },
 ];
 
-export default function DashboardPage() {
+export default function DashboardPage({ searchParams }: PageProps<"/dashboard">) {
   return (
     <>
+      <Suspense fallback={null}>
+        <NoAccessNotice searchParams={searchParams} />
+      </Suspense>
+
       <Suspense fallback={<GreetingSkeleton />}>
         <Greeting />
       </Suspense>
 
       <Suspense fallback={<StatCardsSkeleton />}>
-        <StatCards />
+        <IfModule module="recruitment">
+          <StatCards />
+        </IfModule>
       </Suspense>
 
       <div className="mb-8 grid gap-4 sm:mb-10 sm:gap-6 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
         <div className="min-w-0 space-y-4 sm:space-y-6">
-          <Card>
-            <CardHeader
-              title="Vacancies that need attention"
-              description="Propose 3 candidates within 3 weeks. Longest open is at the top."
-              actions={
-                <Link
-                  href="/dashboard/vacancies"
-                  className="text-sm font-semibold text-brand-600 hover:text-brand-800 pointer-coarse:-my-3 pointer-coarse:inline-flex pointer-coarse:min-h-11 pointer-coarse:items-center"
-                >
-                  All vacancies
-                </Link>
-              }
-            />
-            <Suspense fallback={<PanelSkeleton />}>
-              <AttentionVacancies />
-            </Suspense>
-          </Card>
+          <Suspense fallback={<PanelSkeleton />}>
+            <IfModule module="recruitment">
+              <Card>
+                <CardHeader
+                  title="Vacancies that need attention"
+                  description="Propose 3 candidates within 3 weeks. Longest open is at the top."
+                  actions={
+                    <Link
+                      href="/dashboard/vacancies"
+                      className="text-sm font-semibold text-brand-600 hover:text-brand-800 pointer-coarse:-my-3 pointer-coarse:inline-flex pointer-coarse:min-h-11 pointer-coarse:items-center"
+                    >
+                      All vacancies
+                    </Link>
+                  }
+                />
+                <Suspense fallback={<PanelSkeleton />}>
+                  <AttentionVacancies />
+                </Suspense>
+              </Card>
+            </IfModule>
+          </Suspense>
 
           {/* Both widgets render their own card and header. */}
           <Suspense fallback={<PanelSkeleton />}>
@@ -81,22 +93,26 @@ export default function DashboardPage() {
         </div>
 
         <div className="min-w-0 space-y-4 sm:space-y-6">
-          <Card>
-            <CardHeader
-              title="Upcoming moments"
-              description="Check-ins, guarantee end dates and last working days."
-            />
-            <Suspense fallback={<PanelSkeleton />}>
-              <UpcomingMoments />
-            </Suspense>
-          </Card>
+          <Suspense fallback={<PanelSkeleton />}>
+            <IfModule module="recruitment">
+              <Card>
+                <CardHeader
+                  title="Upcoming moments"
+                  description="Check-ins, guarantee end dates and last working days."
+                />
+                <Suspense fallback={<PanelSkeleton />}>
+                  <UpcomingMoments />
+                </Suspense>
+              </Card>
 
-          <Card>
-            <CardHeader title="Pipeline" description="Candidates per stage, for open vacancies." />
-            <Suspense fallback={<PanelSkeleton />}>
-              <PipelineFunnel />
-            </Suspense>
-          </Card>
+              <Card>
+                <CardHeader title="Pipeline" description="Candidates per stage, for open vacancies." />
+                <Suspense fallback={<PanelSkeleton />}>
+                  <PipelineFunnel />
+                </Suspense>
+              </Card>
+            </IfModule>
+          </Suspense>
         </div>
       </div>
 
@@ -141,6 +157,18 @@ export default function DashboardPage() {
         </ol>
       </section>
     </>
+  );
+}
+
+/** After a redirect from a module page the user does not have (requireModule). */
+async function NoAccessNotice({ searchParams }: { searchParams: PageProps<"/dashboard">["searchParams"] }) {
+  const value = (await searchParams).no_access;
+  if (!isPortalModule(value)) return null;
+  const label = portalModules.find((m) => m.value === value)?.label ?? value;
+  return (
+    <p role="status" className="mb-6 rounded-xl border border-amber-600/20 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+      You do not have access to {label}. Ask an admin to add the module to your account under Settings, Users.
+    </p>
   );
 }
 

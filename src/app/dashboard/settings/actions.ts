@@ -9,6 +9,7 @@ import {
   formValues,
 } from "@/lib/action-state";
 import { requireAdmin, requireStaff } from "@/lib/auth";
+import { ALL_MODULES, isPortalModule } from "@/lib/modules";
 import { env } from "@/lib/env";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
@@ -143,6 +144,8 @@ export async function inviteUser(
   }
 
   const { email, full_name, role, client_id } = parsed.data;
+  // Members get the ticked modules (2.5); unticked boxes are not sent.
+  const modules = formData.getAll("modules").filter(isPortalModule);
   const { data, error } = await admin.auth.admin.inviteUserByEmail(email.toLowerCase(), {
     data: { full_name },
     redirectTo: `${env.siteUrl()}/auth/confirm?next=/auth/password`,
@@ -166,6 +169,7 @@ export async function inviteUser(
       full_name,
       role,
       client_id: role === "client" ? (client_id ?? null) : null,
+      modules: role === "member" ? modules : ALL_MODULES,
     })
     .eq("id", data.user.id);
 
@@ -179,4 +183,66 @@ export async function inviteUser(
 
   revalidatePath("/dashboard/settings");
   return { ok: true, message: `Invite sent to ${email}.` };
+}
+
+const modulesSchema = z.object({ user_id: z.guid({ error: "User not found" }) });
+
+/** Who sees what (2.5): the modules of one team member. Admins only. */
+export async function updateUserModules(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  await requireAdmin();
+  const parsed = modulesSchema.safeParse(formValues(formData));
+  if (!parsed.success) return { error: "User not found." };
+  const modules = formData.getAll("modules").filter(isPortalModule);
+
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("admin_set_profile_modules", {
+    p_user_id: parsed.data.user_id,
+    p_modules: modules,
+  });
+  if (error) {
+    console.error("updateUserModules", error);
+    return { error: error.message || GENERIC_ERROR };
+  }
+
+  revalidatePath("/dashboard", "layout");
+  return { ok: true, message: modules.length === 0 ? "Saved. This member now only sees tasks and the task tool." : "Saved." };
+}
+
+const bookingSchema = z.object({
+  booking_url: z
+    .url({ protocol: /^https$/, error: "Enter the full https link of your Cal.com event" })
+    .max(500, { error: "At most 500 characters" })
+    .optional(),
+});
+
+/** The Cal.com booking link of the signed-in interviewer (2.14). */
+export async function updateBookingUrl(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const user = await requireStaff();
+  const parsed = bookingSchema.safeParse(formValues(formData));
+  if (!parsed.success) {
+    return { error: "Check the booking link.", fieldErrors: fieldErrorsFrom(parsed.error) };
+  }
+
+  const supabase = await createClient();
+  // The column grant allows users to set booking_url on their own row only.
+  const { error } = await supabase
+    .from("profiles")
+    .update({ booking_url: parsed.data.booking_url ?? null })
+    .eq("id", user.id);
+  if (error) {
+    console.error("updateBookingUrl", error);
+    return { error: GENERIC_ERROR };
+  }
+
+  revalidatePath("/dashboard/settings");
+  return {
+    ok: true,
+    message: parsed.data.booking_url ? "Your booking link has been saved." : "Your booking link has been removed.",
+  };
 }

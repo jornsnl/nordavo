@@ -62,6 +62,10 @@ export type PlacementStatus = "active" | "notice" | "ended";
 export type TaskStatus = "todo" | "in_progress" | "done";
 export type TaskPriority = "low" | "normal" | "high";
 export type EntityType = "client" | "vacancy" | "candidate" | "application" | "placement" | "company";
+/** Portal modules a team member sees (recruitment planning, 2.5). Admins see all. */
+export type PortalModule = "sales" | "recruitment" | "clients" | "report";
+export type InterviewKind = "interview" | "english_interview" | "client_interview";
+export type InterviewStatus = "invited" | "scheduled" | "rescheduled" | "cancelled" | "done" | "no_show";
 // Account security
 export type PasskeyDeviceType = "singleDevice" | "multiDevice";
 export type WebauthnChallengeKind = "registration" | "authentication";
@@ -157,6 +161,8 @@ export type Database = {
           time_zone: string;
           created_at: string;
           updated_at: string;
+          modules: PortalModule[];
+          booking_url: string | null;
         };
         Insert: {
           id: string;
@@ -167,6 +173,8 @@ export type Database = {
           time_zone?: string;
           created_at?: string;
           updated_at?: string;
+          modules?: PortalModule[];
+          booking_url?: string | null;
         };
         Update: {
           id?: string;
@@ -177,6 +185,8 @@ export type Database = {
           time_zone?: string;
           created_at?: string;
           updated_at?: string;
+          modules?: PortalModule[];
+          booking_url?: string | null;
         };
         Relationships: [
           {
@@ -919,6 +929,93 @@ export type Database = {
           {
             foreignKeyName: "attachments_uploaded_by_fkey";
             columns: ["uploaded_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      interviews: {
+        Row: {
+          id: string;
+          application_id: string;
+          interviewer_id: string | null;
+          kind: InterviewKind;
+          status: InterviewStatus;
+          invite_url: string | null;
+          invite_mailed_at: string | null;
+          starts_at: string | null;
+          ends_at: string | null;
+          cal_uid: string | null;
+          previous_cal_uids: string[];
+          cancellation_reason: string | null;
+          reminder_sent_at: string | null;
+          rating: number | null;
+          communication: number | null;
+          feedback: string | null;
+          feedback_at: string | null;
+          feedback_by: string | null;
+          created_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          application_id: string;
+          interviewer_id?: string | null;
+          kind?: InterviewKind;
+          status?: InterviewStatus;
+          invite_url?: string | null;
+          invite_mailed_at?: string | null;
+          starts_at?: string | null;
+          ends_at?: string | null;
+          cal_uid?: string | null;
+          previous_cal_uids?: string[];
+          cancellation_reason?: string | null;
+          reminder_sent_at?: string | null;
+          rating?: number | null;
+          communication?: number | null;
+          feedback?: string | null;
+          feedback_at?: string | null;
+          feedback_by?: string | null;
+          created_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          application_id?: string;
+          interviewer_id?: string | null;
+          kind?: InterviewKind;
+          status?: InterviewStatus;
+          invite_url?: string | null;
+          invite_mailed_at?: string | null;
+          starts_at?: string | null;
+          ends_at?: string | null;
+          cal_uid?: string | null;
+          previous_cal_uids?: string[];
+          cancellation_reason?: string | null;
+          reminder_sent_at?: string | null;
+          rating?: number | null;
+          communication?: number | null;
+          feedback?: string | null;
+          feedback_at?: string | null;
+          feedback_by?: string | null;
+          created_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "interviews_application_id_fkey";
+            columns: ["application_id"];
+            isOneToOne: false;
+            referencedRelation: "applications";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "interviews_interviewer_id_fkey";
+            columns: ["interviewer_id"];
             isOneToOne: false;
             referencedRelation: "profiles";
             referencedColumns: ["id"];
@@ -1785,6 +1882,23 @@ export type Database = {
         Args: { p_user_id: string; p_role: string; p_client_id: string | null };
         Returns: undefined;
       };
+      has_module: { Args: { p_module: PortalModule }; Returns: boolean };
+      can_access_entity: { Args: { p_entity_type: string | null }; Returns: boolean };
+      can_see_job: { Args: { p_job_name: string }; Returns: boolean };
+      admin_set_profile_modules: { Args: { p_user_id: string; p_modules: PortalModule[] }; Returns: undefined };
+      interview_from_booking: {
+        Args: {
+          p_trigger: string;
+          p_uid: string;
+          p_previous_uid?: string | null;
+          p_interview_id?: string | null;
+          p_attendee_email?: string | null;
+          p_starts_at?: string | null;
+          p_ends_at?: string | null;
+          p_reason?: string | null;
+        };
+        Returns: Json;
+      };
       move_applications: {
         Args: { p_application_ids: string[]; p_stage: ApplicationStage | "resume"; p_reason?: string | null; p_park_until?: string | null };
         Returns: number;
@@ -1817,6 +1931,7 @@ export type Note = Tables<"notes">;
 export type Attachment = Tables<"attachments">;
 export type ActivityEntry = Tables<"activity_log">;
 export type ApplicationStageEvent = Tables<"application_stage_events">;
+export type Interview = Tables<"interviews">;
 export type Company = Tables<"companies">;
 export type Contact = Tables<"contacts">;
 export type Signal = Tables<"signals">;

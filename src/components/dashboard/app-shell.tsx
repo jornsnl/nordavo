@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { Suspense, use, useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { Briefcase, CheckSquare, LayoutDashboard, Menu, Radar, X } from "lucide-react";
 import { Logo } from "@/components/brand/logo";
@@ -10,6 +10,8 @@ import {
   SidebarSearchButton,
 } from "@/components/search/command-palette";
 import { TabBar, TabButton, type TabItem } from "@/components/ui/tab-bar";
+import type { PortalModule } from "@/lib/database.types";
+import { canSeePath } from "@/lib/modules";
 import { SidebarNav } from "./sidebar-nav";
 
 // The most used modules as tabs on phones; everything else sits under "Meer".
@@ -27,9 +29,12 @@ const tabs: TabItem[] = [
  */
 export function AppShell({
   userMenu,
+  modules,
   children,
 }: {
   userMenu: ReactNode;
+  /** Modules of the signed-in user (2.5), streamed in; null shows everything. */
+  modules: Promise<PortalModule[] | null>;
   children: ReactNode;
 }) {
   const [open, setOpen] = useState(false);
@@ -43,6 +48,17 @@ export function AppShell({
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [open]);
+
+  const moreButton = (
+    <TabButton
+      label="More"
+      icon={Menu}
+      onClick={() => setOpen(true)}
+      active={open}
+      aria-expanded={open}
+      aria-controls="mobile-sidebar"
+    />
+  );
 
   const sidebar = (
     <div className="flex h-full flex-col bg-brand-900 px-4 py-5 max-lg:pt-[calc(1.25rem+env(safe-area-inset-top))] max-lg:pb-[calc(1.25rem+env(safe-area-inset-bottom))]">
@@ -59,7 +75,7 @@ export function AppShell({
         }}
       />
       <div className="flex-1 overflow-y-auto overscroll-contain">
-        <SidebarNav onNavigate={() => setOpen(false)} />
+        <SidebarNav onNavigate={() => setOpen(false)} modules={modules} />
       </div>
       <div className="mt-6 border-t border-white/10 pt-4">{userMenu}</div>
     </div>
@@ -82,20 +98,9 @@ export function AppShell({
         </div>
       </header>
 
-      <TabBar
-        label="Quick menu"
-        items={tabs}
-        extra={
-          <TabButton
-            label="More"
-            icon={Menu}
-            onClick={() => setOpen(true)}
-            active={open}
-            aria-expanded={open}
-            aria-controls="mobile-sidebar"
-          />
-        }
-      />
+      <Suspense fallback={<QuickTabs items={tabs.filter((t) => canSeePath(t.href, []))} extra={moreButton} />}>
+        <ModuleTabs modules={modules} extra={moreButton} />
+      </Suspense>
 
       {/* Mobile drawer */}
       <div
@@ -139,4 +144,14 @@ export function AppShell({
       </div>
     </div>
   );
+}
+
+function QuickTabs({ items, extra }: { items: TabItem[]; extra: ReactNode }) {
+  return <TabBar label="Quick menu" items={items} extra={extra} />;
+}
+
+/** The phone tabs, without modules the user does not have. */
+function ModuleTabs({ modules, extra }: { modules: Promise<PortalModule[] | null>; extra: ReactNode }) {
+  const visible = use(modules);
+  return <QuickTabs items={tabs.filter((t) => canSeePath(t.href, visible))} extra={extra} />;
 }

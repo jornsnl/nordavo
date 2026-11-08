@@ -2,7 +2,8 @@ import "server-only";
 import { cache } from "react";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import type { ProfileRole } from "@/lib/database.types";
+import type { PortalModule, ProfileRole } from "@/lib/database.types";
+import { effectiveModules } from "@/lib/modules";
 import { MFA_VERIFY_PATH, checkSecondStep } from "@/lib/security/mfa";
 import { createClient } from "@/lib/supabase/server";
 
@@ -15,6 +16,8 @@ export type CurrentUser = {
   clientId: string | null;
   /** IANA time zone the user sees dates in (deadlines are stored in UTC). */
   timeZone: string;
+  /** Modules this user sees (2.5). Admins have all; client and Work only accounts none. */
+  modules: PortalModule[];
 };
 
 /**
@@ -43,7 +46,7 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser> => {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("full_name, role, client_id, time_zone")
+    .select("full_name, role, client_id, time_zone, modules")
     .eq("id", userId)
     .maybeSingle();
 
@@ -60,6 +63,7 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser> => {
     role,
     clientId: role === "client" ? (profile?.client_id ?? null) : null,
     timeZone: profile?.time_zone || "Europe/Amsterdam",
+    modules: effectiveModules(role, profile?.modules),
   };
 });
 
@@ -77,6 +81,22 @@ export function homePathFor(user: CurrentUser) {
 export async function requireStaff(): Promise<CurrentUser> {
   const user = await getCurrentUser();
   if (!isStaff(user)) redirect(homePathFor(user));
+  return user;
+}
+
+/** Whether the user sees this module (admins always do). */
+export function hasModule(user: CurrentUser, module: PortalModule) {
+  return isStaff(user) && user.modules.includes(module);
+}
+
+/**
+ * Team members with this module only (2.5). Others go to the overview. The
+ * database enforces the same through public.has_module(), this keeps people
+ * away from pages that would only show empty lists.
+ */
+export async function requireModule(module: PortalModule): Promise<CurrentUser> {
+  const user = await requireStaff();
+  if (!hasModule(user, module)) redirect(`/dashboard?no_access=${module}`);
   return user;
 }
 
