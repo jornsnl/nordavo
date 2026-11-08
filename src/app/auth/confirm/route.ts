@@ -2,6 +2,7 @@ import type { EmailOtpType } from "@supabase/supabase-js";
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { safeNextPath } from "@/lib/safe-redirect";
+import { isSignInLinkType, mayUseSignInLink } from "@/lib/security/sign-in-link";
 
 /**
  * Landing point for links in Supabase auth e-mails (invites, magic links,
@@ -16,10 +17,19 @@ export async function GET(request: NextRequest) {
 
   if (tokenHash && type) {
     const supabase = await createClient();
-    const { error } = await supabase.auth.verifyOtp({
+    const { data, error } = await supabase.auth.verifyOtp({
       type,
       token_hash: tokenHash,
     });
+    if (!error && data.user && isSignInLinkType(type)) {
+      // Sign-in links are for Work guests only. Staff and clients keep their
+      // password (and authenticator app), so their link session ends here.
+      const { data: profile } = await supabase.from("profiles").select("role").eq("id", data.user.id).maybeSingle();
+      if (!mayUseSignInLink(profile?.role)) {
+        await supabase.auth.signOut({ scope: "local" });
+        return NextResponse.redirect(new URL("/login?error=password", request.url));
+      }
+    }
     if (!error) {
       return NextResponse.redirect(new URL(next, request.url));
     }

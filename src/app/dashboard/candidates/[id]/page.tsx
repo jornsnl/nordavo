@@ -8,6 +8,7 @@ import { EntityExtras } from "@/components/entity/entity-extras";
 import { QuickActions, telHref, type QuickAction } from "@/components/entity/quick-actions";
 import { DeleteCandidateButton, LinkVacancyButton } from "@/components/candidates/candidate-actions";
 import { MatchingProfileCard } from "@/components/candidates/matching-profile-card";
+import { CustomFieldsCard } from "@/components/custom-fields/custom-fields-card";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
@@ -240,6 +241,7 @@ async function CandidateDetail({ params }: { params: Promise<{ id: string }> }) 
           <Suspense fallback={<ListSkeleton rows={3} />}>
             <MatchingProfileCard candidate={candidate} />
           </Suspense>
+          <CustomFieldsCard entity="candidate" recordId={id} />
         </div>
 
         <div className="min-w-0 space-y-4 sm:space-y-6">

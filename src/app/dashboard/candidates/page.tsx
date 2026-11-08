@@ -19,6 +19,8 @@ import { getApplicationVacancyId } from "@/lib/data/applications";
 import { listCandidateSkills, listCandidates } from "@/lib/data/candidates";
 import type { CandidateStatus } from "@/lib/database.types";
 import { candidateStatuses, optionFor } from "@/lib/labels";
+import { CustomFieldCells, CustomFieldFilters, CustomFieldHeaders, CustomFieldSummary } from "@/components/custom-fields/list-columns";
+import { candidateListFields } from "@/lib/custom-fields/list";
 
 export const metadata: Metadata = {
   title: "Candidates",
@@ -70,11 +72,13 @@ async function CandidateList({ searchParams }: { searchParams: SearchParams }) {
     : undefined;
   const skill = first(params.skill);
 
-  const [candidates, skills] = await Promise.all([
+  const [found, skills, customFields] = await Promise.all([
     listCandidates({ q, status, skill }),
     listCandidateSkills(),
+    candidateListFields(params),
   ]);
-  const filtered = !!(q || status || skill);
+  const candidates = customFields.apply(found);
+  const filtered = !!(q || status || skill) || customFields.filters.length > 0;
   const current = { q, status, skill };
 
   return (
@@ -160,6 +164,7 @@ async function CandidateList({ searchParams }: { searchParams: SearchParams }) {
           )}
         </div>
       </Form>
+      <CustomFieldFilters fields={customFields} />
 
       {candidates.length === 0 ? (
         filtered ? (
@@ -202,6 +207,7 @@ async function CandidateList({ searchParams }: { searchParams: SearchParams }) {
                     ))}
                     {c.skills.length > 3 && <Badge tone="brand">+{c.skills.length - 3}</Badge>}
                   </div>
+                  <CustomFieldSummary fields={customFields} id={c.id} />
                 </MobileListItem>
               );
             })}
@@ -213,6 +219,7 @@ async function CandidateList({ searchParams }: { searchParams: SearchParams }) {
                 <TH>Role</TH>
                 <TH className="text-right">Experience</TH>
                 <TH>Skills</TH>
+                <CustomFieldHeaders fields={customFields} />
                 <TH>Status</TH>
                 <TH className="text-right">Active</TH>
               </tr>
@@ -247,6 +254,7 @@ async function CandidateList({ searchParams }: { searchParams: SearchParams }) {
                         {c.skills.length === 0 && <span className="text-muted">None</span>}
                       </div>
                     </TD>
+                    <CustomFieldCells fields={customFields} id={c.id} />
                     <TD>
                       <Badge tone={statusOption.tone}>{statusOption.label}</Badge>
                     </TD>

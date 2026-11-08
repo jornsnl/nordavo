@@ -16,6 +16,7 @@ import { Button, ButtonLink } from "@/components/ui/button";
 import { DetailList } from "@/components/ui/card";
 import { Field, FormMessage, Input, Textarea } from "@/components/ui/field";
 import { Modal } from "@/components/ui/modal";
+import { CustomFieldsPanel } from "@/components/custom-fields/custom-fields-panel";
 import type { BoardCard } from "./pipeline-card";
 import { PRESENTED_STAGES } from "./stages";
 
@@ -131,6 +132,8 @@ function ApplicationDetails({ card, onClose }: { card: BoardCard; onClose: () =>
           </Button>
         </div>
       </form>
+
+      <CustomFieldsPanel entity="application" recordId={card.id} />
 
       <section aria-labelledby="client-heading" className="rounded-xl border border-border bg-surface/60 p-4">
         <h3 id="client-heading" className="mb-3 font-display text-sm font-semibold text-brand-900">

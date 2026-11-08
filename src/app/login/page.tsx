@@ -5,6 +5,7 @@ import { Logo } from "@/components/brand/logo";
 import { authPanelClass } from "./auth-panel";
 import { LoginForm } from "./login-form";
 import { PasskeySignIn } from "./passkey-sign-in";
+import { GuestLinkSignIn } from "./guest-link";
 
 export const metadata: Metadata = {
   title: "Sign in",
@@ -89,6 +90,7 @@ export default function LoginPage() {
                 <PasskeySignIn />
               </div>
             </div>
+            <GuestLinkSignIn />
           </div>
 
           <p className="mt-8 text-sm text-muted max-sm:pt-2 max-sm:text-center">
