@@ -19,15 +19,29 @@ import {
 import { arrayMove, sortableKeyboardCoordinates } from "@dnd-kit/sortable";
 import { Handshake, Plus, X } from "lucide-react";
 import { moveApplication, reorderStage } from "@/app/dashboard/vacancies/[id]/pipeline/actions";
+import { bulkMoveApplications } from "@/app/dashboard/vacancies/[id]/pipeline/recruitment-actions";
 import type { PipelineApplication } from "@/lib/data/applications";
 import type { CandidateOption } from "@/lib/data/candidates";
+import type { StaffMember } from "@/lib/data/tasks";
 import type { ApplicationStage } from "@/lib/database.types";
 import { applicationStages, optionFor } from "@/lib/labels";
+import {
+  applyBoardFilter,
+  defaultBoardFilter,
+  isExitStage,
+  isFiltered,
+  selectRange,
+  toggleColumn,
+  type BoardFilter,
+  type MoveTarget,
+} from "@/lib/recruitment/pipeline";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { FormMessage } from "@/components/ui/field";
-import { OverlayCard, type BoardCard } from "./pipeline-card";
+import { BoardFilters, BulkBar } from "./board-toolbar";
+import { ExitModal, type ExitMode } from "./exit-modal";
+import { OverlayCard, type BoardCard, type CardAction } from "./pipeline-card";
 import { PipelineColumn } from "./pipeline-column";
-import { AddCandidateModal, ApplicationModal, RejectModal } from "./pipeline-modals";
+import { AddCandidateModal, ApplicationModal } from "./pipeline-modals";
 import { PRESENTED_STAGES, PRESENTED_TARGET, positionAt } from "./stages";
 
 type Columns = Record<ApplicationStage, BoardCard[]>;
@@ -45,18 +59,29 @@ function isStage(id: UniqueIdentifier): id is ApplicationStage {
   return STAGES.includes(id as ApplicationStage);
 }
 
-/** A pending move into "rejected", waiting for the optional reason. */
-type PendingReject = { card: BoardCard; position: number; orderedIds: string[]; needsRebalance: boolean };
+/**
+ * A pending park or reject, waiting for the reason: a dragged card (already
+ * shown in its new lane) or cards chosen from a menu or the bulk bar.
+ */
+type PendingExit =
+  | { kind: "drag"; mode: ExitMode; card: BoardCard; position: number; orderedIds: string[]; needsRebalance: boolean }
+  | { kind: "ids"; mode: ExitMode; ids: string[]; subject: string };
+
+const FLOW = applicationStages.filter((s) => !isExitStage(s.value));
+const EXITS = applicationStages.filter((s) => isExitStage(s.value));
 
 export function PipelineBoard({
   vacancyId,
   applications,
   candidates,
+  staff,
   initialOpenId,
 }: {
   vacancyId: string;
   applications: PipelineApplication[];
   candidates: CandidateOption[];
+  /** Team members, to pick the interviewer. */
+  staff: StaffMember[];
   initialOpenId?: string;
 }) {
   const [columns, setColumns] = useState<Columns>(() => groupByStage(applications));
@@ -64,16 +89,20 @@ export function PipelineBoard({
   const [activeId, setActiveId] = useState<string | null>(null);
   const [openId, setOpenId] = useState<string | null>(initialOpenId ?? null);
   const [adding, setAdding] = useState(false);
-  const [rejectedOpen, setRejectedOpen] = useState(false);
-  const [pendingReject, setPendingReject] = useState<PendingReject | null>(null);
+  const [exitOpen, setExitOpen] = useState<Record<"parked" | "rejected", boolean>>({ parked: false, rejected: false });
+  const [pendingExit, setPendingExit] = useState<PendingExit | null>(null);
   const [placed, setPlaced] = useState<BoardCard | null>(null);
   const [error, setError] = useState<string>();
+  const [message, setMessage] = useState<string>();
+  const [filter, setFilter] = useState<BoardFilter>(defaultBoardFilter);
+  const [selection, setSelection] = useState<Set<string>>(() => new Set());
+  const [anchor, setAnchor] = useState<string | null>(null);
   const [saving, startSaving] = useTransition();
   /** Where the dragged card started, to detect a real move and to undo a cancel. */
   const dragStart = useRef<{ stage: ApplicationStage; index: number; columns: Columns } | null>(null);
 
   // Fresh server data (after any action) replaces local state, unless a drag is in progress.
-  if (source !== applications && !activeId && !pendingReject) {
+  if (source !== applications && !activeId && pendingExit?.kind !== "drag") {
     setSource(applications);
     setColumns(groupByStage(applications));
   }
@@ -88,7 +117,56 @@ export function PipelineBoard({
   const cardById = (id: UniqueIdentifier | null | undefined) =>
     id ? allCards.find((c) => c.id === id) : undefined;
   const onBoardIds = useMemo(() => new Set(allCards.map((c) => c.candidate.id)), [allCards]);
-  const presentedCount = allCards.filter((c) => PRESENTED_STAGES.includes(c.stage)).length;
+  // The promise counts everyone the client has seen, also those parked or rejected later.
+  const presentedCount = allCards.filter((c) => PRESENTED_STAGES.includes(c.stage) || !!c.presented_at).length;
+  const filtered = isFiltered(filter);
+  const visible = useMemo(
+    () => Object.fromEntries(STAGES.map((s) => [s, applyBoardFilter(columns[s], filter)])) as Columns,
+    [columns, filter],
+  );
+  const visibleOrder = useMemo(() => STAGES.flatMap((s) => visible[s].map((c) => c.id)), [visible]);
+  // Cards that left the board (moved by someone else, removed) drop out of the selection.
+  const selected = useMemo(
+    () => new Set([...selection].filter((id) => allCards.some((c) => c.id === id))),
+    [selection, allCards],
+  );
+  const selectedCards = allCards.filter((c) => selected.has(c.id));
+
+  function openExitLane(stage: ApplicationStage) {
+    if (stage === "parked" || stage === "rejected") setExitOpen((v) => ({ ...v, [stage]: true }));
+  }
+
+  function onSelect(id: string, shift: boolean) {
+    setSelection(shift ? selectRange(visibleOrder, selected, anchor, id) : selectRange([], selected, null, id));
+    setAnchor(id);
+  }
+
+  function onSelectAll(stage: ApplicationStage) {
+    setSelection(toggleColumn(selected, visible[stage].map((c) => c.id)));
+  }
+
+  /** Bulk move through move_applications(); the fresh board comes back from the server. */
+  function runBulk(ids: string[], stage: MoveTarget, reason?: string, parkUntil?: string) {
+    if (ids.length === 0) return;
+    setError(undefined);
+    setMessage(undefined);
+    startSaving(async () => {
+      const result = await bulkMoveApplications(vacancyId, { applicationIds: ids, stage, reason, parkUntil });
+      if (result.error) {
+        setError(result.error);
+        return;
+      }
+      setMessage(result.message);
+      setSelection(new Set());
+      if (stage === "parked" || stage === "rejected") openExitLane(stage);
+    });
+  }
+
+  function askExit(mode: ExitMode, ids: string[]) {
+    if (ids.length === 0) return;
+    const name = ids.length === 1 ? cardById(ids[0])?.candidate.full_name : undefined;
+    setPendingExit({ kind: "ids", mode, ids, subject: name ?? `${ids.length} candidates` });
+  }
 
   function findStage(id: UniqueIdentifier): ApplicationStage | undefined {
     if (isStage(id)) return id;
@@ -131,8 +209,15 @@ export function PipelineBoard({
     setColumns(updated);
     const orderedIds = updated[stage].map((c) => c.id);
 
-    if (stage === "rejected" && fromStage !== "rejected") {
-      setPendingReject({ card: moved, position, orderedIds, needsRebalance });
+    if (isExitStage(stage) && fromStage !== stage) {
+      setPendingExit({
+        kind: "drag",
+        mode: stage === "parked" ? "park" : "reject",
+        card: moved,
+        position,
+        orderedIds,
+        needsRebalance,
+      });
       return;
     }
     persist(moved, position, fromStage, orderedIds, needsRebalance);
@@ -144,11 +229,13 @@ export function PipelineBoard({
     fromStage: ApplicationStage,
     orderedIds: string[],
     needsRebalance: boolean,
-    rejectionReason?: string,
+    reason?: string,
+    parkUntil?: string,
   ) {
     setError(undefined);
+    setMessage(undefined);
     startSaving(async () => {
-      const result = await moveApplication(card.id, card.stage, position, rejectionReason);
+      const result = await moveApplication(card.id, card.stage, position, reason, parkUntil);
       if (result.error) {
         setError(result.error);
         // Back to what the server last told us.
@@ -160,12 +247,19 @@ export function PipelineBoard({
     });
   }
 
-  /** Non-drag fallback: the "Verplaats naar" select on each card. */
+  /** The card menu: move to a stage, park, reject or resume. */
+  function onCardAction(id: string, action: CardAction) {
+    if (action === "park" || action === "parked") return askExit("park", [id]);
+    if (action === "reject" || action === "rejected") return askExit("reject", [id]);
+    if (action === "resume") return runBulk([id], "resume");
+    moveTo(id, action);
+  }
+
+  /** Non-drag fallback: move one card to the bottom of a flow stage. */
   function moveTo(id: string, stage: ApplicationStage) {
     const fromStage = findStage(id);
     const card = cardById(id);
     if (!fromStage || !card || fromStage === stage) return;
-    if (stage === "rejected") setRejectedOpen(true);
     const movedCard = { ...card, stage };
     const next: Columns = {
       ...columns,
@@ -194,7 +288,7 @@ export function PipelineBoard({
     const from = findStage(active.id);
     const to = findStage(over.id);
     if (!from || !to || from === to) return;
-    if (to === "rejected") setRejectedOpen(true);
+    openExitLane(to);
 
     setColumns((prev) => {
       const fromItems = prev[from];
@@ -287,14 +381,24 @@ export function PipelineBoard({
         </div>
       </div>
 
-      {error && (
+      <BoardFilters filter={filter} onChange={setFilter} />
+      {filtered && (
+        <p className="text-xs text-muted">
+          Sorted or filtered: dragging is off. Use Move to, the checkboxes or clear the filters.
+        </p>
+      )}
+
+      {(error || message) && (
         <div className="flex items-start gap-2">
           <div className="flex-1">
-            <FormMessage error={error} />
+            <FormMessage error={error} success={error ? undefined : message} />
           </div>
           <button
             type="button"
-            onClick={() => setError(undefined)}
+            onClick={() => {
+              setError(undefined);
+              setMessage(undefined);
+            }}
             aria-label="Close message"
             className="flex size-9 items-center justify-center rounded-lg text-muted hover:bg-brand-50 active:bg-brand-50 pointer-coarse:size-11"
           >
@@ -338,7 +442,7 @@ export function PipelineBoard({
               <button
                 type="button"
                 onClick={() => {
-                  if (s.value === "rejected") setRejectedOpen(true);
+                  openExitLane(s.value);
                   document
                     .getElementById(`column-${s.value}`)
                     ?.closest("section")
@@ -354,7 +458,7 @@ export function PipelineBoard({
         </ul>
       </nav>
       <p className="text-xs text-muted sm:hidden">
-        Press and hold a card to drag it to another stage, or choose Move to.
+        Press and hold a card to drag it to another stage, or choose Move to. Tick cards to move many at once.
       </p>
 
       <DndContext
@@ -378,38 +482,96 @@ export function PipelineBoard({
           aria-label="Pipeline"
           role="region"
         >
-          {applicationStages.map((s) => (
+          {FLOW.map((s) => (
             <PipelineColumn
               key={s.value}
               stage={s.value}
               label={s.label}
               tone={s.tone}
-              cards={columns[s.value]}
+              cards={visible[s.value]}
+              hiddenCount={columns[s.value].length - visible[s.value].length}
               onOpen={setOpenId}
-              onMoveTo={moveTo}
+              onAction={onCardAction}
+              onSelect={onSelect}
+              onSelectAll={onSelectAll}
+              selected={selected}
               busy={saving}
-              collapsible={s.value === "rejected"}
-              collapsed={s.value === "rejected" && !rejectedOpen}
-              onToggle={() => setRejectedOpen((v) => !v)}
+              dragDisabled={filtered}
             />
           ))}
+          {/* Apart from the flow: parked and rejected, collapsed until needed. */}
+          <div aria-hidden="true" className="w-px shrink-0 self-stretch bg-border" />
+          {EXITS.map((s) => {
+            const lane = s.value as "parked" | "rejected";
+            return (
+              <PipelineColumn
+                key={s.value}
+                stage={s.value}
+                label={s.label}
+                tone={s.tone}
+                cards={visible[s.value]}
+                hiddenCount={columns[s.value].length - visible[s.value].length}
+                onOpen={setOpenId}
+                onAction={onCardAction}
+                onSelect={onSelect}
+                onSelectAll={onSelectAll}
+                selected={selected}
+                busy={saving}
+                dragDisabled={filtered}
+                collapsible
+                collapsed={!exitOpen[lane]}
+                onToggle={() => setExitOpen((v) => ({ ...v, [lane]: !v[lane] }))}
+              />
+            );
+          })}
         </div>
         <DragOverlay>{activeCard ? <OverlayCard card={activeCard} /> : null}</DragOverlay>
       </DndContext>
 
-      <ApplicationModal card={openCard} onClose={() => setOpenId(null)} />
+      <BulkBar
+        count={selected.size}
+        canResume={selectedCards.some((c) => isExitStage(c.stage))}
+        busy={saving}
+        onMove={(stage) => runBulk([...selected], stage as MoveTarget)}
+        onPark={() => askExit("park", [...selected])}
+        onReject={() => askExit("reject", [...selected])}
+        onResume={() => runBulk(selectedCards.filter((c) => isExitStage(c.stage)).map((c) => c.id), "resume")}
+        onClear={() => setSelection(new Set())}
+      />
 
-      <RejectModal
-        name={pendingReject?.card.candidate.full_name ?? null}
-        onCancel={() => {
-          setPendingReject(null);
-          setColumns(groupByStage(source));
+      <ApplicationModal
+        card={openCard}
+        staff={staff}
+        onClose={() => setOpenId(null)}
+        onAction={(id, action) => {
+          setOpenId(null);
+          onCardAction(id, action);
         }}
-        onConfirm={(reason) => {
-          if (!pendingReject) return;
-          const { card, position, orderedIds, needsRebalance } = pendingReject;
-          setPendingReject(null);
-          persist(card, position, "rejected", orderedIds, needsRebalance, reason || undefined);
+      />
+
+      <ExitModal
+        request={
+          pendingExit
+            ? {
+                mode: pendingExit.mode,
+                subject: pendingExit.kind === "drag" ? pendingExit.card.candidate.full_name : pendingExit.subject,
+              }
+            : null
+        }
+        onCancel={() => {
+          if (pendingExit?.kind === "drag") setColumns(groupByStage(source));
+          setPendingExit(null);
+        }}
+        onConfirm={({ reason, parkUntil }) => {
+          if (!pendingExit) return;
+          const pending = pendingExit;
+          setPendingExit(null);
+          if (pending.kind === "drag") {
+            const { card, position, orderedIds, needsRebalance } = pending;
+            persist(card, position, card.stage, orderedIds, needsRebalance, reason || undefined, parkUntil);
+          } else {
+            runBulk(pending.ids, pending.mode === "park" ? "parked" : "rejected", reason || undefined, parkUntil);
+          }
         }}
       />
 

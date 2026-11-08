@@ -11,26 +11,29 @@ export function isUuid(value: string | null | undefined): value is string {
 }
 
 /** Stages that no longer count as an active application. */
-const CLOSED_STAGES: ApplicationStage[] = ["placed", "rejected"];
+const CLOSED_STAGES: ApplicationStage[] = ["placed", "parked", "rejected"];
 
 export type CandidateFilter = {
   q?: string;
   status?: CandidateStatus;
   skill?: string;
+  /** Only candidates marked as topper (2.13). */
+  toppers?: boolean;
 };
 
-export async function listCandidates({ q, status, skill }: CandidateFilter) {
+export async function listCandidates({ q, status, skill, toppers }: CandidateFilter) {
   await requireStaff();
   const supabase = await createClient();
 
   let query = supabase
     .from("candidates")
     .select(
-      "id, full_name, current_title, years_experience, skills, status, location, applications(stage)",
+      "id, full_name, current_title, years_experience, skills, status, location, is_topper, topper_reason, applications(stage)",
     )
     .order("full_name");
 
   if (status) query = query.eq("status", status);
+  if (toppers) query = query.eq("is_topper", true);
 
   const { data, error } = await query;
   if (error) throw new Error(`Could not load candidates: ${error.message}`);

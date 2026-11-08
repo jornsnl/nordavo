@@ -26,7 +26,64 @@ const READ_ONLY = { readOnlyHint: true, openWorldHint: false } as const;
 
 const clientStatus = z.enum(["lead", "active", "inactive"]);
 const vacancyStatus = z.enum(["open", "on_hold", "filled", "closed"]);
-const candidateStatus = z.enum(["available", "in_process", "placed", "unavailable"]);
+const candidateStatus = z.enum(["available", "in_process", "parked", "placed", "unavailable"]);
+
+/** Columns of an application Claude needs to judge and move candidates (brief 2.1 to 2.13). */
+const APPLICATION_PIPELINE_FIELDS =
+  "origin, source, form_sent_at, form_completed_at, cv_score, cv_verdict, video_score, interview_at, shortlisted_at, background_check_status, exit_from_stage, park_reason, park_until, parked_at, rejected_at, assessment:application_assessments(test_score, screening_tools, screening_communication_score, interview_rating)";
+
+type PipelineFieldsRow = {
+  origin: string;
+  source: string | null;
+  form_sent_at: string | null;
+  form_completed_at: string | null;
+  cv_score: number | null;
+  cv_verdict: string | null;
+  video_score: number | null;
+  interview_at: string | null;
+  shortlisted_at: string | null;
+  background_check_status: string;
+  exit_from_stage: string | null;
+  park_reason: string | null;
+  park_until: string | null;
+  parked_at: string | null;
+  rejected_at: string | null;
+  assessment: {
+    test_score: number | null;
+    screening_tools: Json;
+    screening_communication_score: number | null;
+    interview_rating: number | null;
+  } | null;
+};
+
+/** The pipeline fields of one application, compact. */
+function pipelineFields(a: PipelineFieldsRow) {
+  return {
+    origin: a.origin,
+    source: a.source,
+    form: a.form_completed_at ? "completed" : a.form_sent_at ? "sent" : "not_sent",
+    form_completed_at: a.form_completed_at,
+    cv_score: a.cv_score,
+    cv_verdict: a.cv_verdict,
+    video_score: a.video_score,
+    test_score: a.assessment?.test_score ?? null,
+    screening_tools: a.assessment?.screening_tools ?? [],
+    screening_communication_score: a.assessment?.screening_communication_score ?? null,
+    interview_rating: a.assessment?.interview_rating ?? null,
+    interview_at: a.interview_at,
+    shortlisted: Boolean(a.shortlisted_at),
+    background_check_status: a.background_check_status,
+    ...(a.parked_at || a.rejected_at || a.exit_from_stage
+      ? {
+          left_stage: a.exit_from_stage,
+          park_reason: clip(a.park_reason, 300),
+          park_until: a.park_until,
+          parked_at: a.parked_at,
+          rejected_at: a.rejected_at,
+        }
+      : {}),
+  };
+}
 const placementStatus = z.enum(["active", "notice", "ended"]);
 
 const searchTypes = ["client", "vacancy", "candidate", "placement", "company", "contact"] as const;
@@ -365,7 +422,7 @@ function registerReadTools(server: McpServer, ctx: McpToolContext) {
     {
       title: "Vacancy",
       description:
-        "One vacancy with its profile (description, stack, must-haves, budget) and the pipeline grouped per stage (sourced to placed, plus rejected), with candidate ids, scores and client decision. A talent pool vacancy (is_talent_pool) has no client yet and no three-week clock (days_open null).",
+        "One vacancy with its profile (description, stack, must-haves, budget) and the pipeline grouped per stage (sourced, techstack_check, fill_out, video_review, technical_test, interview, matched, client_interview, final_screening, placed; apart from the flow parked and rejected, with the stage they left and the reason). Each card has application and candidate ids, origin (applied or headhunted), source, form status, CV score and verdict, video, test and interview scores, planned interview, shortlist, topper and background check status, and client decision. A talent pool vacancy (is_talent_pool) has no client yet and no three-week clock (days_open null). A parked vacancy has status on_hold with park_reason.",
       inputSchema: { id: idSchema },
       annotations: READ_ONLY,
     },
@@ -374,7 +431,7 @@ function registerReadTools(server: McpServer, ctx: McpToolContext) {
         await db
           .from("vacancies")
           .select(
-            "id, title, status, seniority, description, stack, must_haves, nice_to_haves, monthly_budget, budget_min, budget_max, hours, timezone_overlap, desired_start_date, opened_at, closed_at, talent_stage, is_talent_pool, intake_at, profiles_sent_at, first_interview_at, client:clients(id, name), company:companies(id, name, domain), owner:profiles!vacancies_owner_id_fkey(full_name, email)",
+            "id, title, status, seniority, description, stack, must_haves, nice_to_haves, monthly_budget, budget_min, budget_max, hours, timezone_overlap, desired_start_date, opened_at, closed_at, park_reason, parked_at, talent_stage, is_talent_pool, intake_at, profiles_sent_at, first_interview_at, client:clients(id, name), company:companies(id, name, domain), owner:profiles!vacancies_owner_id_fkey(full_name, email)",
           )
           .eq("id", id)
           .maybeSingle(),
@@ -386,7 +443,7 @@ function registerReadTools(server: McpServer, ctx: McpToolContext) {
         db
           .from("applications")
           .select(
-            "id, stage, position, technical_score, english_score, client_decision, client_feedback, rejection_reason, presented_at, updated_at, candidate:candidates(id, full_name, current_title, years_experience)",
+            `id, stage, position, technical_score, english_score, client_decision, client_feedback, rejection_reason, presented_at, updated_at, ${APPLICATION_PIPELINE_FIELDS}, candidate:candidates(id, full_name, current_title, years_experience, is_topper)`,
           )
           .eq("vacancy_id", id)
           .order("position")
@@ -406,6 +463,8 @@ function registerReadTools(server: McpServer, ctx: McpToolContext) {
             name: a.candidate?.full_name ?? null,
             title: a.candidate?.current_title ?? null,
             years_experience: a.candidate?.years_experience ?? null,
+            is_topper: a.candidate?.is_topper ?? false,
+            ...pipelineFields(a),
             technical_score: a.technical_score,
             english_score: a.english_score,
             client_decision: a.client_decision,
@@ -434,23 +493,26 @@ function registerReadTools(server: McpServer, ctx: McpToolContext) {
     {
       title: "Candidates",
       description:
-        "List candidates (Indian tech talent), sorted by name, with title, experience, skills, status and number of active applications. query matches name, title and skills; skill is an exact (case-insensitive) skill.",
+        "List candidates (Indian tech talent), sorted by name, with title, experience, skills, status (parked counts as set by hand), topper mark, origin and number of active applications (not placed, parked or rejected). query matches name, title and skills; skill is an exact (case-insensitive) skill; toppers_only keeps candidates marked as topper.",
       inputSchema: {
         query: z.string().max(80).optional().describe("Matches name, current title or a skill (partial)."),
         status: candidateStatus.optional(),
         skill: z.string().max(60).optional().describe("Exact skill, e.g. React."),
+        toppers_only: z.boolean().default(false).describe("Only candidates marked as topper."),
         limit: limitSchema,
         offset: offsetSchema,
       },
       annotations: READ_ONLY,
     },
-    async ({ query, status, skill, limit, offset }) => {
-      const columns = "id, full_name, current_title, years_experience, skills, status, location, applications(stage)";
+    async ({ query, status, skill, toppers_only, limit, offset }) => {
+      const columns =
+        "id, full_name, current_title, years_experience, skills, status, location, origin, source, is_topper, topper_reason, applications(stage)";
       const term = query?.trim().toLowerCase();
       const skillKey = skill?.trim().toLowerCase();
 
       let q = db.from("candidates").select(columns, { count: "exact" }).order("full_name");
       if (status) q = q.eq("status", status);
+      if (toppers_only) q = q.eq("is_topper", true);
       // Skills are a text[]; PostgREST cannot match those case-insensitively,
       // so text filters run here on a bounded set, like the candidates page.
       const filtered = Boolean(term || skillKey);
@@ -473,7 +535,7 @@ function registerReadTools(server: McpServer, ctx: McpToolContext) {
         total,
         candidates: rows.map(({ applications, ...c }) => ({
           ...c,
-          active_applications: applications.filter((a) => a.stage !== "placed" && a.stage !== "rejected").length,
+          active_applications: applications.filter((a) => !["placed", "parked", "rejected"].includes(a.stage)).length,
         })),
       });
     },
@@ -483,7 +545,8 @@ function registerReadTools(server: McpServer, ctx: McpToolContext) {
     "get_candidate",
     {
       title: "Candidate",
-      description: "One candidate with profile, skills, all applications (vacancy, client, stage, scores, client decision), placements and latest notes.",
+      description:
+        "One candidate with profile, skills, topper mark (reason, when), park state, origin and source, all applications (vacancy, client, stage or the stage a parked or rejected one left, reason, CV, video, test and interview scores, screening tools, form, shortlist, background check, client decision), placements and latest notes.",
       inputSchema: { id: idSchema },
       annotations: READ_ONLY,
     },
@@ -492,7 +555,7 @@ function registerReadTools(server: McpServer, ctx: McpToolContext) {
         await db
           .from("candidates")
           .select(
-            "id, full_name, email, phone, location, current_title, years_experience, skills, linkedin_url, video_url, cv_path, summary, status, created_at, owner:profiles!candidates_owner_id_fkey(full_name, email)",
+            "id, full_name, email, phone, location, current_title, years_experience, skills, linkedin_url, video_url, cv_path, summary, status, park_reason, parked_at, origin, source, is_topper, topper_reason, topper_at, created_at, owner:profiles!candidates_owner_id_fkey(full_name, email)",
           )
           .eq("id", id)
           .maybeSingle(),
@@ -504,7 +567,7 @@ function registerReadTools(server: McpServer, ctx: McpToolContext) {
         db
           .from("applications")
           .select(
-            "id, stage, technical_score, english_score, assessment_notes, client_decision, client_feedback, rejection_reason, presented_at, updated_at, vacancy:vacancies(id, title, status, client:clients(name))",
+            `id, stage, technical_score, english_score, assessment_notes, client_decision, client_feedback, rejection_reason, presented_at, updated_at, ${APPLICATION_PIPELINE_FIELDS}, vacancy:vacancies(id, title, status, client:clients(name))`,
           )
           .eq("candidate_id", id)
           .order("updated_at", { ascending: false })
@@ -532,6 +595,7 @@ function registerReadTools(server: McpServer, ctx: McpToolContext) {
           vacancy_status: a.vacancy?.status ?? null,
           client: a.vacancy?.client?.name ?? null,
           stage: a.stage,
+          ...pipelineFields(a),
           technical_score: a.technical_score,
           english_score: a.english_score,
           assessment_notes: clip(a.assessment_notes, 1000),

@@ -16,7 +16,7 @@ function instructions(ctx: McpTokenContext) {
   ];
   if (ctx.access === "write") {
     lines.push(
-      "Write tools (create_task, update_task_status, add_note) change shared data the whole team sees. Only call them when the user asked for that specific change, never speculatively or in a loop.",
+      "Write tools (create_task, update_task_status, add_note, move_candidates, mark_topper) change shared data the whole team sees. Only call them when the user asked for that specific change, never speculatively or in a loop.",
     );
   }
   lines.push("Candidate and contact details are personal data: use them for the task at hand and do not copy them elsewhere unasked.");

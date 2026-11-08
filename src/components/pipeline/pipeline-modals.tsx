@@ -1,14 +1,37 @@
 "use client";
 
-import { startTransition, useActionState, useMemo, useState, useTransition, type FormEvent } from "react";
+import { startTransition, useActionState, useCallback, useEffect, useMemo, useState, useTransition, type FormEvent } from "react";
 import Link from "next/link";
-import { LoaderCircle, Plus, Search, Trash2, UserRound } from "lucide-react";
+import {
+  Ban,
+  ListChecks,
+  LoaderCircle,
+  PauseCircle,
+  Plus,
+  RotateCcw,
+  Search,
+  Star,
+  Trash2,
+  UserRound,
+} from "lucide-react";
 import { linkCandidateToVacancy } from "@/app/dashboard/candidates/actions";
 import { removeApplication, updateApplication } from "@/app/dashboard/vacancies/[id]/pipeline/actions";
+import { loadApplicationExtras, setShortlisted } from "@/app/dashboard/vacancies/[id]/pipeline/recruitment-actions";
 import { initialActionState } from "@/lib/action-state";
 import type { CandidateOption } from "@/lib/data/candidates";
+import type { ApplicationExtras } from "@/lib/data/recruitment";
+import type { StaffMember } from "@/lib/data/tasks";
 import { formatDate, formatDateTime } from "@/lib/format";
-import { applicationStages, candidateStatuses, clientDecisions, optionFor } from "@/lib/labels";
+import {
+  applicationStages,
+  candidateOrigins,
+  candidateSources,
+  candidateStatuses,
+  clientDecisions,
+  cvVerdicts,
+  optionFor,
+} from "@/lib/labels";
+import { formStatus, isExitStage } from "@/lib/recruitment/pipeline";
 import { ConfirmButton } from "@/components/candidates/confirm-button";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -17,16 +40,33 @@ import { DetailList } from "@/components/ui/card";
 import { Field, FormMessage, Input, Textarea } from "@/components/ui/field";
 import { Modal } from "@/components/ui/modal";
 import { CustomFieldsPanel } from "@/components/custom-fields/custom-fields-panel";
-import type { BoardCard } from "./pipeline-card";
+import { AssessmentPanel, BackgroundCheckPanel } from "./assessment-panel";
+import type { BoardCard, CardAction } from "./pipeline-card";
+import { StageNoteForm } from "./stage-note-form";
+import { StageNoteList } from "./stage-note-list";
 import { PRESENTED_STAGES } from "./stages";
 
-/** Details of one card: scores, notes, client feedback and removal. */
+type Tab = "assessment" | "notes" | "background" | "client";
+
+const tabs: { value: Tab; label: string }[] = [
+  { value: "assessment", label: "Assessment" },
+  { value: "notes", label: "Notes" },
+  { value: "background", label: "Background check" },
+  { value: "client", label: "Client, notes and fields" },
+];
+
+/** Details of one card: assessment, notes per stage, background check, client feedback and removal. */
 export function ApplicationModal({
   card,
+  staff,
   onClose,
+  onAction,
 }: {
   card: BoardCard | null;
+  staff: StaffMember[];
   onClose: () => void;
+  /** Park, reject, resume: handled by the board with the same modal as there. */
+  onAction: (id: string, action: CardAction) => void;
 }) {
   return (
     <Modal
@@ -36,28 +76,60 @@ export function ApplicationModal({
       description={card?.candidate.current_title ?? undefined}
       size="lg"
     >
-      {card && <ApplicationDetails key={card.id} card={card} onClose={onClose} />}
+      {card && <ApplicationDetails key={card.id} card={card} staff={staff} onClose={onClose} onAction={onAction} />}
     </Modal>
   );
 }
 
-function ApplicationDetails({ card, onClose }: { card: BoardCard; onClose: () => void }) {
-  const [state, formAction, pending] = useActionState(updateApplication, initialActionState);
-  const errors = state.fieldErrors ?? {};
-  const stage = optionFor(applicationStages, card.stage);
-  const decision = optionFor(clientDecisions, card.client_decision);
-  const presented = PRESENTED_STAGES.includes(card.stage) || !!card.presented_at;
+function useExtras(applicationId: string) {
+  const [extras, setExtras] = useState<ApplicationExtras | null>(null);
+  const [error, setError] = useState<string>();
+  const reload = useCallback(() => {
+    void loadApplicationExtras(applicationId).then((result) => {
+      if ("error" in result) setError(result.error);
+      else {
+        setError(undefined);
+        setExtras(result);
+      }
+    });
+  }, [applicationId]);
+  useEffect(() => {
+    reload();
+  }, [reload]);
+  return { extras, error, reload };
+}
 
-  function onSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const formData = new FormData(event.currentTarget);
-    startTransition(() => formAction(formData));
-  }
+function ApplicationDetails({
+  card,
+  staff,
+  onClose,
+  onAction,
+}: {
+  card: BoardCard;
+  staff: StaffMember[];
+  onClose: () => void;
+  onAction: (id: string, action: CardAction) => void;
+}) {
+  const [tab, setTab] = useState<Tab>(card.stage === "final_screening" ? "background" : "assessment");
+  const [shortlistPending, startShortlist] = useTransition();
+  const [shortlistError, setShortlistError] = useState<string>();
+  const { extras, error: extrasError, reload } = useExtras(card.id);
+  const stage = optionFor(applicationStages, card.stage);
+  const exit = isExitStage(card.stage);
+  const form = formStatus(card);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <div className="flex flex-wrap items-center gap-2">
         <Badge tone={stage.tone}>{stage.label}</Badge>
+        {card.candidate.is_topper && (
+          <Badge tone="warning">
+            <Star className="size-3 fill-amber-400 text-amber-500" aria-hidden="true" />
+            Topper
+          </Badge>
+        )}
+        <Badge tone={optionFor(candidateOrigins, card.origin).tone}>{optionFor(candidateOrigins, card.origin).label}</Badge>
+        {card.source && <Badge>{optionFor(candidateSources, card.source).label}</Badge>}
         <span className="text-sm text-muted">
           {card.daysInPipeline === 1 ? "1 day" : `${card.daysInPipeline} days`} in the pipeline
         </span>
@@ -70,104 +142,114 @@ function ApplicationDetails({ card, onClose }: { card: BoardCard; onClose: () =>
         </Link>
       </div>
 
-      <form onSubmit={onSubmit} noValidate className="space-y-4">
-        <input type="hidden" name="id" value={card.id} />
-        <FormMessage error={state.error} success={state.ok ? state.message : undefined} />
-        <div className="grid grid-cols-2 gap-3 sm:gap-4">
-          <Field label="Technical score" htmlFor="technical_score" hint="0 to 100" error={errors.technical_score}>
-            <Input
-              id="technical_score"
-              name="technical_score"
-              type="number"
-              inputMode="numeric"
-              min={0}
-              max={100}
-              enterKeyHint="next"
-              defaultValue={card.technical_score ?? ""}
-              aria-invalid={!!errors.technical_score}
-              aria-describedby={errors.technical_score ? "technical_score-error" : undefined}
-            />
-          </Field>
-          <Field label="English score" htmlFor="english_score" hint="0 to 100" error={errors.english_score}>
-            <Input
-              id="english_score"
-              name="english_score"
-              type="number"
-              inputMode="numeric"
-              min={0}
-              max={100}
-              enterKeyHint="next"
-              defaultValue={card.english_score ?? ""}
-              aria-invalid={!!errors.english_score}
-              aria-describedby={errors.english_score ? "english_score-error" : undefined}
-            />
-          </Field>
-        </div>
-        <Field label="Assessment notes" htmlFor="assessment_notes" error={errors.assessment_notes}>
-          <Textarea
-            id="assessment_notes"
-            name="assessment_notes"
-            rows={4}
-            placeholder="What stood out in the test and the interview?"
-            defaultValue={card.assessment_notes ?? ""}
-          />
-        </Field>
-        <Field
-          label="Rejection reason"
-          htmlFor="rejection_reason"
-          hint="For internal use only."
-          error={errors.rejection_reason}
+      <DetailList
+        items={[
+          {
+            label: "CV score",
+            value:
+              card.cv_score !== null
+                ? `${card.cv_score}${card.cv_verdict ? `, ${optionFor(cvVerdicts, card.cv_verdict).label.toLowerCase()}` : ""}`
+                : null,
+          },
+          {
+            label: "Form",
+            value:
+              form === "completed"
+                ? `Completed ${formatDate(card.form_completed_at)}`
+                : form === "sent"
+                  ? `Sent ${formatDate(card.form_sent_at)}, not completed yet`
+                  : "Not sent",
+          },
+          { label: "Interview planned", value: card.interview_at ? formatDateTime(card.interview_at) : null },
+          ...(card.candidate.is_topper && card.candidate.topper_reason
+            ? [{ label: "Why a topper", value: card.candidate.topper_reason }]
+            : []),
+        ]}
+      />
+
+      <div className="flex flex-wrap gap-2">
+        <Button
+          variant={card.shortlisted_at ? "primary" : "secondary"}
+          size="sm"
+          aria-pressed={!!card.shortlisted_at}
+          disabled={shortlistPending}
+          onClick={() =>
+            startShortlist(async () => {
+              const result = await setShortlisted(card.id, !card.shortlisted_at);
+              setShortlistError(result.error);
+            })
+          }
         >
-          <Textarea
-            id="rejection_reason"
-            name="rejection_reason"
-            rows={2}
-            defaultValue={card.rejection_reason ?? ""}
-          />
-        </Field>
-        <div className="flex justify-end max-sm:*:flex-1">
-          <Button type="submit" disabled={pending} aria-busy={pending}>
-            {pending && <LoaderCircle className="animate-spin" aria-hidden="true" />}
-            Save
+          {shortlistPending ? <LoaderCircle className="animate-spin" aria-hidden="true" /> : <ListChecks aria-hidden="true" />}
+          {card.shortlisted_at ? `Shortlisted ${formatDate(card.shortlisted_at)}` : "Add to shortlist"}
+        </Button>
+        {exit ? (
+          <Button variant="secondary" size="sm" onClick={() => onAction(card.id, "resume")}>
+            <RotateCcw aria-hidden="true" />
+            Resume{card.exit_from_stage ? ` in ${optionFor(applicationStages, card.exit_from_stage).label}` : ""}
           </Button>
-        </div>
-      </form>
-
-      <CustomFieldsPanel entity="application" recordId={card.id} />
-
-      <section aria-labelledby="client-heading" className="rounded-xl border border-border bg-surface/60 p-4">
-        <h3 id="client-heading" className="mb-3 font-display text-sm font-semibold text-brand-900">
-          Client verdict
-        </h3>
-        {presented ? (
-          <DetailList
-            items={[
-              { label: "Presented on", value: card.presented_at ? formatDate(card.presented_at) : null },
-              { label: "Decision", value: <Badge tone={decision.tone}>{decision.label}</Badge> },
-              { label: "Decided on", value: card.client_decided_at ? formatDateTime(card.client_decided_at) : null },
-              {
-                label: "Feedback",
-                value: card.client_feedback ? (
-                  <span className="whitespace-pre-line">{card.client_feedback}</span>
-                ) : null,
-              },
-            ]}
-          />
-        ) : (
-          <p className="text-sm text-muted">
-            Not presented yet. The client only sees this candidate from the Presented to client stage.
-          </p>
+        ) : null}
+        {card.stage !== "parked" && (
+          <Button variant="secondary" size="sm" onClick={() => onAction(card.id, "park")}>
+            <PauseCircle aria-hidden="true" />
+            Park
+          </Button>
         )}
-      </section>
+        {card.stage !== "rejected" && (
+          <Button variant="secondary" size="sm" onClick={() => onAction(card.id, "reject")}>
+            <Ban aria-hidden="true" />
+            Reject
+          </Button>
+        )}
+      </div>
+      {shortlistError && <FormMessage error={shortlistError} />}
 
-      {card.stage === "placed" && (
-        <div className="flex flex-col gap-3 rounded-xl border border-emerald-600/20 bg-emerald-50 p-4 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-sm text-emerald-800">Placed. Record the placement for contract and payroll.</p>
-          <ButtonLink href={`/dashboard/placements/new?application=${card.id}`} size="sm">
-            Record placement
-          </ButtonLink>
-        </div>
-      )}
+      <div role="tablist" aria-label="Sections" className="-mx-1 flex snap-strip scrollbar-none gap-1 overflow-x-auto px-1">
+        {tabs.map((t) => (
+          <button
+            key={t.value}
+            type="button"
+            role="tab"
+            id={`tab-${t.value}`}
+            aria-selected={tab === t.value}
+            aria-controls={`panel-${t.value}`}
+            onClick={() => setTab(t.value)}
+            className={`shrink-0 rounded-full px-3 py-1.5 text-sm font-medium whitespace-nowrap transition pointer-coarse:min-h-10 focus-visible:outline-2 focus-visible:outline-brand-500 ${
+              tab === t.value ? "bg-brand-900 text-white" : "bg-surface text-ink hover:bg-brand-50"
+            }`}
+          >
+            {t.label}
+            {t.value === "notes" && extras && extras.notes.length > 0 && (
+              <span className="ml-1 tabular-nums opacity-75">{extras.notes.length}</span>
+            )}
+          </button>
+        ))}
+      </div>
+
+      <div role="tabpanel" id={`panel-${tab}`} aria-labelledby={`tab-${tab}`}>
+        {extrasError && <FormMessage error={extrasError} />}
+        {tab === "assessment" && (
+          <AssessmentPanel card={card} staff={staff} files={extras?.files ?? null} onFilesChange={reload} />
+        )}
+        {tab === "notes" && (
+          <div className="space-y-5">
+            <StageNoteForm applicationId={card.id} stageLabel={stage.label} onSaved={reload} />
+            {extras ? <StageNoteList notes={extras.notes} /> : <p className="text-sm text-muted">Loading notes...</p>}
+          </div>
+        )}
+        {tab === "background" &&
+          (extras ? (
+            <BackgroundCheckPanel card={card} files={extras.files} onFilesChange={reload} />
+          ) : (
+            <p className="text-sm text-muted">Loading...</p>
+          ))}
+        {tab === "client" && (
+          <div className="space-y-5">
+            <ClientAndNotes card={card} />
+            <CustomFieldsPanel entity="application" recordId={card.id} />
+          </div>
+        )}
+      </div>
 
       <div className="flex justify-start border-t border-border pt-4">
         <ConfirmButton
@@ -187,52 +269,90 @@ function ApplicationDetails({ card, onClose }: { card: BoardCard; onClose: () =>
   );
 }
 
-/** Asks for an optional reason when a card lands in "rejected". */
-export function RejectModal({
-  name,
-  onConfirm,
-  onCancel,
-}: {
-  name: string | null;
-  onConfirm: (reason: string) => void;
-  onCancel: () => void;
-}) {
-  return (
-    <Modal open={!!name} onClose={onCancel} title="Reject candidate" description={name ?? undefined}>
-      {name && <RejectForm onConfirm={onConfirm} onCancel={onCancel} />}
-    </Modal>
-  );
-}
+/** Client verdict, general assessment notes and the park or rejection reason. */
+function ClientAndNotes({ card }: { card: BoardCard }) {
+  const [state, formAction, pending] = useActionState(updateApplication, initialActionState);
+  const errors = state.fieldErrors ?? {};
+  const decision = optionFor(clientDecisions, card.client_decision);
+  const presented = PRESENTED_STAGES.includes(card.stage) || !!card.presented_at;
 
-function RejectForm({ onConfirm, onCancel }: { onConfirm: (reason: string) => void; onCancel: () => void }) {
-  const [reason, setReason] = useState("");
+  function onSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+    startTransition(() => formAction(formData));
+  }
+
   return (
-    <form
-      className="space-y-5"
-      onSubmit={(event) => {
-        event.preventDefault();
-        onConfirm(reason.trim());
-      }}
-    >
-      <Field label="Reason" htmlFor="reject-reason" hint="Optional. Helps with the next selection.">
-        <Textarea
-          id="reject-reason"
-          rows={3}
-          value={reason}
-          onChange={(e) => setReason(e.target.value)}
-          placeholder="For example: English not strong enough for client contact."
-          autoFocus
-        />
-      </Field>
-      <div className="flex gap-3 max-sm:*:flex-1 sm:justify-end">
-        <Button variant="secondary" onClick={onCancel}>
-          Cancel
-        </Button>
-        <Button type="submit" variant="danger">
-          Reject
-        </Button>
-      </div>
-    </form>
+    <div className="space-y-5">
+      <section aria-labelledby="client-heading" className="rounded-xl border border-border bg-surface/60 p-4">
+        <h3 id="client-heading" className="mb-3 font-display text-sm font-semibold text-brand-900">
+          Client verdict
+        </h3>
+        {presented ? (
+          <DetailList
+            items={[
+              { label: "Presented on", value: card.presented_at ? formatDate(card.presented_at) : null },
+              { label: "Decision", value: <Badge tone={decision.tone}>{decision.label}</Badge> },
+              { label: "Decided on", value: card.client_decided_at ? formatDateTime(card.client_decided_at) : null },
+              {
+                label: "Feedback",
+                value: card.client_feedback ? <span className="whitespace-pre-line">{card.client_feedback}</span> : null,
+              },
+            ]}
+          />
+        ) : (
+          <p className="text-sm text-muted">
+            Not presented yet. The client only sees this candidate from the Matched to client stage.
+          </p>
+        )}
+      </section>
+
+      <form onSubmit={onSubmit} noValidate className="space-y-4">
+        <input type="hidden" name="id" value={card.id} />
+        <FormMessage error={state.error} success={state.ok ? state.message : undefined} />
+        <Field label="General assessment notes" htmlFor="assessment_notes" error={errors.assessment_notes}>
+          <Textarea
+            id="assessment_notes"
+            name="assessment_notes"
+            rows={4}
+            maxLength={5000}
+            placeholder="Anything that does not fit the sections of the assessment."
+            defaultValue={card.assessment_notes ?? ""}
+          />
+        </Field>
+        {card.stage === "parked" && (
+          <Field label="Park reason" htmlFor="park_reason" hint="For internal use only." error={errors.park_reason}>
+            <Textarea id="park_reason" name="park_reason" rows={2} maxLength={2000} defaultValue={card.park_reason ?? ""} />
+          </Field>
+        )}
+        {(card.stage === "rejected" || card.rejection_reason) && (
+          <Field label="Rejection reason" htmlFor="rejection_reason" hint="For internal use only." error={errors.rejection_reason}>
+            <Textarea
+              id="rejection_reason"
+              name="rejection_reason"
+              rows={2}
+              maxLength={2000}
+              defaultValue={card.rejection_reason ?? ""}
+            />
+          </Field>
+        )}
+        <div className="flex justify-end max-sm:*:flex-1">
+          <Button type="submit" disabled={pending} aria-busy={pending}>
+            {pending && <LoaderCircle className="animate-spin" aria-hidden="true" />}
+            Save
+          </Button>
+        </div>
+      </form>
+
+      {card.stage === "placed" && (
+        <div className="flex flex-col gap-3 rounded-xl border border-emerald-600/20 bg-emerald-50 p-4 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm text-emerald-800">Placed. Record the placement for contract and payroll.</p>
+          <ButtonLink href={`/dashboard/placements/new?application=${card.id}`} size="sm">
+            Record placement
+          </ButtonLink>
+        </div>
+      )}
+    </div>
   );
 }
 

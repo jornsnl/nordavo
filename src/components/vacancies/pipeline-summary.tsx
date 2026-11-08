@@ -23,7 +23,7 @@ export function PipelineSummary({
   summary: Summary;
   target: number;
 }) {
-  const flow = summary.stages.filter((s) => s.stage !== "rejected");
+  const flow = summary.stages.filter((s) => s.stage !== "rejected" && s.stage !== "parked");
   const presentedPct = Math.min(100, Math.round((summary.presented / target) * 100));
   const reached = summary.presented >= target;
 
@@ -34,7 +34,7 @@ export function PipelineSummary({
         description={
           summary.total === 0
             ? "No candidates linked to this vacancy yet."
-            : `${summary.active} active in the pipeline, ${summary.rejected} rejected.`
+            : `${summary.active} active in the pipeline, ${summary.parked} parked, ${summary.rejected} rejected.`
         }
       />
       <CardBody className="space-y-6">
