@@ -3,6 +3,7 @@
 // once the project exists, then keep the aliases at the bottom.
 
 import type { WorkFunctions, WorkTables } from "@/lib/work/database";
+import type { FormsFunctions, FormsTables } from "@/lib/forms/database";
 
 export type Json =
   | string
@@ -445,6 +446,9 @@ export type Database = {
           parked_at: string | null;
           source: CandidateSource | null;
           origin: CandidateOrigin;
+          current_company: string | null;
+          notice_period: string | null;
+          willing_to_relocate: boolean | null;
         };
         Insert: {
           id?: string;
@@ -475,6 +479,9 @@ export type Database = {
           parked_at?: string | null;
           source?: CandidateSource | null;
           origin?: CandidateOrigin;
+          current_company?: string | null;
+          notice_period?: string | null;
+          willing_to_relocate?: boolean | null;
         };
         Update: {
           id?: string;
@@ -505,6 +512,9 @@ export type Database = {
           parked_at?: string | null;
           source?: CandidateSource | null;
           origin?: CandidateOrigin;
+          current_company?: string | null;
+          notice_period?: string | null;
+          willing_to_relocate?: boolean | null;
         };
         Relationships: [
           {
@@ -1749,7 +1759,7 @@ export type Database = {
         };
         Relationships: [];
       };
-    } & WorkTables;
+    } & WorkTables & FormsTables;
     Views: {
       call_list_candidates: { Row: ListCandidateBase & { phone: string; linkedin_url: string | null }; Relationships: [] };
       mail_list_candidates: { Row: ListCandidateBase & { email: string }; Relationships: [] };
@@ -1793,7 +1803,7 @@ export type Database = {
         Args: { p_vacancy_id: string; p_patterns?: string[]; p_weights?: number[]; p_require_hit?: boolean; p_limit?: number };
         Returns: PublicTables["candidates"]["Row"][];
       };
-    } & WorkFunctions;
+    } & WorkFunctions & FormsFunctions;
     Enums: { [_ in never]: never };
     CompositeTypes: { [_ in never]: never };
   };
