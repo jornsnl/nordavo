@@ -7,6 +7,9 @@ import { ListSkeleton } from "@/components/ui/skeleton";
 import { FilterBar, type FilterDef } from "@/components/work/filter-bar";
 import { PageTabs } from "@/components/work/page-tabs";
 import { TaskGroup } from "@/components/work/task-row";
+import { PortalTaskGroup } from "@/components/work/portal-task-group";
+import { isStaff } from "@/lib/auth";
+import { listMyPortalTasks } from "@/lib/work/portal-tasks";
 import {
   countReviews,
   listMyWorkspaces,
@@ -28,13 +31,16 @@ function first(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] : value;
 }
 
-function parse(params: Search): { tab: OverviewTab; filters: TaskFilters } {
+/** "portal" is the read only list of CRM tasks, for staff only. */
+type Tab = OverviewTab | "portal";
+
+function parse(params: Search): { tab: Tab; filters: TaskFilters } {
   const tab = first(params.tab);
   const status = first(params.status);
   const priority = first(params.priority);
   const uuid = (v: string | undefined) => (v && /^[0-9a-f-]{36}$/i.test(v) ? v : undefined);
   return {
-    tab: tab === "review" || tab === "today" ? tab : "mine",
+    tab: tab === "review" || tab === "today" || tab === "portal" ? tab : "mine",
     filters: {
       workspace: uuid(first(params.workspace)),
       project: uuid(first(params.project)),
@@ -61,9 +67,18 @@ export default function OverviewPage({ searchParams }: PageProps<"/work">) {
 
 async function Overview({ searchParams }: { searchParams: Promise<Search> }) {
   const params = await searchParams;
-  const { tab, filters } = parse(params);
+  const parsed = parse(params);
   const user = await requireWorkUser();
-  const [workspaces, reviewCount, tasks] = await Promise.all([listMyWorkspaces(), countReviews(), listOverview(tab, filters)]);
+  const staff = isStaff(user);
+  // Guests never get the portal tab; a hand typed ?tab=portal falls back to My tasks.
+  const tab: Tab = parsed.tab === "portal" && !staff ? "mine" : parsed.tab;
+  const filters = parsed.filters;
+  const [workspaces, reviewCount, tasks, portalTasks] = await Promise.all([
+    listMyWorkspaces(),
+    countReviews(),
+    tab === "portal" ? Promise.resolve([] as TaskListItem[]) : listOverview(tab, filters),
+    staff ? listMyPortalTasks(user) : Promise.resolve([]),
+  ]);
   const projects = (await Promise.all(workspaces.map((w) => listProjects(w.id)))).flat();
 
   const keep = new URLSearchParams();
@@ -71,7 +86,7 @@ async function Overview({ searchParams }: { searchParams: Promise<Search> }) {
     const value = filters[key];
     if (value) keep.set(key, value);
   }
-  const hrefFor = (t: OverviewTab) => {
+  const hrefFor = (t: Tab) => {
     const q = new URLSearchParams(keep);
     if (t !== "mine") q.set("tab", t);
     const s = q.toString();
@@ -106,12 +121,17 @@ async function Overview({ searchParams }: { searchParams: Promise<Search> }) {
             { label: "My tasks", href: hrefFor("mine"), active: tab === "mine" },
             { label: "To review", href: hrefFor("review"), active: tab === "review", count: reviewCount },
             { label: "Today and overdue", href: hrefFor("today"), active: tab === "today" },
+            ...(staff
+              ? [{ label: "Portal tasks", href: hrefFor("portal"), active: tab === "portal", count: portalTasks.length }]
+              : []),
           ]}
         />
-        <FilterBar filters={filterDefs} basePath="/work" />
+        {tab !== "portal" && <FilterBar filters={filterDefs} basePath="/work" />}
       </div>
 
-      {tasks.length === 0 ? (
+      {tab === "portal" ? (
+        <PortalTaskGroup tasks={portalTasks} />
+      ) : tasks.length === 0 ? (
         <Empty tab={tab} filtered={Object.values(filters).some(Boolean)} hasWorkspaces={workspaces.length > 0} />
       ) : tab === "mine" ? (
         <GroupedByProject tasks={tasks} timeZone={user.timeZone} />

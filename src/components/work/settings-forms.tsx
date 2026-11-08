@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Field, FormMessage, Input, Select } from "@/components/ui/field";
 import { PendingSubmit, submitWithoutReset } from "@/components/placements/form-utils";
 import { useWorkAction, type WorkAction } from "@/components/work/forms";
+import { TimeZonePicker } from "@/components/work/time-zone-picker";
+import type { TimeZoneGroup } from "@/lib/work/time-zones";
 
 export function ProfileForm({
   action,
@@ -17,10 +19,9 @@ export function ProfileForm({
   action: WorkAction;
   name: string;
   timeZone: string;
-  zones: string[];
+  zones: TimeZoneGroup[];
 }) {
   const { state, formAction, pending, errors } = useWorkAction(action);
-  const options = zones.includes(timeZone) ? zones : [timeZone, ...zones];
   return (
     <form onSubmit={submitWithoutReset(formAction)} className="space-y-4">
       <FormMessage error={state.error} success={state.ok ? state.message : undefined} />
@@ -29,13 +30,7 @@ export function ProfileForm({
           <Input id="me_name" name="full_name" defaultValue={name} required maxLength={120} />
         </Field>
         <Field label="Time zone" htmlFor="me_tz" hint="Deadlines are shown in this zone" error={errors.time_zone}>
-          <Select id="me_tz" name="time_zone" defaultValue={timeZone}>
-            {options.map((zone) => (
-              <option key={zone} value={zone}>
-                {zone.replace(/_/g, " ")}
-              </option>
-            ))}
-          </Select>
+          <TimeZonePicker id="me_tz" name="time_zone" value={timeZone} groups={zones} />
         </Field>
       </div>
       <div className="flex justify-end max-sm:*:w-full">

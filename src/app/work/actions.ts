@@ -13,8 +13,10 @@ import type { WorkRole, WorkStatus } from "@/lib/work/database";
 import { WORK_GENERIC_ERROR, workErrorMessage, type WorkActionState } from "@/lib/work/errors";
 import { parseMentions } from "@/lib/work/mentions";
 import { deliverNotifications, sendInviteMail } from "@/lib/work/notify";
+import { mayUseSignInLink, signInLinkUrl } from "@/lib/security/sign-in-link";
 import { generateInviteToken, generateWorkToken } from "@/lib/work/tokens";
-import { commonTimeZones, isValidTimeZone, localInputToUtc } from "@/lib/work/time";
+import { localInputToUtc } from "@/lib/work/time";
+import { isListedTimeZone, normalizeTimeZone } from "@/lib/work/time-zones";
 
 /**
  * Every write of the task tool. Each action checks the session and validates
@@ -193,8 +195,9 @@ export async function inviteAction(
   // The account must exist before Google or a mailed link can sign it in.
   // New accounts start as "external": the task tool only, no Nordavo portal.
   const admin = createAdminClient();
+  let signInUrl: string | null = null;
   if (admin) {
-    const { data: existing } = await admin.from("profiles").select("id").eq("email", email).maybeSingle();
+    const { data: existing } = await admin.from("profiles").select("id, role").eq("email", email).maybeSingle();
     if (!existing) {
       const { error: createError } = await admin.auth.admin.createUser({
         email,
@@ -205,6 +208,17 @@ export async function inviteAction(
         console.error("[work] creating invited account failed:", createError.code, createError.message);
       }
     }
+    // Guests (portal role "external", which new accounts get) can sign in
+    // straight from the mail with a one-time link that opens the invite.
+    // Staff and clients get the plain invite link and sign in as usual.
+    if (mayUseSignInLink(existing ? existing.role : "external")) {
+      const { data: link, error: linkError } = await admin.auth.admin.generateLink({ type: "magiclink", email });
+      if (link?.properties?.hashed_token) {
+        signInUrl = signInLinkUrl(env.siteUrl(), link.properties.hashed_token, `/work/invite/${token}`);
+      } else if (linkError) {
+        console.error("[work] invite sign-in link failed:", linkError.code, linkError.message);
+      }
+    }
   }
 
   let projectName: string | null = null;
@@ -212,7 +226,7 @@ export async function inviteAction(
     const { data } = await supabase.from("work_projects").select("name").eq("id", project_id).maybeSingle();
     projectName = data?.name ?? null;
   }
-  const mailed = await sendInviteMail({ to: email, inviter: user.name, workspace: workspace.name, project: projectName, url });
+  const mailed = await sendInviteMail({ to: email, inviter: user.name, workspace: workspace.name, project: projectName, url, signInUrl });
 
   revalidatePath("/work", "layout");
   if (!admin) {
@@ -555,7 +569,7 @@ export async function updateMySettingsAction(_prev: WorkActionState, formData: F
   const parsed = z
     .object({
       full_name: z.string({ error: "Add your name" }).trim().min(2, { error: "Add your name" }).max(120),
-      time_zone: z.string().refine((v) => commonTimeZones.includes(v) || isValidTimeZone(v), { error: "Unknown time zone" }),
+      time_zone: z.string().refine(isListedTimeZone, { error: "Pick a time zone from the list" }).transform(normalizeTimeZone),
     })
     .safeParse(formValues(formData));
   if (!parsed.success) return invalid(parsed.error);
