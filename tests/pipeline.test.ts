@@ -91,8 +91,9 @@ test("applyBoardFilter sorts by score, highest first, empty scores last", () => 
   assert.deepEqual(sorted.map((c) => c.id), ["c", "a", "d", "b"]);
   // The input order is untouched.
   assert.deepEqual(cards.map((c) => c.id), ["a", "b", "c", "d"]);
+  // Board order keeps the order given (the board may be mid-drag).
   const board = applyBoardFilter([cards[2], cards[0]], defaultBoardFilter);
-  assert.deepEqual(board.map((c) => c.id), ["a", "c"]);
+  assert.deepEqual(board.map((c) => c.id), ["c", "a"]);
 });
 
 test("applyBoardFilter filters on origin, source, shortlist, toppers and search", () => {

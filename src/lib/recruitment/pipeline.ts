@@ -143,7 +143,7 @@ function byScore<T extends FilterableCard>(score: (c: T) => number | null) {
   };
 }
 
-/** One column after the board filters and sort. The input is not changed. */
+/** One column after the board filters and sort. The input is not changed; "board" keeps its order. */
 export function applyBoardFilter<T extends FilterableCard>(cards: T[], filter: BoardFilter): T[] {
   const kept = cards.filter((c) => matches(c, filter));
   switch (filter.sort) {
@@ -156,7 +156,8 @@ export function applyBoardFilter<T extends FilterableCard>(cards: T[], filter: B
     case "days":
       return kept.sort((a, b) => b.daysInPipeline - a.daysInPipeline || a.position - b.position);
     default:
-      return kept.sort((a, b) => a.position - b.position);
+      // Board order is the order the board already holds (also mid-drag).
+      return kept;
   }
 }
 
