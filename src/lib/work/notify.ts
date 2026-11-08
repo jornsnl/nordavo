@@ -217,7 +217,7 @@ export async function sendInviteMail({
     html: `<div style="font-family:Inter,Arial,sans-serif;max-width:560px;margin:0 auto;padding:24px">
       <p style="font-size:14px;color:#111827">${escapeHtml(inviter)} invited you to ${escapeHtml(where)} in Work, Nordavo's task tool.</p>
       <p><a href="${escapeHtml(url)}" style="display:inline-block;background:#1d3a8a;color:#fff;padding:10px 16px;border-radius:10px;text-decoration:none;font-size:14px">Accept the invite</a></p>
-      <p style="font-size:12px;color:#6b7280">The link works for 14 days. Sign in with Google or a link by e-mail, using ${escapeHtml(to)}.</p>
+      <p style="font-size:12px;color:#6b7280">The link works for 14 days. Sign in with Google, your password, or (for guests) a sign-in link by e-mail, using ${escapeHtml(to)}.</p>
     </div>`,
   });
 }

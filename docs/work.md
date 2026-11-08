@@ -10,7 +10,7 @@ De interface is Engels (team in Nederland en Bangalore, freelancers overal). Tak
 
 | Onderdeel | Route | Wat het doet |
 | --- | --- | --- |
-| My overview | `/work` | Over alle workspaces heen: *My tasks* (gegroepeerd per workspace en project, op deadline), *To review*, *Today and overdue*. Filters op workspace, project, status en prioriteit. |
+| My overview | `/work` | Over alle workspaces heen: *My tasks* (gegroepeerd per workspace en project, op deadline), *To review*, *Today and overdue*. Filters op workspace, project, status en prioriteit. Teamleden hebben ook *Portal tasks*: hun open taken uit de module Tasks van het portaal, alleen lezen, met een link naar het record. |
 | Workspace | `/work/w/<slug>` | Projecten van de workspace, nieuw project |
 | Project | `/work/projects/<id>` | Taken per status, filters op status, eigenaar en prioriteit, nieuwe taak |
 | Projectinstellingen | `/work/projects/<id>/settings` | Open of afgeschermd, "guests only see their own tasks", mensen toevoegen en intrekken (met einddatum), gasten uitnodigen, archiveren |
@@ -19,8 +19,8 @@ De interface is Engels (team in Nederland en Bangalore, freelancers overal). Tak
 | Prullenbak | `/work/w/<slug>/trash` | Gearchiveerde taken, 30 dagen terug te zetten |
 | Quick log | `/work/log` | In één stap afgerond werk loggen als afgeronde taak |
 | Search | `/work/search` | Titel, omschrijving en opmerkingen, binnen wat je mag zien |
-| Settings | `/work/settings` | Naam, tijdzone, welke mails je krijgt, API tokens |
-| Inloggen | `/work/sign-in` | Google of een inloglink per mail |
+| Settings | `/work/settings` | Naam, tijdzone (alle IANA zones, met zoeken en per regio), welke mails je krijgt, API tokens |
+| Inloggen | `/work/sign-in` | Google of een inloglink per mail. Gasten kunnen de link ook op `/login` aanvragen; teamleden en klanten loggen in met wachtwoord of passkey |
 | Uitnodiging | `/work/invite/<token>` | Landt na inloggen direct in de juiste workspace of het juiste project |
 | API | `/api/work/v1` en `/api/work/mcp` | REST en MCP voor Claude en automatiseringen, met de rechten van de gebruiker |
 
@@ -96,6 +96,7 @@ psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/tests/work_guest_isolation.t
    - Zet **Allow new users to sign up** uit. Uitnodigingen maken het account zelf aan; daarna werken Google en de inloglink voor dat adres.
    - Voeg onder URL Configuration `https://<domein>/auth/callback` en `https://<domein>/auth/confirm` toe aan de Redirect URLs.
    - Alleen als Resend nog niet is ingesteld valt de inloglink terug op Supabase's eigen mail. Zet dan het template *Magic Link* op `{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=email&next=/work`.
+   - Zet eventueel *Email OTP Expiration* (Providers > Email) op 86400, zodat de inloglink in de uitnodigingsmail een dag werkt in plaats van een uur.
 5. **Workspaces:** log in als portaalbeheerder, open `/work`, maak **Nordavo** en **KG** aan en nodig de anderen uit via Manage (Floris en Judith als member bij Nordavo, Sabine bij KG).
 6. **Geplande jobs:** [.github/workflows/work-jobs.yml](../.github/workflows/work-jobs.yml). `work-daily` om 07:00 (deadlines morgen en verlopen, gasten van wie de toegang binnen 3 dagen afloopt, verlopen toegang in het log, dagelijks overzicht per mail, prullenbak ouder dan 30 dagen legen). `work-notify` elk uur als vangnet voor directe mails; dat roept alleen de draaiende app aan via `POST /api/jobs/work-notify`.
 
@@ -169,3 +170,11 @@ Fase 1 is gebouwd: workspaces, rollen met gasten, open en afgeschermde projecten
 Van fase 2 is ook al gebouwd: toegang met einddatum, quick log, dupliceren, dagelijks overzicht, meldingsinstellingen, zoeken, API (REST en MCP) en export. Mobiel werkt met een tabbalk en menu zoals de rest van het portaal.
 
 Nog niet: meldingen in Slack, de dagelijkse kopie van bestanden (zie hierboven) en het alleen-lezen zetten van ClickUp na de overgang (een instelling in ClickUp zelf).
+
+## Inloggen met een link, tijdzones en portaaltaken
+
+Sinds de migratie `20261108050000_custom_fields_and_extras.sql` (details in [recruitment-extras.md](recruitment-extras.md)):
+
+- **Inloglink alleen voor gasten.** Een inloglink per mail werkt alleen voor accounts met portaalrol `external` (iedereen die alleen Work heeft). Een gast krijgt in de uitnodigingsmail een knop *Sign in and accept* die meteen inlogt en de uitnodiging opent; later vraagt hij een nieuwe link aan op `/work/sign-in` of `/login`. Teamleden en klanten krijgen geen link: zij loggen in met wachtwoord of passkey (en hun authenticator app). `/auth/confirm` logt een link sessie van een teamlid of klant direct weer uit. Inloggen met Google blijft voor iedereen werken zoals hiervoor.
+- **Tijdzones.** Settings biedt alle IANA zones (`Intl.supportedValuesOf('timeZone')`), met *Popular* bovenaan, per regio gegroepeerd en met een zoekveld. De server accepteert alleen zones van die lijst; de database controleert ook dat Postgres de zone kent.
+- **Portal tasks.** In My overview zien teamleden (admin en member in het portaal) een tabblad met hun open taken uit het portaal (`public.tasks`), alleen lezen. Gasten zien dat tabblad nooit, en `public.tasks` is voor hen in de database ook niet leesbaar.
