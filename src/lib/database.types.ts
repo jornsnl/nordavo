@@ -59,6 +59,12 @@ export type NoteKind =
   | "background_check";
 /** One row of a screening call: years of experience with a tool (2.12). */
 export type ScreeningTool = { tool: string; years: number };
+/** Screening (recruitment brief 2.7, 2.11). */
+export type ScreeningModel = "claude-haiku-5-5" | "claude-sonnet-5-5" | "claude-opus-5-5";
+export type CvTextStatus = "pending" | "read" | "failed";
+export type RequirementKind = "must_have" | "alternative" | "nice_to_have";
+export type TechstackResult = "pass" | "fail" | "unclear";
+export type CvScorePurpose = "score" | "compare";
 export type AttachmentKind = "cv" | "payslip" | "background_check" | "video" | "test_result" | "other";
 export type ClientDecision = "pending" | "approved" | "rejected";
 export type PlacementStatus = "active" | "notice" | "ended";
@@ -343,6 +349,9 @@ export type Database = {
           park_reason: string | null;
           parked_at: string | null;
           custom_fields: CustomFieldValues;
+          excluded_profiles: string[];
+          techstack_min_hits: number | null;
+          screening_model: ScreeningModel | null;
         };
         Insert: {
           id?: string;
@@ -381,6 +390,9 @@ export type Database = {
           park_reason?: string | null;
           parked_at?: string | null;
           custom_fields?: CustomFieldValues;
+          excluded_profiles?: string[];
+          techstack_min_hits?: number | null;
+          screening_model?: ScreeningModel | null;
         };
         Update: {
           id?: string;
@@ -419,6 +431,9 @@ export type Database = {
           park_reason?: string | null;
           parked_at?: string | null;
           custom_fields?: CustomFieldValues;
+          excluded_profiles?: string[];
+          techstack_min_hits?: number | null;
+          screening_model?: ScreeningModel | null;
         };
         Relationships: [
           {
@@ -482,6 +497,9 @@ export type Database = {
           current_company: string | null;
           notice_period: string | null;
           willing_to_relocate: boolean | null;
+          cv_text_status: CvTextStatus | null;
+          cv_read_at: string | null;
+          has_cv_text: boolean;
         };
         Insert: {
           id?: string;
@@ -520,6 +538,9 @@ export type Database = {
           current_company?: string | null;
           notice_period?: string | null;
           willing_to_relocate?: boolean | null;
+          cv_text_status?: CvTextStatus | null;
+          cv_read_at?: string | null;
+          has_cv_text?: boolean;
         };
         Update: {
           id?: string;
@@ -558,6 +579,9 @@ export type Database = {
           current_company?: string | null;
           notice_period?: string | null;
           willing_to_relocate?: boolean | null;
+          cv_text_status?: CvTextStatus | null;
+          cv_read_at?: string | null;
+          has_cv_text?: boolean;
         };
         Relationships: [
           {
@@ -1861,6 +1885,254 @@ export type Database = {
           },
         ];
       };
+      vacancy_requirements: {
+        Row: {
+          id: string;
+          vacancy_id: string;
+          label: string;
+          kind: RequirementKind;
+          alternatives: string[];
+          position: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          vacancy_id: string;
+          label: string;
+          kind?: RequirementKind;
+          alternatives?: string[];
+          position?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          vacancy_id?: string;
+          label?: string;
+          kind?: RequirementKind;
+          alternatives?: string[];
+          position?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "vacancy_requirements_vacancy_id_fkey";
+            columns: ["vacancy_id"];
+            isOneToOne: false;
+            referencedRelation: "vacancies";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      techstack_checks: {
+        Row: {
+          application_id: string;
+          vacancy_id: string;
+          result: TechstackResult;
+          reason: string;
+          hits: string[];
+          method: "rules" | "ai";
+          model: string | null;
+          checked_by: string | null;
+          checked_at: string;
+        };
+        Insert: {
+          application_id: string;
+          vacancy_id: string;
+          result: TechstackResult;
+          reason: string;
+          hits?: string[];
+          method?: "rules" | "ai";
+          model?: string | null;
+          checked_by?: string | null;
+          checked_at?: string;
+        };
+        Update: {
+          application_id?: string;
+          vacancy_id?: string;
+          result?: TechstackResult;
+          reason?: string;
+          hits?: string[];
+          method?: "rules" | "ai";
+          model?: string | null;
+          checked_by?: string | null;
+          checked_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "techstack_checks_application_id_fkey";
+            columns: ["application_id"];
+            isOneToOne: false;
+            referencedRelation: "applications";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "techstack_checks_vacancy_id_fkey";
+            columns: ["vacancy_id"];
+            isOneToOne: false;
+            referencedRelation: "vacancies";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "techstack_checks_checked_by_fkey";
+            columns: ["checked_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      screening_prompts: {
+        Row: {
+          id: string;
+          version: number;
+          instructions: string;
+          notes: string | null;
+          is_active: boolean;
+          created_by: string | null;
+          created_at: string;
+          activated_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          version?: number;
+          instructions: string;
+          notes?: string | null;
+          is_active?: boolean;
+          created_by?: string | null;
+          created_at?: string;
+          activated_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          version?: number;
+          instructions?: string;
+          notes?: string | null;
+          is_active?: boolean;
+          created_by?: string | null;
+          created_at?: string;
+          activated_at?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "screening_prompts_created_by_fkey";
+            columns: ["created_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      cv_scores: {
+        Row: {
+          id: string;
+          application_id: string;
+          vacancy_id: string;
+          candidate_id: string;
+          purpose: CvScorePurpose;
+          score: number;
+          verdict: CvVerdict;
+          summary: string | null;
+          breakdown: Json;
+          must_have_missing: number;
+          model: string;
+          prompt_id: string | null;
+          prompt_version: number;
+          effort: "low" | "medium" | "high" | null;
+          input_tokens: number | null;
+          output_tokens: number | null;
+          cache_read_tokens: number | null;
+          cache_write_tokens: number | null;
+          cost_usd: number | null;
+          created_by: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          application_id: string;
+          vacancy_id: string;
+          candidate_id: string;
+          purpose?: CvScorePurpose;
+          score: number;
+          verdict: CvVerdict;
+          summary?: string | null;
+          breakdown?: Json;
+          must_have_missing?: number;
+          model: string;
+          prompt_id?: string | null;
+          prompt_version?: number;
+          effort?: "low" | "medium" | "high" | null;
+          input_tokens?: number | null;
+          output_tokens?: number | null;
+          cache_read_tokens?: number | null;
+          cache_write_tokens?: number | null;
+          cost_usd?: number | null;
+          created_by?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          application_id?: string;
+          vacancy_id?: string;
+          candidate_id?: string;
+          purpose?: CvScorePurpose;
+          score?: number;
+          verdict?: CvVerdict;
+          summary?: string | null;
+          breakdown?: Json;
+          must_have_missing?: number;
+          model?: string;
+          prompt_id?: string | null;
+          prompt_version?: number;
+          effort?: "low" | "medium" | "high" | null;
+          input_tokens?: number | null;
+          output_tokens?: number | null;
+          cache_read_tokens?: number | null;
+          cache_write_tokens?: number | null;
+          cost_usd?: number | null;
+          created_by?: string | null;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "cv_scores_application_id_fkey";
+            columns: ["application_id"];
+            isOneToOne: false;
+            referencedRelation: "applications";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "cv_scores_vacancy_id_fkey";
+            columns: ["vacancy_id"];
+            isOneToOne: false;
+            referencedRelation: "vacancies";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "cv_scores_candidate_id_fkey";
+            columns: ["candidate_id"];
+            isOneToOne: false;
+            referencedRelation: "candidates";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "cv_scores_prompt_id_fkey";
+            columns: ["prompt_id"];
+            isOneToOne: false;
+            referencedRelation: "screening_prompts";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "cv_scores_created_by_fkey";
+            columns: ["created_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       passkeys: {
         Row: {
           id: string;
@@ -2091,6 +2363,11 @@ export type Database = {
         Args: { p_path: string };
         Returns: boolean;
       };
+      screening_find_candidates: {
+        Args: { p_emails?: string[]; p_phone_keys?: string[]; p_linkedins?: string[] };
+        Returns: PublicTables["candidates"]["Row"][];
+      };
+      activate_screening_prompt: { Args: { p_prompt_id: string | null }; Returns: undefined };
       t2_candidate_pool: {
         Args: { p_vacancy_id: string; p_patterns?: string[]; p_weights?: number[]; p_require_hit?: boolean; p_limit?: number };
         Returns: PublicTables["candidates"]["Row"][];
@@ -2141,5 +2418,9 @@ export type Match = Tables<"matches">;
 export type AnonymousProfile = Tables<"anonymous_profiles">;
 export type Passkey = Tables<"passkeys">;
 export type McpToken = Tables<"mcp_tokens">;
+export type VacancyRequirement = Tables<"vacancy_requirements">;
+export type TechstackCheck = Tables<"techstack_checks">;
+export type ScreeningPrompt = Tables<"screening_prompts">;
+export type CvScore = Tables<"cv_scores">;
 export type CallListCandidate = Database["public"]["Views"]["call_list_candidates"]["Row"];
 export type MailListCandidate = Database["public"]["Views"]["mail_list_candidates"]["Row"];

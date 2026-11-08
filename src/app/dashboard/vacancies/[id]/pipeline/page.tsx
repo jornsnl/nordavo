@@ -2,11 +2,12 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, ListOrdered, Sheet } from "lucide-react";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { PipelineBoard } from "@/components/pipeline/pipeline-board";
 import { FormPipelineLinks } from "@/components/forms/vacancy-form-card";
 import { Badge } from "@/components/ui/badge";
+import { ButtonLink } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getPipeline } from "@/lib/data/applications";
 import { isUuid, listCandidateOptions } from "@/lib/data/candidates";
@@ -58,7 +59,6 @@ async function Pipeline({
         Back to vacancy
       </Link>
       <PageHeader
-        actions={<FormPipelineLinks vacancyId={vacancy.id} />}
         eyebrow={vacancy.client?.name ?? "Pipeline"}
         title={
           <span className="flex flex-wrap items-center gap-3">
@@ -78,6 +78,19 @@ async function Pipeline({
           ) : (
             "Drag cards to the next stage, or tick several and move them at once."
           )
+        }
+        actions={
+          <>
+            <FormPipelineLinks vacancyId={vacancy.id} />
+            <ButtonLink href={`/dashboard/vacancies/${vacancy.id}/import`} variant="secondary" size="sm">
+              <Sheet aria-hidden="true" />
+              Import
+            </ButtonLink>
+            <ButtonLink href={`/dashboard/vacancies/${vacancy.id}/ranking`} variant="secondary" size="sm">
+              <ListOrdered aria-hidden="true" />
+              CV ranking
+            </ButtonLink>
+          </>
         }
       />
       {vacancy.status === "on_hold" && (

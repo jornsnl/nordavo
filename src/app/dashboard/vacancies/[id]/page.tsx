@@ -14,6 +14,7 @@ import { ParkVacancyCard } from "@/components/vacancies/park-vacancy-card";
 import { VacancyFormCard } from "@/components/forms/vacancy-form-card";
 import { sourceLabel } from "@/components/vacancies/talent-labels";
 import { MatchesSection } from "@/components/talent/matches-section";
+import { ScreeningCard } from "@/components/screening/screening-card";
 import { RequirementsCard } from "@/components/talent/requirements-card";
 import { SearchBriefCard } from "@/components/talent/search-brief-card";
 import { TimelineCard } from "@/components/talent/timeline-card";
@@ -146,6 +147,9 @@ async function VacancyDetail({ params }: { params: Params }) {
           <PipelineSummary vacancyId={vacancy.id} summary={summary} target={PRESENTED_TARGET} />
           <ParkVacancyCard vacancyId={vacancy.id} status={vacancy.status} parkReason={vacancy.park_reason} parkedAt={vacancy.parked_at} />
           <VacancyFormCard vacancyId={vacancy.id} />
+          <Suspense fallback={<ListSkeleton rows={3} />}>
+            <ScreeningCard vacancyId={vacancy.id} />
+          </Suspense>
 
           <Card>
             <CardHeader title="Details" />

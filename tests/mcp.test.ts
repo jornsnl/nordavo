@@ -208,6 +208,7 @@ const READ_TOOLS = [
   "list_tasks",
   "list_vacancies",
   "search",
+  "talent_pool_top",
   "whoami",
 ];
 const WRITE_TOOLS = ["add_note", "create_task", "mark_topper", "move_candidates", "update_task_status"];

@@ -24,6 +24,7 @@ const JOB_ENV: Record<string, { required: string[]; optional?: string[] }> = {
   "t2-match": {
     required: ["ANTHROPIC_API_KEY"],
   },
+  "screening-score": { required: ["ANTHROPIC_API_KEY"] },
 };
 
 /** Jobs that cannot run without a parameter. */

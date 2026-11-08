@@ -12,6 +12,7 @@ import { CustomFieldsCard } from "@/components/custom-fields/custom-fields-card"
 import { RecruitmentPanel } from "@/components/candidates/recruitment-panel";
 import { InterviewsCard } from "@/components/interviews/interviews-card";
 import { CompensationCard } from "@/components/forms/compensation-card";
+import { CandidateScreeningCard } from "@/components/screening/candidate-screening-card";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
@@ -31,6 +32,9 @@ import {
 export const metadata: Metadata = {
   title: "Candidate",
 };
+
+// Read CV and CV scoring call Claude from this page.
+export const maxDuration = 300;
 
 export default function Page({ params }: PageProps<"/dashboard/candidates/[id]">) {
   return (
@@ -243,6 +247,10 @@ async function CandidateDetail({ params }: { params: Promise<{ id: string }> }) 
 
           <Suspense fallback={<ListSkeleton rows={3} />}><RecruitmentPanel candidateId={id} /></Suspense>
           <Suspense fallback={<ListSkeleton rows={2} />}><InterviewsCard candidateId={id} /></Suspense>
+
+          <Suspense fallback={<ListSkeleton rows={3} />}>
+            <CandidateScreeningCard candidateId={id} />
+          </Suspense>
 
           <Suspense fallback={<ListSkeleton rows={3} />}>
             <MatchingProfileCard candidate={candidate} />
