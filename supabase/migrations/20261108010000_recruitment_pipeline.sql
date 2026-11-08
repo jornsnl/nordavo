@@ -144,7 +144,9 @@ create trigger applications_sync_english_score before insert or update of video_
 alter table public.candidates
   add column is_topper boolean not null default false,
   add column topper_reason text check (char_length(topper_reason) <= 1000),
-  add column topper_by uuid references public.profiles (id) on delete set null,
+  -- No foreign key on purpose: a second key from candidates to profiles would
+  -- make the existing owner:profiles(...) embeds in the app ambiguous.
+  add column topper_by uuid,
   add column topper_at timestamptz,
   add constraint candidates_topper_reason check (not is_topper or char_length(trim(coalesce(topper_reason, ''))) > 0);
 

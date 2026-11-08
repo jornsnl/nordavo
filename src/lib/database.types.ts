@@ -56,6 +56,8 @@ export type NoteKind =
   | "interview"
   | "client_feedback"
   | "background_check";
+/** One row of a screening call: years of experience with a tool (2.12). */
+export type ScreeningTool = { tool: string; years: number };
 export type AttachmentKind = "cv" | "payslip" | "background_check" | "video" | "test_result" | "other";
 export type ClientDecision = "pending" | "approved" | "rejected";
 export type PlacementStatus = "active" | "notice" | "ended";
@@ -445,6 +447,10 @@ export type Database = {
           parked_at: string | null;
           source: CandidateSource | null;
           origin: CandidateOrigin;
+          is_topper: boolean;
+          topper_reason: string | null;
+          topper_by: string | null;
+          topper_at: string | null;
         };
         Insert: {
           id?: string;
@@ -475,6 +481,10 @@ export type Database = {
           parked_at?: string | null;
           source?: CandidateSource | null;
           origin?: CandidateOrigin;
+          is_topper?: boolean;
+          topper_reason?: string | null;
+          topper_by?: string | null;
+          topper_at?: string | null;
         };
         Update: {
           id?: string;
@@ -505,6 +515,10 @@ export type Database = {
           parked_at?: string | null;
           source?: CandidateSource | null;
           origin?: CandidateOrigin;
+          is_topper?: boolean;
+          topper_reason?: string | null;
+          topper_by?: string | null;
+          topper_at?: string | null;
         };
         Relationships: [
           {
@@ -921,6 +935,86 @@ export type Database = {
             columns: ["uploaded_by"];
             isOneToOne: false;
             referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      application_assessments: {
+        Row: {
+          application_id: string;
+          video_reviewed_by: string | null;
+          video_reviewed_at: string | null;
+          screening_tools: ScreeningTool[];
+          screening_communication_score: number | null;
+          screening_notes: string | null;
+          screened_by: string | null;
+          screened_at: string | null;
+          interview_rating: number | null;
+          interview_communication_feedback: string | null;
+          interview_linkedin_feedback: string | null;
+          interviewer_id: string | null;
+          interviewer_name: string | null;
+          interviewed_at: string | null;
+          test_score: number | null;
+          test_notes: string | null;
+          test_url: string | null;
+          test_completed_at: string | null;
+          updated_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          application_id: string;
+          video_reviewed_by?: string | null;
+          video_reviewed_at?: string | null;
+          screening_tools?: ScreeningTool[];
+          screening_communication_score?: number | null;
+          screening_notes?: string | null;
+          screened_by?: string | null;
+          screened_at?: string | null;
+          interview_rating?: number | null;
+          interview_communication_feedback?: string | null;
+          interview_linkedin_feedback?: string | null;
+          interviewer_id?: string | null;
+          interviewer_name?: string | null;
+          interviewed_at?: string | null;
+          test_score?: number | null;
+          test_notes?: string | null;
+          test_url?: string | null;
+          test_completed_at?: string | null;
+          updated_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          application_id?: string;
+          video_reviewed_by?: string | null;
+          video_reviewed_at?: string | null;
+          screening_tools?: ScreeningTool[];
+          screening_communication_score?: number | null;
+          screening_notes?: string | null;
+          screened_by?: string | null;
+          screened_at?: string | null;
+          interview_rating?: number | null;
+          interview_communication_feedback?: string | null;
+          interview_linkedin_feedback?: string | null;
+          interviewer_id?: string | null;
+          interviewer_name?: string | null;
+          interviewed_at?: string | null;
+          test_score?: number | null;
+          test_notes?: string | null;
+          test_url?: string | null;
+          test_completed_at?: string | null;
+          updated_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "application_assessments_application_id_fkey";
+            columns: ["application_id"];
+            isOneToOne: true;
+            referencedRelation: "applications";
             referencedColumns: ["id"];
           },
         ];
@@ -1789,6 +1883,24 @@ export type Database = {
         Args: { p_application_ids: string[]; p_stage: ApplicationStage | "resume"; p_reason?: string | null; p_park_until?: string | null };
         Returns: number;
       };
+      move_applications_as: {
+        Args: {
+          p_actor: string;
+          p_application_ids: string[];
+          p_stage: ApplicationStage | "resume";
+          p_reason?: string | null;
+          p_park_until?: string | null;
+        };
+        Returns: number;
+      };
+      valid_screening_tools: {
+        Args: { p_tools: Json };
+        Returns: boolean;
+      };
+      is_restricted_attachment: {
+        Args: { p_path: string };
+        Returns: boolean;
+      };
       t2_candidate_pool: {
         Args: { p_vacancy_id: string; p_patterns?: string[]; p_weights?: number[]; p_require_hit?: boolean; p_limit?: number };
         Returns: PublicTables["candidates"]["Row"][];
@@ -1817,6 +1929,7 @@ export type Note = Tables<"notes">;
 export type Attachment = Tables<"attachments">;
 export type ActivityEntry = Tables<"activity_log">;
 export type ApplicationStageEvent = Tables<"application_stage_events">;
+export type ApplicationAssessment = Tables<"application_assessments">;
 export type Company = Tables<"companies">;
 export type Contact = Tables<"contacts">;
 export type Signal = Tables<"signals">;

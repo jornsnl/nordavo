@@ -34,11 +34,17 @@ export async function moveApplication(
   applicationId: string,
   stage: ApplicationStage,
   position: number,
+  /** The reason for parking or rejecting. */
   rejectionReason?: string,
+  /** Parking only: a date to look at the candidate again (YYYY-MM-DD). */
+  parkUntil?: string,
 ): Promise<ActionState> {
   await requireStaff();
 
   const parsed = moveSchema.safeParse({ applicationId, stage, position, rejectionReason });
+  if (parkUntil !== undefined && !z.iso.date().safeParse(parkUntil).success) {
+    return { error: "Choose a valid date to look again." };
+  }
   if (!parsed.success) return { error: "This move is not valid. Refresh the page." };
 
   const supabase = await createClient();
@@ -51,15 +57,26 @@ export async function moveApplication(
   if (loadError) return { error: GENERIC_ERROR };
   if (!current) return { error: "This candidate is no longer in the pipeline." };
 
+  // Parking and rejecting go through move_applications(), which keeps the
+  // reason, the look again date and the stage that was left together.
+  if (parsed.data.stage === "parked" || parsed.data.stage === "rejected") {
+    const { error } = await supabase.rpc("move_applications", {
+      p_application_ids: [parsed.data.applicationId],
+      p_stage: parsed.data.stage,
+      p_reason: parsed.data.rejectionReason || null,
+      p_park_until: parsed.data.stage === "parked" ? (parkUntil ?? null) : null,
+    });
+    if (error) return { error: "The move failed. Please try again." };
+    revalidateBoard(current.vacancy_id, current.candidate_id);
+    return { ok: true };
+  }
+
   const update: TablesUpdate<"applications"> = {
     stage: parsed.data.stage,
     position: parsed.data.position,
   };
   if (PRESENTED_STAGES.includes(parsed.data.stage) && !current.presented_at) {
     update.presented_at = new Date().toISOString();
-  }
-  if (parsed.data.stage === "rejected" && parsed.data.rejectionReason) {
-    update.rejection_reason = parsed.data.rejectionReason;
   }
 
   const { error } = await supabase
@@ -72,40 +89,31 @@ export async function moveApplication(
   return { ok: true };
 }
 
-const score = z.coerce
-  .number({ error: "Enter a number from 0 to 100." })
-  .int({ error: "Enter a whole number." })
-  .min(0, { error: "At least 0." })
-  .max(100, { error: "At most 100." })
-  .optional();
-
-const assessmentSchema = z.object({
+const notesSchema = z.object({
   id: z.string({ error: "Application not found." }).refine(isUuid, { error: "Application not found." }),
-  technical_score: score,
-  english_score: score,
   assessment_notes: z.string().max(5000, { error: "These notes are too long." }).optional(),
   rejection_reason: z.string().max(2000, { error: "This reason is too long." }).optional(),
+  park_reason: z.string().max(2000, { error: "This reason is too long." }).optional(),
 });
 
-/** Scores and notes from the assessment, edited in the card modal. */
+/** General notes and the park or rejection reason, edited in the card modal. */
 export async function updateApplication(_prev: ActionState, formData: FormData): Promise<ActionState> {
   await requireStaff();
 
-  const parsed = assessmentSchema.safeParse(formValues(formData));
+  const parsed = notesSchema.safeParse(formValues(formData));
   if (!parsed.success) {
     return { error: "Check the highlighted fields.", fieldErrors: fieldErrorsFrom(parsed.error) };
   }
 
   const { id, ...input } = parsed.data;
+  const update: TablesUpdate<"applications"> = { assessment_notes: input.assessment_notes ?? null };
+  if (formData.has("rejection_reason")) update.rejection_reason = input.rejection_reason ?? null;
+  if (formData.has("park_reason")) update.park_reason = input.park_reason ?? null;
+
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("applications")
-    .update({
-      technical_score: input.technical_score ?? null,
-      english_score: input.english_score ?? null,
-      assessment_notes: input.assessment_notes ?? null,
-      rejection_reason: input.rejection_reason ?? null,
-    })
+    .update(update)
     .eq("id", id)
     .select("vacancy_id, candidate_id")
     .maybeSingle();

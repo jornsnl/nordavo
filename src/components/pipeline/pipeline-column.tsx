@@ -5,7 +5,7 @@ import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable"
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import type { ApplicationStage } from "@/lib/database.types";
 import type { Tone } from "@/lib/labels";
-import { SortableCard, type BoardCard } from "./pipeline-card";
+import { SortableCard, type BoardCard, type CardAction } from "./pipeline-card";
 
 const dotTones: Record<Tone, string> = {
   neutral: "bg-slate-400",
@@ -22,23 +22,36 @@ export function PipelineColumn({
   tone,
   cards,
   onOpen,
-  onMoveTo,
+  onAction,
+  onSelect,
+  onSelectAll,
+  selected,
   busy,
+  dragDisabled = false,
   collapsible = false,
   collapsed = false,
   onToggle,
+  hiddenCount = 0,
 }: {
   stage: ApplicationStage;
   label: string;
   tone: Tone;
   cards: BoardCard[];
   onOpen: (id: string) => void;
-  onMoveTo: (id: string, stage: ApplicationStage) => void;
+  onAction: (id: string, action: CardAction) => void;
+  onSelect: (id: string, shift: boolean) => void;
+  onSelectAll: (stage: ApplicationStage) => void;
+  selected: ReadonlySet<string>;
   busy: boolean;
+  dragDisabled?: boolean;
   collapsible?: boolean;
   collapsed?: boolean;
   onToggle?: () => void;
+  /** Cards in this stage hidden by the board filters. */
+  hiddenCount?: number;
 }) {
+  const selectedHere = cards.filter((c) => selected.has(c.id)).length;
+  const allSelected = cards.length > 0 && selectedHere === cards.length;
   const { setNodeRef, isOver } = useDroppable({ id: stage, data: { type: "column" } });
   const headingId = `column-${stage}`;
 
@@ -48,7 +61,7 @@ export function PipelineColumn({
         ref={setNodeRef}
         aria-labelledby={headingId}
         className={`flex w-14 shrink-0 snap-start flex-col max-lg:min-h-[60dvh] items-center gap-3 rounded-2xl border border-dashed py-3 transition ${
-          isOver ? "border-danger bg-danger-bg" : "border-border bg-surface/60"
+          isOver ? (stage === "parked" ? "border-amber-500 bg-amber-50" : "border-danger bg-danger-bg") : "border-border bg-surface/60"
         }`}
       >
         <button
@@ -78,17 +91,32 @@ export function PipelineColumn({
     <section
       aria-labelledby={headingId}
       className={`flex shrink-0 snap-start flex-col rounded-2xl border border-border bg-surface/60 max-lg:min-h-[60dvh] ${
-        collapsible ? "w-60" : "w-[17rem]"
+        collapsible ? "w-64" : "w-[17rem]"
       }`}
     >
       <header className="flex items-center justify-between gap-2 px-3 pt-3 pb-2">
-        <h2 id={headingId} className="flex min-w-0 items-center gap-2 text-sm font-semibold text-brand-900">
+        {cards.length > 0 && (
+          <input
+            type="checkbox"
+            checked={allSelected}
+            ref={(el) => {
+              if (el) el.indeterminate = selectedHere > 0 && !allSelected;
+            }}
+            onChange={() => onSelectAll(stage)}
+            aria-label={`Select all in ${label}`}
+            className="size-4 shrink-0 cursor-pointer accent-brand-600 pointer-coarse:size-5"
+          />
+        )}
+        <h2 id={headingId} className="flex min-w-0 flex-1 items-center gap-2 text-sm font-semibold text-brand-900">
           <span className={`size-2 shrink-0 rounded-full ${dotTones[tone]}`} aria-hidden="true" />
           <span className="truncate">{label}</span>
           <span className="rounded-full bg-white px-2 py-0.5 text-xs font-semibold text-muted tabular-nums ring-1 ring-border">
             <span className="sr-only">Count: </span>
             {cards.length}
           </span>
+          {hiddenCount > 0 && (
+            <span className="text-xs font-normal text-muted">+{hiddenCount} hidden</span>
+          )}
         </h2>
         {collapsible && (
           <button
@@ -112,11 +140,20 @@ export function PipelineColumn({
           }`}
         >
           {cards.map((card) => (
-            <SortableCard key={card.id} card={card} onOpen={onOpen} onMoveTo={onMoveTo} disabled={busy} />
+            <SortableCard
+              key={card.id}
+              card={card}
+              onOpen={onOpen}
+              onAction={onAction}
+              onSelect={onSelect}
+              selected={selected.has(card.id)}
+              disabled={busy}
+              dragDisabled={dragDisabled}
+            />
           ))}
           {cards.length === 0 && (
             <li className="flex flex-1 items-center justify-center rounded-xl border border-dashed border-border px-3 py-6 text-center text-xs text-muted">
-              Drag a candidate here
+              {hiddenCount > 0 ? "Hidden by the filters" : dragDisabled ? "Nobody here" : "Drag a candidate here"}
             </li>
           )}
         </ul>
