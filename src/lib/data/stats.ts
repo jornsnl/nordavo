@@ -9,7 +9,7 @@ import { addDays, diffDays } from "@/components/placements/dates";
 export const PROMISED_CANDIDATES = 3;
 export const PROMISED_DAYS = 21;
 
-const PRESENTED_STAGES: ApplicationStage[] = ["presented", "final_interview", "placed"];
+const PRESENTED_STAGES: ApplicationStage[] = ["matched", "client_interview", "final_screening", "placed"];
 
 /**
  * Dashboard numbers. Talent pool vacancies (no client yet) never count:

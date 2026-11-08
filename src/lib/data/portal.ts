@@ -19,10 +19,10 @@ import { createClient } from "@/lib/supabase/server";
  */
 
 /** Stages a client can see; matches the RLS policy on applications. */
-export const VISIBLE_STAGES = ["presented", "final_interview", "placed"] as const satisfies readonly ApplicationStage[];
+export const VISIBLE_STAGES = ["matched", "client_interview", "final_screening", "placed"] as const satisfies readonly ApplicationStage[];
 
 /** Stages in which the client can still give or change a decision. */
-export const REVIEWABLE_STAGES = ["presented", "final_interview"] as const satisfies readonly ApplicationStage[];
+export const REVIEWABLE_STAGES = ["matched", "client_interview"] as const satisfies readonly ApplicationStage[];
 
 export type VisibleStage = (typeof VISIBLE_STAGES)[number];
 

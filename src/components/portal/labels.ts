@@ -3,8 +3,9 @@ import type { Tone } from "@/lib/labels";
 
 /** Client facing wording for the stages a client can see. */
 export const portalStageLabels: Partial<Record<ApplicationStage, { label: string; tone: Tone }>> = {
-  presented: { label: "Presented", tone: "accent" },
-  final_interview: { label: "Final interviews", tone: "brand" },
+  matched: { label: "Presented", tone: "accent" },
+  client_interview: { label: "Interviews", tone: "brand" },
+  final_screening: { label: "Final checks", tone: "brand" },
   placed: { label: "Placed", tone: "success" },
 };
 

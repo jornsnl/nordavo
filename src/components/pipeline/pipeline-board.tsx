@@ -120,7 +120,7 @@ export function PipelineBoard({
       ...card,
       position,
       presented_at:
-        stage === "presented" && !card.presented_at ? new Date().toISOString() : card.presented_at,
+        PRESENTED_STAGES.includes(stage) && !card.presented_at ? new Date().toISOString() : card.presented_at,
     };
     const updated: Columns = {
       ...next,

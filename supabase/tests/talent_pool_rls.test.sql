@@ -58,10 +58,10 @@ insert into public.vacancies (id, title, is_talent_pool) values
 insert into public.candidates (id, full_name) values
   ('00000000-0000-0000-0000-0000000000f1', 'Asha'),
   ('00000000-0000-0000-0000-0000000000f2', 'Ravi');
--- Ravi is "presented" on the talent pool vacancy only.
+-- Ravi is "matched" (presented) on the talent pool vacancy only.
 insert into public.applications (vacancy_id, candidate_id, stage) values
-  ('00000000-0000-0000-0000-0000000000e1', '00000000-0000-0000-0000-0000000000f1', 'presented'),
-  ('00000000-0000-0000-0000-0000000000e2', '00000000-0000-0000-0000-0000000000f2', 'presented');
+  ('00000000-0000-0000-0000-0000000000e1', '00000000-0000-0000-0000-0000000000f1', 'matched'),
+  ('00000000-0000-0000-0000-0000000000e2', '00000000-0000-0000-0000-0000000000f2', 'matched');
 
 -- The owner check: exactly talent pool, or an owner.
 select pg_temp.fails($$insert into public.vacancies (title) values ('No owner')$$, 'a vacancy without client, prospect or talent pool');

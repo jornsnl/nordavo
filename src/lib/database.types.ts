@@ -17,17 +17,46 @@ export type ProfileRole = "admin" | "member" | "client" | "external";
 export type ClientStatus = "lead" | "active" | "inactive";
 export type Seniority = "medior" | "senior" | "lead";
 export type VacancyStatus = "open" | "on_hold" | "filled" | "closed";
-export type CandidateStatus = "available" | "in_process" | "placed" | "unavailable";
+export type CandidateStatus = "available" | "in_process" | "parked" | "placed" | "unavailable";
 export type CandidateSeniority = "junior" | "medior" | "senior" | "lead";
-export type ApplicationStage =
+/** Pipeline flow, in order (recruitment brief 2.1). */
+export type FlowStage =
   | "sourced"
-  | "screening"
+  | "techstack_check"
+  | "fill_out"
+  | "video_review"
   | "technical_test"
-  | "english_interview"
-  | "presented"
-  | "final_interview"
-  | "placed"
-  | "rejected";
+  | "interview"
+  | "matched"
+  | "client_interview"
+  | "final_screening";
+/** Flow stages plus placed, and parked / rejected apart from the flow. */
+export type ApplicationStage = FlowStage | "placed" | "parked" | "rejected";
+/** Channel a candidate came through. */
+export type CandidateSource =
+  | "linkedin"
+  | "naukri"
+  | "manatal"
+  | "indeed"
+  | "monster"
+  | "instagram"
+  | "referral"
+  | "website"
+  | "headhunted"
+  | "other";
+/** applied: came in by themselves; headhunted: approached by Nordavo. */
+export type CandidateOrigin = "applied" | "headhunted";
+export type CvVerdict = "fit" | "maybe" | "no_fit";
+export type BackgroundCheckStatus = "not_started" | "requested" | "passed" | "failed";
+export type NoteKind =
+  | "note"
+  | "call"
+  | "screening_call"
+  | "video_review"
+  | "interview"
+  | "client_feedback"
+  | "background_check";
+export type AttachmentKind = "cv" | "payslip" | "background_check" | "video" | "test_result" | "other";
 export type ClientDecision = "pending" | "approved" | "rejected";
 export type PlacementStatus = "active" | "notice" | "ended";
 export type TaskStatus = "todo" | "in_progress" | "done";
@@ -285,6 +314,8 @@ export type Database = {
           first_interview_at: string | null;
           start_at: string | null;
           is_talent_pool: boolean;
+          park_reason: string | null;
+          parked_at: string | null;
         };
         Insert: {
           id?: string;
@@ -320,6 +351,8 @@ export type Database = {
           first_interview_at?: string | null;
           start_at?: string | null;
           is_talent_pool?: boolean;
+          park_reason?: string | null;
+          parked_at?: string | null;
         };
         Update: {
           id?: string;
@@ -355,6 +388,8 @@ export type Database = {
           first_interview_at?: string | null;
           start_at?: string | null;
           is_talent_pool?: boolean;
+          park_reason?: string | null;
+          parked_at?: string | null;
         };
         Relationships: [
           {
@@ -406,6 +441,10 @@ export type Database = {
           profile_consent: boolean | null;
           created_at: string;
           updated_at: string;
+          park_reason: string | null;
+          parked_at: string | null;
+          source: CandidateSource | null;
+          origin: CandidateOrigin;
         };
         Insert: {
           id?: string;
@@ -432,6 +471,10 @@ export type Database = {
           profile_consent?: boolean | null;
           created_at?: string;
           updated_at?: string;
+          park_reason?: string | null;
+          parked_at?: string | null;
+          source?: CandidateSource | null;
+          origin?: CandidateOrigin;
         };
         Update: {
           id?: string;
@@ -458,6 +501,10 @@ export type Database = {
           profile_consent?: boolean | null;
           created_at?: string;
           updated_at?: string;
+          park_reason?: string | null;
+          parked_at?: string | null;
+          source?: CandidateSource | null;
+          origin?: CandidateOrigin;
         };
         Relationships: [
           {
@@ -486,6 +533,25 @@ export type Database = {
           rejection_reason: string | null;
           created_at: string;
           updated_at: string;
+          exit_from_stage: FlowStage | null;
+          parked_at: string | null;
+          park_reason: string | null;
+          park_until: string | null;
+          rejected_at: string | null;
+          source: CandidateSource | null;
+          origin: CandidateOrigin;
+          form_sent_at: string | null;
+          form_completed_at: string | null;
+          form_reminded_at: string | null;
+          cv_score: number | null;
+          cv_verdict: CvVerdict | null;
+          cv_scored_at: string | null;
+          video_score: number | null;
+          video_notes: string | null;
+          interview_at: string | null;
+          shortlisted_at: string | null;
+          background_check_status: BackgroundCheckStatus;
+          background_check_notes: string | null;
         };
         Insert: {
           id?: string;
@@ -503,6 +569,25 @@ export type Database = {
           rejection_reason?: string | null;
           created_at?: string;
           updated_at?: string;
+          exit_from_stage?: FlowStage | null;
+          parked_at?: string | null;
+          park_reason?: string | null;
+          park_until?: string | null;
+          rejected_at?: string | null;
+          source?: CandidateSource | null;
+          origin?: CandidateOrigin;
+          form_sent_at?: string | null;
+          form_completed_at?: string | null;
+          form_reminded_at?: string | null;
+          cv_score?: number | null;
+          cv_verdict?: CvVerdict | null;
+          cv_scored_at?: string | null;
+          video_score?: number | null;
+          video_notes?: string | null;
+          interview_at?: string | null;
+          shortlisted_at?: string | null;
+          background_check_status?: BackgroundCheckStatus;
+          background_check_notes?: string | null;
         };
         Update: {
           id?: string;
@@ -520,6 +605,25 @@ export type Database = {
           rejection_reason?: string | null;
           created_at?: string;
           updated_at?: string;
+          exit_from_stage?: FlowStage | null;
+          parked_at?: string | null;
+          park_reason?: string | null;
+          park_until?: string | null;
+          rejected_at?: string | null;
+          source?: CandidateSource | null;
+          origin?: CandidateOrigin;
+          form_sent_at?: string | null;
+          form_completed_at?: string | null;
+          form_reminded_at?: string | null;
+          cv_score?: number | null;
+          cv_verdict?: CvVerdict | null;
+          cv_scored_at?: string | null;
+          video_score?: number | null;
+          video_notes?: string | null;
+          interview_at?: string | null;
+          shortlisted_at?: string | null;
+          background_check_status?: BackgroundCheckStatus;
+          background_check_notes?: string | null;
         };
         Relationships: [
           {
@@ -739,6 +843,8 @@ export type Database = {
           author_id: string | null;
           created_at: string;
           updated_at: string;
+          stage: ApplicationStage | null;
+          kind: NoteKind;
         };
         Insert: {
           id?: string;
@@ -748,6 +854,8 @@ export type Database = {
           author_id?: string | null;
           created_at?: string;
           updated_at?: string;
+          stage?: ApplicationStage | null;
+          kind?: NoteKind;
         };
         Update: {
           id?: string;
@@ -757,6 +865,8 @@ export type Database = {
           author_id?: string | null;
           created_at?: string;
           updated_at?: string;
+          stage?: ApplicationStage | null;
+          kind?: NoteKind;
         };
         Relationships: [
           {
@@ -779,6 +889,7 @@ export type Database = {
           size_bytes: number | null;
           uploaded_by: string | null;
           created_at: string;
+          kind: AttachmentKind;
         };
         Insert: {
           id?: string;
@@ -790,6 +901,7 @@ export type Database = {
           size_bytes?: number | null;
           uploaded_by?: string | null;
           created_at?: string;
+          kind?: AttachmentKind;
         };
         Update: {
           id?: string;
@@ -801,6 +913,7 @@ export type Database = {
           size_bytes?: number | null;
           uploaded_by?: string | null;
           created_at?: string;
+          kind?: AttachmentKind;
         };
         Relationships: [
           {
@@ -808,6 +921,44 @@ export type Database = {
             columns: ["uploaded_by"];
             isOneToOne: false;
             referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      application_stage_events: {
+        Row: {
+          id: number;
+          application_id: string;
+          vacancy_id: string;
+          from_stage: ApplicationStage | null;
+          to_stage: ApplicationStage;
+          actor_id: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: never;
+          application_id: string;
+          vacancy_id: string;
+          from_stage?: ApplicationStage | null;
+          to_stage: ApplicationStage;
+          actor_id?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: never;
+          application_id?: string;
+          vacancy_id?: string;
+          from_stage?: ApplicationStage | null;
+          to_stage?: ApplicationStage;
+          actor_id?: string | null;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "application_stage_events_application_id_fkey";
+            columns: ["application_id"];
+            isOneToOne: false;
+            referencedRelation: "applications";
             referencedColumns: ["id"];
           },
         ];
@@ -1634,6 +1785,10 @@ export type Database = {
         Args: { p_user_id: string; p_role: string; p_client_id: string | null };
         Returns: undefined;
       };
+      move_applications: {
+        Args: { p_application_ids: string[]; p_stage: ApplicationStage | "resume"; p_reason?: string | null; p_park_until?: string | null };
+        Returns: number;
+      };
       t2_candidate_pool: {
         Args: { p_vacancy_id: string; p_patterns?: string[]; p_weights?: number[]; p_require_hit?: boolean; p_limit?: number };
         Returns: PublicTables["candidates"]["Row"][];
@@ -1661,6 +1816,7 @@ export type Task = Tables<"tasks">;
 export type Note = Tables<"notes">;
 export type Attachment = Tables<"attachments">;
 export type ActivityEntry = Tables<"activity_log">;
+export type ApplicationStageEvent = Tables<"application_stage_events">;
 export type Company = Tables<"companies">;
 export type Contact = Tables<"contacts">;
 export type Signal = Tables<"signals">;

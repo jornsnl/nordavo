@@ -11,7 +11,7 @@ import { isUuid, likePattern } from "@/lib/data/clients";
 export const PRESENTED_TARGET = 3;
 
 /** Stages that count as "presented to the client". */
-const PRESENTED_STAGES: ApplicationStage[] = ["presented", "final_interview", "placed"];
+const PRESENTED_STAGES: ApplicationStage[] = ["matched", "client_interview", "final_screening", "placed"];
 
 export function isVacancyStatus(value: unknown): value is VacancyStatus {
   return vacancyStatuses.some((s) => s.value === value);

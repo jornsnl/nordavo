@@ -7,6 +7,7 @@ import { requireStaff } from "@/lib/auth";
 import { isUuid } from "@/lib/data/candidates";
 import type { ApplicationStage, TablesUpdate } from "@/lib/database.types";
 import { applicationStages } from "@/lib/labels";
+import { PRESENTED_STAGES } from "@/components/pipeline/stages";
 import { createClient } from "@/lib/supabase/server";
 
 const stageValues = applicationStages.map((s) => s.value) as [ApplicationStage, ...ApplicationStage[]];
@@ -54,7 +55,7 @@ export async function moveApplication(
     stage: parsed.data.stage,
     position: parsed.data.position,
   };
-  if (parsed.data.stage === "presented" && !current.presented_at) {
+  if (PRESENTED_STAGES.includes(parsed.data.stage) && !current.presented_at) {
     update.presented_at = new Date().toISOString();
   }
   if (parsed.data.stage === "rejected" && parsed.data.rejectionReason) {
