@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useRef } from "react";
 import { CheckCircle2, LoaderCircle } from "lucide-react";
 import { LogoMark } from "@/components/brand/logo";
 import { Markdown } from "@/components/work/markdown";
@@ -79,7 +79,13 @@ export function FormRenderer({
   submitLabel?: string;
 }) {
   const [state, formAction, pending] = useActionState(action ?? (async (s: ApplyState) => s), {} as ApplyState);
-  const [startedAt] = useState(() => Date.now());
+  // When the form was first shown, for the minimum fill time (set after hydration, kept across retries).
+  const startedAt = useRef(0);
+  const startedInput = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (!startedAt.current) startedAt.current = Date.now();
+    if (startedInput.current) startedInput.current.value = String(startedAt.current);
+  }, [state.attempt]);
 
   if (state.ok) {
     return (
@@ -104,7 +110,7 @@ export function FormRenderer({
           <input type="text" name={HONEYPOT_FIELD} tabIndex={-1} autoComplete="off" defaultValue="" />
         </label>
       </div>
-      <input type="hidden" name="started_at" value={startedAt} />
+      <input type="hidden" name="started_at" ref={startedInput} defaultValue="" />
 
       {(state.error || errorCount > 0) && (
         <p role="alert" className="rounded-xl border border-danger/20 bg-danger-bg px-4 py-3 text-sm text-danger">

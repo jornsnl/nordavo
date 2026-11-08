@@ -231,7 +231,7 @@ function FilterInput({ question: q, value }: { question: Question; value: string
 }
 
 function Cell({ question: q, value, rate }: { question: Question; value: unknown; rate: number | null }) {
-  if (value === undefined || value === null || value === "") return <span className="text-muted/60">-</span>;
+  if (value === undefined || value === null || value === "") return <span className="sr-only">No answer</span>;
 
   if (q.type === "file" && typeof value === "object" && value && "attachment_id" in value) {
     const file = value as { attachment_id: string; file_name?: string };
