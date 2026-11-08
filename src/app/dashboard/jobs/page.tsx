@@ -95,8 +95,8 @@ async function JobsOverview() {
   // Only the jobs of the user's modules (2.5); the run history follows RLS.
   const user = await getCurrentUser();
   const visible = (name: string) => {
-    const module = jobModule(name);
-    return module === null || user.modules.includes(module);
+    const mod = jobModule(name);
+    return mod === null || user.modules.includes(mod);
   };
   const names = Object.keys(jobs).filter(visible);
   const visibleChains = Object.entries(chains).filter(([, chain]) => chain.jobs.every(visible));

@@ -31,6 +31,13 @@ export function interviewStatusOption(status: InterviewStatus) {
   return interviewStatuses.find((s) => s.value === status) ?? { value: status, label: status, tone: "neutral" as Tone };
 }
 
+/** The interview in a sentence: "an English interview". */
+export function interviewPhrase(kind: InterviewKind) {
+  if (kind === "english_interview") return { article: "an", noun: "English interview" };
+  if (kind === "client_interview") return { article: "a", noun: "client interview" };
+  return { article: "an", noun: "interview" };
+}
+
 /** The pipeline stage a booked interview of this kind moves the candidate to. */
 export function stageForInterview(kind: InterviewKind): "interview" | "client_interview" {
   return kind === "client_interview" ? "client_interview" : "interview";
@@ -143,8 +150,11 @@ type Escape = (value: string) => string;
 
 export function formatInterviewTime(iso: string, timeZone = "Asia/Kolkata") {
   return new Intl.DateTimeFormat("en-GB", {
-    dateStyle: "full",
-    timeStyle: "short",
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    hour: "2-digit",
+    minute: "2-digit",
     timeZone,
     timeZoneName: "short",
   }).format(new Date(iso));
@@ -160,13 +170,13 @@ export function inviteMail(
     url: string;
   },
 ) {
-  const label = interviewKindLabel(kind).toLowerCase();
+  const { article, noun: label } = interviewPhrase(kind);
   const first = candidateName.split(" ")[0] || candidateName;
   const subject = `Pick a time for your ${label}: ${vacancyTitle}`;
   const text = [
     `Hi ${first},`,
     "",
-    `Thank you for your application for ${vacancyTitle}. We would like to invite you to an ${label} with ${interviewerName} of Nordavo.`,
+    `Thank you for your application for ${vacancyTitle}. We would like to invite you to ${article} ${label} with ${interviewerName} of Nordavo.`,
     "",
     "Please pick a time that suits you here:",
     url,
@@ -177,7 +187,7 @@ export function inviteMail(
     "Nordavo",
   ].join("\n");
   const html = `<p>Hi ${escape(first)},</p>
-<p>Thank you for your application for <strong>${escape(vacancyTitle)}</strong>. We would like to invite you to an ${escape(label)} with ${escape(interviewerName)} of Nordavo.</p>
+<p>Thank you for your application for <strong>${escape(vacancyTitle)}</strong>. We would like to invite you to ${article} ${escape(label)} with ${escape(interviewerName)} of Nordavo.</p>
 <p><a href="${escape(url)}" style="display:inline-block;padding:10px 18px;background:#0b2a5b;color:#ffffff;border-radius:8px;text-decoration:none">Pick a time</a></p>
 <p style="color:#555">Or open this link: ${escape(url)}</p>
 <p>The meeting is added to your calendar with the link to join. You can reschedule or cancel from the confirmation mail.</p>
@@ -208,22 +218,28 @@ export function reminderMail(
   },
 ) {
   const label = interviewKindLabel(kind);
+  const noun = interviewPhrase(kind).noun;
   const when = formatInterviewTime(startsAt, timeZone);
   if (to === "candidate") {
     const first = candidateName.split(" ")[0] || candidateName;
     return {
-      subject: `Reminder: your ${label.toLowerCase()} with Nordavo, ${when}`,
-      text: `Hi ${first},\n\nA reminder of your ${label.toLowerCase()} for ${vacancyTitle} with ${interviewerName}: ${when}.\nThe link to join is in the calendar invitation.\n\nKind regards,\nNordavo`,
-      html: `<p>Hi ${escape(first)},</p><p>A reminder of your ${escape(label.toLowerCase())} for <strong>${escape(vacancyTitle)}</strong> with ${escape(interviewerName)}: <strong>${escape(when)}</strong>.</p><p>The link to join is in the calendar invitation.</p><p>Kind regards,<br>Nordavo</p>`,
+      subject: `Reminder: your ${noun} with Nordavo, ${when}`,
+      text: `Hi ${first},\n\nA reminder of your ${noun} for ${vacancyTitle} with ${interviewerName}: ${when}.\nThe link to join is in the calendar invitation.\n\nKind regards,\nNordavo`,
+      html: `<p>Hi ${escape(first)},</p><p>A reminder of your ${escape(noun)} for <strong>${escape(vacancyTitle)}</strong> with ${escape(interviewerName)}: <strong>${escape(when)}</strong>.</p><p>The link to join is in the calendar invitation.</p><p>Kind regards,<br>Nordavo</p>`,
     };
   }
   return {
-    subject: `Tomorrow: ${label.toLowerCase()} with ${candidateName} (${vacancyTitle})`,
+    subject: `Tomorrow: ${noun} with ${candidateName} (${vacancyTitle})`,
     text: `${label} with ${candidateName} for ${vacancyTitle}: ${when}.${portalUrl ? `\nCandidate and feedback form: ${portalUrl}` : ""}`,
     html: `<p>${escape(label)} with <strong>${escape(candidateName)}</strong> for ${escape(vacancyTitle)}: <strong>${escape(when)}</strong>.</p>${
       portalUrl ? `<p><a href="${escape(portalUrl)}">Open the candidate</a> to read the profile and fill in the feedback afterwards.</p>` : ""
     }`,
   };
+}
+
+/** Whether a booked interview has started (feedback can be filled in from then on). */
+export function hasStarted(startsAt: string | null, now = new Date()): boolean {
+  return startsAt !== null && new Date(startsAt).getTime() <= now.getTime();
 }
 
 /** Interviews due for the reminder: booked, starting within the window, not reminded yet. */

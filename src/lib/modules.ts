@@ -65,8 +65,8 @@ export function moduleForPath(path: string): PortalModule | null {
 /** Whether a menu item (by its href) is visible with these modules. */
 export function canSeePath(path: string, modules: readonly PortalModule[] | null): boolean {
   if (modules === null) return true;
-  const module = moduleForPath(path);
-  return module === null || modules.includes(module);
+  const mod = moduleForPath(path);
+  return mod === null || modules.includes(mod);
 }
 
 /** Which module a job belongs to. Mirrors public.job_module() in the database. */
@@ -96,7 +96,7 @@ export function moduleForEntity(entityType: string | null | undefined): PortalMo
 /** Entity types visible with these modules (for filters on notes, tasks and the activity log). */
 export function entityTypesFor(modules: readonly PortalModule[]): string[] {
   return ["client", "vacancy", "candidate", "application", "placement", "company"].filter((type) => {
-    const module = moduleForEntity(type);
-    return module === null || modules.includes(module);
+    const mod = moduleForEntity(type);
+    return mod === null || modules.includes(mod);
   });
 }

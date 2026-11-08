@@ -28,8 +28,8 @@ export async function runJobAction(name: string, _prev: ActionState, formData: F
   if (!jobs[name] && !chains[name]) return { error: `Unknown job: ${name}` };
   // Jobs write with the service role, so check the modules here (2.5).
   const allowed = (job: string) => {
-    const module = jobModule(job);
-    return module === null || user.modules.includes(module);
+    const mod = jobModule(job);
+    return mod === null || user.modules.includes(mod);
   };
   if (!(chains[name] ? chains[name].jobs : [name]).every(allowed)) {
     return { error: "This job belongs to a module you do not have. Ask an admin under Settings, Users." };

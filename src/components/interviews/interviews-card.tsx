@@ -3,7 +3,7 @@ import { CalendarClock } from "lucide-react";
 import { listCandidateApplications } from "@/lib/data/applications";
 import { interviewSetup, listCandidateInterviews, listInterviewers } from "@/lib/data/interviews";
 import { formatDateTime } from "@/lib/format";
-import { interviewKindLabel, interviewStatusOption } from "@/lib/recruitment/interviews";
+import { hasStarted, interviewKindLabel, interviewStatusOption } from "@/lib/recruitment/interviews";
 import { ConfirmButton } from "@/components/candidates/confirm-button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
@@ -25,7 +25,6 @@ export async function InterviewsCard({ candidateId }: { candidateId: string }) {
   const options = applications.flatMap((a) =>
     a.vacancy ? [{ id: a.id, label: `${a.vacancy.title}${a.vacancy.client?.name ? `, ${a.vacancy.client.name}` : ""}` }] : [],
   );
-  const now = Date.now();
 
   return (
     <Card>
@@ -65,7 +64,7 @@ export async function InterviewsCard({ candidateId }: { candidateId: string }) {
           {interviews.map((interview) => {
             const status = interviewStatusOption(interview.status);
             const interviewer = interview.interviewer?.full_name || interview.interviewer?.email || "Unknown interviewer";
-            const past = interview.starts_at ? new Date(interview.starts_at).getTime() < now : false;
+            const past = hasStarted(interview.starts_at);
             const canGiveFeedback =
               interview.status === "done" ||
               interview.status === "no_show" ||

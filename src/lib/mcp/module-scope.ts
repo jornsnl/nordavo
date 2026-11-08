@@ -89,8 +89,8 @@ export function accessError(modules: PortalModule[]): string {
 /** Entity types this user may not see, for a NOT IN filter. */
 function hiddenEntityTypes(modules: readonly PortalModule[]): string[] {
   return ["client", "vacancy", "candidate", "application", "placement", "company"].filter((type) => {
-    const module = moduleForEntity(type);
-    return module !== null && !modules.includes(module);
+    const mod = moduleForEntity(type);
+    return mod !== null && !modules.includes(mod);
   });
 }
 
@@ -127,8 +127,8 @@ export function scopeDbToModules<D extends object>(db: D, modules: readonly Port
             const rows = (Array.isArray(values) ? values : [values]) as { entity_type?: string | null }[];
             const blocked = rows.find((row) => row?.entity_type && hidden.includes(row.entity_type));
             if (blocked) {
-              const module = moduleForEntity(blocked.entity_type);
-              return deniedQuery(accessError(module ? [module] : []));
+              const mod = moduleForEntity(blocked.entity_type);
+              return deniedQuery(accessError(mod ? [mod] : []));
             }
             return value.apply(target, [values, ...rest]);
           };
