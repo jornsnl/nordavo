@@ -1,7 +1,8 @@
 import "server-only";
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Database, McpTokenAccess } from "@/lib/database.types";
+import type { Database, McpTokenAccess, PortalModule } from "@/lib/database.types";
+import { effectiveModules } from "@/lib/modules";
 
 /**
  * Personal access tokens for the MCP server at /api/mcp.
@@ -27,6 +28,11 @@ export type McpTokenContext = {
   name: string;
   email: string | null;
   role: "admin" | "member";
+  /**
+   * Modules the owner sees (2.5); the server only reaches these. Set by
+   * authenticateMcpToken; when left out (tests) a member counts as having all.
+   */
+  modules?: PortalModule[];
 };
 
 export type McpAuthResult =
@@ -108,7 +114,7 @@ export async function authenticateMcpToken(
 
   const { data: profile } = await db
     .from("profiles")
-    .select("full_name, email, role")
+    .select("full_name, email, role, modules")
     .eq("id", row.user_id)
     .maybeSingle();
   if (!profile || (profile.role !== "admin" && profile.role !== "member")) {
@@ -133,6 +139,7 @@ export async function authenticateMcpToken(
       name: profile.full_name || profile.email?.split("@")[0] || "Nordavo",
       email: profile.email,
       role: profile.role,
+      modules: effectiveModules(profile.role, profile.modules),
     },
   };
 }

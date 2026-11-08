@@ -3,6 +3,7 @@
 // once the project exists, then keep the aliases at the bottom.
 
 import type { WorkFunctions, WorkTables } from "@/lib/work/database";
+import type { FormsFunctions, FormsTables } from "@/lib/forms/database";
 
 export type Json =
   | string
@@ -17,26 +18,80 @@ export type ProfileRole = "admin" | "member" | "client" | "external";
 export type ClientStatus = "lead" | "active" | "inactive";
 export type Seniority = "medior" | "senior" | "lead";
 export type VacancyStatus = "open" | "on_hold" | "filled" | "closed";
-export type CandidateStatus = "available" | "in_process" | "placed" | "unavailable";
+export type CandidateStatus = "available" | "in_process" | "parked" | "placed" | "unavailable";
 export type CandidateSeniority = "junior" | "medior" | "senior" | "lead";
-export type ApplicationStage =
+/** Pipeline flow, in order (recruitment brief 2.1). */
+export type FlowStage =
   | "sourced"
-  | "screening"
+  | "techstack_check"
+  | "fill_out"
+  | "video_review"
   | "technical_test"
-  | "english_interview"
-  | "presented"
-  | "final_interview"
-  | "placed"
-  | "rejected";
+  | "interview"
+  | "matched"
+  | "client_interview"
+  | "final_screening";
+/** Flow stages plus placed, and parked / rejected apart from the flow. */
+export type ApplicationStage = FlowStage | "placed" | "parked" | "rejected";
+/** Channel a candidate came through. */
+export type CandidateSource =
+  | "linkedin"
+  | "naukri"
+  | "manatal"
+  | "indeed"
+  | "monster"
+  | "instagram"
+  | "referral"
+  | "website"
+  | "headhunted"
+  | "other";
+/** applied: came in by themselves; headhunted: approached by Nordavo. */
+export type CandidateOrigin = "applied" | "headhunted";
+export type CvVerdict = "fit" | "maybe" | "no_fit";
+export type BackgroundCheckStatus = "not_started" | "requested" | "passed" | "failed";
+export type NoteKind =
+  | "note"
+  | "call"
+  | "screening_call"
+  | "video_review"
+  | "interview"
+  | "client_feedback"
+  | "background_check";
+/** One row of a screening call: years of experience with a tool (2.12). */
+export type ScreeningTool = { tool: string; years: number };
+/** Screening (recruitment brief 2.7, 2.11). */
+export type ScreeningModel = "claude-haiku-5-5" | "claude-sonnet-5-5" | "claude-opus-5-5";
+export type CvTextStatus = "pending" | "read" | "failed";
+export type RequirementKind = "must_have" | "alternative" | "nice_to_have";
+export type TechstackResult = "pass" | "fail" | "unclear";
+export type CvScorePurpose = "score" | "compare";
+export type AttachmentKind = "cv" | "payslip" | "background_check" | "video" | "test_result" | "other";
 export type ClientDecision = "pending" | "approved" | "rejected";
 export type PlacementStatus = "active" | "notice" | "ended";
 export type TaskStatus = "todo" | "in_progress" | "done";
 export type TaskPriority = "low" | "normal" | "high";
 export type EntityType = "client" | "vacancy" | "candidate" | "application" | "placement" | "company";
+/** Portal modules a team member sees (recruitment planning, 2.5). Admins see all. */
+export type PortalModule = "sales" | "recruitment" | "clients" | "report";
+export type InterviewKind = "interview" | "english_interview" | "client_interview";
+export type InterviewStatus = "invited" | "scheduled" | "rescheduled" | "cancelled" | "done" | "no_show";
 // Account security
 export type PasskeyDeviceType = "singleDevice" | "multiDevice";
 export type WebauthnChallengeKind = "registration" | "authentication";
 export type McpTokenAccess = "read" | "write";
+// Custom fields (20261108050000_custom_fields_and_extras.sql)
+export type CustomFieldEntity = "candidate" | "vacancy" | "application";
+export type CustomFieldType =
+  | "text"
+  | "long_text"
+  | "number"
+  | "date"
+  | "boolean"
+  | "single_choice"
+  | "multi_choice"
+  | "url";
+/** Values by field key: string (text, long_text, date, single_choice, url), number, boolean or string[] (multi_choice). */
+export type CustomFieldValues = { [key: string]: string | number | boolean | string[] };
 
 export type ActivityAction = "created" | "updated" | "deleted" | "stage_changed" | "status_changed";
 
@@ -128,6 +183,8 @@ export type Database = {
           time_zone: string;
           created_at: string;
           updated_at: string;
+          modules: PortalModule[];
+          booking_url: string | null;
         };
         Insert: {
           id: string;
@@ -138,6 +195,8 @@ export type Database = {
           time_zone?: string;
           created_at?: string;
           updated_at?: string;
+          modules?: PortalModule[];
+          booking_url?: string | null;
         };
         Update: {
           id?: string;
@@ -148,6 +207,8 @@ export type Database = {
           time_zone?: string;
           created_at?: string;
           updated_at?: string;
+          modules?: PortalModule[];
+          booking_url?: string | null;
         };
         Relationships: [
           {
@@ -285,6 +346,12 @@ export type Database = {
           first_interview_at: string | null;
           start_at: string | null;
           is_talent_pool: boolean;
+          park_reason: string | null;
+          parked_at: string | null;
+          custom_fields: CustomFieldValues;
+          excluded_profiles: string[];
+          techstack_min_hits: number | null;
+          screening_model: ScreeningModel | null;
         };
         Insert: {
           id?: string;
@@ -320,6 +387,12 @@ export type Database = {
           first_interview_at?: string | null;
           start_at?: string | null;
           is_talent_pool?: boolean;
+          park_reason?: string | null;
+          parked_at?: string | null;
+          custom_fields?: CustomFieldValues;
+          excluded_profiles?: string[];
+          techstack_min_hits?: number | null;
+          screening_model?: ScreeningModel | null;
         };
         Update: {
           id?: string;
@@ -355,6 +428,12 @@ export type Database = {
           first_interview_at?: string | null;
           start_at?: string | null;
           is_talent_pool?: boolean;
+          park_reason?: string | null;
+          parked_at?: string | null;
+          custom_fields?: CustomFieldValues;
+          excluded_profiles?: string[];
+          techstack_min_hits?: number | null;
+          screening_model?: ScreeningModel | null;
         };
         Relationships: [
           {
@@ -406,6 +485,21 @@ export type Database = {
           profile_consent: boolean | null;
           created_at: string;
           updated_at: string;
+          park_reason: string | null;
+          parked_at: string | null;
+          source: CandidateSource | null;
+          origin: CandidateOrigin;
+          custom_fields: CustomFieldValues;
+          is_topper: boolean;
+          topper_reason: string | null;
+          topper_by: string | null;
+          topper_at: string | null;
+          current_company: string | null;
+          notice_period: string | null;
+          willing_to_relocate: boolean | null;
+          cv_text_status: CvTextStatus | null;
+          cv_read_at: string | null;
+          has_cv_text: boolean;
         };
         Insert: {
           id?: string;
@@ -432,6 +526,21 @@ export type Database = {
           profile_consent?: boolean | null;
           created_at?: string;
           updated_at?: string;
+          park_reason?: string | null;
+          parked_at?: string | null;
+          source?: CandidateSource | null;
+          origin?: CandidateOrigin;
+          custom_fields?: CustomFieldValues;
+          is_topper?: boolean;
+          topper_reason?: string | null;
+          topper_by?: string | null;
+          topper_at?: string | null;
+          current_company?: string | null;
+          notice_period?: string | null;
+          willing_to_relocate?: boolean | null;
+          cv_text_status?: CvTextStatus | null;
+          cv_read_at?: string | null;
+          has_cv_text?: boolean;
         };
         Update: {
           id?: string;
@@ -458,6 +567,21 @@ export type Database = {
           profile_consent?: boolean | null;
           created_at?: string;
           updated_at?: string;
+          park_reason?: string | null;
+          parked_at?: string | null;
+          source?: CandidateSource | null;
+          origin?: CandidateOrigin;
+          custom_fields?: CustomFieldValues;
+          is_topper?: boolean;
+          topper_reason?: string | null;
+          topper_by?: string | null;
+          topper_at?: string | null;
+          current_company?: string | null;
+          notice_period?: string | null;
+          willing_to_relocate?: boolean | null;
+          cv_text_status?: CvTextStatus | null;
+          cv_read_at?: string | null;
+          has_cv_text?: boolean;
         };
         Relationships: [
           {
@@ -486,6 +610,26 @@ export type Database = {
           rejection_reason: string | null;
           created_at: string;
           updated_at: string;
+          exit_from_stage: FlowStage | null;
+          parked_at: string | null;
+          park_reason: string | null;
+          park_until: string | null;
+          rejected_at: string | null;
+          source: CandidateSource | null;
+          origin: CandidateOrigin;
+          form_sent_at: string | null;
+          form_completed_at: string | null;
+          form_reminded_at: string | null;
+          cv_score: number | null;
+          cv_verdict: CvVerdict | null;
+          cv_scored_at: string | null;
+          video_score: number | null;
+          video_notes: string | null;
+          interview_at: string | null;
+          shortlisted_at: string | null;
+          background_check_status: BackgroundCheckStatus;
+          background_check_notes: string | null;
+          custom_fields: CustomFieldValues;
         };
         Insert: {
           id?: string;
@@ -503,6 +647,26 @@ export type Database = {
           rejection_reason?: string | null;
           created_at?: string;
           updated_at?: string;
+          exit_from_stage?: FlowStage | null;
+          parked_at?: string | null;
+          park_reason?: string | null;
+          park_until?: string | null;
+          rejected_at?: string | null;
+          source?: CandidateSource | null;
+          origin?: CandidateOrigin;
+          form_sent_at?: string | null;
+          form_completed_at?: string | null;
+          form_reminded_at?: string | null;
+          cv_score?: number | null;
+          cv_verdict?: CvVerdict | null;
+          cv_scored_at?: string | null;
+          video_score?: number | null;
+          video_notes?: string | null;
+          interview_at?: string | null;
+          shortlisted_at?: string | null;
+          background_check_status?: BackgroundCheckStatus;
+          background_check_notes?: string | null;
+          custom_fields?: CustomFieldValues;
         };
         Update: {
           id?: string;
@@ -520,6 +684,26 @@ export type Database = {
           rejection_reason?: string | null;
           created_at?: string;
           updated_at?: string;
+          exit_from_stage?: FlowStage | null;
+          parked_at?: string | null;
+          park_reason?: string | null;
+          park_until?: string | null;
+          rejected_at?: string | null;
+          source?: CandidateSource | null;
+          origin?: CandidateOrigin;
+          form_sent_at?: string | null;
+          form_completed_at?: string | null;
+          form_reminded_at?: string | null;
+          cv_score?: number | null;
+          cv_verdict?: CvVerdict | null;
+          cv_scored_at?: string | null;
+          video_score?: number | null;
+          video_notes?: string | null;
+          interview_at?: string | null;
+          shortlisted_at?: string | null;
+          background_check_status?: BackgroundCheckStatus;
+          background_check_notes?: string | null;
+          custom_fields?: CustomFieldValues;
         };
         Relationships: [
           {
@@ -739,6 +923,8 @@ export type Database = {
           author_id: string | null;
           created_at: string;
           updated_at: string;
+          stage: ApplicationStage | null;
+          kind: NoteKind;
         };
         Insert: {
           id?: string;
@@ -748,6 +934,8 @@ export type Database = {
           author_id?: string | null;
           created_at?: string;
           updated_at?: string;
+          stage?: ApplicationStage | null;
+          kind?: NoteKind;
         };
         Update: {
           id?: string;
@@ -757,6 +945,8 @@ export type Database = {
           author_id?: string | null;
           created_at?: string;
           updated_at?: string;
+          stage?: ApplicationStage | null;
+          kind?: NoteKind;
         };
         Relationships: [
           {
@@ -779,6 +969,7 @@ export type Database = {
           size_bytes: number | null;
           uploaded_by: string | null;
           created_at: string;
+          kind: AttachmentKind;
         };
         Insert: {
           id?: string;
@@ -790,6 +981,7 @@ export type Database = {
           size_bytes?: number | null;
           uploaded_by?: string | null;
           created_at?: string;
+          kind?: AttachmentKind;
         };
         Update: {
           id?: string;
@@ -801,6 +993,7 @@ export type Database = {
           size_bytes?: number | null;
           uploaded_by?: string | null;
           created_at?: string;
+          kind?: AttachmentKind;
         };
         Relationships: [
           {
@@ -808,6 +1001,211 @@ export type Database = {
             columns: ["uploaded_by"];
             isOneToOne: false;
             referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      interviews: {
+        Row: {
+          id: string;
+          application_id: string;
+          interviewer_id: string | null;
+          kind: InterviewKind;
+          status: InterviewStatus;
+          invite_url: string | null;
+          invite_mailed_at: string | null;
+          starts_at: string | null;
+          ends_at: string | null;
+          cal_uid: string | null;
+          previous_cal_uids: string[];
+          cancellation_reason: string | null;
+          reminder_sent_at: string | null;
+          rating: number | null;
+          communication: number | null;
+          feedback: string | null;
+          feedback_at: string | null;
+          feedback_by: string | null;
+          created_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          application_id: string;
+          interviewer_id?: string | null;
+          kind?: InterviewKind;
+          status?: InterviewStatus;
+          invite_url?: string | null;
+          invite_mailed_at?: string | null;
+          starts_at?: string | null;
+          ends_at?: string | null;
+          cal_uid?: string | null;
+          previous_cal_uids?: string[];
+          cancellation_reason?: string | null;
+          reminder_sent_at?: string | null;
+          rating?: number | null;
+          communication?: number | null;
+          feedback?: string | null;
+          feedback_at?: string | null;
+          feedback_by?: string | null;
+          created_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          application_id?: string;
+          interviewer_id?: string | null;
+          kind?: InterviewKind;
+          status?: InterviewStatus;
+          invite_url?: string | null;
+          invite_mailed_at?: string | null;
+          starts_at?: string | null;
+          ends_at?: string | null;
+          cal_uid?: string | null;
+          previous_cal_uids?: string[];
+          cancellation_reason?: string | null;
+          reminder_sent_at?: string | null;
+          rating?: number | null;
+          communication?: number | null;
+          feedback?: string | null;
+          feedback_at?: string | null;
+          feedback_by?: string | null;
+          created_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "interviews_application_id_fkey";
+            columns: ["application_id"];
+            isOneToOne: false;
+            referencedRelation: "applications";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "interviews_interviewer_id_fkey";
+            columns: ["interviewer_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      application_assessments: {
+        Row: {
+          application_id: string;
+          video_reviewed_by: string | null;
+          video_reviewed_at: string | null;
+          screening_tools: ScreeningTool[];
+          screening_communication_score: number | null;
+          screening_notes: string | null;
+          screened_by: string | null;
+          screened_at: string | null;
+          interview_rating: number | null;
+          interview_communication_feedback: string | null;
+          interview_linkedin_feedback: string | null;
+          interviewer_id: string | null;
+          interviewer_name: string | null;
+          interviewed_at: string | null;
+          test_score: number | null;
+          test_notes: string | null;
+          test_url: string | null;
+          test_completed_at: string | null;
+          updated_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          application_id: string;
+          video_reviewed_by?: string | null;
+          video_reviewed_at?: string | null;
+          screening_tools?: ScreeningTool[];
+          screening_communication_score?: number | null;
+          screening_notes?: string | null;
+          screened_by?: string | null;
+          screened_at?: string | null;
+          interview_rating?: number | null;
+          interview_communication_feedback?: string | null;
+          interview_linkedin_feedback?: string | null;
+          interviewer_id?: string | null;
+          interviewer_name?: string | null;
+          interviewed_at?: string | null;
+          test_score?: number | null;
+          test_notes?: string | null;
+          test_url?: string | null;
+          test_completed_at?: string | null;
+          updated_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          application_id?: string;
+          video_reviewed_by?: string | null;
+          video_reviewed_at?: string | null;
+          screening_tools?: ScreeningTool[];
+          screening_communication_score?: number | null;
+          screening_notes?: string | null;
+          screened_by?: string | null;
+          screened_at?: string | null;
+          interview_rating?: number | null;
+          interview_communication_feedback?: string | null;
+          interview_linkedin_feedback?: string | null;
+          interviewer_id?: string | null;
+          interviewer_name?: string | null;
+          interviewed_at?: string | null;
+          test_score?: number | null;
+          test_notes?: string | null;
+          test_url?: string | null;
+          test_completed_at?: string | null;
+          updated_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "application_assessments_application_id_fkey";
+            columns: ["application_id"];
+            isOneToOne: true;
+            referencedRelation: "applications";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      application_stage_events: {
+        Row: {
+          id: number;
+          application_id: string;
+          vacancy_id: string;
+          from_stage: ApplicationStage | null;
+          to_stage: ApplicationStage;
+          actor_id: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: never;
+          application_id: string;
+          vacancy_id: string;
+          from_stage?: ApplicationStage | null;
+          to_stage: ApplicationStage;
+          actor_id?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: never;
+          application_id?: string;
+          vacancy_id?: string;
+          from_stage?: ApplicationStage | null;
+          to_stage?: ApplicationStage;
+          actor_id?: string | null;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "application_stage_events_application_id_fkey";
+            columns: ["application_id"];
+            isOneToOne: false;
+            referencedRelation: "applications";
             referencedColumns: ["id"];
           },
         ];
@@ -1487,6 +1885,254 @@ export type Database = {
           },
         ];
       };
+      vacancy_requirements: {
+        Row: {
+          id: string;
+          vacancy_id: string;
+          label: string;
+          kind: RequirementKind;
+          alternatives: string[];
+          position: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          vacancy_id: string;
+          label: string;
+          kind?: RequirementKind;
+          alternatives?: string[];
+          position?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          vacancy_id?: string;
+          label?: string;
+          kind?: RequirementKind;
+          alternatives?: string[];
+          position?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "vacancy_requirements_vacancy_id_fkey";
+            columns: ["vacancy_id"];
+            isOneToOne: false;
+            referencedRelation: "vacancies";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      techstack_checks: {
+        Row: {
+          application_id: string;
+          vacancy_id: string;
+          result: TechstackResult;
+          reason: string;
+          hits: string[];
+          method: "rules" | "ai";
+          model: string | null;
+          checked_by: string | null;
+          checked_at: string;
+        };
+        Insert: {
+          application_id: string;
+          vacancy_id: string;
+          result: TechstackResult;
+          reason: string;
+          hits?: string[];
+          method?: "rules" | "ai";
+          model?: string | null;
+          checked_by?: string | null;
+          checked_at?: string;
+        };
+        Update: {
+          application_id?: string;
+          vacancy_id?: string;
+          result?: TechstackResult;
+          reason?: string;
+          hits?: string[];
+          method?: "rules" | "ai";
+          model?: string | null;
+          checked_by?: string | null;
+          checked_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "techstack_checks_application_id_fkey";
+            columns: ["application_id"];
+            isOneToOne: false;
+            referencedRelation: "applications";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "techstack_checks_vacancy_id_fkey";
+            columns: ["vacancy_id"];
+            isOneToOne: false;
+            referencedRelation: "vacancies";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "techstack_checks_checked_by_fkey";
+            columns: ["checked_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      screening_prompts: {
+        Row: {
+          id: string;
+          version: number;
+          instructions: string;
+          notes: string | null;
+          is_active: boolean;
+          created_by: string | null;
+          created_at: string;
+          activated_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          version?: number;
+          instructions: string;
+          notes?: string | null;
+          is_active?: boolean;
+          created_by?: string | null;
+          created_at?: string;
+          activated_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          version?: number;
+          instructions?: string;
+          notes?: string | null;
+          is_active?: boolean;
+          created_by?: string | null;
+          created_at?: string;
+          activated_at?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "screening_prompts_created_by_fkey";
+            columns: ["created_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      cv_scores: {
+        Row: {
+          id: string;
+          application_id: string;
+          vacancy_id: string;
+          candidate_id: string;
+          purpose: CvScorePurpose;
+          score: number;
+          verdict: CvVerdict;
+          summary: string | null;
+          breakdown: Json;
+          must_have_missing: number;
+          model: string;
+          prompt_id: string | null;
+          prompt_version: number;
+          effort: "low" | "medium" | "high" | null;
+          input_tokens: number | null;
+          output_tokens: number | null;
+          cache_read_tokens: number | null;
+          cache_write_tokens: number | null;
+          cost_usd: number | null;
+          created_by: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          application_id: string;
+          vacancy_id: string;
+          candidate_id: string;
+          purpose?: CvScorePurpose;
+          score: number;
+          verdict: CvVerdict;
+          summary?: string | null;
+          breakdown?: Json;
+          must_have_missing?: number;
+          model: string;
+          prompt_id?: string | null;
+          prompt_version?: number;
+          effort?: "low" | "medium" | "high" | null;
+          input_tokens?: number | null;
+          output_tokens?: number | null;
+          cache_read_tokens?: number | null;
+          cache_write_tokens?: number | null;
+          cost_usd?: number | null;
+          created_by?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          application_id?: string;
+          vacancy_id?: string;
+          candidate_id?: string;
+          purpose?: CvScorePurpose;
+          score?: number;
+          verdict?: CvVerdict;
+          summary?: string | null;
+          breakdown?: Json;
+          must_have_missing?: number;
+          model?: string;
+          prompt_id?: string | null;
+          prompt_version?: number;
+          effort?: "low" | "medium" | "high" | null;
+          input_tokens?: number | null;
+          output_tokens?: number | null;
+          cache_read_tokens?: number | null;
+          cache_write_tokens?: number | null;
+          cost_usd?: number | null;
+          created_by?: string | null;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "cv_scores_application_id_fkey";
+            columns: ["application_id"];
+            isOneToOne: false;
+            referencedRelation: "applications";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "cv_scores_vacancy_id_fkey";
+            columns: ["vacancy_id"];
+            isOneToOne: false;
+            referencedRelation: "vacancies";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "cv_scores_candidate_id_fkey";
+            columns: ["candidate_id"];
+            isOneToOne: false;
+            referencedRelation: "candidates";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "cv_scores_prompt_id_fkey";
+            columns: ["prompt_id"];
+            isOneToOne: false;
+            referencedRelation: "screening_prompts";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "cv_scores_created_by_fkey";
+            columns: ["created_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       passkeys: {
         Row: {
           id: string;
@@ -1598,7 +2244,51 @@ export type Database = {
         };
         Relationships: [];
       };
-    } & WorkTables;
+      custom_field_definitions: {
+        Row: {
+          id: string;
+          entity: CustomFieldEntity;
+          key: string;
+          label: string;
+          field_type: CustomFieldType;
+          options: string[];
+          help_text: string | null;
+          position: number;
+          show_in_list: boolean;
+          archived_at: string | null;
+          created_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          entity: CustomFieldEntity;
+          key: string;
+          label: string;
+          field_type: CustomFieldType;
+          options?: string[];
+          help_text?: string | null;
+          position?: number;
+          show_in_list?: boolean;
+          archived_at?: string | null;
+          created_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          label?: string;
+          field_type?: CustomFieldType;
+          options?: string[];
+          help_text?: string | null;
+          position?: number;
+          show_in_list?: boolean;
+          archived_at?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+    } & WorkTables & FormsTables;
     Views: {
       call_list_candidates: { Row: ListCandidateBase & { phone: string; linkedin_url: string | null }; Relationships: [] };
       mail_list_candidates: { Row: ListCandidateBase & { email: string }; Relationships: [] };
@@ -1634,11 +2324,142 @@ export type Database = {
         Args: { p_user_id: string; p_role: string; p_client_id: string | null };
         Returns: undefined;
       };
+      has_module: { Args: { p_module: PortalModule }; Returns: boolean };
+      can_access_entity: { Args: { p_entity_type: string | null }; Returns: boolean };
+      can_see_job: { Args: { p_job_name: string }; Returns: boolean };
+      admin_set_profile_modules: { Args: { p_user_id: string; p_modules: PortalModule[] }; Returns: undefined };
+      interview_from_booking: {
+        Args: {
+          p_trigger: string;
+          p_uid: string;
+          p_previous_uid?: string | null;
+          p_interview_id?: string | null;
+          p_attendee_email?: string | null;
+          p_starts_at?: string | null;
+          p_ends_at?: string | null;
+          p_reason?: string | null;
+        };
+        Returns: Json;
+      };
+      portal_company: {
+        Args: Record<PropertyKey, never>;
+        Returns: { id: string; name: string; city: string | null }[];
+      };
+      portal_vacancies: {
+        Args: Record<PropertyKey, never>;
+        Returns: {
+          id: string;
+          title: string;
+          status: VacancyStatus;
+          seniority: Seniority;
+          stack: string[];
+          opened_at: string;
+          closed_at: string | null;
+          presented_count: number;
+          pending_count: number;
+        }[];
+      };
+      portal_vacancy: {
+        Args: { p_vacancy_id: string };
+        Returns: {
+          id: string;
+          title: string;
+          description: string | null;
+          stack: string[];
+          seniority: Seniority;
+          status: VacancyStatus;
+          opened_at: string;
+          closed_at: string | null;
+          desired_start_date: string | null;
+        }[];
+      };
+      portal_candidates: {
+        Args: { p_vacancy_id?: string | null; p_pending_only?: boolean };
+        Returns: {
+          application_id: string;
+          vacancy_id: string;
+          vacancy_title: string;
+          stage: ApplicationStage;
+          technical_score: number | null;
+          english_score: number | null;
+          presented_at: string | null;
+          client_decision: ClientDecision;
+          client_feedback: string | null;
+          client_decided_at: string | null;
+          candidate_id: string;
+          full_name: string;
+          current_title: string | null;
+          location: string;
+          years_experience: number | null;
+          skills: string[];
+          video_url: string | null;
+          summary: string | null;
+          has_cv: boolean;
+        }[];
+      };
+      portal_cv_path: {
+        Args: { p_application_id: string };
+        Returns: string | null;
+      };
+      portal_placements: {
+        Args: Record<PropertyKey, never>;
+        Returns: {
+          id: string;
+          start_date: string;
+          end_date: string | null;
+          status: PlacementStatus;
+          notice_given_at: string | null;
+          guarantee_until: string | null;
+          monthly_rate: number | null;
+          candidate_name: string | null;
+          candidate_title: string | null;
+          vacancy_title: string | null;
+        }[];
+      };
+      client_can_open_file: {
+        Args: { p_path: string };
+        Returns: boolean;
+      };
+      move_applications: {
+        Args: { p_application_ids: string[]; p_stage: ApplicationStage | "resume"; p_reason?: string | null; p_park_until?: string | null };
+        Returns: number;
+      };
+      move_applications_as: {
+        Args: {
+          p_actor: string;
+          p_application_ids: string[];
+          p_stage: ApplicationStage | "resume";
+          p_reason?: string | null;
+          p_park_until?: string | null;
+        };
+        Returns: number;
+      };
+      valid_screening_tools: {
+        Args: { p_tools: Json };
+        Returns: boolean;
+      };
+      is_restricted_attachment: {
+        Args: { p_path: string };
+        Returns: boolean;
+      };
+      screening_find_candidates: {
+        Args: { p_emails?: string[]; p_phone_keys?: string[]; p_linkedins?: string[] };
+        Returns: PublicTables["candidates"]["Row"][];
+      };
+      activate_screening_prompt: { Args: { p_prompt_id: string | null }; Returns: undefined };
       t2_candidate_pool: {
         Args: { p_vacancy_id: string; p_patterns?: string[]; p_weights?: number[]; p_require_hit?: boolean; p_limit?: number };
         Returns: PublicTables["candidates"]["Row"][];
       };
-    } & WorkFunctions;
+      set_custom_field: {
+        Args: { p_entity: CustomFieldEntity; p_id: string; p_key: string; p_value: Json | null };
+        Returns: CustomFieldValues;
+      };
+      validate_custom_fields: {
+        Args: { p_entity: CustomFieldEntity; p_new: Json; p_old?: Json };
+        Returns: CustomFieldValues;
+      };
+    } & WorkFunctions & FormsFunctions;
     Enums: { [_ in never]: never };
     CompositeTypes: { [_ in never]: never };
   };
@@ -1661,6 +2482,9 @@ export type Task = Tables<"tasks">;
 export type Note = Tables<"notes">;
 export type Attachment = Tables<"attachments">;
 export type ActivityEntry = Tables<"activity_log">;
+export type ApplicationStageEvent = Tables<"application_stage_events">;
+export type ApplicationAssessment = Tables<"application_assessments">;
+export type Interview = Tables<"interviews">;
 export type Company = Tables<"companies">;
 export type Contact = Tables<"contacts">;
 export type Signal = Tables<"signals">;
@@ -1673,5 +2497,9 @@ export type Match = Tables<"matches">;
 export type AnonymousProfile = Tables<"anonymous_profiles">;
 export type Passkey = Tables<"passkeys">;
 export type McpToken = Tables<"mcp_tokens">;
+export type VacancyRequirement = Tables<"vacancy_requirements">;
+export type TechstackCheck = Tables<"techstack_checks">;
+export type ScreeningPrompt = Tables<"screening_prompts">;
+export type CvScore = Tables<"cv_scores">;
 export type CallListCandidate = Database["public"]["Views"]["call_list_candidates"]["Row"];
 export type MailListCandidate = Database["public"]["Views"]["mail_list_candidates"]["Row"];

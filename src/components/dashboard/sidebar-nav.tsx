@@ -1,33 +1,52 @@
 "use client";
 
-import { Suspense } from "react";
+import { Suspense, use } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import type { PortalModule } from "@/lib/database.types";
+import { canSeePath } from "@/lib/modules";
 import { navSections } from "./nav-items";
 
-type Props = { onNavigate?: () => void };
+type Props = {
+  onNavigate?: () => void;
+  /** Modules of the signed-in user (2.5); null shows everything. */
+  modules: Promise<PortalModule[] | null>;
+};
 
 /**
  * The current path is request data on dynamic routes, so the active state
- * streams in behind Suspense; the fallback is the same menu without it.
+ * streams in behind Suspense, and so do the modules the user may see (2.5).
+ * The fallback is the menu without the active state and with only the items
+ * every team member sees, so no module flashes by for someone without it.
  */
-export function SidebarNav(props: Props) {
+export function SidebarNav({ onNavigate, modules }: Props) {
   return (
-    <Suspense fallback={<NavList {...props} pathname={null} />}>
-      <ActiveNavList {...props} />
+    <Suspense fallback={<NavList onNavigate={onNavigate} pathname={null} modules={[]} />}>
+      <ActiveNavList onNavigate={onNavigate} modules={modules} />
     </Suspense>
   );
 }
 
-function ActiveNavList(props: Props) {
+function ActiveNavList({ onNavigate, modules }: Props) {
   const pathname = usePathname();
-  return <NavList {...props} pathname={pathname} />;
+  return <NavList onNavigate={onNavigate} pathname={pathname} modules={use(modules)} />;
 }
 
-function NavList({ onNavigate, pathname }: Props & { pathname: string | null }) {
+function NavList({
+  onNavigate,
+  pathname,
+  modules,
+}: {
+  onNavigate?: () => void;
+  pathname: string | null;
+  modules: PortalModule[] | null;
+}) {
+  const sections = navSections
+    .map((section) => ({ ...section, items: section.items.filter((item) => canSeePath(item.href, modules)) }))
+    .filter((section) => section.items.length > 0);
   return (
     <nav aria-label="Main menu" className="space-y-6">
-      {navSections.map((section, index) => (
+      {sections.map((section, index) => (
         <div key={section.label ?? index}>
           {section.label && (
             <p className="mb-2 px-3 text-[11px] font-semibold tracking-wider text-brand-200/50 uppercase">

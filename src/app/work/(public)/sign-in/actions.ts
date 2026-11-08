@@ -7,6 +7,7 @@ import { safeNextPath } from "@/lib/safe-redirect";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { sendSignInMail } from "@/lib/work/notify";
+import { SIGN_IN_LINK_SENT, mayUseSignInLink, signInLinkUrl } from "@/lib/security/sign-in-link";
 
 export type SignInState = { error?: string; sent?: string };
 
@@ -30,29 +31,33 @@ export async function signInWithGoogle(next: string) {
  * Mail a one-time sign-in link. With the secret key and mail set up, we make
  * the link ourselves (English mail, straight back to `next`); otherwise
  * Supabase sends its own magic link mail. Never creates an account, and the
- * answer is the same whether the address exists or not.
+ * answer is the same whether the address exists or not. Links are for Work
+ * guests only (see src/lib/security/sign-in-link.ts); staff and clients use
+ * their password or passkey.
  */
 export async function sendSignInLink(_prev: SignInState, formData: FormData): Promise<SignInState> {
   const parsed = z.email().safeParse(String(formData.get("email") ?? "").trim().toLowerCase());
   if (!parsed.success) return { error: "Enter a valid e-mail address." };
   const email = parsed.data;
   const next = safeNextPath(formData.get("next"), "/work");
-  const sent = `If ${email} has an account, a sign-in link is on its way. It works once, within an hour.`;
+  const sent = SIGN_IN_LINK_SENT(email);
 
   const admin = createAdminClient();
   if (admin && process.env.RESEND_API_KEY && process.env.MAIL_FROM) {
-    const { data: profile } = await admin.from("profiles").select("id").eq("email", email).maybeSingle();
-    if (!profile) return { sent };
+    const { data: profile } = await admin.from("profiles").select("id, role").eq("email", email).maybeSingle();
+    if (!profile || !mayUseSignInLink(profile.role)) return { sent };
     const { data, error } = await admin.auth.admin.generateLink({ type: "magiclink", email });
     if (error || !data.properties?.hashed_token) {
       console.error("[work] sign-in link failed:", error?.code, error?.message);
       return { error: "The link could not be sent. Try again in a minute." };
     }
-    const url = `${site()}/auth/confirm?token_hash=${encodeURIComponent(data.properties.hashed_token)}&type=email&next=${encodeURIComponent(next)}`;
+    const url = signInLinkUrl(site(), data.properties.hashed_token, next);
     await sendSignInMail(email, url);
     return { sent };
   }
 
+  // Without the secret key we cannot see the role first; /auth/confirm then
+  // signs a staff or client link session out again.
   const supabase = await createClient();
   const { error } = await supabase.auth.signInWithOtp({
     email,

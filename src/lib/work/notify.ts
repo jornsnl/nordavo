@@ -187,14 +187,29 @@ export async function sendInviteMail({
   workspace,
   project,
   url,
+  signInUrl = null,
 }: {
   to: string;
   inviter: string;
   workspace: string;
   project: string | null;
   url: string;
+  /** One-time sign-in link that opens the invite (guests only); expires with Supabase's OTP lifetime. */
+  signInUrl?: string | null;
 }) {
   const where = project ? `the project "${project}" in ${workspace}` : `the workspace ${workspace}`;
+  if (signInUrl) {
+    return sendMail({
+      to,
+      subject: `${inviter} invited you to ${project ?? workspace}`,
+      text: `${inviter} invited you to ${where} in Work, Nordavo's task tool.\n\nSign in and accept the invite (no password needed): ${signInUrl}\n\nThis sign-in link works once and expires after a while. After that, open ${url} and choose "Email me a sign-in link". The invite works for 14 days.`,
+      html: `<div style="font-family:Inter,Arial,sans-serif;max-width:560px;margin:0 auto;padding:24px">
+      <p style="font-size:14px;color:#111827">${escapeHtml(inviter)} invited you to ${escapeHtml(where)} in Work, Nordavo's task tool.</p>
+      <p><a href="${escapeHtml(signInUrl)}" style="display:inline-block;background:#1d3a8a;color:#fff;padding:10px 16px;border-radius:10px;text-decoration:none;font-size:14px">Sign in and accept</a></p>
+      <p style="font-size:12px;color:#6b7280">No password needed: the button signs you in as ${escapeHtml(to)}. It works once and expires after a while. After that, <a href="${escapeHtml(url)}" style="color:#1d3a8a">open the invite</a> and choose "Email me a sign-in link". The invite works for 14 days.</p>
+    </div>`,
+    });
+  }
   return sendMail({
     to,
     subject: `${inviter} invited you to ${project ?? workspace}`,
@@ -202,7 +217,7 @@ export async function sendInviteMail({
     html: `<div style="font-family:Inter,Arial,sans-serif;max-width:560px;margin:0 auto;padding:24px">
       <p style="font-size:14px;color:#111827">${escapeHtml(inviter)} invited you to ${escapeHtml(where)} in Work, Nordavo's task tool.</p>
       <p><a href="${escapeHtml(url)}" style="display:inline-block;background:#1d3a8a;color:#fff;padding:10px 16px;border-radius:10px;text-decoration:none;font-size:14px">Accept the invite</a></p>
-      <p style="font-size:12px;color:#6b7280">The link works for 14 days. Sign in with Google or a link by e-mail, using ${escapeHtml(to)}.</p>
+      <p style="font-size:12px;color:#6b7280">The link works for 14 days. Sign in with Google, your password, or (for guests) a sign-in link by e-mail, using ${escapeHtml(to)}.</p>
     </div>`,
   });
 }

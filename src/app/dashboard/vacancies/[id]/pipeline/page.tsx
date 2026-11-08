@@ -2,13 +2,18 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, ListOrdered, Sheet } from "lucide-react";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { PipelineBoard } from "@/components/pipeline/pipeline-board";
+import { FormPipelineLinks } from "@/components/forms/vacancy-form-card";
 import { Badge } from "@/components/ui/badge";
+import { ButtonLink } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getPipeline } from "@/lib/data/applications";
 import { isUuid, listCandidateOptions } from "@/lib/data/candidates";
+import { listStaff } from "@/lib/data/tasks";
+import { listInterviewers } from "@/lib/data/interviews";
+import { formatDate } from "@/lib/format";
 import { optionFor, vacancyStatuses } from "@/lib/labels";
 
 export const metadata: Metadata = {
@@ -31,9 +36,11 @@ async function Pipeline({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { id } = await params;
-  const [pipeline, candidates, query] = await Promise.all([
+  const [pipeline, candidates, staff, interviewers, query] = await Promise.all([
     getPipeline(id),
     listCandidateOptions(),
+    listStaff(),
+    listInterviewers(),
     searchParams,
   ]);
   if (!pipeline) notFound();
@@ -68,19 +75,40 @@ async function Pipeline({
               <Link href={`/dashboard/clients/${vacancy.client.id}`} className="text-brand-700 hover:underline">
                 {vacancy.client.name}
               </Link>
-              . Drag cards to the next stage or use Move to.
+              . Drag cards to the next stage, or tick several and move them at once.
             </>
           ) : (
-            "Drag cards to the next stage or use Move to."
+            "Drag cards to the next stage, or tick several and move them at once."
           )
         }
+        actions={
+          <>
+            <FormPipelineLinks vacancyId={vacancy.id} />
+            <ButtonLink href={`/dashboard/vacancies/${vacancy.id}/import`} variant="secondary" size="sm">
+              <Sheet aria-hidden="true" />
+              Import
+            </ButtonLink>
+            <ButtonLink href={`/dashboard/vacancies/${vacancy.id}/ranking`} variant="secondary" size="sm">
+              <ListOrdered aria-hidden="true" />
+              CV ranking
+            </ButtonLink>
+          </>
+        }
       />
+      {vacancy.status === "on_hold" && (
+        <p role="status" className="mb-4 rounded-2xl border border-amber-600/20 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          This vacancy is parked{vacancy.parked_at ? ` since ${formatDate(vacancy.parked_at)}` : ""}
+          {vacancy.park_reason ? `: ${vacancy.park_reason}` : "."} Unpark it on the vacancy page.
+        </p>
+      )}
       <PipelineBoard
         // Remount when switching vacancies so local board state never leaks.
         key={vacancy.id}
         vacancyId={vacancy.id}
         applications={applications}
         candidates={candidates}
+        staff={staff}
+        interviewers={interviewers}
         initialOpenId={initialOpenId}
       />
     </>

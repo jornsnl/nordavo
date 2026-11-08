@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentUser, hasModule } from "@/lib/auth";
 import { getOwnProfile, listClientOptions, listProfiles } from "@/lib/data/users";
 import { formatDate } from "@/lib/format";
 import { optionFor, profileRoles } from "@/lib/labels";
+import { effectiveModules, portalModules } from "@/lib/modules";
 import { verifiedTotpFactors } from "@/lib/security/mfa";
 import { createAdminClient, hasAdminClient } from "@/lib/supabase/admin";
 import { PageHeader } from "@/components/dashboard/page-header";
@@ -14,14 +15,24 @@ import { ListSkeleton, Skeleton } from "@/components/ui/skeleton";
 import { MobileList, MobileListItem } from "@/components/ui/mobile-list";
 import { TBody, TD, TH, THead, TR, Table } from "@/components/ui/table";
 import { ConfirmButton } from "@/components/candidates/confirm-button";
+import { BookingLinkForm } from "@/components/settings/booking-link-form";
 import { InviteForm } from "@/components/settings/invite-form";
+import { ModulesEditor } from "@/components/settings/modules-editor";
 import { PasswordForm } from "@/components/settings/password-form";
 import { ProfileForm } from "@/components/settings/profile-form";
 import { RoleEditor } from "@/components/settings/role-editor";
+import { CustomFieldsSettings } from "@/components/custom-fields/custom-fields-settings";
 import { McpSection } from "@/components/settings/security/mcp-section";
 import { MfaSection } from "@/components/settings/security/mfa-section";
 import { PasskeySection } from "@/components/settings/security/passkey-section";
-import { changePassword, inviteUser, updateOwnProfile, updateUserRole } from "./actions";
+import {
+  changePassword,
+  inviteUser,
+  updateBookingUrl,
+  updateOwnProfile,
+  updateUserModules,
+  updateUserRole,
+} from "./actions";
 import { resetUserMfa } from "./mfa-actions";
 
 export const metadata: Metadata = {
@@ -47,6 +58,10 @@ export default function Page() {
           </CardBody>
         </Card>
 
+        <Suspense fallback={null}>
+          <Interviews />
+        </Suspense>
+
         <Card>
           <CardHeader
             title="Change password"
@@ -69,6 +84,8 @@ export default function Page() {
           <McpSection />
         </Suspense>
 
+        <CustomFieldsSettings />
+
         <Suspense fallback={<ListSkeleton rows={4} />}>
           <UsersSection />
         </Suspense>
@@ -80,6 +97,32 @@ export default function Page() {
 async function Profile() {
   const profile = await getOwnProfile();
   return <ProfileForm action={updateOwnProfile} fullName={profile.fullName} email={profile.email} />;
+}
+
+/** Interviewers (recruitment module) keep their Cal.com booking link here (2.14). */
+async function Interviews() {
+  const user = await getCurrentUser();
+  if (!hasModule(user, "recruitment")) return null;
+  const profile = await getOwnProfile();
+  return (
+    <Card>
+      <CardHeader
+        title="Interviews"
+        description="Candidates you invite with Plan interview pick a time on this link, from your availability in Cal.com."
+      />
+      <CardBody className="py-5">
+        <BookingLinkForm action={updateBookingUrl} bookingUrl={profile.bookingUrl} />
+      </CardBody>
+    </Card>
+  );
+}
+
+/** What a user sees, in words, for the users list. */
+function modulesSummary(profile: { role: string; modules: string[] }) {
+  if (profile.role === "admin") return "Everything (admin)";
+  if (profile.role !== "member") return null;
+  const labels = portalModules.filter((m) => profile.modules.includes(m.value)).map((m) => m.label);
+  return labels.length > 0 ? labels.join(", ") : "Tasks only";
 }
 
 /** Only rendered for admins. */
@@ -111,8 +154,10 @@ async function UsersSection() {
             Users
           </h2>
           <p className="mt-0.5 text-sm text-muted">
-            Team members see everything. Client accounts only see their own vacancies and proposed
-            candidates in the client portal.
+            Admins see everything. For each member you decide which modules they see: Sales (leads,
+            contacts, lists, campaigns), Recruitment (vacancies, candidates, pipelines, placements),
+            Clients and Report. Every member sees tasks and the task tool. Client accounts only see
+            their own vacancies and proposed candidates in the client portal.
           </p>
         </div>
         <MobileList label="Users" className="md:hidden">
@@ -141,6 +186,7 @@ async function UsersSection() {
                         : "Nordavo"}
                     {" · 2FA "}
                     {mfaOn === undefined ? "unknown" : mfaOn ? "on" : "off"}
+                    {modulesSummary(profile) && <> · {modulesSummary(profile)}</>}
                   </>
                 }
                 // Others get the role picker below, so the badge would only repeat it.
@@ -157,6 +203,15 @@ async function UsersSection() {
                       clients={clients}
                       layout="stacked"
                     />
+                    {profile.role === "member" && (
+                      <ModulesEditor
+                        action={updateUserModules}
+                        userId={profile.id}
+                        userName={name}
+                        modules={effectiveModules(profile.role, profile.modules)}
+                        layout="stacked"
+                      />
+                    )}
                     {mfaOn && <ResetMfaButton userId={profile.id} name={name} />}
                   </div>
                 )}
@@ -172,7 +227,7 @@ async function UsersSection() {
               <TH>Role</TH>
               <TH>Client</TH>
               <TH>2FA</TH>
-              <TH>Change role and client</TH>
+              <TH>Change role and what they see</TH>
             </tr>
           </THead>
           <TBody>
@@ -227,14 +282,26 @@ async function UsersSection() {
                         You cannot change your own admin role.
                       </span>
                     ) : (
-                      <RoleEditor
-                        action={updateUserRole}
-                        userId={profile.id}
-                        userName={name}
-                        role={profile.role}
-                        clientId={profile.client_id}
-                        clients={clients}
-                      />
+                      <div className="space-y-2">
+                        <RoleEditor
+                          action={updateUserRole}
+                          userId={profile.id}
+                          userName={name}
+                          role={profile.role}
+                          clientId={profile.client_id}
+                          clients={clients}
+                        />
+                        {profile.role === "member" ? (
+                          <ModulesEditor
+                            action={updateUserModules}
+                            userId={profile.id}
+                            userName={name}
+                            modules={effectiveModules(profile.role, profile.modules)}
+                          />
+                        ) : (
+                          modulesSummary(profile) && <p className="text-xs text-muted">{modulesSummary(profile)}</p>
+                        )}
+                      </div>
                     )}
                   </TD>
                 </TR>

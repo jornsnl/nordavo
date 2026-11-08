@@ -3,6 +3,7 @@ import { requireStaff } from "@/lib/auth";
 import { daysBetween } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 import { isUuid } from "@/lib/data/candidates";
+import { readScreeningTools } from "@/lib/recruitment/pipeline";
 
 /** Every application of one candidate, across vacancies. */
 export async function listCandidateApplications(candidateId: string) {
@@ -56,7 +57,7 @@ export async function getPipeline(vacancyId: string) {
   const [vacancyResult, applicationsResult] = await Promise.all([
     supabase
       .from("vacancies")
-      .select("id, title, status, client:clients(id, name)")
+      .select("id, title, status, park_reason, parked_at, client:clients(id, name)")
       .eq("id", vacancyId)
       .maybeSingle(),
     supabase
@@ -65,7 +66,12 @@ export async function getPipeline(vacancyId: string) {
         `id, stage, position, technical_score, english_score, assessment_notes,
          presented_at, client_decision, client_feedback, client_decided_at,
          rejection_reason, created_at,
-         candidate:candidates(id, full_name, current_title, years_experience, skills)`,
+         origin, source, form_sent_at, form_completed_at, cv_score, cv_verdict, cv_scored_at,
+         video_score, video_notes, interview_at, shortlisted_at,
+         background_check_status, background_check_notes,
+         exit_from_stage, park_reason, park_until, parked_at, rejected_at,
+         candidate:candidates(id, full_name, current_title, years_experience, skills, is_topper, topper_reason, topper_at),
+         assessment:application_assessments(*)`,
       )
       .eq("vacancy_id", vacancyId)
       .order("position")
@@ -81,9 +87,18 @@ export async function getPipeline(vacancyId: string) {
   if (!vacancyResult.data) return null;
 
   const now = new Date();
-  const applications = applicationsResult.data.flatMap(({ candidate, created_at, ...rest }) =>
+  const applications = applicationsResult.data.flatMap(({ candidate, created_at, assessment, ...rest }) =>
     candidate
-      ? [{ ...rest, created_at, candidate, daysInPipeline: Math.max(0, daysBetween(created_at, now)) }]
+      ? [
+          {
+            ...rest,
+            created_at,
+            candidate,
+            assessment: assessment ? { ...assessment, screening_tools: readScreeningTools(assessment.screening_tools) } : null,
+            testScore: assessment?.test_score ?? null,
+            daysInPipeline: Math.max(0, daysBetween(created_at, now)),
+          },
+        ]
       : [],
   );
 

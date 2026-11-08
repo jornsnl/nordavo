@@ -11,8 +11,11 @@ import { s8WebpartnersImport } from "./s8-webpartners-import";
 import { s9OnepagePush } from "./s9-onepage-push";
 import { s9OnepagePull } from "./s9-onepage-pull";
 import { s10WeeklyReport } from "./s10-weekly-report";
+import { screeningScore } from "./screening-score";
 import { t2Match } from "./t2-match";
+import { interviewReminders } from "./interview-reminders";
 import { clickupImport, workDaily, workNotify } from "./work";
+import { formsReminders } from "./forms-reminders";
 
 /** Every job, by name. Run with `npm run job -- <name>` or POST /api/jobs/<name>. */
 export const jobs: Record<string, Job> = Object.fromEntries(
@@ -29,9 +32,12 @@ export const jobs: Record<string, Job> = Object.fromEntries(
   s9OnepagePull,
   s10WeeklyReport,
   t2Match,
+  interviewReminders,
+  screeningScore,
   workNotify,
   workDaily,
   clickupImport,
+  formsReminders,
   ].map((job) => [job.name, job]),
 );
 

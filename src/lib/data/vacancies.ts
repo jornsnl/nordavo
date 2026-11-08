@@ -11,7 +11,7 @@ import { isUuid, likePattern } from "@/lib/data/clients";
 export const PRESENTED_TARGET = 3;
 
 /** Stages that count as "presented to the client". */
-const PRESENTED_STAGES: ApplicationStage[] = ["presented", "final_interview", "placed"];
+const PRESENTED_STAGES: ApplicationStage[] = ["matched", "client_interview", "final_screening", "placed"];
 
 export function isVacancyStatus(value: unknown): value is VacancyStatus {
   return vacancyStatuses.some((s) => s.value === value);
@@ -91,7 +91,7 @@ export async function listVacancies({
     seniority: v.seniority,
     status: v.status,
     stack: v.stack,
-    inPipeline: v.applications.filter((a) => a.stage !== "rejected").length,
+    inPipeline: v.applications.filter((a) => a.stage !== "rejected" && a.stage !== "parked").length,
     daysOpen: vacancyDaysOpen(v),
   }));
 }
@@ -137,8 +137,11 @@ export async function listCompanyOptions(selectedId?: string | null): Promise<{ 
 export type PipelineSummary = {
   stages: { stage: ApplicationStage; label: string; count: number }[];
   total: number;
+  /** In the flow: not parked and not rejected. */
   active: number;
+  parked: number;
   rejected: number;
+  /** Presented to the client: matched or later, or presented before and parked or rejected since. */
   presented: number;
 };
 
@@ -155,6 +158,7 @@ export async function getVacancyPipelineSummary(vacancyId: string): Promise<Pipe
   for (const a of data) counts.set(a.stage, (counts.get(a.stage) ?? 0) + 1);
 
   const rejected = counts.get("rejected") ?? 0;
+  const parked = counts.get("parked") ?? 0;
   return {
     stages: applicationStages.map((s) => ({
       stage: s.value,
@@ -162,7 +166,8 @@ export async function getVacancyPipelineSummary(vacancyId: string): Promise<Pipe
       count: counts.get(s.value) ?? 0,
     })),
     total: data.length,
-    active: data.length - rejected,
+    active: data.length - rejected - parked,
+    parked,
     rejected,
     presented: data.filter((a) => a.presented_at !== null || PRESENTED_STAGES.includes(a.stage))
       .length,

@@ -23,7 +23,9 @@ export function LoginForm() {
       ? "This link has expired or was already used. Ask for a new invitation."
       : linkError === "account"
         ? "Your account is not linked to a company yet. Contact Nordavo."
-        : undefined);
+        : linkError === "password"
+          ? "Sign-in links are for Work guests. Sign in with your password or passkey."
+          : undefined);
 
   return (
     <form action={formAction} className="space-y-5" noValidate>

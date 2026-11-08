@@ -3,7 +3,7 @@ import { Suspense } from "react";
 import Link from "next/link";
 import Form from "next/form";
 import { redirect } from "next/navigation";
-import { Plus, Search, SearchX, Users } from "lucide-react";
+import { Plus, Search, SearchX, Sparkles, Star, Users } from "lucide-react";
 import { EmptyState } from "@/components/dashboard/empty-state";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { AutoSubmitSelects } from "@/components/entity/auto-submit";
@@ -19,6 +19,8 @@ import { getApplicationVacancyId } from "@/lib/data/applications";
 import { listCandidateSkills, listCandidates } from "@/lib/data/candidates";
 import type { CandidateStatus } from "@/lib/database.types";
 import { candidateStatuses, optionFor } from "@/lib/labels";
+import { CustomFieldCells, CustomFieldFilters, CustomFieldHeaders, CustomFieldSummary } from "@/components/custom-fields/list-columns";
+import { candidateListFields } from "@/lib/custom-fields/list";
 
 export const metadata: Metadata = {
   title: "Candidates",
@@ -38,10 +40,16 @@ export default function Page({ searchParams }: PageProps<"/dashboard/candidates"
         title="Candidates"
         description="Developers and data engineers from Bangalore, from screening to final interview."
         actions={
-          <ButtonLink href="/dashboard/candidates/new">
-            <Plus aria-hidden="true" />
-            New candidate
-          </ButtonLink>
+          <>
+            <ButtonLink href="/dashboard/candidates/talent-pool" variant="secondary">
+              <Sparkles aria-hidden="true" />
+              Talent pool
+            </ButtonLink>
+            <ButtonLink href="/dashboard/candidates/new">
+              <Plus aria-hidden="true" />
+              New candidate
+            </ButtonLink>
+          </>
         }
       />
       <Suspense fallback={<ListSkeleton rows={6} />}>
@@ -69,13 +77,16 @@ async function CandidateList({ searchParams }: { searchParams: SearchParams }) {
     ? (statusParam as CandidateStatus)
     : undefined;
   const skill = first(params.skill);
+  const toppers = first(params.toppers) === "1" ? "1" : undefined;
 
-  const [candidates, skills] = await Promise.all([
-    listCandidates({ q, status, skill }),
+  const [found, skills, customFields] = await Promise.all([
+    listCandidates({ q, status, skill, toppers: !!toppers }),
     listCandidateSkills(),
+    candidateListFields(params),
   ]);
-  const filtered = !!(q || status || skill);
-  const current = { q, status, skill };
+  const candidates = customFields.apply(found);
+  const filtered = !!(q || status || skill || toppers) || customFields.filters.length > 0;
+  const current = { q, status, skill, toppers };
 
   return (
     <div className="space-y-4">
@@ -83,7 +94,7 @@ async function CandidateList({ searchParams }: { searchParams: SearchParams }) {
         action="/dashboard/candidates"
         role="search"
         aria-label="Search candidates"
-        className="grid grid-cols-[minmax(0,1fr)] gap-3 sm:grid-cols-[1fr_auto_auto_auto] sm:rounded-2xl sm:border sm:border-border sm:bg-card sm:p-3 sm:shadow-xs"
+        className="grid grid-cols-[minmax(0,1fr)] gap-3 sm:grid-cols-[1fr_auto_auto_auto_auto] sm:rounded-2xl sm:border sm:border-border sm:bg-card sm:p-3 sm:shadow-xs"
       >
         <div className="relative">
           <Search
@@ -149,6 +160,23 @@ async function CandidateList({ searchParams }: { searchParams: SearchParams }) {
             </ButtonLink>
           )}
         </AutoSubmitSelects>
+        {/* Toppers only (2.13): a checkbox on desktop, a chip on phones. */}
+        <label className="inline-flex items-center gap-2 rounded-xl border border-border bg-white px-3 text-sm font-medium text-ink max-sm:hidden has-checked:border-amber-500 has-checked:bg-amber-50">
+          <input type="checkbox" name="toppers" value="1" defaultChecked={!!toppers} className="size-4 accent-amber-500" />
+          <Star className="size-4 text-amber-500" aria-hidden="true" />
+          Toppers only
+        </label>
+        <FilterChips
+          label="Toppers"
+          className="sm:hidden"
+          chips={[
+            {
+              label: toppers ? "Toppers only" : "Show toppers only",
+              href: filterHref("/dashboard/candidates", current, { toppers: toppers ? undefined : "1" }),
+              active: !!toppers,
+            },
+          ]}
+        />
         <div className="flex gap-2 max-sm:hidden">
           <Button type="submit" variant="secondary" className="flex-1">
             Filter
@@ -160,6 +188,7 @@ async function CandidateList({ searchParams }: { searchParams: SearchParams }) {
           )}
         </div>
       </Form>
+      <CustomFieldFilters fields={customFields} />
 
       {candidates.length === 0 ? (
         filtered ? (
@@ -196,12 +225,19 @@ async function CandidateList({ searchParams }: { searchParams: SearchParams }) {
                 >
                   {/* Status sits with the skills, so the name gets the full width. */}
                   <div className="flex flex-wrap gap-1">
+                    {c.is_topper && (
+                      <Badge tone="warning">
+                        <Star className="size-3 fill-amber-400 text-amber-500" aria-hidden="true" />
+                        Topper
+                      </Badge>
+                    )}
                     <Badge tone={statusOption.tone}>{statusOption.label}</Badge>
                     {c.skills.slice(0, 3).map((s) => (
                       <Badge key={s}>{s}</Badge>
                     ))}
                     {c.skills.length > 3 && <Badge tone="brand">+{c.skills.length - 3}</Badge>}
                   </div>
+                  <CustomFieldSummary fields={customFields} id={c.id} />
                 </MobileListItem>
               );
             })}
@@ -213,6 +249,7 @@ async function CandidateList({ searchParams }: { searchParams: SearchParams }) {
                 <TH>Role</TH>
                 <TH className="text-right">Experience</TH>
                 <TH>Skills</TH>
+                <CustomFieldHeaders fields={customFields} />
                 <TH>Status</TH>
                 <TH className="text-right">Active</TH>
               </tr>
@@ -229,7 +266,15 @@ async function CandidateList({ searchParams }: { searchParams: SearchParams }) {
                       >
                         <Avatar name={c.full_name} size="sm" />
                         <span className="min-w-0">
-                          <span className="block truncate">{c.full_name}</span>
+                          <span className="flex items-center gap-1 truncate">
+                            {c.is_topper && (
+                              <Star
+                                className="size-3.5 shrink-0 fill-amber-400 text-amber-500"
+                                aria-label="Topper"
+                              />
+                            )}
+                            {c.full_name}
+                          </span>
                           <span className="block truncate text-xs font-normal text-muted">{c.location}</span>
                         </span>
                       </Link>
@@ -247,6 +292,7 @@ async function CandidateList({ searchParams }: { searchParams: SearchParams }) {
                         {c.skills.length === 0 && <span className="text-muted">None</span>}
                       </div>
                     </TD>
+                    <CustomFieldCells fields={customFields} id={c.id} />
                     <TD>
                       <Badge tone={statusOption.tone}>{statusOption.label}</Badge>
                     </TD>

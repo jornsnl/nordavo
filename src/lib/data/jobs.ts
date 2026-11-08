@@ -20,9 +20,11 @@ const JOB_ENV: Record<string, { required: string[]; optional?: string[] }> = {
   "s9-onepage-push": { required: ["ONEPAGE_USER_ID", "ONEPAGE_API_KEY"] },
   "s9-onepage-pull": { required: ["ONEPAGE_USER_ID", "ONEPAGE_API_KEY"] },
   "s10-weekly-report": { required: ["RESEND_API_KEY", "REPORT_EMAIL_TO"] },
+  "interview-reminders": { required: ["RESEND_API_KEY", "MAIL_FROM"] },
   "t2-match": {
     required: ["ANTHROPIC_API_KEY"],
   },
+  "screening-score": { required: ["ANTHROPIC_API_KEY"] },
 };
 
 /** Jobs that cannot run without a parameter. */

@@ -13,6 +13,12 @@ import type {
   SuppressionScope,
   TalentStage,
   ApplicationStage,
+  AttachmentKind,
+  BackgroundCheckStatus,
+  CandidateOrigin,
+  CandidateSource,
+  CvVerdict,
+  NoteKind,
   CandidateStatus,
   ClientDecision,
   ClientStatus,
@@ -38,7 +44,7 @@ export const clientStatuses: Option<ClientStatus>[] = [
 
 export const vacancyStatuses: Option<VacancyStatus>[] = [
   { value: "open", label: "Open", tone: "brand" },
-  { value: "on_hold", label: "On hold", tone: "warning" },
+  { value: "on_hold", label: "Parked", tone: "warning" },
   { value: "filled", label: "Filled", tone: "success" },
   { value: "closed", label: "Closed", tone: "neutral" },
 ];
@@ -52,20 +58,78 @@ export const seniorities: Option<Seniority>[] = [
 export const candidateStatuses: Option<CandidateStatus>[] = [
   { value: "available", label: "Available", tone: "success" },
   { value: "in_process", label: "In process", tone: "brand" },
+  { value: "parked", label: "Parked", tone: "warning" },
   { value: "placed", label: "Placed", tone: "accent" },
   { value: "unavailable", label: "Unavailable", tone: "neutral" },
 ];
 
-/** Pipeline columns, in order. "rejected" is shown apart from the flow. */
+/** Pipeline columns, in order (recruitment brief 2.1). Parked and rejected are shown apart from the flow. */
 export const applicationStages: Option<ApplicationStage>[] = [
   { value: "sourced", label: "Sourced", tone: "neutral" },
-  { value: "screening", label: "Screening", tone: "neutral" },
+  { value: "techstack_check", label: "Techstack check", tone: "neutral" },
+  { value: "fill_out", label: "Fill out", tone: "neutral" },
+  { value: "video_review", label: "Video review", tone: "brand" },
   { value: "technical_test", label: "Technical test", tone: "brand" },
-  { value: "english_interview", label: "English interview", tone: "brand" },
-  { value: "presented", label: "Presented to client", tone: "accent" },
-  { value: "final_interview", label: "Final interview", tone: "accent" },
+  { value: "interview", label: "Interview", tone: "brand" },
+  { value: "matched", label: "Matched to client", tone: "accent" },
+  { value: "client_interview", label: "Client interview", tone: "accent" },
+  { value: "final_screening", label: "Final screening", tone: "accent" },
   { value: "placed", label: "Placed", tone: "success" },
+  { value: "parked", label: "Parked", tone: "warning" },
   { value: "rejected", label: "Rejected", tone: "danger" },
+];
+
+/** Stages apart from the flow: a card there remembers where it left (exit_from_stage). */
+export const exitStages = ["parked", "rejected"] as const satisfies readonly ApplicationStage[];
+
+export const candidateSources: Option<CandidateSource>[] = [
+  { value: "linkedin", label: "LinkedIn", tone: "brand" },
+  { value: "naukri", label: "Naukri", tone: "brand" },
+  { value: "manatal", label: "Manatal", tone: "neutral" },
+  { value: "indeed", label: "Indeed", tone: "neutral" },
+  { value: "monster", label: "Monster", tone: "neutral" },
+  { value: "instagram", label: "Instagram", tone: "neutral" },
+  { value: "referral", label: "Referral", tone: "accent" },
+  { value: "website", label: "Website", tone: "neutral" },
+  { value: "headhunted", label: "Headhunted", tone: "accent" },
+  { value: "other", label: "Other", tone: "neutral" },
+];
+
+export const candidateOrigins: Option<CandidateOrigin>[] = [
+  { value: "applied", label: "Applied", tone: "neutral" },
+  { value: "headhunted", label: "Headhunted", tone: "accent" },
+];
+
+export const cvVerdicts: Option<CvVerdict>[] = [
+  { value: "fit", label: "Fits", tone: "success" },
+  { value: "maybe", label: "Maybe", tone: "warning" },
+  { value: "no_fit", label: "Does not fit", tone: "danger" },
+];
+
+export const backgroundCheckStatuses: Option<BackgroundCheckStatus>[] = [
+  { value: "not_started", label: "Not started", tone: "neutral" },
+  { value: "requested", label: "Requested", tone: "warning" },
+  { value: "passed", label: "Passed", tone: "success" },
+  { value: "failed", label: "Failed", tone: "danger" },
+];
+
+export const noteKinds: Option<NoteKind>[] = [
+  { value: "note", label: "Note", tone: "neutral" },
+  { value: "call", label: "Call", tone: "brand" },
+  { value: "screening_call", label: "Screening call", tone: "brand" },
+  { value: "video_review", label: "Video review", tone: "brand" },
+  { value: "interview", label: "Interview", tone: "accent" },
+  { value: "client_feedback", label: "Client feedback", tone: "accent" },
+  { value: "background_check", label: "Background check", tone: "warning" },
+];
+
+export const attachmentKinds: Option<AttachmentKind>[] = [
+  { value: "cv", label: "CV", tone: "brand" },
+  { value: "payslip", label: "Payslip", tone: "warning" },
+  { value: "background_check", label: "Background check", tone: "warning" },
+  { value: "video", label: "Video", tone: "neutral" },
+  { value: "test_result", label: "Test result", tone: "neutral" },
+  { value: "other", label: "Other", tone: "neutral" },
 ];
 
 export const clientDecisions: Option<ClientDecision>[] = [

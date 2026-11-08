@@ -9,7 +9,7 @@ import { addDays, diffDays } from "@/components/placements/dates";
 export const PROMISED_CANDIDATES = 3;
 export const PROMISED_DAYS = 21;
 
-const PRESENTED_STAGES: ApplicationStage[] = ["presented", "final_interview", "placed"];
+const PRESENTED_STAGES: ApplicationStage[] = ["matched", "client_interview", "final_screening", "placed"];
 
 /**
  * Dashboard numbers. Talent pool vacancies (no client yet) never count:
@@ -31,7 +31,8 @@ export async function getOverviewStats() {
       .from("applications")
       .select("id, vacancies!inner(is_talent_pool)", { count: "exact", head: true })
       .eq("vacancies.is_talent_pool", false)
-      .not("stage", "in", "(placed,rejected)"),
+      // Parked and rejected candidates are apart from the flow, not in selection.
+      .not("stage", "in", "(placed,parked,rejected)"),
     supabase
       .from("placements")
       .select("id", { count: "exact", head: true })

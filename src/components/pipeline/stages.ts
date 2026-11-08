@@ -1,7 +1,7 @@
 import type { ApplicationStage } from "@/lib/database.types";
 
 /** Stages that count as "presented to the client" for the 3 candidates promise. */
-export const PRESENTED_STAGES: ApplicationStage[] = ["presented", "final_interview", "placed"];
+export const PRESENTED_STAGES: ApplicationStage[] = ["matched", "client_interview", "final_screening", "placed"];
 
 /** Nordavo promises three presented candidates per vacancy. */
 export const PRESENTED_TARGET = 3;

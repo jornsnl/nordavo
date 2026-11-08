@@ -68,6 +68,7 @@ Lijsten geven standaard 25 en maximaal 100 rijen, met `offset` om te bladeren. R
 | `get_company` | GTM bedrijf met ICP kwalificatie, contacten en signalen |
 | `list_tasks` | Taken; filters `mine`, `status` (`open`, `todo`, `in_progress`, `done`, `all`), `due` (`overdue`, `today`, `week`, `none`) en een gekoppeld record |
 | `get_activity` | Activiteitenlog van één record (inclusief pipeline en gekoppelde taken) of van het hele portaal |
+| `talent_pool_top` | De beste kandidaten uit de talentpool voor een profiel in vrije tekst of een vacature, met reden, skills, projectervaring en woonplaats (zie [recruitment-screening.md](./recruitment-screening.md)) |
 
 ### Schrijven (alleen tokens met *Lezen en schrijven*)
 

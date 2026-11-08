@@ -15,7 +15,8 @@ import {
 import { env } from "@/lib/env";
 import { getNotificationPrefs, listApiTokens, requireWorkUser } from "@/lib/work/data";
 import { notificationKinds } from "@/lib/work/labels";
-import { commonTimeZones, formatDateIn } from "@/lib/work/time";
+import { formatDateIn } from "@/lib/work/time";
+import { groupedTimeZones, normalizeTimeZone } from "@/lib/work/time-zones";
 
 export const metadata: Metadata = { title: "Settings" };
 
@@ -40,7 +41,7 @@ async function Settings() {
       <Card>
         <CardHeader title="You" description={user.email} />
         <CardBody>
-          <ProfileForm action={updateMySettingsAction} name={user.name} timeZone={user.timeZone} zones={commonTimeZones} />
+          <ProfileForm action={updateMySettingsAction} name={user.name} timeZone={normalizeTimeZone(user.timeZone)} zones={groupedTimeZones()} />
         </CardBody>
       </Card>
 
