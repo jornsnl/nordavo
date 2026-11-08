@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { PipelineBoard } from "@/components/pipeline/pipeline-board";
+import { FormPipelineLinks } from "@/components/forms/vacancy-form-card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getPipeline } from "@/lib/data/applications";
@@ -54,6 +55,7 @@ async function Pipeline({
         Back to vacancy
       </Link>
       <PageHeader
+        actions={<FormPipelineLinks vacancyId={vacancy.id} />}
         eyebrow={vacancy.client?.name ?? "Pipeline"}
         title={
           <span className="flex flex-wrap items-center gap-3">

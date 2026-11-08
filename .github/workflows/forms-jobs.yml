@@ -1,0 +1,36 @@
+name: Forms jobs
+
+# Application form reminders (docs/recruitment-forms.md). Calls the running
+# app, so the app's own environment (RESEND_API_KEY, MAIL_FROM_RECRUITMENT)
+# is used and nothing is installed here. Runs at 09:00 Europe/Amsterdam
+# (the guard keeps the right UTC hour across summer and winter time).
+on:
+  schedule:
+    - cron: "0 7,8 * * *"
+  workflow_dispatch:
+    inputs:
+      params:
+        description: 'Optional JSON params, e.g. {"dry-run":"1"}'
+        required: false
+
+concurrency:
+  group: forms-reminders
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Call the app for forms-reminders
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          SITE_URL: ${{ secrets.NEXT_PUBLIC_SITE_URL }}
+          PARAMS: ${{ github.event.inputs.params || '{}' }}
+        run: |
+          if [ "${{ github.event_name }}" = "schedule" ] && [ "$(TZ=Europe/Amsterdam date +%H)" != "09" ]; then
+            echo "Not 09:00 in Amsterdam, skipping."
+            exit 0
+          fi
+          curl -fsS -X POST -H "Authorization: Bearer $CRON_SECRET" -H "Content-Type: application/json" \
+            -d "{\"params\": $PARAMS}" "$SITE_URL/api/jobs/forms-reminders"

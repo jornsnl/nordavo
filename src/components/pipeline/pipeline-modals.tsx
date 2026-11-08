@@ -10,6 +10,7 @@ import type { CandidateOption } from "@/lib/data/candidates";
 import { formatDate, formatDateTime } from "@/lib/format";
 import { applicationStages, candidateStatuses, clientDecisions, optionFor } from "@/lib/labels";
 import { ConfirmButton } from "@/components/candidates/confirm-button";
+import { CompensationSection } from "@/components/forms/compensation-section";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button, ButtonLink } from "@/components/ui/button";
@@ -156,6 +157,8 @@ function ApplicationDetails({ card, onClose }: { card: BoardCard; onClose: () =>
           </p>
         )}
       </section>
+
+      <CompensationSection applicationId={card.id} />
 
       {card.stage === "placed" && (
         <div className="flex flex-col gap-3 rounded-xl border border-emerald-600/20 bg-emerald-50 p-4 sm:flex-row sm:items-center sm:justify-between">

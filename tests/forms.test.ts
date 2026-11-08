@@ -10,7 +10,7 @@ import {
 } from "@/lib/forms/answers";
 import { ctcBreakdown, formatEur, formatInr, hourlyBreakdown, inrToEur, parseInrAmount } from "@/lib/forms/compensation";
 import { formatDeadline, inviteMail, reminderMail, applyUrl } from "@/lib/forms/mail-content";
-import { localDate, parseAddressList, reminderDue, type InviteState } from "@/lib/forms/reminders";
+import { defaultDeadline, localDate, parseAddressList, reminderDue, trackingStatus, type InviteState } from "@/lib/forms/reminders";
 import { blocksSchema, fieldName, readBlocks, type Block } from "@/lib/forms/schema";
 import { cloneBlocks, freelanceTemplate, fulltimeTemplate } from "@/lib/forms/templates";
 import { filterAndSort, type ResponseRow } from "@/lib/forms/responses";
@@ -309,4 +309,16 @@ test("filterAndSort: filter on answers and sort by a question", () => {
   assert.deepEqual(filterAndSort(rows, qs, { sort: "years", dir: "desc" }).map((r) => r.id), ["3", "1", "2"]);
   assert.deepEqual(filterAndSort(rows, qs, { sort: "tools", dir: "asc" }).map((r) => r.id), ["1", "2", "3"], "empty answers last");
   assert.deepEqual(filterAndSort(rows, qs, {}).map((r) => r.id), ["2", "1", "3"], "newest first by default");
+});
+
+test("trackingStatus and defaultDeadline", () => {
+  const now = new Date("2026-11-08T10:00:00Z");
+  const base = { sentAt: null, completedAt: null, remindedAt: null, deadline: null };
+  assert.equal(trackingStatus(base, now), "not_sent");
+  assert.equal(trackingStatus({ ...base, sentAt: "2026-11-01", deadline: "2026-11-09" }, now), "waiting");
+  assert.equal(trackingStatus({ ...base, sentAt: "2026-11-01", deadline: "2026-11-07" }, now), "overdue");
+  assert.equal(trackingStatus({ ...base, sentAt: "2026-11-01", remindedAt: "2026-11-08" }, now), "reminded");
+  assert.equal(trackingStatus({ ...base, sentAt: "2026-11-01", completedAt: "2026-11-02" }, now), "completed");
+  assert.equal(trackingStatus({ ...base, completedAt: "2026-11-02" }, now), "completed", "filled in via the general link");
+  assert.equal(defaultDeadline(now), "2026-11-11");
 });

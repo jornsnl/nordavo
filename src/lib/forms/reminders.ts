@@ -42,6 +42,25 @@ export function reminderDue(invite: InviteState, policy: ReminderPolicy, now: Da
   return true;
 }
 
+export type TrackingStatus = "not_sent" | "waiting" | "overdue" | "reminded" | "completed";
+
+/** Status of one candidate in the "who filled in" overview. */
+export function trackingStatus(
+  row: { sentAt: string | null; completedAt: string | null; remindedAt: string | null; deadline: string | null },
+  now: Date,
+): TrackingStatus {
+  if (row.completedAt) return "completed";
+  if (!row.sentAt) return "not_sent";
+  if (row.remindedAt) return "reminded";
+  if (row.deadline && localDate(now) > row.deadline) return "overdue";
+  return "waiting";
+}
+
+/** Default deadline: a few days from now, as YYYY-MM-DD. */
+export function defaultDeadline(now: Date, days = 3) {
+  return localDate(new Date(now.getTime() + days * 86_400_000));
+}
+
 /** Split "a@x.nl, b@y.nl; c@z.nl" into clean, unique addresses. */
 export function parseAddressList(value: string | null | undefined): string[] {
   if (!value) return [];
