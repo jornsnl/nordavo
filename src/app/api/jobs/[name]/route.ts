@@ -15,7 +15,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     return NextResponse.json({ error: "Onbekende job" }, { status: 404 });
   }
 
-  const triggeredBy = await authorize(request);
+  const triggeredBy = await authorize(request, chains[name]?.jobs ?? [name]);
   if (!triggeredBy) {
     return NextResponse.json({ error: "Not allowed" }, { status: 401 });
   }
@@ -38,7 +38,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   );
 }
 
-async function authorize(request: NextRequest): Promise<string | null> {
+async function authorize(request: NextRequest, jobNames: string[]): Promise<string | null> {
   const secret = process.env.CRON_SECRET;
   const header = request.headers.get("authorization");
   if (secret && header === `Bearer ${secret}`) return "cron";
@@ -47,5 +47,8 @@ async function authorize(request: NextRequest): Promise<string | null> {
   const { data } = await supabase.auth.getClaims();
   if (!data?.claims) return null;
   const { data: isStaff } = await supabase.rpc("is_staff");
-  return isStaff ? `user:${data.claims.sub}` : null;
+  if (!isStaff) return null;
+  // A team member may only start the jobs of their modules (2.5).
+  const checks = await Promise.all(jobNames.map((job) => supabase.rpc("can_see_job", { p_job_name: job })));
+  return checks.every((c) => c.data === true) ? `user:${data.claims.sub}` : null;
 }

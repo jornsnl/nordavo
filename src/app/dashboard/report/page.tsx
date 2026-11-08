@@ -12,7 +12,12 @@ import {
   ReportStatCards,
   WarningsBanner,
 } from "@/components/report/report-sections";
-import { requireStaff } from "@/lib/auth";
+import { IfModule } from "@/components/dashboard/if-module";
+import { RecruitmentReportSection } from "@/components/report/recruitment-report";
+import { ListSkeleton } from "@/components/ui/skeleton";
+import { requireModule, requireStaff } from "@/lib/auth";
+import { isRecruitmentPeriod } from "@/lib/recruitment/report";
+import { loadRecruitmentReport } from "@/lib/recruitment/report-data";
 import { formatDate } from "@/lib/format";
 import { buildWeeklyReport, isReportPeriod, periodRange, reportPeriods, type ReportPeriodKey } from "@/lib/gtm/report";
 import { createClient } from "@/lib/supabase/server";
@@ -31,17 +36,26 @@ export default function Page({ searchParams }: { searchParams: SearchParams }) {
   return (
     <>
       <PageHeader
-        eyebrow="Sales"
+        eyebrow="Report"
         title="Report"
-        description="What the outreach delivers: approached, reached, replies and meetings, and which signal, segment and channel produced them. Plus the lead time of open vacancies."
+        description="Sales: what the outreach delivers and which signal, segment and channel produced it, plus the lead time of open vacancies. Recruitment: the hiring report per vacancy, source and origin."
         actions={
           <Suspense fallback={<PeriodSelectorSkeleton />}>
-            <Period searchParams={searchParams} />
+            <IfModule module="sales">
+              <Period searchParams={searchParams} />
+            </IfModule>
           </Suspense>
         }
       />
       <Suspense fallback={<ReportSkeleton />}>
-        <ReportContent searchParams={searchParams} />
+        <IfModule module="sales">
+          <ReportContent searchParams={searchParams} />
+        </IfModule>
+      </Suspense>
+      <Suspense fallback={<ListSkeleton rows={4} />}>
+        <IfModule module="recruitment">
+          <RecruitmentContent searchParams={searchParams} />
+        </IfModule>
       </Suspense>
     </>
   );
@@ -75,5 +89,24 @@ async function ReportContent({ searchParams }: { searchParams: SearchParams }) {
       <AttributionTables report={report} />
       <LeadTimeTable rows={report.leadTimes} />
     </>
+  );
+}
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** Recruitment (2.16): its own period (rperiod) and an optional vacancy. */
+async function RecruitmentContent({ searchParams }: { searchParams: SearchParams }) {
+  await requireModule("recruitment");
+  const params = await searchParams;
+  const period = isRecruitmentPeriod(params.rperiod) ? params.rperiod : "90-days";
+  const vacancyId = typeof params.vacancy === "string" && UUID_RE.test(params.vacancy) ? params.vacancy : null;
+  const supabase = await createClient();
+  const { report, vacancies } = await loadRecruitmentReport(supabase, { period, vacancyId });
+  return (
+    <RecruitmentReportSection
+      report={report}
+      vacancies={vacancies}
+      filters={{ period, vacancyId, salesPeriod: isReportPeriod(params.periode) ? params.periode : undefined }}
+    />
   );
 }

@@ -10,6 +10,7 @@ import { DeleteCandidateButton, LinkVacancyButton } from "@/components/candidate
 import { MatchingProfileCard } from "@/components/candidates/matching-profile-card";
 import { CustomFieldsCard } from "@/components/custom-fields/custom-fields-card";
 import { RecruitmentPanel } from "@/components/candidates/recruitment-panel";
+import { InterviewsCard } from "@/components/interviews/interviews-card";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
@@ -240,6 +241,8 @@ async function CandidateDetail({ params }: { params: Promise<{ id: string }> }) 
           </Card>
 
           <Suspense fallback={<ListSkeleton rows={3} />}><RecruitmentPanel candidateId={id} /></Suspense>
+          <Suspense fallback={<ListSkeleton rows={2} />}><InterviewsCard candidateId={id} /></Suspense>
+
           <Suspense fallback={<ListSkeleton rows={3} />}>
             <MatchingProfileCard candidate={candidate} />
           </Suspense>

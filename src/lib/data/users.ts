@@ -8,7 +8,7 @@ export async function getOwnProfile() {
   const supabase = await createClient();
   const { data } = await supabase
     .from("profiles")
-    .select("full_name, email, role")
+    .select("full_name, email, role, booking_url")
     .eq("id", user.id)
     .maybeSingle();
 
@@ -17,6 +17,8 @@ export async function getOwnProfile() {
     fullName: data?.full_name ?? "",
     email: data?.email ?? user.email,
     role: user.role,
+    bookingUrl: data?.booking_url ?? "",
+    modules: user.modules,
   };
 }
 
@@ -26,7 +28,7 @@ export async function listProfiles() {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("profiles")
-    .select("id, full_name, email, role, client_id, created_at, client:clients!profiles_client_id_fkey(id, name)")
+    .select("id, full_name, email, role, client_id, modules, booking_url, created_at, client:clients!profiles_client_id_fkey(id, name)")
     .order("role")
     .order("full_name");
 

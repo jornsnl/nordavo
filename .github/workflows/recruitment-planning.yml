@@ -1,0 +1,31 @@
+name: Recruitment planning jobs
+
+# Interview reminders (docs/recruitment-planning.md): every hour the running
+# app mails candidate and interviewer about 24 hours before a booked
+# interview. Only calls the app (no install), so it costs seconds.
+on:
+  schedule:
+    - cron: "41 * * * *" # interview-reminders
+  workflow_dispatch:
+    inputs:
+      job:
+        description: "interview-reminders"
+        required: true
+        default: interview-reminders
+
+concurrency:
+  group: recruitment-planning-${{ github.event.inputs.job || 'interview-reminders' }}
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Call the app
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          SITE_URL: ${{ secrets.NEXT_PUBLIC_SITE_URL }}
+          JOB: ${{ github.event.inputs.job || 'interview-reminders' }}
+        run: |
+          curl -fsS -X POST -H "Authorization: Bearer $CRON_SECRET" "$SITE_URL/api/jobs/$JOB"

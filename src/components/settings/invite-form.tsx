@@ -5,6 +5,7 @@ import { Send } from "lucide-react";
 import { type ActionState, initialActionState } from "@/lib/action-state";
 import type { ProfileRole } from "@/lib/database.types";
 import { profileRoles } from "@/lib/labels";
+import { portalModules } from "@/lib/modules";
 import { Field, FormMessage, Input, Select } from "@/components/ui/field";
 import { PendingSubmit, submitWithoutReset } from "@/components/placements/form-utils";
 
@@ -110,6 +111,27 @@ export function InviteForm({
               ))}
             </Select>
           </Field>
+        )}
+        {role === "member" && (
+          <fieldset className="sm:col-span-2">
+            <legend className="text-sm font-medium text-ink">Modules</legend>
+            <p className="mt-0.5 text-xs text-muted">What this team member sees. You can change it later in the list above.</p>
+            <div className="mt-2 flex flex-wrap gap-x-4 gap-y-2">
+              {portalModules.map((module) => (
+                <label key={module.value} className="inline-flex items-center gap-1.5 text-sm text-ink pointer-coarse:min-h-11" title={module.description}>
+                  <input
+                    type="checkbox"
+                    name="modules"
+                    value={module.value}
+                    defaultChecked
+                    disabled={!enabled}
+                    className="size-4 rounded border-border accent-brand-600"
+                  />
+                  {module.label}
+                </label>
+              ))}
+            </div>
+          </fieldset>
         )}
       </div>
       <div className="flex justify-end max-sm:*:w-full">

@@ -1,5 +1,6 @@
 import { Suspense } from "react";
-import { requireStaff } from "@/lib/auth";
+import { getCurrentUser, isStaff, requireStaff } from "@/lib/auth";
+import type { PortalModule } from "@/lib/database.types";
 import { AppShell } from "@/components/dashboard/app-shell";
 import { UserMenu, UserMenuSkeleton } from "@/components/dashboard/user-menu";
 
@@ -8,6 +9,7 @@ export default function DashboardLayout({
 }: LayoutProps<"/dashboard">) {
   return (
     <AppShell
+      modules={navModules()}
       userMenu={
         <Suspense fallback={<UserMenuSkeleton />}>
           <UserMenu />
@@ -26,4 +28,18 @@ export default function DashboardLayout({
 async function StaffGate() {
   await requireStaff();
   return null;
+}
+
+/**
+ * The modules the menu shows (2.5). Not awaited here: the shell streams it
+ * into the menu behind Suspense. A failed or redirecting session shows the
+ * shared items only; StaffGate takes care of the redirect itself.
+ */
+async function navModules(): Promise<PortalModule[] | null> {
+  try {
+    const user = await getCurrentUser();
+    return isStaff(user) ? user.modules : [];
+  } catch {
+    return [];
+  }
 }
