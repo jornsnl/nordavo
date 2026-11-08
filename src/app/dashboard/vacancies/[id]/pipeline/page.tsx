@@ -12,6 +12,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { getPipeline } from "@/lib/data/applications";
 import { isUuid, listCandidateOptions } from "@/lib/data/candidates";
 import { listStaff } from "@/lib/data/tasks";
+import { listInterviewers } from "@/lib/data/interviews";
 import { formatDate } from "@/lib/format";
 import { optionFor, vacancyStatuses } from "@/lib/labels";
 
@@ -35,10 +36,11 @@ async function Pipeline({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { id } = await params;
-  const [pipeline, candidates, staff, query] = await Promise.all([
+  const [pipeline, candidates, staff, interviewers, query] = await Promise.all([
     getPipeline(id),
     listCandidateOptions(),
     listStaff(),
+    listInterviewers(),
     searchParams,
   ]);
   if (!pipeline) notFound();
@@ -106,6 +108,7 @@ async function Pipeline({
         applications={applications}
         candidates={candidates}
         staff={staff}
+        interviewers={interviewers}
         initialOpenId={initialOpenId}
       />
     </>

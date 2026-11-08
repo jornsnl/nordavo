@@ -105,8 +105,9 @@ reset role;
 select pg_temp.act('sabine@kg.nl');
 set role authenticated;
 
-select pg_temp.check((select count(*) from public.applications) = 1, 'client sees one presented application');
-select pg_temp.check((select count(*) from public.candidates) = 1, 'client sees one candidate');
+select pg_temp.check((select count(*) from public.portal_candidates()) = 1, 'client sees one presented candidate in the portal');
+select pg_temp.check((select count(*) from public.applications) = 0 and (select count(*) from public.candidates) = 0, 'client cannot read internal rows directly');
+select pg_temp.check((select full_name from public.portal_candidates()) = 'Ravi', 'portal returns the matched candidate');
 select pg_temp.check((select count(*) from public.application_stage_events) = 0, 'client sees no history');
 do $$ begin
   perform public.move_applications(array['00000000-0000-0000-0000-0000000001b2']::uuid[], 'placed');

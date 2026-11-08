@@ -37,6 +37,7 @@ import {
 } from "@/lib/recruitment/pipeline";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { FormMessage } from "@/components/ui/field";
+import type { InterviewerOption } from "@/lib/data/interviews";
 import { BoardFilters, BulkBar } from "./board-toolbar";
 import { ExitModal, type ExitMode } from "./exit-modal";
 import { OverlayCard, type BoardCard, type CardAction } from "./pipeline-card";
@@ -75,9 +76,12 @@ export function PipelineBoard({
   applications,
   candidates,
   staff,
+  interviewers = [],
   initialOpenId,
 }: {
   vacancyId: string;
+  /** Team members with a booking link, for "Plan interview" on a card. */
+  interviewers?: InterviewerOption[];
   applications: PipelineApplication[];
   candidates: CandidateOption[];
   /** Team members, to pick the interviewer. */
@@ -537,11 +541,13 @@ export function PipelineBoard({
         onReject={() => askExit("reject", [...selected])}
         onResume={() => runBulk(selectedCards.filter((c) => isExitStage(c.stage)).map((c) => c.id), "resume")}
         onClear={() => setSelection(new Set())}
+        sendFormHref={`/dashboard/vacancies/${vacancyId}/form/tracking?applications=${[...selected].join(",")}`}
       />
 
       <ApplicationModal
         card={openCard}
         staff={staff}
+        interviewers={interviewers}
         onClose={() => setOpenId(null)}
         onAction={(id, action) => {
           setOpenId(null);

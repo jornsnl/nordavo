@@ -1,7 +1,7 @@
 "use client";
 
 import { useId } from "react";
-import { Ban, ListChecks, PauseCircle, RotateCcw, Search, Star, X } from "lucide-react";
+import { Ban, ListChecks, PauseCircle, RotateCcw, Search, Send, Star, X } from "lucide-react";
 import type { ApplicationStage } from "@/lib/database.types";
 import { applicationStages, candidateOrigins, candidateSources } from "@/lib/labels";
 import {
@@ -12,7 +12,7 @@ import {
   type BoardFilter,
   type BoardSort,
 } from "@/lib/recruitment/pipeline";
-import { Button } from "@/components/ui/button";
+import { Button, ButtonLink } from "@/components/ui/button";
 import { Input, Select } from "@/components/ui/field";
 
 /** Search, sort and filters above the board. Sorting or filtering turns dragging off. */
@@ -128,6 +128,7 @@ export function BulkBar({
   onReject,
   onResume,
   onClear,
+  sendFormHref,
 }: {
   count: number;
   canResume: boolean;
@@ -137,6 +138,8 @@ export function BulkBar({
   onReject: () => void;
   onResume: () => void;
   onClear: () => void;
+  /** Opens "Send form" with the selection preselected. */
+  sendFormHref?: string;
 }) {
   const id = useId();
   if (count === 0) return null;
@@ -183,6 +186,12 @@ export function BulkBar({
             <RotateCcw aria-hidden="true" />
             Resume
           </Button>
+        )}
+        {sendFormHref && (
+          <ButtonLink href={sendFormHref} variant="secondary" size="sm">
+            <Send aria-hidden="true" />
+            Send form
+          </ButtonLink>
         )}
         <Button variant="ghost" size="sm" onClick={onClear} aria-label="Clear the selection">
           <X aria-hidden="true" />

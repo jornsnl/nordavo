@@ -34,6 +34,8 @@ import {
 import { formStatus, isExitStage } from "@/lib/recruitment/pipeline";
 import { ConfirmButton } from "@/components/candidates/confirm-button";
 import { CompensationSection } from "@/components/forms/compensation-section";
+import { PlanInterviewButton } from "@/components/interviews/plan-interview-button";
+import type { InterviewerOption } from "@/lib/data/interviews";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button, ButtonLink } from "@/components/ui/button";
@@ -60,11 +62,13 @@ const tabs: { value: Tab; label: string }[] = [
 export function ApplicationModal({
   card,
   staff,
+  interviewers = [],
   onClose,
   onAction,
 }: {
   card: BoardCard | null;
   staff: StaffMember[];
+  interviewers?: InterviewerOption[];
   onClose: () => void;
   /** Park, reject, resume: handled by the board with the same modal as there. */
   onAction: (id: string, action: CardAction) => void;
@@ -77,7 +81,7 @@ export function ApplicationModal({
       description={card?.candidate.current_title ?? undefined}
       size="lg"
     >
-      {card && <ApplicationDetails key={card.id} card={card} staff={staff} onClose={onClose} onAction={onAction} />}
+      {card && <ApplicationDetails key={card.id} card={card} staff={staff} interviewers={interviewers} onClose={onClose} onAction={onAction} />}
     </Modal>
   );
 }
@@ -103,11 +107,13 @@ function useExtras(applicationId: string) {
 function ApplicationDetails({
   card,
   staff,
+  interviewers,
   onClose,
   onAction,
 }: {
   card: BoardCard;
   staff: StaffMember[];
+  interviewers: InterviewerOption[];
   onClose: () => void;
   onAction: (id: string, action: CardAction) => void;
 }) {
@@ -184,6 +190,7 @@ function ApplicationDetails({
           {shortlistPending ? <LoaderCircle className="animate-spin" aria-hidden="true" /> : <ListChecks aria-hidden="true" />}
           {card.shortlisted_at ? `Shortlisted ${formatDate(card.shortlisted_at)}` : "Add to shortlist"}
         </Button>
+        <PlanInterviewButton applications={[{ id: card.id, label: "This vacancy" }]} interviewers={interviewers} />
         {exit ? (
           <Button variant="secondary" size="sm" onClick={() => onAction(card.id, "resume")}>
             <RotateCcw aria-hidden="true" />

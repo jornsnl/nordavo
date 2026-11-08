@@ -174,7 +174,8 @@ reset role;
 select pg_temp.act('sabine@kg.nl');
 set role authenticated;
 
-select pg_temp.check((select count(*) from public.applications) = 1, 'client sees the presented application');
+select pg_temp.check((select count(*) from public.portal_candidates()) = 1, 'client sees the presented application in the portal');
+select pg_temp.check((select count(*) from public.applications) = 0 and (select count(*) from public.candidates) = 0, 'client cannot read internal rows directly');
 select pg_temp.check((select count(*) from public.application_assessments) = 0, 'client sees no assessments');
 select pg_temp.check((select count(*) from public.notes) = 0, 'client sees no notes');
 select pg_temp.check((select count(*) from public.attachments) = 0, 'client sees no attachment records');

@@ -180,9 +180,9 @@ set role authenticated;
 select pg_temp.check((select count(*) from public.custom_field_definitions) = 0, 'client sees no field definitions');
 select pg_temp.check((select count(*) from public.candidates where id = '00000000-0000-0000-0000-0000000005f2') = 0, 'client cannot see the unpresented candidate');
 select pg_temp.check((select count(*) from public.candidates where custom_fields ->> 'tier' = 'C') = 0, 'client cannot find custom values of a candidate it cannot see');
--- Values follow the row: the presented candidate is readable as a whole, like its other columns.
-select pg_temp.check((select count(*) from public.candidates) = 1, 'client sees only the presented candidate');
-select pg_temp.check((select count(*) from public.applications) = 1, 'client sees only the presented application');
+-- Clients read through portal_candidates() only, which never returns custom fields.
+select pg_temp.check((select count(*) from public.portal_candidates()) = 1, 'client sees only the presented candidate in the portal');
+select pg_temp.check((select count(*) from public.applications) = 0 and (select count(*) from public.candidates) = 0, 'client cannot read candidate or application rows (and so no custom fields)');
 select pg_temp.check(pg_temp.fails($$select public.set_custom_field('candidate', '00000000-0000-0000-0000-0000000005f1', 'tier', '"A"')$$, 'Only the Nordavo team'), 'client cannot use set_custom_field');
 select pg_temp.check(pg_temp.fails($$insert into public.custom_field_definitions (entity, key, label, field_type) values ('candidate', 'client_field', 'Client', 'text')$$, 'row-level security'), 'client cannot add a field');
 update public.candidates set custom_fields = '{}' where id = '00000000-0000-0000-0000-0000000005f1';

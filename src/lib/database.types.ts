@@ -2341,6 +2341,85 @@ export type Database = {
         };
         Returns: Json;
       };
+      portal_company: {
+        Args: Record<PropertyKey, never>;
+        Returns: { id: string; name: string; city: string | null }[];
+      };
+      portal_vacancies: {
+        Args: Record<PropertyKey, never>;
+        Returns: {
+          id: string;
+          title: string;
+          status: VacancyStatus;
+          seniority: Seniority;
+          stack: string[];
+          opened_at: string;
+          closed_at: string | null;
+          presented_count: number;
+          pending_count: number;
+        }[];
+      };
+      portal_vacancy: {
+        Args: { p_vacancy_id: string };
+        Returns: {
+          id: string;
+          title: string;
+          description: string | null;
+          stack: string[];
+          seniority: Seniority;
+          status: VacancyStatus;
+          opened_at: string;
+          closed_at: string | null;
+          desired_start_date: string | null;
+        }[];
+      };
+      portal_candidates: {
+        Args: { p_vacancy_id?: string | null; p_pending_only?: boolean };
+        Returns: {
+          application_id: string;
+          vacancy_id: string;
+          vacancy_title: string;
+          stage: ApplicationStage;
+          technical_score: number | null;
+          english_score: number | null;
+          presented_at: string | null;
+          client_decision: ClientDecision;
+          client_feedback: string | null;
+          client_decided_at: string | null;
+          candidate_id: string;
+          full_name: string;
+          current_title: string | null;
+          location: string;
+          years_experience: number | null;
+          skills: string[];
+          video_url: string | null;
+          summary: string | null;
+          has_cv: boolean;
+        }[];
+      };
+      portal_cv_path: {
+        Args: { p_application_id: string };
+        Returns: string | null;
+      };
+      portal_placements: {
+        Args: Record<PropertyKey, never>;
+        Returns: {
+          id: string;
+          start_date: string;
+          end_date: string | null;
+          status: PlacementStatus;
+          notice_given_at: string | null;
+          guarantee_until: string | null;
+          monthly_rate: number | null;
+          candidate_name: string | null;
+          candidate_title: string | null;
+          vacancy_title: string | null;
+        }[];
+      };
+      client_can_open_file: {
+        Args: { p_path: string };
+        Returns: boolean;
+      };
       move_applications: {
         Args: { p_application_ids: string[]; p_stage: ApplicationStage | "resume"; p_reason?: string | null; p_park_until?: string | null };
         Returns: number;

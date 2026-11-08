@@ -132,13 +132,14 @@ update public.applications set stage = 'matched' where id = '00000000-0000-0000-
 select pg_temp.act('sabine.s@kg.nl');
 set role authenticated;
 
-select pg_temp.check((select count(*) from public.applications) = 1, 'client sees the presented application');
+select pg_temp.check((select count(*) from public.portal_candidates()) = 1, 'client sees the presented application in the portal');
+select pg_temp.check((select count(*) from public.applications) = 0 and (select count(*) from public.candidates) = 0, 'client cannot read internal rows directly');
 select pg_temp.check((select count(*) from public.cv_scores) = 0, 'client sees no scores');
 select pg_temp.check((select count(*) from public.screening_prompts) = 0, 'client sees no prompts');
 select pg_temp.check((select count(*) from public.techstack_checks) = 0, 'client sees no techstack checks');
 select pg_temp.check((select count(*) from public.vacancy_requirements) = 0, 'client sees no requirements');
-select pg_temp.check((select count(*) from public.screening_find_candidates(array['asha@example.com'], '{}', '{}')) = 1,
-  'the lookup is RLS bound: only the presented candidate');
+select pg_temp.check((select count(*) from public.screening_find_candidates(array['asha@example.com'], '{}', '{}')) = 0,
+  'the lookup is RLS bound: clients find nobody');
 select pg_temp.check((select count(*) from public.screening_find_candidates('{}', array['8044556677'], '{}')) = 0, 'client cannot find other candidates');
 do $$ begin
   insert into public.cv_scores (application_id, vacancy_id, candidate_id, score, verdict, model)

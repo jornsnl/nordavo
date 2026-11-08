@@ -13,9 +13,12 @@ import { createClient } from "@/lib/supabase/server";
 /**
  * Data access for the client portal (/portal).
  *
- * Every function calls requireClient() and filters by the client id itself,
- * on top of RLS. Candidate contact details, owners and internal fields
- * (assessment_notes, rejection_reason, notes) are never selected.
+ * Clients have no direct read access to vacancies, applications, candidates
+ * or placements. Every read goes through a portal_* database function
+ * (supabase/migrations/*_recruitment_integration.sql) that filters on the
+ * signed in client and returns only the columns the portal shows, so
+ * contact details and internal fields never reach a client, not even
+ * through the API.
  */
 
 /** Stages a client can see; matches the RLS policy on applications. */
@@ -29,10 +32,6 @@ export type VisibleStage = (typeof VISIBLE_STAGES)[number];
 export function isReviewable(stage: ApplicationStage) {
   return (REVIEWABLE_STAGES as readonly ApplicationStage[]).includes(stage);
 }
-
-/** cv_path is read only to derive hasCv; the path itself never leaves the server. */
-const CANDIDATE_COLUMNS =
-  "id, full_name, current_title, location, years_experience, skills, video_url, summary, cv_path";
 
 export type PortalCompany = { id: string; name: string; city: string | null };
 
@@ -118,135 +117,81 @@ function safeExternalUrl(value: string | null): string | null {
 }
 
 export const getPortalCompany = cache(async (): Promise<PortalCompany | null> => {
-  const { clientId } = await requireClient();
+  await requireClient();
   const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("clients")
-    .select("id, name, city")
-    .eq("id", clientId)
-    .maybeSingle();
+  const { data, error } = await supabase.rpc("portal_company");
   if (error) throw new Error(error.message);
-  return data;
+  return data[0] ?? null;
 });
 
 export const getPortalVacancies = cache(async (): Promise<PortalVacancySummary[]> => {
-  const { clientId } = await requireClient();
+  await requireClient();
   const supabase = await createClient();
-
-  const { data: vacancies, error } = await supabase
-    .from("vacancies")
-    .select("id, title, status, seniority, stack, opened_at, closed_at")
-    .eq("client_id", clientId)
-    .order("opened_at", { ascending: false });
+  const { data, error } = await supabase.rpc("portal_vacancies");
   if (error) throw new Error(error.message);
-  if (!vacancies.length) return [];
-
-  const { data: applications, error: appError } = await supabase
-    .from("applications")
-    .select("vacancy_id, client_decision, stage")
-    .in(
-      "vacancy_id",
-      vacancies.map((v) => v.id),
-    )
-    .in("stage", [...VISIBLE_STAGES]);
-  if (appError) throw new Error(appError.message);
-
-  return vacancies.map((v) => {
-    const own = applications.filter((a) => a.vacancy_id === v.id);
-    return {
-      id: v.id,
-      title: v.title,
-      status: v.status,
-      seniority: v.seniority,
-      stack: v.stack,
-      openedAt: v.opened_at,
-      closedAt: v.closed_at,
-      presentedCount: own.length,
-      pendingCount: own.filter(
-        (a) => a.client_decision === "pending" && isReviewable(a.stage),
-      ).length,
-    };
-  });
+  return data.map((v) => ({
+    id: v.id,
+    title: v.title,
+    status: v.status,
+    seniority: v.seniority,
+    stack: v.stack,
+    openedAt: v.opened_at,
+    closedAt: v.closed_at,
+    presentedCount: v.presented_count,
+    pendingCount: v.pending_count,
+  }));
 });
 
 export const getPendingReviews = cache(async (): Promise<PendingReview[]> => {
-  const { clientId } = await requireClient();
+  await requireClient();
   const supabase = await createClient();
-
-  const { data, error } = await supabase
-    .from("applications")
-    .select(
-      "id, stage, presented_at, candidate:candidates(full_name, current_title), vacancy:vacancies!inner(id, title, client_id)",
-    )
-    .eq("vacancy.client_id", clientId)
-    .eq("client_decision", "pending")
-    .in("stage", [...REVIEWABLE_STAGES])
-    .order("presented_at", { ascending: true, nullsFirst: false });
+  const { data, error } = await supabase.rpc("portal_candidates", { p_pending_only: true });
   if (error) throw new Error(error.message);
-
-  return data
-    .filter((row) => row.vacancy?.client_id === clientId)
-    .map((row) => ({
-      applicationId: row.id,
-      presentedAt: row.presented_at,
-      stage: row.stage,
-      candidateName: row.candidate?.full_name ?? "Candidate",
-      candidateTitle: row.candidate?.current_title ?? null,
-      vacancyId: row.vacancy.id,
-      vacancyTitle: row.vacancy.title,
-    }));
+  return data.map((row) => ({
+    applicationId: row.application_id,
+    presentedAt: row.presented_at,
+    stage: row.stage,
+    candidateName: row.full_name || "Candidate",
+    candidateTitle: row.current_title,
+    vacancyId: row.vacancy_id,
+    vacancyTitle: row.vacancy_title,
+  }));
 });
 
 export const getPortalVacancy = cache(async (id: string): Promise<PortalVacancyDetail | null> => {
-  const { clientId } = await requireClient();
+  await requireClient();
   if (!isUuid(id)) return null;
   const supabase = await createClient();
 
-  const { data: vacancy, error } = await supabase
-    .from("vacancies")
-    .select("id, title, description, stack, seniority, status, opened_at, closed_at, desired_start_date")
-    .eq("id", id)
-    .eq("client_id", clientId)
-    .maybeSingle();
+  const { data: rows, error } = await supabase.rpc("portal_vacancy", { p_vacancy_id: id });
   if (error) throw new Error(error.message);
+  const vacancy = rows[0];
   if (!vacancy) return null;
 
-  const { data: applications, error: appError } = await supabase
-    .from("applications")
-    .select(
-      `id, stage, technical_score, english_score, presented_at, client_decision, client_feedback, client_decided_at, candidate:candidates(${CANDIDATE_COLUMNS})`,
-    )
-    .eq("vacancy_id", vacancy.id)
-    .in("stage", [...VISIBLE_STAGES])
-    .order("presented_at", { ascending: true, nullsFirst: false });
+  const { data: applications, error: appError } = await supabase.rpc("portal_candidates", { p_vacancy_id: vacancy.id });
   if (appError) throw new Error(appError.message);
 
-  const candidates: PortalCandidate[] = [];
-  for (const a of applications) {
-    const c = a.candidate;
-    if (!c) continue;
-    candidates.push({
-      applicationId: a.id,
-      stage: a.stage,
-      technicalScore: a.technical_score,
-      englishScore: a.english_score,
-      presentedAt: a.presented_at,
-      decision: a.client_decision,
-      feedback: a.client_feedback,
-      decidedAt: a.client_decided_at,
-      candidate: {
-        id: c.id,
-        fullName: c.full_name,
-        currentTitle: c.current_title,
-        location: c.location,
-        yearsExperience: c.years_experience,
-        skills: c.skills,
-        videoUrl: safeExternalUrl(c.video_url),
-        summary: c.summary,
-        hasCv: Boolean(c.cv_path),
-      },
-    });
-  }
+  const candidates: PortalCandidate[] = applications.map((a) => ({
+    applicationId: a.application_id,
+    stage: a.stage,
+    technicalScore: a.technical_score,
+    englishScore: a.english_score,
+    presentedAt: a.presented_at,
+    decision: a.client_decision,
+    feedback: a.client_feedback,
+    decidedAt: a.client_decided_at,
+    candidate: {
+      id: a.candidate_id,
+      fullName: a.full_name,
+      currentTitle: a.current_title,
+      location: a.location,
+      yearsExperience: a.years_experience,
+      skills: a.skills,
+      videoUrl: safeExternalUrl(a.video_url),
+      summary: a.summary,
+      hasCv: a.has_cv,
+    },
+  }));
 
   return {
     id: vacancy.id,
@@ -267,35 +212,19 @@ export const getPortalVacancy = cache(async (id: string): Promise<PortalVacancyD
  * visible to this client. Used by the CV download route, never rendered.
  */
 export async function getCvPathForApplication(applicationId: string): Promise<string | null> {
-  const { clientId } = await requireClient();
+  await requireClient();
   if (!isUuid(applicationId)) return null;
   const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("applications")
-    .select("id, candidate:candidates(id, cv_path), vacancy:vacancies!inner(client_id)")
-    .eq("id", applicationId)
-    .eq("vacancy.client_id", clientId)
-    .in("stage", [...VISIBLE_STAGES])
-    .maybeSingle();
-  if (error || !data || data.vacancy?.client_id !== clientId) return null;
-  const path = data.candidate?.cv_path;
-  // Storage RLS only lets clients read files under candidate/<candidate_id>/.
-  if (!path || !path.startsWith(`candidate/${data.candidate?.id}/`)) return null;
-  return path;
+  const { data, error } = await supabase.rpc("portal_cv_path", { p_application_id: applicationId });
+  if (error || !data) return null;
+  return data;
 }
 
 export const getPortalPlacements = cache(async (): Promise<PortalPlacement[]> => {
-  const { clientId } = await requireClient();
+  await requireClient();
   const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("placements")
-    .select(
-      "id, start_date, end_date, status, notice_given_at, guarantee_until, monthly_rate, candidate:candidates(full_name, current_title), vacancy:vacancies(title)",
-    )
-    .eq("client_id", clientId)
-    .order("start_date", { ascending: false });
+  const { data, error } = await supabase.rpc("portal_placements");
   if (error) throw new Error(error.message);
-
   return data.map((p) => ({
     id: p.id,
     startDate: p.start_date,
@@ -304,9 +233,9 @@ export const getPortalPlacements = cache(async (): Promise<PortalPlacement[]> =>
     noticeGivenAt: p.notice_given_at,
     guaranteeUntil: p.guarantee_until,
     monthlyRate: p.monthly_rate,
-    candidateName: p.candidate?.full_name ?? null,
-    candidateTitle: p.candidate?.current_title ?? null,
-    vacancyTitle: p.vacancy?.title ?? null,
+    candidateName: p.candidate_name,
+    candidateTitle: p.candidate_title,
+    vacancyTitle: p.vacancy_title,
   }));
 });
 

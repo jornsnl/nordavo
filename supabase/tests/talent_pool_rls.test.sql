@@ -83,6 +83,8 @@ end $$;
 -- ---------------------------------------------------------------------------
 
 reset role;
+update public.candidates set cv_path = 'candidate/' || id || '/cv.pdf'
+  where id in ('00000000-0000-0000-0000-0000000000f1', '00000000-0000-0000-0000-0000000000f2');
 insert into storage.objects (bucket_id, name) values
   ('attachments', 'candidate/00000000-0000-0000-0000-0000000000f1/cv.pdf'),
   ('attachments', 'candidate/00000000-0000-0000-0000-0000000000f2/cv.pdf');
@@ -91,14 +93,14 @@ select pg_temp.act('sabine@kg.nl');
 set role authenticated;
 
 do $$ begin
-  if (select count(*) from public.vacancies) <> 1
-     or exists (select 1 from public.vacancies where is_talent_pool) then
+  if (select count(*) from public.portal_vacancies()) <> 1
+     or (select count(*) from public.vacancies) <> 0 then
     raise exception 'FAIL: a client sees only their own vacancy, never the talent pool';
   end if;
-  if (select count(*) from public.applications) <> 1 then
+  if (select count(*) from public.portal_candidates()) <> 1 or (select count(*) from public.applications) <> 0 then
     raise exception 'FAIL: a client sees no applications of talent pool vacancies';
   end if;
-  if exists (select 1 from public.candidates where full_name = 'Ravi') then
+  if exists (select 1 from public.portal_candidates() where full_name = 'Ravi') then
     raise exception 'FAIL: a client sees no candidates presented on talent pool vacancies';
   end if;
   if (select count(*) from storage.objects) <> 1 then
@@ -117,10 +119,10 @@ update public.vacancies
 
 select pg_temp.act('sabine@kg.nl');
 do $$ begin
-  if (select count(*) from public.vacancies) <> 2 then
+  if (select count(*) from public.portal_vacancies()) <> 2 then
     raise exception 'FAIL: a linked vacancy shows in the client portal';
   end if;
-  if not exists (select 1 from public.candidates where full_name = 'Ravi') then
+  if not exists (select 1 from public.portal_candidates() where full_name = 'Ravi') then
     raise exception 'FAIL: candidates presented on a linked vacancy become visible';
   end if;
 end $$;
