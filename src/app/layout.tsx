@@ -1,6 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import { Inter, Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
+import { PwaSupport } from "@/components/pwa/pwa-support";
+import { appleStartupImages } from "@/lib/pwa/splash";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -27,8 +29,11 @@ export const metadata: Metadata = {
     capable: true,
     title: "Nordavo",
     statusBarStyle: "default",
+    startupImage: appleStartupImages,
   },
   formatDetection: { telephone: false },
+  // Older iOS versions read this tag instead of the manifest for full screen.
+  other: { "apple-mobile-web-app-capable": "yes" },
 };
 
 export const viewport: Viewport = {
@@ -47,7 +52,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       lang="en"
       className={`${inter.variable} ${jakarta.variable} h-full antialiased`}
     >
-      <body className="min-h-full font-sans">{children}</body>
+      <body className="min-h-full font-sans">
+        {children}
+        <PwaSupport />
+      </body>
     </html>
   );
 }

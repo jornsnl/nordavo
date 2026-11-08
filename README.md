@@ -17,6 +17,7 @@ Het interne portaal van [Nordavo](https://nordavo.nl): de brug tussen Nederlands
 | Klantportaal | `/portal` | Voor klanten: eigen vacatures, voorgestelde kandidaten met cv, akkoord of afwijzen met feedback, plaatsingen, beveiliging (`/portal/security`) |
 | Werving | `/dashboard/vacancies/[id]/...` | Het hele wervingsproces: nieuwe fases, parkeren, sollicitatieform per vacature, import en CV upload, AI screening, beoordelen, toppers, interviews plannen, hiring report. Zie [docs/recruitment.md](docs/recruitment.md) |
 | Work | `/work` | De eigen takentool die ClickUp vervangt: workspaces (Nordavo, KG), projecten, taken met review, gasten (freelancers), meldingen per mail, API. Engels. Zie [docs/work.md](docs/work.md) |
+| App op beginscherm | iPhone, iPad, Android | Zet het portaal op het beginscherm: opent schermvullend met eigen icoon en startscherm. Op iOS: Safari, Deel, Zet op beginscherm (het portaal legt dit zelf eenmalig uit). Zonder verbinding verschijnt een offline pagina; er wordt geen portaaldata op het toestel bewaard. Startschermen opnieuw maken: `python3 scripts/generate-splash.py` |
 | MCP server | `/api/mcp` | Claude Code leest (en met schrijfrechten wijzigt) portaaldata met een persoonlijke token |
 | Zoeken | Ctrl+K / Cmd+K | Klanten, vacatures, kandidaten en plaatsingen |
 
