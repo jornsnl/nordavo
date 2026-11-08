@@ -11,6 +11,7 @@ import { s8WebpartnersImport } from "./s8-webpartners-import";
 import { s9OnepagePush } from "./s9-onepage-push";
 import { s9OnepagePull } from "./s9-onepage-pull";
 import { s10WeeklyReport } from "./s10-weekly-report";
+import { screeningScore } from "./screening-score";
 import { t2Match } from "./t2-match";
 import { clickupImport, workDaily, workNotify } from "./work";
 
@@ -29,6 +30,7 @@ export const jobs: Record<string, Job> = Object.fromEntries(
   s9OnepagePull,
   s10WeeklyReport,
   t2Match,
+  screeningScore,
   workNotify,
   workDaily,
   clickupImport,
