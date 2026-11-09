@@ -1,17 +1,12 @@
 import "server-only";
-import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
-import type {
-  ActivityChannel,
-  ActivityOutcome,
-  ContactStatus,
-  Database,
-  TablesInsert,
-} from "@/lib/database.types";
+import { addWorkingDays, amsterdamDate } from "@/lib/sales/status";
 
 /**
- * OnePageCRM: Julius' workspace. Only qualified contacts go in (hard rule 8),
- * and every contact always has a next action with a date.
+ * OnePageCRM. The Pipeline page under Sales replaced it as the place where
+ * deals live (feedback Julius, section 2.8), so contacts are no longer pushed
+ * or pulled (the S9 jobs are gone). What is left: notes and next actions on a
+ * deal that a vacancy still links to (onepage_deal_id), for the transition.
  *
  * REST API v3, base https://app.onepagecrm.com/api/v3/, HTTP basic auth with
  * ONEPAGE_USER_ID as user and ONEPAGE_API_KEY as password. Every response is
@@ -46,8 +41,6 @@ import type {
  */
 
 const BASE_URL = "https://app.onepagecrm.com/api/v3/";
-
-type Db = SupabaseClient<Database>;
 
 export function hasOnePage() {
   return Boolean(process.env.ONEPAGE_USER_ID && process.env.ONEPAGE_API_KEY);
@@ -123,65 +116,8 @@ export function stageKeyFor(stage: number | null | undefined, map = DEFAULT_DEAL
 }
 
 // ---------------------------------------------------------------------------
-// Contact status order, shared by S8 and S9: statuses only move forward.
-// ---------------------------------------------------------------------------
-
-const statusOrder: ContactStatus[] = [
-  "nieuw",
-  "gekwalificeerd",
-  "verrijkt",
-  "op_bellijst",
-  "in_mailcampagne",
-  "bereikt",
-  "afspraak",
-  "kans",
-  "klant",
-];
-
-/**
- * Whether a contact in `current` may move to `target`. Uitgesloten never
- * changes, klant only changes by hand, verloren reopens on a new meeting or
- * deal, everything else only moves forward.
- */
-export function shouldPromoteStatus(current: ContactStatus, target: ContactStatus): boolean {
-  if (current === target || current === "uitgesloten" || current === "klant") return false;
-  if (target === "verloren") return true;
-  if (current === "verloren") return target === "afspraak" || target === "kans" || target === "klant";
-  const from = statusOrder.indexOf(current);
-  const to = statusOrder.indexOf(target);
-  return to > from;
-}
-
-/** Move a contact forward in the funnel; never backwards. */
-export async function promoteContactStatus(db: Db, contactId: string, target: ContactStatus): Promise<boolean> {
-  const { data, error } = await db.from("contacts").select("status").eq("id", contactId).maybeSingle();
-  if (error) throw error;
-  if (!data || !shouldPromoteStatus(data.status, target)) return false;
-  const { error: updateError } = await db.from("contacts").update({ status: target }).eq("id", contactId);
-  if (updateError) throw updateError;
-  return true;
-}
-
-// ---------------------------------------------------------------------------
 // Dates
 // ---------------------------------------------------------------------------
-
-/** YYYY-MM-DD in Amsterdam. */
-export function amsterdamDate(value: Date | string = new Date()): string {
-  return new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Amsterdam" }).format(new Date(value));
-}
-
-/** Add working days (Monday to Friday) to a YYYY-MM-DD date. */
-export function addWorkingDays(isoDate: string, days: number): string {
-  const date = new Date(`${isoDate}T12:00:00Z`);
-  let left = days;
-  while (left > 0) {
-    date.setUTCDate(date.getUTCDate() + 1);
-    const day = date.getUTCDay();
-    if (day !== 0 && day !== 6) left -= 1;
-  }
-  return date.toISOString().slice(0, 10);
-}
 
 export function defaultNextAction(reason: string, today = amsterdamDate()) {
   return { text: `Follow up: ${reason}`, date: addWorkingDays(today, 2) };
@@ -496,235 +432,4 @@ export async function addDealNote(dealId: string, text: string): Promise<void> {
   const deal = await getDeal(dealId);
   if (!deal.contact_id) throw new Error(`OnePageCRM deal ${dealId} has no contact.`);
   await request("POST", "notes.json", { body: { contact_id: deal.contact_id, text, linked_deal_id: dealId } });
-}
-
-// ---------------------------------------------------------------------------
-// Changes for the daily pull
-// ---------------------------------------------------------------------------
-
-async function listModifiedSince<T>(path: string, key: string, item: string, schema: z.ZodType<T>, since: Date, maxPages: number) {
-  const all: T[] = [];
-  const modifiedSince = Math.floor(since.getTime() / 1000);
-  for (let page = 1; page <= maxPages; page += 1) {
-    const data = await request("GET", path, { query: { modified_since: modifiedSince, per_page: 100, page } });
-    const { items, maxPage } = unwrapList(data, key, item, schema);
-    all.push(...items);
-    if (page >= maxPage || items.length === 0) break;
-  }
-  return all;
-}
-
-export async function listRecentChanges(since: Date, { maxPages = 20 } = {}): Promise<{ deals: OnePageDeal[]; actions: OnePageAction[] }> {
-  const [deals, actions] = await Promise.all([
-    listModifiedSince("deals.json", "deals", "deal", onePageDealSchema, since, maxPages),
-    listModifiedSince("actions.json", "actions", "action", onePageActionSchema, since, maxPages),
-  ]);
-  return { deals, actions: actions.filter(isCompletedAction) };
-}
-
-export function isCompletedAction(action: OnePageAction) {
-  return action.done === true || action.status === "done";
-}
-
-export type CrmChange = {
-  /** Stable per state, so the same stage is logged once per deal. */
-  stateKey: string;
-  externalId: string;
-  onepageContactId: string;
-  outcome: ActivityOutcome;
-  notes: string;
-  date: string;
-  contactStatus: ContactStatus | null;
-  companyWon: boolean;
-};
-
-/** A changed deal to the activity we log. Pure. */
-export function mapDealChange(deal: OnePageDeal, map = DEFAULT_DEAL_STAGES): CrmChange | null {
-  if (!deal.contact_id) return null;
-  const date = deal.modified_at ?? deal.created_at ?? new Date().toISOString();
-  const name = deal.name ? ` (${deal.name})` : "";
-  const base = { onepageContactId: deal.contact_id, date };
-  if (deal.status === "won") {
-    return {
-      ...base,
-      stateKey: `onepage:deal:${deal.id}:won`,
-      externalId: `onepage:deal:${deal.id}:won:${date}`,
-      outcome: "gewonnen",
-      notes: `Deal won${name}${deal.text ? `: ${deal.text}` : ""}`,
-      contactStatus: "klant",
-      companyWon: true,
-    };
-  }
-  if (deal.status === "lost") {
-    return {
-      ...base,
-      stateKey: `onepage:deal:${deal.id}:lost`,
-      externalId: `onepage:deal:${deal.id}:lost:${date}`,
-      outcome: "verloren",
-      notes: `Deal lost${name}${deal.text ? `: ${deal.text}` : ""}`,
-      contactStatus: "verloren",
-      companyWon: false,
-    };
-  }
-  const stage = stageKeyFor(deal.stage, map);
-  if (!stage) return null;
-  const outcome: ActivityOutcome =
-    stage === "gesprek_gehad" ? "gesprek_gehad" : stage === "afspraak_gepland" ? "afspraak" : "notitie";
-  // Early stages are where we pushed it ourselves; nothing new to log.
-  if (stage === "gekwalificeerd" || stage === "benaderd") return null;
-  return {
-    ...base,
-    stateKey: `onepage:deal:${deal.id}:${stage}`,
-    externalId: `onepage:deal:${deal.id}:${stage}:${date}`,
-    outcome,
-    notes: `Deal moved to stage ${dealStageLabels[stage]}${name}`,
-    contactStatus: "kans",
-    companyWon: false,
-  };
-}
-
-/** A completed action to an activity. Pure. */
-export function mapCompletedAction(action: OnePageAction): CrmChange | null {
-  if (!action.contact_id || !isCompletedAction(action)) return null;
-  const date = action.done_at ?? action.modified_at ?? new Date().toISOString();
-  const text = action.text?.trim() || "Action";
-  const isConversation = /gesprek|call|meeting|bellen|gebeld|intake|demo/i.test(text);
-  return {
-    stateKey: `onepage:action:${action.id}`,
-    externalId: `onepage:action:${action.id}:${date}`,
-    onepageContactId: action.contact_id,
-    outcome: isConversation ? "gesprek_gehad" : "notitie",
-    notes: `Action completed in OnePageCRM: ${text}`,
-    date,
-    contactStatus: null,
-    companyWon: false,
-  };
-}
-
-// ---------------------------------------------------------------------------
-// Push one contact (S9)
-// ---------------------------------------------------------------------------
-
-const triggerOutcomes: ActivityOutcome[] = ["afspraak", "afspraak_goedgekeurd", "reply_positief"];
-
-/** The pipeline stage that fits the contact's latest trigger. Pure. */
-export function stageForTrigger(outcome: ActivityOutcome | null | undefined): DealStageKey {
-  if (outcome === "afspraak" || outcome === "afspraak_goedgekeurd") return "afspraak_gepland";
-  if (outcome === "reply_positief") return "benaderd";
-  return "gekwalificeerd";
-}
-
-/**
- * Create (or update) the contact and its company in OnePageCRM with a next
- * action, write onepage_id back to Supabase and log an activity.
- */
-export async function pushContactToCrm(
-  db: SupabaseClient<Database>,
-  contactId: string,
-  options: { reason: string; nextAction?: { text: string; date: string } },
-): Promise<{ onepageId: string }> {
-  requireOnePage();
-
-  const { data: contact, error } = await db
-    .from("contacts")
-    .select(
-      "id, company_id, first_name, last_name, title, email, phone, phone_type, linkedin_url, status, onepage_id, company:companies!inner(id, name, domain, website, segment, linkedin_url, icp_decision)",
-    )
-    .eq("id", contactId)
-    .maybeSingle();
-  if (error) throw error;
-  if (!contact) throw new Error("Contact not found.");
-  const company = contact.company;
-
-  // Hard rule 8: only qualified contacts, never raw scrape data.
-  if (company.icp_decision !== "GO") {
-    throw new Error(`Not sent to OnePageCRM: ${company.name} is not qualified (ICP decision is not GO).`);
-  }
-  if (contact.status === "nieuw" || contact.status === "uitgesloten") {
-    throw new Error(`Not sent to OnePageCRM: this contact has status ${contact.status}, so it is not qualified.`);
-  }
-
-  const [{ data: trigger }, { data: signal }, { data: colleagues }] = await Promise.all([
-    db
-      .from("activities")
-      .select("channel, outcome")
-      .eq("contact_id", contactId)
-      .in("outcome", triggerOutcomes)
-      .order("date", { ascending: false })
-      .limit(1)
-      .maybeSingle(),
-    db
-      .from("signals")
-      .select("type")
-      .eq("company_id", company.id)
-      .order("last_seen_at", { ascending: false })
-      .limit(1)
-      .maybeSingle(),
-    db
-      .from("contacts")
-      .select("onepage_id")
-      .eq("company_id", company.id)
-      .neq("id", contactId)
-      .not("onepage_id", "is", null),
-  ]);
-
-  const payload = buildContactPayload({ contact, company, signalType: signal?.type, reason: options.reason });
-
-  // Idempotent: reuse our onepage_id, else an existing CRM contact with the same email.
-  let onepageId = contact.onepage_id;
-  let existing: OnePageContact | null = null;
-  let hasOpenAction = false;
-  if (onepageId) {
-    const found = await getContact(onepageId);
-    existing = found.contact;
-    hasOpenAction = Boolean(found.nextAction && !isCompletedAction(found.nextAction));
-  } else if (contact.email) {
-    existing = await findContactByEmail(contact.email);
-    if (existing) {
-      onepageId = existing.id;
-      const found = await getContact(existing.id);
-      hasOpenAction = Boolean(found.nextAction && !isCompletedAction(found.nextAction));
-    }
-  }
-
-  if (existing && onepageId) {
-    const patch = mergeContactPayload(existing, payload);
-    if (Object.keys(patch).length > 0) await updateContact(onepageId, patch);
-  } else {
-    onepageId = (await createContact(payload)).id;
-  }
-
-  // Every contact always has a next action. Keep Julius' own open action unless we are given one.
-  if (options.nextAction) await setNextAction(onepageId, options.nextAction);
-  else if (!hasOpenAction) await createNextAction(onepageId, defaultNextAction(options.reason));
-
-  await upsertCompanyDeal({
-    contactId: onepageId,
-    colleagueContactIds: (colleagues ?? []).map((c) => c.onepage_id).filter((id): id is string => Boolean(id)),
-    companyName: company.name,
-    stage: stageForTrigger(trigger?.outcome),
-    text: options.reason,
-  });
-
-  if (contact.onepage_id !== onepageId) {
-    const { error: writeError } = await db.from("contacts").update({ onepage_id: onepageId }).eq("id", contactId);
-    if (writeError) throw writeError;
-  }
-  await promoteContactStatus(db, contactId, "kans");
-
-  const channel: ActivityChannel = trigger?.channel ?? "meeting";
-  const row: TablesInsert<"activities"> = {
-    contact_id: contactId,
-    company_id: company.id,
-    channel,
-    outcome: "notitie",
-    notes: `Sent to OnePageCRM: ${options.reason}`,
-    source: "onepage",
-    // One log line per contact per day, however often the push runs.
-    external_id: `onepage:push:${contactId}:${amsterdamDate()}`,
-  };
-  const { error: activityError } = await db.from("activities").upsert(row, { onConflict: "external_id", ignoreDuplicates: true });
-  if (activityError) throw activityError;
-
-  return { onepageId };
 }

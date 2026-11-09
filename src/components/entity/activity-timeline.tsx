@@ -52,7 +52,7 @@ export function ActivityTimeline({
         const self = item.entityType === entityType && item.entityId === entityId;
         const verb = item.verb.charAt(0).toUpperCase() + item.verb.slice(1);
         return (
-          <li key={item.id} className="relative pl-6">
+          <li key={item.key} className="relative pl-6">
             <span
               aria-hidden="true"
               className={`absolute top-1.5 left-0 size-[11px] rounded-full ring-2 ring-card ${dotTone[item.action]}`}

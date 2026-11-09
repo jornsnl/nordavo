@@ -10,7 +10,6 @@ import {
   type ActionState,
 } from "@/lib/action-state";
 import { formatDate } from "@/lib/format";
-import { hasOnePage, pushContactToCrm } from "@/lib/integrations/onepage";
 import { createClient } from "@/lib/supabase/server";
 
 const idSchema = z.guid();
@@ -288,68 +287,6 @@ export async function suppressAction(
     ok: true,
     message: contactId ? "Contact suppressed." : "Company suppressed. No contact at this company is approached through these channels any more.",
   };
-}
-
-// ---------------------------------------------------------------------------
-// OnePageCRM (S9, manual trigger)
-// ---------------------------------------------------------------------------
-
-const crmSchema = z
-  .object({
-    reason: z.string({ error: "Enter a reason." }).min(1, "Enter a reason.").max(500, "Use at most 500 characters."),
-    next_action: optionalText(300),
-    next_action_date: z.iso.date({ error: "Choose a valid date." }).optional(),
-  })
-  .refine((d) => Boolean(d.next_action) === Boolean(d.next_action_date), {
-    message: "Fill in both the next action and the date, or leave both empty.",
-    path: ["next_action_date"],
-  });
-
-export async function pushToCrmAction(
-  companyId: string,
-  contactId: string,
-  _prev: ActionState,
-  formData: FormData,
-): Promise<ActionState> {
-  await requireStaff();
-  if (!idSchema.safeParse(companyId).success || !idSchema.safeParse(contactId).success) {
-    return { error: GENERIC_ERROR };
-  }
-  if (!hasOnePage()) {
-    return { error: "OnePageCRM is not connected yet: ONEPAGE_USER_ID and ONEPAGE_API_KEY are missing on the server." };
-  }
-  const parsed = crmSchema.safeParse(formValues(formData));
-  if (!parsed.success) return { error: CHECK_FIELDS, fieldErrors: fieldErrorsFrom(parsed.error) };
-
-  const supabase = await createClient();
-  const { data: contact } = await supabase
-    .from("contacts")
-    .select("id, status, company:companies(icp_decision)")
-    .eq("id", contactId)
-    .eq("company_id", companyId)
-    .maybeSingle();
-  if (!contact) return { error: "This contact does not belong to this company." };
-  // Rule 8: only qualified contacts go into the CRM.
-  if (contact.company?.icp_decision !== "GO") {
-    return { error: "Only contacts of a GO company go to the CRM. Qualify the company first." };
-  }
-  if (contact.status === "uitgesloten" || contact.status === "verloren") {
-    return { error: "This contact is suppressed or lost and does not go to the CRM." };
-  }
-
-  try {
-    const { onepageId } = await pushContactToCrm(supabase, contactId, {
-      reason: parsed.data.reason,
-      nextAction:
-        parsed.data.next_action && parsed.data.next_action_date
-          ? { text: parsed.data.next_action, date: parsed.data.next_action_date }
-          : undefined,
-    });
-    revalidateLead(companyId);
-    return { ok: true, message: `Contact is in OnePageCRM (id ${onepageId}).` };
-  } catch (error) {
-    return { error: error instanceof Error && error.message ? error.message : GENERIC_ERROR };
-  }
 }
 
 // ---------------------------------------------------------------------------

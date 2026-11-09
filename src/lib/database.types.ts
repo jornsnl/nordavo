@@ -4,6 +4,17 @@
 
 import type { WorkFunctions, WorkTables } from "@/lib/work/database";
 import type { FormsFunctions, FormsTables } from "@/lib/forms/database";
+import type {
+  ActivityDirection,
+  ActivityType,
+  CompanyCategory,
+  ContactRole,
+  LeadStatus,
+  PipelineStage,
+  ReviewStatus,
+  SalesFunctions,
+  SalesTables,
+} from "@/lib/sales/database";
 
 export type Json =
   | string
@@ -13,8 +24,11 @@ export type Json =
   | { [key: string]: Json | undefined }
   | Json[];
 
-/** "external": only uses the task tool (/work), no access to the Nordavo portal. */
-export type ProfileRole = "admin" | "member" | "client" | "external";
+/**
+ * "member" is shown as Internal user. "external": only uses the task tool
+ * (/work). "caller": an external caller, sees only the call screen (2.10).
+ */
+export type ProfileRole = "admin" | "member" | "client" | "external" | "caller";
 export type ClientStatus = "lead" | "active" | "inactive";
 export type Seniority = "medior" | "senior" | "lead";
 export type VacancyStatus = "open" | "on_hold" | "filled" | "closed";
@@ -101,18 +115,17 @@ export type IcpDecision = "GO" | "NO_GO" | "REVIEW";
 export type CompanyStatus = "nieuw" | "actief" | "klant" | "verloren" | "uitgesloten";
 export type EmailStatus = "valid" | "invalid" | "catch_all" | "unknown";
 export type PhoneType = "mobiel" | "vast";
+/** Cleaned contact statuses (section 2.6). Meeting, Opportunity, Client and Lost are pipeline stages now. */
 export type ContactStatus =
-  | "nieuw"
-  | "gekwalificeerd"
-  | "verrijkt"
-  | "op_bellijst"
-  | "in_mailcampagne"
-  | "bereikt"
-  | "afspraak"
-  | "kans"
-  | "klant"
-  | "verloren"
-  | "uitgesloten";
+  | "new"
+  | "qualified"
+  | "enrich"
+  | "enriched"
+  | "in_outreach"
+  | "reached"
+  | "not_reached"
+  | "not_interested"
+  | "do_not_contact";
 export type SignalType =
   | "vacature"
   | "lang_open"
@@ -122,9 +135,9 @@ export type SignalType =
   | "funding"
   | "nieuwe_cto"
   | "overig";
-export type SignalSource = "linkedin" | "indeed" | "overig";
+export type SignalSource = "linkedin" | "indeed" | "overig" | "import" | "apify" | "prospeo";
 export type CampaignChannel = "bellen" | "mail" | "linkedin";
-export type ActivityChannel = "bellen" | "mail" | "linkedin" | "meeting";
+export type ActivityChannel = "bellen" | "mail" | "linkedin" | "meeting" | "system";
 export type ActivityOutcome =
   | "verstuurd"
   | "geen_gehoor"
@@ -142,8 +155,30 @@ export type ActivityOutcome =
   | "gesprek_gehad"
   | "gewonnen"
   | "verloren"
-  | "notitie";
-export type ActivitySource = "handmatig" | "instantly" | "webpartners" | "calcom" | "onepage" | "import";
+  | "notitie"
+  | "no_answer"
+  | "call_back"
+  | "reached_interested"
+  | "meeting_planned"
+  | "reached_not_interested"
+  | "referred"
+  | "wrong_person"
+  | "wrong_number"
+  | "meeting_held"
+  | "meeting_no_show"
+  | "meeting_cancelled";
+export type ActivitySource =
+  | "handmatig"
+  | "instantly"
+  | "webpartners"
+  | "calcom"
+  | "onepage"
+  | "import"
+  | "seleqt"
+  | "system"
+  | "claude"
+  | "apify"
+  | "prospeo";
 export type SuppressionReason = "afgemeld" | "bezwaar" | "klant" | "lopend_gesprek" | "niet_bellen";
 export type SuppressionScope = "alle_kanalen" | "alleen_bellen" | "alleen_mail";
 export type ListExportType = "bellijst" | "mailcampagne" | "max_verrijking";
@@ -849,72 +884,6 @@ export type Database = {
           },
         ];
       };
-      tasks: {
-        Row: {
-          id: string;
-          title: string;
-          description: string | null;
-          status: TaskStatus;
-          priority: TaskPriority;
-          due_date: string | null;
-          assignee_id: string | null;
-          created_by: string | null;
-          entity_type: EntityType | null;
-          entity_id: string | null;
-          position: number;
-          completed_at: string | null;
-          created_at: string;
-          updated_at: string;
-        };
-        Insert: {
-          id?: string;
-          title: string;
-          description?: string | null;
-          status?: TaskStatus;
-          priority?: TaskPriority;
-          due_date?: string | null;
-          assignee_id?: string | null;
-          created_by?: string | null;
-          entity_type?: EntityType | null;
-          entity_id?: string | null;
-          position?: number;
-          completed_at?: string | null;
-          created_at?: string;
-          updated_at?: string;
-        };
-        Update: {
-          id?: string;
-          title?: string;
-          description?: string | null;
-          status?: TaskStatus;
-          priority?: TaskPriority;
-          due_date?: string | null;
-          assignee_id?: string | null;
-          created_by?: string | null;
-          entity_type?: EntityType | null;
-          entity_id?: string | null;
-          position?: number;
-          completed_at?: string | null;
-          created_at?: string;
-          updated_at?: string;
-        };
-        Relationships: [
-          {
-            foreignKeyName: "tasks_assignee_id_fkey";
-            columns: ["assignee_id"];
-            isOneToOne: false;
-            referencedRelation: "profiles";
-            referencedColumns: ["id"];
-          },
-          {
-            foreignKeyName: "tasks_created_by_fkey";
-            columns: ["created_by"];
-            isOneToOne: false;
-            referencedRelation: "profiles";
-            referencedColumns: ["id"];
-          },
-        ];
-      };
       notes: {
         Row: {
           id: string;
@@ -1275,6 +1244,24 @@ export type Database = {
           source: string | null;
           sources: string[];
           client_id: string | null;
+          prio: number | null;
+          category: CompanyCategory | null;
+          description: string | null;
+          general_phone: string | null;
+          source_note: string | null;
+          lead_status: LeadStatus;
+          lead_status_changed_at: string;
+          pipeline_stage: PipelineStage | null;
+          pipeline_stage_changed_at: string | null;
+          pipeline_entered_at: string | null;
+          lost_reason: string | null;
+          owner_id: string | null;
+          partner_id: string | null;
+          next_action: string | null;
+          next_action_date: string | null;
+          pinned_at: string | null;
+          manual_position: number | null;
+          sequence_paused_at: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -1302,6 +1289,24 @@ export type Database = {
           source?: string | null;
           sources?: string[];
           client_id?: string | null;
+          prio?: number | null;
+          category?: CompanyCategory | null;
+          description?: string | null;
+          general_phone?: string | null;
+          source_note?: string | null;
+          lead_status?: LeadStatus;
+          lead_status_changed_at?: string;
+          pipeline_stage?: PipelineStage | null;
+          pipeline_stage_changed_at?: string | null;
+          pipeline_entered_at?: string | null;
+          lost_reason?: string | null;
+          owner_id?: string | null;
+          partner_id?: string | null;
+          next_action?: string | null;
+          next_action_date?: string | null;
+          pinned_at?: string | null;
+          manual_position?: number | null;
+          sequence_paused_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -1329,10 +1334,42 @@ export type Database = {
           source?: string | null;
           sources?: string[];
           client_id?: string | null;
+          prio?: number | null;
+          category?: CompanyCategory | null;
+          description?: string | null;
+          general_phone?: string | null;
+          source_note?: string | null;
+          lead_status?: LeadStatus;
+          lead_status_changed_at?: string;
+          pipeline_stage?: PipelineStage | null;
+          pipeline_stage_changed_at?: string | null;
+          pipeline_entered_at?: string | null;
+          lost_reason?: string | null;
+          owner_id?: string | null;
+          partner_id?: string | null;
+          next_action?: string | null;
+          next_action_date?: string | null;
+          pinned_at?: string | null;
+          manual_position?: number | null;
+          sequence_paused_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };
         Relationships: [
+          {
+            foreignKeyName: "companies_partner_id_fkey";
+            columns: ["partner_id"];
+            isOneToOne: false;
+            referencedRelation: "partners";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "companies_owner_id_fkey";
+            columns: ["owner_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
           {
             foreignKeyName: "companies_reviewed_by_fkey";
             columns: ["reviewed_by"];
@@ -1371,6 +1408,22 @@ export type Database = {
           last_contacted_at: string | null;
           source: string | null;
           sources: string[];
+          role: ContactRole;
+          is_primary: boolean;
+          route: string | null;
+          attempts: number;
+          last_attempt_at: string | null;
+          referred_to: string | null;
+          caller_note: string | null;
+          callback_at: string | null;
+          assigned_caller_id: string | null;
+          assigned_until: string | null;
+          claimed_by: string | null;
+          claimed_at: string | null;
+          status_changed_at: string;
+          pinned_at: string | null;
+          manual_position: number | null;
+          full_name: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -1395,6 +1448,21 @@ export type Database = {
           last_contacted_at?: string | null;
           source?: string | null;
           sources?: string[];
+          role?: ContactRole;
+          is_primary?: boolean;
+          route?: string | null;
+          attempts?: number;
+          last_attempt_at?: string | null;
+          referred_to?: string | null;
+          caller_note?: string | null;
+          callback_at?: string | null;
+          assigned_caller_id?: string | null;
+          assigned_until?: string | null;
+          claimed_by?: string | null;
+          claimed_at?: string | null;
+          status_changed_at?: string;
+          pinned_at?: string | null;
+          manual_position?: number | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -1419,10 +1487,32 @@ export type Database = {
           last_contacted_at?: string | null;
           source?: string | null;
           sources?: string[];
+          role?: ContactRole;
+          is_primary?: boolean;
+          route?: string | null;
+          attempts?: number;
+          last_attempt_at?: string | null;
+          referred_to?: string | null;
+          caller_note?: string | null;
+          callback_at?: string | null;
+          assigned_caller_id?: string | null;
+          assigned_until?: string | null;
+          claimed_by?: string | null;
+          claimed_at?: string | null;
+          status_changed_at?: string;
+          pinned_at?: string | null;
+          manual_position?: number | null;
           created_at?: string;
           updated_at?: string;
         };
         Relationships: [
+          {
+            foreignKeyName: "contacts_assigned_caller_id_fkey";
+            columns: ["assigned_caller_id"];
+            isOneToOne: false;
+            referencedRelation: "callers";
+            referencedColumns: ["id"];
+          },
           {
             foreignKeyName: "contacts_company_id_fkey";
             columns: ["company_id"];
@@ -1444,6 +1534,8 @@ export type Database = {
           first_seen_at: string;
           last_seen_at: string;
           raw_json: Json | null;
+          role_group: string | null;
+          posted_at: string | null;
         };
         Insert: {
           id?: string;
@@ -1456,6 +1548,8 @@ export type Database = {
           first_seen_at?: string;
           last_seen_at?: string;
           raw_json?: Json | null;
+          role_group?: string | null;
+          posted_at?: string | null;
         };
         Update: {
           id?: string;
@@ -1468,6 +1562,8 @@ export type Database = {
           first_seen_at?: string;
           last_seen_at?: string;
           raw_json?: Json | null;
+          role_group?: string | null;
+          posted_at?: string | null;
         };
         Relationships: [
           {
@@ -1525,13 +1621,25 @@ export type Database = {
           campaign_id: string | null;
           signal_id: string | null;
           date: string;
-          outcome: ActivityOutcome;
+          outcome: ActivityOutcome | null;
           notes: string | null;
           next_action: string | null;
           next_action_date: string | null;
           source: ActivitySource;
           external_id: string | null;
           created_by: string | null;
+          type: ActivityType;
+          direction: ActivityDirection | null;
+          field: string | null;
+          old_value: Json | null;
+          new_value: Json | null;
+          partner_id: string | null;
+          caller_id: string | null;
+          meeting_id: string | null;
+          review_status: ReviewStatus | null;
+          suggestion: Json | null;
+          reviewed_by: string | null;
+          reviewed_at: string | null;
           created_at: string;
         };
         Insert: {
@@ -1542,13 +1650,25 @@ export type Database = {
           campaign_id?: string | null;
           signal_id?: string | null;
           date?: string;
-          outcome: ActivityOutcome;
+          outcome?: ActivityOutcome | null;
           notes?: string | null;
           next_action?: string | null;
           next_action_date?: string | null;
           source?: ActivitySource;
           external_id?: string | null;
           created_by?: string | null;
+          type?: ActivityType;
+          direction?: ActivityDirection | null;
+          field?: string | null;
+          old_value?: Json | null;
+          new_value?: Json | null;
+          partner_id?: string | null;
+          caller_id?: string | null;
+          meeting_id?: string | null;
+          review_status?: ReviewStatus | null;
+          suggestion?: Json | null;
+          reviewed_by?: string | null;
+          reviewed_at?: string | null;
           created_at?: string;
         };
         Update: {
@@ -1559,16 +1679,49 @@ export type Database = {
           campaign_id?: string | null;
           signal_id?: string | null;
           date?: string;
-          outcome?: ActivityOutcome;
+          outcome?: ActivityOutcome | null;
           notes?: string | null;
           next_action?: string | null;
           next_action_date?: string | null;
           source?: ActivitySource;
           external_id?: string | null;
           created_by?: string | null;
+          type?: ActivityType;
+          direction?: ActivityDirection | null;
+          field?: string | null;
+          old_value?: Json | null;
+          new_value?: Json | null;
+          partner_id?: string | null;
+          caller_id?: string | null;
+          meeting_id?: string | null;
+          review_status?: ReviewStatus | null;
+          suggestion?: Json | null;
+          reviewed_by?: string | null;
+          reviewed_at?: string | null;
           created_at?: string;
         };
         Relationships: [
+          {
+            foreignKeyName: "activities_partner_id_fkey";
+            columns: ["partner_id"];
+            isOneToOne: false;
+            referencedRelation: "partners";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "activities_caller_id_fkey";
+            columns: ["caller_id"];
+            isOneToOne: false;
+            referencedRelation: "callers";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "activities_meeting_fkey";
+            columns: ["meeting_id"];
+            isOneToOne: false;
+            referencedRelation: "meetings";
+            referencedColumns: ["id"];
+          },
           {
             foreignKeyName: "activities_contact_id_fkey";
             columns: ["contact_id"];
@@ -2337,7 +2490,7 @@ export type Database = {
         };
         Relationships: [];
       };
-    } & WorkTables & FormsTables;
+    } & WorkTables & FormsTables & SalesTables;
     Views: {
       call_list_candidates: { Row: ListCandidateBase & { phone: string; linkedin_url: string | null }; Relationships: [] };
       mail_list_candidates: { Row: ListCandidateBase & { email: string }; Relationships: [] };
@@ -2508,7 +2661,7 @@ export type Database = {
         Args: { p_entity: CustomFieldEntity; p_new: Json; p_old?: Json };
         Returns: CustomFieldValues;
       };
-    } & WorkFunctions & FormsFunctions;
+    } & WorkFunctions & FormsFunctions & SalesFunctions;
     Enums: { [_ in never]: never };
     CompositeTypes: { [_ in never]: never };
   };
@@ -2527,7 +2680,6 @@ export type Candidate = Tables<"candidates">;
 export type Application = Tables<"applications">;
 export type Placement = Tables<"placements">;
 export type PlacementCheckin = Tables<"placement_checkins">;
-export type Task = Tables<"tasks">;
 export type Note = Tables<"notes">;
 export type Attachment = Tables<"attachments">;
 export type ActivityEntry = Tables<"activity_log">;

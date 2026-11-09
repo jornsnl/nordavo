@@ -116,9 +116,9 @@ export const s4EmailEnrich = defineJob({
       if (status === "valid") {
         const { error: statusError } = await ctx.db
           .from("contacts")
-          .update({ status: "verrijkt" })
+          .update({ status: "enriched" })
           .eq("id", savedId)
-          .in("status", ["nieuw", "gekwalificeerd"]);
+          .in("status", ["new", "qualified", "enrich"]);
         if (statusError) throw statusError;
       }
     });

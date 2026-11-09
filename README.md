@@ -6,22 +6,27 @@ Het interne portaal van [Nordavo](https://nordavo.nl): de brug tussen Nederlands
 
 | Onderdeel | Route | Wat het doet |
 | --- | --- | --- |
-| Overzicht | `/dashboard` | Kerncijfers, vacatures die aandacht nodig hebben (belofte: 3 kandidaten in 3 weken), komende check-ins en garanties, pipeline, mijn taken, recente activiteit |
-| Taken | `/dashboard/tasks` | Lijst (te laat, vandaag, deze week) en kanbanbord, te koppelen aan elk record |
+| Overzicht | `/dashboard` | Kerncijfers, salescijfers van deze week en de pipeline, vacatures die aandacht nodig hebben (belofte: 3 kandidaten in 3 weken), komende check-ins en garanties, mijn taken uit Work, recente activiteit |
+| Leads | `/dashboard/leads` | Elk bedrijf met leadstatus, in een tabel die werkt als een spreadsheet of als bord. Plus Replies to review (voorstellen van Claude) en de ICP review. Zie [docs/sales.md](docs/sales.md) |
+| Contacts | `/dashboard/contacts` | Alle contactpersonen met rol, status en beller, als tabel of bord. Een opgeslagen weergave kan een bellijst zijn. Verrijking voor Max onder Enrich |
+| Pipeline | `/dashboard/pipeline` | Bedrijven die interesse toonden, in 8 fases, als bord of tabel; fase 4 tot en met 7 volgen uit de werving |
+| Calls en Call lists | `/dashboard/calls`, `/dashboard/call-lists` | Belscherm met alle info en de uitkomstknoppen; bellijsten openzetten voor bellers. Externe bellers werken op `/caller`. Zie [docs/calls.md](docs/calls.md) |
+| Meetings | `/dashboard/meetings` | Afsprakenregister met goedkeuren, vergoedingen en maandoverzicht per beller |
+| Sequences en Partners | `/dashboard/sequences`, `/dashboard/partners` | Stappen over mail, LinkedIn en bellen met concepten van Claude; partners die leads aanbrengen |
 | Klanten | `/dashboard/clients` | Bedrijven, contactpersonen, hun vacatures en plaatsingen |
 | Vacatures | `/dashboard/vacancies` | Functieprofielen met dagen open en pipeline-samenvatting |
 | Pipeline | `/dashboard/vacancies/[id]/pipeline` | Kanbanbord per vacature: sourcing tot plaatsing, slepen met muis of toetsenbord |
 | Kandidaten | `/dashboard/candidates` | Profielen, skills, cv-upload, video-intro, sollicitaties |
 | Plaatsingen | `/dashboard/placements` | Startdatum, tarief, 30 dagen garantie, check-ins, opzegtermijn van een maand |
-| Instellingen | `/dashboard/settings` | Profiel, wachtwoord, tweestapsverificatie, passkeys, Claude Code koppelen (MCP), mail controleren, testmail versturen en mail log van alle verzonden mail ([docs/mail.md](docs/mail.md)), gebruikers en rollen, uitnodigen |
+| Instellingen | `/dashboard/settings` | Bellers (admin), profiel, wachtwoord, tweestapsverificatie, passkeys, Claude Code koppelen (MCP), mail controleren, testmail versturen en mail log van alle verzonden mail ([docs/mail.md](docs/mail.md)), gebruikers en rollen, uitnodigen |
 | Klantportaal | `/portal` | Voor klanten: eigen vacatures, voorgestelde kandidaten met cv, akkoord of afwijzen met feedback, plaatsingen, beveiliging (`/portal/security`) |
 | Werving | `/dashboard/vacancies/[id]/...` | Het hele wervingsproces: nieuwe fases, parkeren, sollicitatieform per vacature, import en CV upload, AI screening, beoordelen, toppers, interviews plannen, hiring report. Zie [docs/recruitment.md](docs/recruitment.md) |
-| Work | `/work` | De eigen takentool die ClickUp vervangt: workspaces (Nordavo, KG), projecten, taken met review, gasten (freelancers), meldingen per mail, API. Engels. Zie [docs/work.md](docs/work.md) |
+| Work | `/work` | De enige takentool (Tasks is erin opgegaan): workspaces (Nordavo, KG), projecten, taken met review, koppeling aan klant, lead, vacature, kandidaat of plaatsing, indeling op datum en bord, gasten (freelancers), meldingen per mail, API. Engels. Zie [docs/work.md](docs/work.md) |
 | App op beginscherm | iPhone, iPad, Android | Zet het portaal op het beginscherm: opent schermvullend met eigen icoon en startscherm. Op iOS: Safari, Deel, Zet op beginscherm (het portaal legt dit zelf eenmalig uit). Zonder verbinding verschijnt een offline pagina; er wordt geen portaaldata op het toestel bewaard. Startschermen opnieuw maken: `python3 scripts/generate-splash.py` |
 | MCP server | `/api/mcp` | Claude Code leest (en met schrijfrechten wijzigt) portaaldata met een persoonlijke token |
 | Zoeken | Ctrl+K / Cmd+K | Klanten, vacatures, kandidaten en plaatsingen |
 
-Daarnaast draait het **GTM systeem** (leads, signalen, kwalificatie met Claude, bellijsten, mailcampagnes, OnePageCRM, weekrapport en talentmatching). Werking, inrichting en planning staan in [docs/gtm.md](docs/gtm.md); de oorspronkelijke briefing in [docs/gtm-briefing.md](docs/gtm-briefing.md).
+Daarnaast draait het **GTM systeem** (signalen, kwalificatie met Claude, Instantly en Web Partners syncs, weekrapport en talentmatching). Werking, inrichting en planning staan in [docs/gtm.md](docs/gtm.md); de oorspronkelijke briefing in [docs/gtm-briefing.md](docs/gtm-briefing.md). Het sales CRM staat in [docs/sales.md](docs/sales.md), de geplande taken van Claude in [docs/claude-jobs.md](docs/claude-jobs.md).
 
 Op elke detailpagina staan taken, notities, bijlagen en een activiteitenlog. Het activiteitenlog wordt door database-triggers gevuld, dus elke wijziging komt erin.
 

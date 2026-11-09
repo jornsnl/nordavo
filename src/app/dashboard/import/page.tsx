@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { PageHeader } from "@/components/dashboard/page-header";
+import { CallListImport } from "@/components/import/call-list-import";
 import { ImportWizard } from "@/components/import/import-wizard";
 import { ListSkeleton } from "@/components/ui/skeleton";
-import { requireStaff } from "@/lib/auth";
+import { hasModule, requireStaff } from "@/lib/auth";
 
 export const metadata: Metadata = {
   title: "Import",
@@ -18,7 +19,7 @@ export default function Page() {
       <PageHeader
         eyebrow="Admin"
         title="Import"
-        description="Bring the old lead lists from Google Sheets into the system. Domains are normalised and duplicates are merged."
+        description="Bring the call list and the old lead lists into the system. Domains are normalised and duplicates are merged."
       />
       <Suspense fallback={<ListSkeleton rows={4} />}>
         <StaffOnly />
@@ -28,6 +29,11 @@ export default function Page() {
 }
 
 async function StaffOnly() {
-  await requireStaff();
-  return <ImportWizard />;
+  const user = await requireStaff();
+  return (
+    <>
+      {hasModule(user, "sales") && <CallListImport />}
+      <ImportWizard />
+    </>
+  );
 }

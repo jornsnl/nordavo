@@ -12,6 +12,15 @@ import type {
 } from "@/lib/work/database";
 import { openStatuses, priorityRank } from "@/lib/work/labels";
 import { dayIn, localInputToUtc, safeTimeZone } from "@/lib/work/time";
+import { recordKey } from "@/lib/data/search";
+import {
+  linkableRecordTypes,
+  loadPrimaryContacts,
+  loadTaskRecords,
+  type PrimaryContact,
+  type RecordType,
+  type TaskRecord,
+} from "@/lib/work/records";
 
 /**
  * Data access for the task tool. Every query runs as the signed-in user, so
@@ -245,6 +254,8 @@ export type TaskListItem = {
   workspace: { id: string; name: string; slug: string };
   assignees: Person[];
   subtasks: { total: number; done: number };
+  /** The portal record the task is on. Only ever set for the team with that module. */
+  record: TaskRecord | null;
 };
 
 const LIST_SELECT = `id, title, status, priority, due_at, parent_id, is_log, reviewer_id, created_by, updated_at,
@@ -277,7 +288,11 @@ type ListRow = {
 };
 
 async function toListItems(rows: ListRow[]): Promise<TaskListItem[]> {
-  const people = await peopleById(rows.flatMap((r) => r.assignees.map((a) => a.user_id)));
+  const user = await requireWorkUser();
+  const [people, records] = await Promise.all([
+    peopleById(rows.flatMap((r) => r.assignees.map((a) => a.user_id))),
+    loadTaskRecords(user, rows.map((r) => r.id)),
+  ]);
   return rows.map((r) => {
     const subtasks = r.subtasks.filter((s) => !s.archived_at && s.id !== r.parent_id);
     return {
@@ -297,6 +312,7 @@ async function toListItems(rows: ListRow[]): Promise<TaskListItem[]> {
       workspace: r.workspace ?? { id: r.workspace_id, name: "Workspace", slug: "" },
       assignees: r.assignees.map((a) => people.get(a.user_id)).filter((p): p is Person => Boolean(p)),
       subtasks: { total: subtasks.length, done: subtasks.filter((s) => s.status === "done").length },
+      record: records.get(r.id) ?? null,
     };
   });
 }
@@ -378,6 +394,34 @@ export async function listProjectTasks(projectId: string, filters: TaskFilters &
   return (await toListItems(rows)).sort(byDeadline);
 }
 
+/**
+ * The Work tasks on one portal record (the tasks block of a detail page):
+ * open ones by deadline, then the most recently finished. RLS on
+ * work_task_links already limits this to the team with the module.
+ */
+export async function listRecordTasks(entityType: RecordType, entityId: string): Promise<TaskListItem[]> {
+  const user = await requireWorkUser();
+  if (!linkableRecordTypes(user).includes(entityType)) return [];
+  const supabase = await createClient();
+  const links = check(
+    await supabase.from("work_task_links").select("task_id").eq("entity_type", entityType).eq("entity_id", entityId).limit(300),
+    "linked tasks",
+  );
+  const ids = links.map((l) => l.task_id);
+  if (ids.length === 0) return [];
+  const rows = check(
+    await supabase.from("work_tasks").select(LIST_SELECT).in("id", ids).is("archived_at", null),
+    "tasks",
+  ) as unknown as ListRow[];
+  const items = await toListItems(rows);
+  const open = items.filter((t) => openStatuses.includes(t.status)).sort(byDeadline);
+  const finished = items
+    .filter((t) => !openStatuses.includes(t.status))
+    .sort((a, b) => (b.completedAt ?? b.updatedAt).localeCompare(a.completedAt ?? a.updatedAt))
+    .slice(0, 20);
+  return [...open, ...finished];
+}
+
 export async function searchTasks(q: string): Promise<TaskListItem[]> {
   const supabase = await createClient();
   const { data: hits, error } = await supabase.rpc("work_search", { p_query: q, p_limit: 50 });
@@ -446,6 +490,11 @@ export type TaskDetail = {
   comments: CommentItem[];
   attachments: AttachmentItem[];
   activity: ActivityItem[];
+  /** The linked portal record and its primary contact: team members with that module only. */
+  record: TaskRecord | null;
+  primaryContact: PrimaryContact | null;
+  /** Record types this user may link the task to; empty for guests. */
+  linkTypes: RecordType[];
   /** What the signed-in user may do; the database enforces the same rules. */
   can: {
     edit: boolean;
@@ -495,6 +544,9 @@ export async function getTask(taskId: string): Promise<TaskDetail> {
       .limit(100),
   ]);
 
+  const records = await loadTaskRecords(user, [task.id]);
+  const record = records.get(task.id) ?? null;
+  const contacts = record ? await loadPrimaryContacts(user, [{ type: record.type, id: record.id }]) : new Map();
   const commentRows = check(comments, "comments");
   const attachmentRows = check(attachments, "files");
   const activityRows = check(activity, "activity");
@@ -563,6 +615,9 @@ export async function getTask(taskId: string): Promise<TaskDetail> {
       details: (a.details ?? {}) as Record<string, unknown>,
       createdAt: a.created_at,
     })),
+    record,
+    primaryContact: record ? (contacts.get(recordKey(record.type, record.id)) ?? null) : null,
+    linkTypes: linkableRecordTypes(user),
     can: {
       edit: editable,
       approve: editable && (isAdmin || task.reviewer_id === user.id),

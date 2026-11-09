@@ -4,7 +4,7 @@ import { splitName } from "@/lib/gtm/normalize";
 import { upsertContact } from "@/lib/gtm/upsert";
 import { matchWebPartnersRow, parseWebPartnersRows, type WebPartnersRow } from "@/lib/gtm/webpartners";
 import { hasGoogleSheets, readSheet } from "@/lib/integrations/google-sheets";
-import { amsterdamDate, promoteContactStatus } from "@/lib/integrations/onepage";
+import { amsterdamDate, promoteContactStatus } from "@/lib/sales/status";
 
 /**
  * S8: import the Web Partners appointments sheet into activities (daily).
@@ -93,7 +93,7 @@ export const s8WebpartnersImport = defineJob({
       };
       const { error } = await ctx.db.from("activities").upsert(activity, { onConflict: "external_id", ignoreDuplicates: true });
       if (error) throw error;
-      if (contactId && row.outcome !== "afspraak_afgekeurd") await promoteContactStatus(ctx.db, contactId, "afspraak");
+      if (contactId && row.outcome !== "afspraak_afgekeurd") await promoteContactStatus(ctx.db, contactId, "reached");
       created += 1;
       ctx.countOut();
     });

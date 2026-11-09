@@ -9,7 +9,8 @@ import { PASSKEY_SESSION_COOKIE, isPasskeySession } from "@/lib/security/passkey
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
-// These actions also run for client portal users (/portal/security),
+// These actions also run for client portal users (/portal/security) and
+// external callers (/caller/security),
 // so they authorize with getCurrentUser() and only touch the user's own factors.
 
 export type MfaEnrollState = ActionState & {
@@ -24,6 +25,7 @@ export type MfaEnrollState = ActionState & {
 function revalidateSecurityPages() {
   revalidatePath("/dashboard/settings");
   revalidatePath("/portal/security");
+  revalidatePath("/caller", "layout");
 }
 
 const INSUFFICIENT_AAL =

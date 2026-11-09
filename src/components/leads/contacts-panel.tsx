@@ -1,18 +1,11 @@
 import type { ReactNode } from "react";
-import { CircleCheck, CircleX, ExternalLink, Link2, Mail, Phone } from "lucide-react";
+import { CircleCheck, CircleX, Link2, Mail, Phone } from "lucide-react";
 import { buttonClasses } from "@/components/ui/button";
 import { ContactStatusBadge, EmailStatusBadge, TierBadge } from "@/components/leads/badges";
-import { PushToCrmButton } from "@/components/leads/lead-forms";
-import type { FormAction } from "@/components/leads/action-modal";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import type { CompanyContact, Contactability } from "@/lib/data/gtm-contacts";
 import { formatDate } from "@/lib/format";
-
-/** Assumption: OnePageCRM web app URL for a contact. Check with a real account. */
-export function onePageContactUrl(id: string) {
-  return `https://app.onepagecrm.com/contact/${encodeURIComponent(id)}`;
-}
 
 function linkedinHref(url: string) {
   return /^https?:\/\//i.test(url) ? url : `https://${url}`;
@@ -36,13 +29,9 @@ function ChannelState({ label, state }: { label: string; state: Contactability }
 
 export function ContactsPanel({
   contacts,
-  crmActionFor,
-  crmBlockedReason,
   actions,
 }: {
   contacts: CompanyContact[];
-  crmActionFor: (contactId: string) => FormAction;
-  crmBlockedReason: string | null;
   /** Header buttons, e.g. "Add contact". */
   actions?: ReactNode;
 }) {
@@ -67,11 +56,22 @@ export function ContactsPanel({
             <li key={c.id} className="space-y-3 px-5 py-4">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <p className="flex flex-wrap items-center gap-2 font-medium text-ink">
+                  <p id={`contact-${c.id}`} className="flex scroll-mt-24 flex-wrap items-center gap-2 font-medium text-ink">
                     {c.name}
                     <TierBadge tier={c.tier} />
+                    {c.isPrimary && <Badge tone="accent">Primary</Badge>}
+                    {c.role !== "main" && <Badge tone="neutral">{c.role === "extra" ? "Extra" : "Reserve"}</Badge>}
                   </p>
                   {c.title && <p className="text-sm text-muted">{c.title}</p>}
+                  {(c.attempts > 0 || c.callbackAt || c.referredTo) && (
+                    <p className="mt-1 text-xs text-muted">
+                      {c.attempts > 0 && `${c.attempts} ${c.attempts === 1 ? "attempt" : "attempts"}`}
+                      {c.lastAttemptAt && `, last ${formatDate(c.lastAttemptAt)}`}
+                      {c.callbackAt && `${c.attempts > 0 ? ". " : ""}Call back on ${formatDate(c.callbackAt)}`}
+                      {c.referredTo && `${c.attempts > 0 || c.callbackAt ? ". " : ""}Referred to ${c.referredTo}`}
+                    </p>
+                  )}
+                  {c.callerNote && <p className="mt-1 text-xs whitespace-pre-line text-ink">{c.callerNote}</p>}
                 </div>
                 <ContactStatusBadge status={c.status} />
               </div>
@@ -173,26 +173,6 @@ export function ContactsPanel({
                 <ChannelState label="Mail" state={c.mail} />
               </ul>
 
-              <div className="flex flex-wrap items-center gap-2">
-                {c.onepageId ? (
-                  <a
-                    href={onePageContactUrl(c.onepageId)}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 text-sm font-medium text-brand-700 hover:underline"
-                  >
-                    In OnePageCRM
-                    <ExternalLink className="size-3.5" aria-hidden="true" />
-                    <span className="sr-only">(opens in a new tab)</span>
-                  </a>
-                ) : (
-                  <PushToCrmButton
-                    contactName={c.name}
-                    action={crmActionFor(c.id)}
-                    blockedReason={crmBlockedReason}
-                  />
-                )}
-              </div>
             </li>
           ))}
         </ul>

@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Ban, Building2, Pencil, Plus, Send } from "lucide-react";
+import { Ban, Building2, Pencil, Plus } from "lucide-react";
+import { SearchSelect } from "@/components/ui/search-select";
 import { Field, Input, Select, Textarea } from "@/components/ui/field";
 import type { CompanyStatus, Segment } from "@/lib/database.types";
 import { todayIso } from "@/lib/format";
@@ -277,70 +278,6 @@ export function SuppressButton({
 }
 
 // ---------------------------------------------------------------------------
-// OnePageCRM
-// ---------------------------------------------------------------------------
-
-export function PushToCrmButton({
-  contactName,
-  action,
-  blockedReason,
-}: {
-  contactName: string;
-  action: FormAction;
-  /** Shown instead of the form when the push cannot work (no OnePage, not qualified). */
-  blockedReason: string | null;
-}) {
-  return (
-    <ActionModal
-      label="To CRM"
-      icon={Send}
-      ariaLabel={`${contactName} to OnePageCRM`}
-      title="To OnePageCRM"
-      description={`${contactName} and the company go into OnePageCRM, with a next action.`}
-      action={action}
-      submitLabel="To CRM"
-      pendingLabel="Sending"
-    >
-      {(state) => {
-        const e = state.fieldErrors ?? {};
-        return (
-          <>
-            {blockedReason && !state.error && (
-              <p className="rounded-xl border border-amber-600/20 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-                {blockedReason}
-              </p>
-            )}
-            <Field
-              label="Reason"
-              htmlFor="crm-reason"
-              required
-              hint="For example a positive reply or a meeting via Web Partners."
-              error={e.reason}
-            >
-              <Input id="crm-reason" name="reason" required {...invalidProps(state, "reason", "crm-reason")} />
-            </Field>
-            <div className="grid gap-5 sm:grid-cols-[minmax(0,1fr)_180px]">
-              <Field label="Next action" htmlFor="crm-next" error={e.next_action}>
-                <Input id="crm-next" name="next_action" placeholder="For example plan an intake" />
-              </Field>
-              <Field label="Date" htmlFor="crm-next-date" error={e.next_action_date}>
-                <Input
-                  id="crm-next-date"
-                  name="next_action_date"
-                  type="date"
-                  min={todayIso()}
-                  {...invalidProps(state, "next_action_date", "crm-next-date")}
-                />
-              </Field>
-            </div>
-          </>
-        );
-      }}
-    </ActionModal>
-  );
-}
-
-// ---------------------------------------------------------------------------
 // Link to a client
 // ---------------------------------------------------------------------------
 
@@ -413,16 +350,15 @@ function LinkClientFields({
         </Field>
       ) : (
         <Field label="Existing client" htmlFor="client-id" required error={errors.client_id}>
-          <Select id="client-id" name="client_id" defaultValue={match?.id ?? ""}>
-            <option value="" disabled>
-              Pick a client
-            </option>
-            {clients.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.label}
-              </option>
-            ))}
-          </Select>
+          <SearchSelect
+            id="client-id"
+            name="client_id"
+            defaultValue={match?.id ?? null}
+            options={clients.map((c) => ({ value: c.id, label: c.label }))}
+            placeholder="Pick a client"
+            searchPlaceholder="Search clients"
+            allowClear={false}
+          />
         </Field>
       )}
     </>

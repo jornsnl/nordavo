@@ -5,7 +5,9 @@ import { sendMail } from "@/lib/notify/mail";
 
 /**
  * S10: weekly report to Julius, every Friday. Covers the last 7 days
- * (override with --days=14). The numbers are stored in job_runs.meta.
+ * (override with --days=14). Calls, reach, mails and replies come from
+ * Activities, the pipeline from the companies and meetings from the Meetings
+ * register (src/lib/sales/stats.ts). The numbers are stored in job_runs.meta.
  */
 export const s10WeeklyReport = defineJob({
   name: "s10-weekly-report",
@@ -22,6 +24,9 @@ export const s10WeeklyReport = defineJob({
       newCompanies: report.newCompanies,
       activity: report.activity,
       meetings: report.meetings,
+      pipeline: report.pipeline,
+      perCaller: report.perCaller,
+      repliesToReview: report.repliesToReview,
       goPerSegment: report.goPerSegment,
       attribution: report.attribution,
       warnings: report.warnings,
@@ -40,6 +45,6 @@ export const s10WeeklyReport = defineJob({
       throw new Error("Weekly report not sent: check RESEND_API_KEY, MAIL_FROM and REPORT_EMAIL_TO. The numbers are in job_runs.meta.");
     }
     ctx.countOut();
-    ctx.log(`Weekly report sent: ${report.meetings} meetings, ${report.warnings.length} warnings.`);
+    ctx.log(`Weekly report sent: ${report.meetings.planned} meetings, ${report.activity.calls} calls, ${report.warnings.length} warnings.`);
   },
 });

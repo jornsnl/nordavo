@@ -10,11 +10,11 @@ De interface is Engels (team in Nederland en Bangalore, freelancers overal). Tak
 
 | Onderdeel | Route | Wat het doet |
 | --- | --- | --- |
-| My overview | `/work` | Over alle workspaces heen: *My tasks* (gegroepeerd per workspace en project, op deadline), *To review*, *Today and overdue*. Filters op workspace, project, status en prioriteit. Teamleden hebben ook *Portal tasks*: hun open taken uit de module Tasks van het portaal, alleen lezen, met een link naar het record. |
+| My overview | `/work` | Over alle workspaces heen: *My tasks* (gegroepeerd op deadline: Overdue, Today, This week, Later, No date), *To review*, *Today and overdue*. Filters op workspace, project en status, prioriteit als gekleurde chips. Lijst of bord (*List*, *Board*). |
 | Workspace | `/work/w/<slug>` | Projecten van de workspace, nieuw project |
-| Project | `/work/projects/<id>` | Taken per status, filters op status, eigenaar en prioriteit, nieuwe taak |
+| Project | `/work/projects/<id>` | Open taken gegroepeerd op deadline (met *Everything* ook Done en Cancelled), of een bord met een kolom per status. Filters op status en eigenaar, prioriteit als chips, nieuwe taak (teamleden kunnen meteen een record kiezen) |
 | Projectinstellingen | `/work/projects/<id>/settings` | Open of afgeschermd, "guests only see their own tasks", mensen toevoegen en intrekken (met einddatum), gasten uitnodigen, archiveren |
-| Taak | `/work/tasks/<id>` | Omschrijving (Markdown), statusknoppen met de reviewregels, eigenaren, reviewer, prioriteit, deadline, subtaken, bijlagen, opmerkingen met @vermeldingen, activiteitenlog, verplaatsen, dupliceren, archiveren |
+| Taak | `/work/tasks/<id>` | Omschrijving (Markdown), statusknoppen met de reviewregels, eigenaren, reviewer, prioriteit, deadline, subtaken, bijlagen, opmerkingen met @vermeldingen, activiteitenlog, verplaatsen, dupliceren, archiveren. Voor teamleden: het gekoppelde record en de primaire contactpersoon |
 | Beheer | `/work/w/<slug>/admin` | Leden en gasten, rollen, einddatum van toegang, deactiveren met overdracht van open taken, uitnodigingen, toegangslog, export |
 | Prullenbak | `/work/w/<slug>/trash` | Gearchiveerde taken, 30 dagen terug te zetten |
 | Quick log | `/work/log` | In één stap afgerond werk loggen als afgeronde taak |
@@ -177,4 +177,39 @@ Sinds de migratie `20261108050000_custom_fields_and_extras.sql` (details in [rec
 
 - **Inloglink alleen voor gasten.** Een inloglink per mail werkt alleen voor accounts met portaalrol `external` (iedereen die alleen Work heeft). Een gast krijgt in de uitnodigingsmail een knop *Sign in and accept* die meteen inlogt en de uitnodiging opent; later vraagt hij een nieuwe link aan op `/work/sign-in` of `/login`. Teamleden en klanten krijgen geen link: zij loggen in met wachtwoord of passkey (en hun authenticator app). `/auth/confirm` logt een link sessie van een teamlid of klant direct weer uit. Inloggen met Google blijft voor iedereen werken zoals hiervoor.
 - **Tijdzones.** Settings biedt alle IANA zones (`Intl.supportedValuesOf('timeZone')`), met *Popular* bovenaan, per regio gegroepeerd en met een zoekveld. De server accepteert alleen zones van die lijst; de database controleert ook dat Postgres de zone kent.
-- **Portal tasks.** In My overview zien teamleden (admin en member in het portaal) een tabblad met hun open taken uit het portaal (`public.tasks`), alleen lezen. Gasten zien dat tabblad nooit, en `public.tasks` is voor hen in de database ook niet leesbaar.
+- **Portal tasks.** Dit tabblad is weg: de taken van het portaal zijn nu gewone Work taken (zie hieronder).
+
+## Taken en Work samengevoegd (feedback Julius)
+
+Er is nog maar één takenlijst: Work. De module Tasks van het portaal (`/dashboard/tasks`) is weg; oude links sturen door naar `/work`. Migratie `20261110000000_work_records.sql` zette elke portaaltaak om naar een Work taak (`external_source = 'portal_tasks'`, een deadline werd 17:00 Amsterdamse tijd op die dag) en zette `public.tasks` als archief in `archive.tasks`. Migratie `20261110020000_work_record_tasks.sql` voegt de functies toe die het portaal daarnaast nodig heeft.
+
+### Taken op een record
+
+- Een Work taak kan hangen aan een klant, lead (bedrijf), vacature, kandidaat, sollicitatie of plaatsing (`public.work_task_links`, één record per taak).
+- **Op de taakpagina** ziet een teamlid met de module van dat record het record (met link), en bij een lead of klant de primaire contactpersoon: naam, functie, mailadres, telefoon en LinkedIn (bij een lead `contacts.is_primary`, bij een klant `client_contacts.is_primary`). Met *Change or remove the record* kies je een ander record (zoeken per soort record) of haal je de koppeling weg (`work_set_task_link`). Een taak zonder record krijgt daar *Link a record*.
+- **Een nieuwe taak** in een project kan meteen een record krijgen (`work_create_record_task` met dat project).
+- **Detailpagina's** (klant, lead, vacature, kandidaat, plaatsing): het blok *Tasks* toont de Work taken van dat record, open eerst op deadline en daarna de laatst afgeronde. Snel toevoegen maakt een Work taak in het afgeschermde project *Portal records* van de workspace Nordavo; een deadline als dag wordt 17:00 in jouw tijdzone. Afvinken zet de taak op Done als jij reviewer of admin bent, anders gaat hij naar Review bij de reviewer (de reviewregel van Work blijft gelden). Bij een lead of klant staat de primaire contactpersoon in elke open taak. De titel linkt naar de taak in Work.
+- **Activiteit** van een record toont ook het log van de gekoppelde Work taken, en de oude regels van portaaltaken van voor de overgang.
+- **Een record verwijderen** verwijdert ook zijn Work taken (trigger per tabel).
+- **Zoeken** (Ctrl K in het portaal) vindt ook Work taken (`work_search`, binnen wat je mag zien).
+
+### Dashboard en plaatsingen
+
+- *My tasks* op `/dashboard`: jouw open Work taken (waar je eigenaar van bent, alle workspaces), op deadline, met het record als chip. *Open Work* gaat naar `/work`.
+- Een nieuwe plaatsing maakt twee Work taken op de plaatsing: *Client check-in* (volgende check-in) en *Guarantee period review* (5 dagen voor het einde van de garantie, hoge prioriteit), met de maker als eigenaar en reviewer.
+- Een check-in vastleggen sluit de open check-in taken van die plaatsing met een deadline tot een week na de check-in (`work_close_record_tasks`). Dat mag ieder teamlid met de module Recruitment, ook als iemand anders reviewer is: het is de automatische opvolging, geen goedkeuring van werk. De volgende check-in plannen kan een nieuwe check-in taak maken.
+
+### Prioriteit, groepering en bord
+
+- Elke prioriteit heeft een vaste kleur, overal hetzelfde (`priorityStyles` in `src/lib/sales/labels.ts`): Urgent rood, High oranje, Normal blauw, Low grijs. Als chip in de filters, als chip en linkerrand in lijsten, op kaarten van het bord, op de taakpagina en in het takenblok van een record.
+- Groepering op deadline in de tijdzone van de kijker (`src/lib/work/grouping.ts`): Overdue (deadline voorbij), Today, This week (tot en met zondag), Later, No date.
+- **Bord** op My overview en de projectpagina: een kolom per status (To do, In progress, Review, Done; Cancelled alleen als er zulke taken zijn). Een kaart naar een andere kolom slepen zet de status via `work_set_status`, dus met de reviewregels: Done alleen door de reviewer of een admin, Review alleen met een reviewer, terug van Review of Done alleen met een opmerking (op de taakpagina). Weigert de database, dan springt de kaart terug en staat de melding erboven. Met de muis via het greepje, op een telefoon lang drukken, met het toetsenbord spatie en de pijltjes.
+
+### Gasten zien geen portaaldata
+
+Gasten en freelancers in Work zien nooit welke klant, kandidaat of lead achter een taak zit:
+
+- `work_task_links` is in de database alleen leesbaar voor teamleden met de module van dat record (RLS); gasten lezen nul rijen.
+- De interface laadt het record en de contactpersoon alleen voor teamleden met die module (`src/lib/work/records.ts`) en leest daarbij als de ingelogde gebruiker, nooit met de secret key.
+- De REST API en MCP van Work (`/api/work/v1`, `/api/work/mcp`) lezen `work_task_links` niet. Alleen de MCP van het portaal (`/api/mcp`, alleen teamleden) toont het record, beperkt tot de modules van de eigenaar van het token.
+- De test `work_guest_isolation.test.sql` controleert dit, en ook dat `work_close_record_tasks` en `work_api_record_tasks` gasten en teamleden zonder de module weigeren.

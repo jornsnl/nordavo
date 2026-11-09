@@ -12,11 +12,22 @@ import {
 import { requireStaff } from "@/lib/auth";
 import { todayIso } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
+import { localInputToUtc, safeTimeZone } from "@/lib/work/time";
 import { addDays, addMonths } from "@/components/placements/dates";
 
 const id = z.guid();
 
 const CHECKIN_TASK_TITLE = "Client check-in";
+/** Check-in tasks made before the English UI carry the Dutch title. */
+const CHECKIN_TASK_TITLES = [CHECKIN_TASK_TITLE, "Check-in met klant"];
+
+/**
+ * Follow-up tasks are Work tasks on the placement (project "Portal records").
+ * A date means 17:00 that day in the time zone of the team member.
+ */
+function followUpDue(date: string, timeZone: string) {
+  return localInputToUtc(`${date}T17:00`, safeTimeZone(timeZone));
+}
 
 const date = (message: string) => z.iso.date({ error: message });
 
@@ -151,29 +162,24 @@ export async function createPlacement(
     vacancyId
       ? supabase.from("vacancies").update({ status: "filled", closed_at: today }).eq("id", vacancyId)
       : null,
-    supabase.from("tasks").insert([
-      {
-        title: CHECKIN_TASK_TITLE,
-        description: "How is the developer doing? Ask about collaboration, pace and communication.",
-        due_date: nextCheckin,
-        // Bulk inserts send NULL for keys missing in a row, so every row
-        // lists the same columns.
-        priority: "normal",
-        assignee_id: user.id,
-        entity_type: "placement",
-        entity_id: placement.id,
-      },
-      {
-        title: "Guarantee period review",
-        description:
-          "The 30-day guarantee period is ending. Check with the client that everything is as expected.",
-        due_date: addDays(guaranteeUntil, -5),
-        priority: "high",
-        assignee_id: user.id,
-        entity_type: "placement",
-        entity_id: placement.id,
-      },
-    ]),
+    supabase.rpc("work_create_record_task", {
+      p_entity_type: "placement",
+      p_entity_id: placement.id,
+      p_title: CHECKIN_TASK_TITLE,
+      p_description: "How is the developer doing? Ask about collaboration, pace and communication.",
+      p_priority: "normal",
+      p_due_at: followUpDue(nextCheckin, user.timeZone),
+      p_assignees: [user.id],
+    }),
+    supabase.rpc("work_create_record_task", {
+      p_entity_type: "placement",
+      p_entity_id: placement.id,
+      p_title: "Guarantee period review",
+      p_description: "The 30-day guarantee period is ending. Check with the client that everything is as expected.",
+      p_priority: "high",
+      p_due_at: followUpDue(addDays(guaranteeUntil, -5), user.timeZone),
+      p_assignees: [user.id],
+    }),
   ]);
 
   const failed = followUps.some((result) => result?.error);
@@ -272,7 +278,7 @@ export async function addCheckin(
   _prev: CheckinState,
   formData: FormData,
 ): Promise<CheckinState> {
-  await requireStaff();
+  const user = await requireStaff();
   if (!id.safeParse(placementId).success) return { error: "Placement not found." };
 
   const parsed = checkinSchema.safeParse(formValues(formData));
@@ -299,16 +305,16 @@ export async function addCheckin(
     return { error: GENERIC_ERROR };
   }
 
-  // The check-in happened, so open check-in tasks for this placement are done.
-  await supabase
-    .from("tasks")
-    .update({ status: "done" })
-    .eq("entity_type", "placement")
-    .eq("entity_id", placementId)
-    // Tasks created before the English UI carry the Dutch title.
-    .in("title", [CHECKIN_TASK_TITLE, "Check-in met klant"])
-    .neq("status", "done")
-    .lte("due_date", addDays(parsed.data.checkin_date, 7));
+  // The check-in happened, so open check-in tasks for this placement are done
+  // (those due up to a week after it). The database lets the team with the
+  // recruitment module close them, also when someone else is the reviewer.
+  const { error: closeError } = await supabase.rpc("work_close_record_tasks", {
+    p_entity_type: "placement",
+    p_entity_id: placementId,
+    p_titles: CHECKIN_TASK_TITLES,
+    p_due_before: localInputToUtc(`${addDays(parsed.data.checkin_date, 7)}T23:59`, safeTimeZone(user.timeZone)),
+  });
+  if (closeError) console.error("addCheckin closing check-in tasks", closeError);
 
   revalidateAll(placementId);
   return {
@@ -348,13 +354,18 @@ export async function setNextCheckin(
   }
 
   if (parsed.data.create_task) {
-    await supabase.from("tasks").insert({
-      title: CHECKIN_TASK_TITLE,
-      due_date: parsed.data.next_checkin_at,
-      assignee_id: user.id,
-      entity_type: "placement",
-      entity_id: placementId,
+    const { error: taskError } = await supabase.rpc("work_create_record_task", {
+      p_entity_type: "placement",
+      p_entity_id: placementId,
+      p_title: CHECKIN_TASK_TITLE,
+      p_due_at: followUpDue(parsed.data.next_checkin_at, user.timeZone),
+      p_assignees: [user.id],
     });
+    if (taskError) {
+      console.error("setNextCheckin task", taskError);
+      revalidateAll(placementId);
+      return { ok: true, message: "Next check-in scheduled, but the task could not be made." };
+    }
   }
 
   revalidateAll(placementId);
@@ -450,12 +461,7 @@ export async function deletePlacement(placementId: string): Promise<ActionState>
     return { error: GENERIC_ERROR };
   }
 
-  // Follow-up tasks only make sense with the placement.
-  await supabase
-    .from("tasks")
-    .delete()
-    .eq("entity_type", "placement")
-    .eq("entity_id", placementId);
+  // Its follow-up tasks in Work go with it (trigger placements_work_tasks).
 
   revalidateAll();
   redirect("/dashboard/placements");

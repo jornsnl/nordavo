@@ -1,23 +1,15 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Database } from "@/lib/database.types";
 import {
-  addWorkingDays,
   buildContactPayload,
   createContact,
   dealStageMap,
   defaultNextAction,
   findContactByEmail,
-  listRecentChanges,
-  mapCompletedAction,
-  mapDealChange,
   mergeContactPayload,
-  pushContactToCrm,
-  shouldPromoteStatus,
-  stageForTrigger,
   stageKeyFor,
 } from "@/lib/integrations/onepage";
+import { addWorkingDays, shouldPromoteStatus } from "@/lib/sales/status";
 
 process.env.ONEPAGE_USER_ID = "user123";
 process.env.ONEPAGE_API_KEY = "key456";
@@ -94,47 +86,16 @@ test("stage mapping is configurable and maps back to the nearest lower stage", (
   assert.equal(map.afspraak_gepland, 35);
   assert.equal(map.gesprekken, 90);
   assert.throws(() => dealStageMap("{nope"), /not valid JSON/);
-  assert.equal(stageForTrigger("afspraak"), "afspraak_gepland");
-  assert.equal(stageForTrigger("reply_positief"), "benaderd");
-  assert.equal(stageForTrigger(null), "gekwalificeerd");
 });
 
 test("contact status only moves forward", () => {
-  assert.equal(shouldPromoteStatus("bereikt", "afspraak"), true);
-  assert.equal(shouldPromoteStatus("afspraak", "kans"), true);
-  assert.equal(shouldPromoteStatus("kans", "afspraak"), false);
-  assert.equal(shouldPromoteStatus("klant", "verloren"), false);
-  assert.equal(shouldPromoteStatus("verloren", "afspraak"), true);
-  assert.equal(shouldPromoteStatus("uitgesloten", "kans"), false);
-  assert.equal(shouldPromoteStatus("kans", "verloren"), true);
-});
-
-test("mapDealChange turns won, lost and stage changes into activities", () => {
-  const won = mapDealChange({ id: "d1", contact_id: "op1", status: "won", stage: 90, modified_at: "2026-10-23T10:00:00Z", name: "Acme" });
-  assert.equal(won?.outcome, "gewonnen");
-  assert.equal(won?.contactStatus, "klant");
-  assert.equal(won?.companyWon, true);
-  assert.equal(won?.externalId, "onepage:deal:d1:won:2026-10-23T10:00:00Z");
-
-  const lost = mapDealChange({ id: "d1", contact_id: "op1", status: "lost", text: "Te duur", modified_at: "2026-10-23T10:00:00Z" });
-  assert.equal(lost?.outcome, "verloren");
-  assert.match(lost?.notes ?? "", /Te duur/);
-
-  assert.equal(mapDealChange({ id: "d2", contact_id: "op1", status: "pending", stage: 30 })?.outcome, "gesprek_gehad");
-  assert.equal(mapDealChange({ id: "d2", contact_id: "op1", status: "pending", stage: 40 })?.outcome, "afspraak");
-  const intake = mapDealChange({ id: "d2", contact_id: "op1", status: "pending", stage: 50 });
-  assert.equal(intake?.outcome, "notitie");
-  assert.equal(intake?.stateKey, "onepage:deal:d2:intake_gedaan");
-  assert.equal(mapDealChange({ id: "d2", contact_id: "op1", status: "pending", stage: 10 }), null);
-  assert.equal(mapDealChange({ id: "d3", status: "won" }), null);
-});
-
-test("mapCompletedAction", () => {
-  const call = mapCompletedAction({ id: "a1", contact_id: "op1", text: "Salesgesprek voeren", done: true, done_at: "2026-10-22T09:00:00Z" });
-  assert.equal(call?.outcome, "gesprek_gehad");
-  assert.equal(call?.externalId, "onepage:action:a1:2026-10-22T09:00:00Z");
-  assert.equal(mapCompletedAction({ id: "a2", contact_id: "op1", text: "Offerte sturen", status: "done" })?.outcome, "notitie");
-  assert.equal(mapCompletedAction({ id: "a3", contact_id: "op1", text: "Bellen", done: false }), null);
+  assert.equal(shouldPromoteStatus("qualified", "in_outreach"), true);
+  assert.equal(shouldPromoteStatus("in_outreach", "reached"), true);
+  assert.equal(shouldPromoteStatus("reached", "in_outreach"), false);
+  assert.equal(shouldPromoteStatus("do_not_contact", "reached"), false);
+  assert.equal(shouldPromoteStatus("not_interested", "reached"), true);
+  assert.equal(shouldPromoteStatus("not_reached", "in_outreach"), false);
+  assert.equal(shouldPromoteStatus("reached", "not_interested"), true);
 });
 
 type Call = { url: string; method: string; auth: string | null; body: unknown };
@@ -187,45 +148,4 @@ test("API errors carry the OnePageCRM message", async () => {
   globalThis.fetch = (async () =>
     new Response(JSON.stringify({ status: 400, error_name: "invalid_request", error_message: "Missing last_name" }), { status: 400 })) as typeof fetch;
   await assert.rejects(() => createContact(buildContactPayload({ contact, company })), /400: Missing last_name/);
-});
-
-test("listRecentChanges pages and keeps only completed actions", async () => {
-  const calls = mockFetch([
-    { status: 0, data: { deals: [{ deal: { id: "d1", contact_id: "op1", stage: 40, status: "pending" } }], max_page: 1 } },
-    {
-      status: 0,
-      data: {
-        actions: [
-          { action: { id: "a1", contact_id: "op1", text: "Bellen", done: true } },
-          { action: { id: "a2", contact_id: "op1", text: "Later", done: false } },
-        ],
-        max_page: 1,
-      },
-    },
-  ]);
-  const { deals, actions } = await listRecentChanges(new Date("2026-10-20T00:00:00Z"));
-  assert.equal(deals.length, 1);
-  assert.deepEqual(actions.map((a) => a.id), ["a1"]);
-  assert.match(calls[0].url, /modified_since=1792454400/);
-});
-
-/** Minimal stand-in for the Supabase query builder: every chain resolves to `result`. */
-function fakeDb(result: unknown) {
-  const builder: Record<string, unknown> = {};
-  const chain = () => builder;
-  for (const m of ["select", "eq", "in", "neq", "not", "order", "limit", "is"]) builder[m] = chain;
-  builder.maybeSingle = async () => ({ data: result, error: null });
-  return { from: () => builder } as unknown as SupabaseClient<Database>;
-}
-
-test("pushContactToCrm refuses contacts that are not qualified (rule 8)", async () => {
-  const base = { id: "c1", company_id: "co1", ...contact, status: "verrijkt", onepage_id: null };
-  await assert.rejects(
-    () => pushContactToCrm(fakeDb({ ...base, company: { ...company, id: "co1", icp_decision: "REVIEW" } }), "c1", { reason: "test" }),
-    /not qualified \(ICP decision is not GO\)/,
-  );
-  await assert.rejects(
-    () => pushContactToCrm(fakeDb({ ...base, status: "nieuw", company: { ...company, id: "co1", icp_decision: "GO" } }), "c1", { reason: "test" }),
-    /status nieuw/,
-  );
 });

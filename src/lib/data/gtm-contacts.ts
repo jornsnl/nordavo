@@ -1,7 +1,7 @@
 import "server-only";
 import { requireStaff } from "@/lib/auth";
 import type { ContactStatus, EmailStatus, PhoneType } from "@/lib/database.types";
-import { formatDate } from "@/lib/format";
+import type { ContactRole } from "@/lib/sales/database";
 import { contactStatuses, emailStatuses, optionFor, suppressionReasons } from "@/lib/labels";
 import { createClient } from "@/lib/supabase/server";
 import { getCompanySuppressions, orFilterPattern, type SuppressionItem } from "@/lib/data/companies";
@@ -143,6 +143,13 @@ export type CompanyContact = {
   phoneSource: string | null;
   phoneFoundAt: string | null;
   status: ContactStatus;
+  role: ContactRole;
+  isPrimary: boolean;
+  attempts: number;
+  lastAttemptAt: string | null;
+  callbackAt: string | null;
+  referredTo: string | null;
+  callerNote: string | null;
   onepageId: string | null;
   lastContactedAt: string | null;
   bellen: Contactability;
@@ -179,11 +186,8 @@ function explain(
     const target = hit.contactId === contact.id ? "contact" : hit.companyId === companyId ? "company" : "e-mail address";
     return { ok: false, reason: `On the suppression list (${target}): ${optionFor(suppressionReasons, hit.reason).label.toLowerCase()}` };
   }
-  if (contact.last_contacted_at) {
-    return { ok: false, reason: `Contacted on ${formatDate(contact.last_contacted_at)}` };
-  }
   if (ok === null) return { ok: false, reason: "Could not be checked" };
-  return { ok: false, reason: "Contacted recently" };
+  return { ok: false, reason: "Suppressed" };
 }
 
 export async function getCompanyContacts(
@@ -194,9 +198,10 @@ export async function getCompanyContacts(
   const { data, error } = await supabase
     .from("contacts")
     .select(
-      "id, first_name, last_name, title, tier, linkedin_url, email, email_source, email_status, email_found_at, phone, phone_type, phone_source, phone_found_at, status, onepage_id, last_contacted_at",
+      "id, first_name, last_name, title, tier, linkedin_url, email, email_source, email_status, email_found_at, phone, phone_type, phone_source, phone_found_at, status, role, is_primary, attempts, last_attempt_at, callback_at, referred_to, caller_note, onepage_id, last_contacted_at",
     )
     .eq("company_id", companyId)
+    .order("is_primary", { ascending: false })
     .order("tier", { ascending: true, nullsFirst: false })
     .order("created_at", { ascending: true });
   if (error) throw new Error(`Could not load contacts: ${error.message}`);
@@ -234,6 +239,13 @@ export async function getCompanyContacts(
     phoneSource: c.phone_source,
     phoneFoundAt: c.phone_found_at,
     status: c.status,
+    role: c.role,
+    isPrimary: c.is_primary,
+    attempts: c.attempts,
+    lastAttemptAt: c.last_attempt_at,
+    callbackAt: c.callback_at,
+    referredTo: c.referred_to,
+    callerNote: c.caller_note,
     onepageId: c.onepage_id,
     lastContactedAt: c.last_contacted_at,
     bellen: explain(checks[i].bellen, "bellen", c, companyId, suppressions),

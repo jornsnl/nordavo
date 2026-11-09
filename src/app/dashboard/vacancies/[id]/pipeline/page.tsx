@@ -11,7 +11,7 @@ import { ButtonLink } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getPipeline } from "@/lib/data/applications";
 import { isUuid, listCandidateOptions } from "@/lib/data/candidates";
-import { listStaff } from "@/lib/data/tasks";
+import { listStaff } from "@/lib/data/staff";
 import { listInterviewers } from "@/lib/data/interviews";
 import { formatDate } from "@/lib/format";
 import { optionFor, vacancyStatuses } from "@/lib/labels";

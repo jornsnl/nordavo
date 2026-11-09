@@ -20,7 +20,7 @@ import { loadApplicationExtras, setShortlisted } from "@/app/dashboard/vacancies
 import { initialActionState } from "@/lib/action-state";
 import type { CandidateOption } from "@/lib/data/candidates";
 import type { ApplicationExtras } from "@/lib/data/recruitment";
-import type { StaffMember } from "@/lib/data/tasks";
+import type { StaffMember } from "@/lib/data/staff";
 import { formatDate, formatDateTime } from "@/lib/format";
 import {
   applicationStages,

@@ -8,6 +8,7 @@ import { IfModule } from "@/components/dashboard/if-module";
 import { RecentActivity } from "@/components/entity/recent-activity";
 import { AttentionVacancies } from "@/components/overview/attention-vacancies";
 import { PipelineFunnel } from "@/components/overview/pipeline-funnel";
+import { SalesOverview, SalesOverviewSkeleton } from "@/components/overview/sales-overview";
 import { StatCards, StatCardsSkeleton } from "@/components/overview/stat-cards";
 import { UpcomingMoments } from "@/components/overview/upcoming-moments";
 import { MyTasksWidget } from "@/components/tasks/my-tasks-widget";
@@ -55,6 +56,12 @@ export default function DashboardPage({ searchParams }: PageProps<"/dashboard">)
       <Suspense fallback={<StatCardsSkeleton />}>
         <IfModule module="recruitment">
           <StatCards />
+        </IfModule>
+      </Suspense>
+
+      <Suspense fallback={<SalesOverviewSkeleton />}>
+        <IfModule module="sales">
+          <SalesOverview />
         </IfModule>
       </Suspense>
 

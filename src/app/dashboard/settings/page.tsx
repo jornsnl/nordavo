@@ -216,7 +216,9 @@ async function UsersSection() {
   const user = await getCurrentUser();
   if (user.role !== "admin") return null;
 
-  const [profiles, clients] = await Promise.all([listProfiles(), listClientOptions()]);
+  const [allProfiles, clients] = await Promise.all([listProfiles(), listClientOptions()]);
+  // External callers are managed in the Callers tab.
+  const profiles = allProfiles.filter((profile) => profile.role !== "caller");
   const canInvite = hasAdminClient();
 
   // Who has two-step verification on. Needs the secret key; missing means unknown.

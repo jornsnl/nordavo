@@ -16,8 +16,11 @@ import {
 import { formatDate } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 import { recordKey, resolveRecords, type RecordLink } from "@/lib/data/search";
+import { workOption, workPriorities, workStatuses } from "@/lib/work/labels";
 
 export type ActivityItem = {
+  /** Unique across the portal log and the Work task log, for React keys. */
+  key: string;
   id: number;
   entityType: string;
   entityId: string;
@@ -244,6 +247,7 @@ async function toActivityItems(rows: ActivityRow[]): Promise<ActivityItem[]> {
   return rows.map((r) => {
     const { verb, detail } = describeActivity(r.entity_type, r.action, r.changes);
     return {
+      key: `log-${r.id}`,
       id: r.id,
       entityType: r.entity_type,
       entityId: r.entity_id,
@@ -272,9 +276,82 @@ export async function listRecentActivity(limit: number): Promise<ActivityItem[]>
   return toActivityItems(data);
 }
 
+type WorkActivityRow = {
+  id: number;
+  task_id: string;
+  action: string;
+  details: Json;
+  created_at: string;
+  actor: { full_name: string | null; email: string | null } | null;
+};
+
+/** A line of the Work task log as a timeline entry of the record the task is on. */
+function workActivityItem(row: WorkActivityRow, title: string): ActivityItem {
+  const d = (row.details && typeof row.details === "object" && !Array.isArray(row.details) ? row.details : {}) as Record<
+    string,
+    { from?: Json; to?: Json } | Json
+  >;
+  const change = (key: string) => d[key] as { from?: Json; to?: Json } | undefined;
+  let action: ActivityAction = "updated";
+  let verb = "updated";
+  let detail: string | null = null;
+  switch (row.action) {
+    case "created":
+    case "imported":
+      action = "created";
+      verb = "created";
+      break;
+    case "commented":
+      verb = "commented on";
+      break;
+    case "owner_added":
+    case "owner_removed":
+      verb = "owners changed";
+      break;
+    case "file_added":
+      verb = "file added";
+      break;
+    case "updated": {
+      const status = change("status");
+      const parts: string[] = [];
+      if (status?.to) {
+        action = "status_changed";
+        verb = "status changed";
+        parts.push(
+          `from ${workOption(workStatuses, String(status.from) as never).label} to ${workOption(workStatuses, String(status.to) as never).label}`,
+        );
+      }
+      const priority = change("priority");
+      if (priority?.to) parts.push(`priority ${workOption(workPriorities, String(priority.to) as never).label}`);
+      if (change("due_at")) parts.push("deadline changed");
+      if (change("title")) parts.push("renamed");
+      if (d.record) parts.push("linked record changed");
+      detail = parts.join(", ") || null;
+      break;
+    }
+    default:
+      verb = row.action.replace(/_/g, " ");
+  }
+  return {
+    key: `work-${row.id}`,
+    id: row.id,
+    entityType: "task",
+    entityId: row.task_id,
+    typeLabel: "Task",
+    action,
+    verb,
+    detail,
+    summary: `${title} ${verb}`,
+    record: { label: title, sublabel: null, href: `/work/tasks/${row.task_id}` },
+    actorName: row.actor?.full_name || row.actor?.email || null,
+    createdAt: row.created_at,
+  };
+}
+
 /**
  * Timeline for one record. Includes the pipeline of a vacancy or candidate
- * and the tasks linked to the record, so the story is complete.
+ * and the Work tasks linked to the record (their own log, plus the portal log
+ * of tasks from before the move to Work), so the story is complete.
  */
 export async function listEntityActivity(
   entityType: EntityType,
@@ -285,7 +362,7 @@ export async function listEntityActivity(
   if (!UUID.test(entityId)) return [];
   const supabase = await createClient();
 
-  const [applicationIds, taskIds] = await Promise.all([
+  const [applicationIds, linkedTasks] = await Promise.all([
     entityType === "vacancy" || entityType === "candidate"
       ? supabase
           .from("applications")
@@ -294,29 +371,58 @@ export async function listEntityActivity(
           .limit(100)
           .then(({ data }) => (data ?? []).map((a) => a.id))
       : Promise.resolve([] as string[]),
+    // RLS on work_task_links: the team with the module of this record only.
     supabase
-      .from("tasks")
-      .select("id")
+      .from("work_task_links")
+      .select("task_id, task:work_tasks!work_task_links_task_id_fkey(id, title, external_source, external_id)")
       .eq("entity_type", entityType)
       .eq("entity_id", entityId)
       .limit(100)
-      .then(({ data }) => (data ?? []).map((t) => t.id)),
+      .then(({ data }) =>
+        (data ?? []).flatMap((l) => {
+          const task = l.task as { id: string; title: string; external_source: string | null; external_id: string | null } | null;
+          return task ? [task] : [];
+        }),
+      ),
   ]);
+  // Portal log rows of tasks from before Work point at the old portal task id.
+  const oldTaskIds = linkedTasks
+    .filter((t) => t.external_source === "portal_tasks" && t.external_id && UUID.test(t.external_id))
+    .map((t) => t.external_id!);
 
   const filters = [`and(entity_type.eq.${entityType},entity_id.eq.${entityId})`];
   if (applicationIds.length > 0) {
     filters.push(`and(entity_type.eq.application,entity_id.in.(${applicationIds.join(",")}))`);
   }
-  if (taskIds.length > 0) {
-    filters.push(`and(entity_type.eq.task,entity_id.in.(${taskIds.join(",")}))`);
+  if (oldTaskIds.length > 0) {
+    filters.push(`and(entity_type.eq.task,entity_id.in.(${oldTaskIds.join(",")}))`);
   }
 
-  const { data, error } = await supabase
-    .from("activity_log")
-    .select(ACTIVITY_COLUMNS)
-    .or(filters.join(","))
-    .order("created_at", { ascending: false })
-    .limit(limit);
+  const [{ data, error }, workRows] = await Promise.all([
+    supabase
+      .from("activity_log")
+      .select(ACTIVITY_COLUMNS)
+      .or(filters.join(","))
+      .order("created_at", { ascending: false })
+      .limit(limit),
+    linkedTasks.length > 0
+      ? supabase
+          .from("work_task_activity")
+          .select("id, task_id, action, details, created_at, actor:profiles!work_task_activity_actor_id_fkey(full_name, email)")
+          .in(
+            "task_id",
+            linkedTasks.map((t) => t.id),
+          )
+          .order("created_at", { ascending: false })
+          .limit(limit)
+          .then(({ data: rows }) => (rows ?? []) as unknown as WorkActivityRow[])
+      : Promise.resolve([] as WorkActivityRow[]),
+  ]);
   if (error) throw new Error(`Could not load activity: ${error.message}`);
-  return toActivityItems(data);
+  const titles = new Map(linkedTasks.map((t) => [t.id, t.title]));
+  const items = [
+    ...(await toActivityItems(data)),
+    ...workRows.map((row) => workActivityItem(row, titles.get(row.task_id) ?? "Task")),
+  ];
+  return items.sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, limit);
 }

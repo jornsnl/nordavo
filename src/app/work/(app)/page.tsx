@@ -6,10 +6,9 @@ import { EmptyState } from "@/components/dashboard/empty-state";
 import { ListSkeleton } from "@/components/ui/skeleton";
 import { FilterBar, type FilterDef } from "@/components/work/filter-bar";
 import { PageTabs } from "@/components/work/page-tabs";
-import { TaskGroup } from "@/components/work/task-row";
-import { PortalTaskGroup } from "@/components/work/portal-task-group";
-import { isStaff } from "@/lib/auth";
-import { listMyPortalTasks } from "@/lib/work/portal-tasks";
+import { DueGroups, TaskGroup } from "@/components/work/task-row";
+import { TaskBoard } from "@/components/work/task-board";
+import { PriorityChips, ViewToggle } from "@/components/work/view-controls";
 import {
   countReviews,
   listMyWorkspaces,
@@ -20,7 +19,7 @@ import {
   type TaskFilters,
   type TaskListItem,
 } from "@/lib/work/data";
-import { isWorkPriority, isWorkStatus, workPriorities, workStatuses } from "@/lib/work/labels";
+import { isWorkPriority, isWorkStatus, workStatuses } from "@/lib/work/labels";
 import { dueState } from "@/lib/work/time";
 
 export const metadata: Metadata = { title: "My overview" };
@@ -31,16 +30,16 @@ function first(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] : value;
 }
 
-/** "portal" is the read only list of CRM tasks, for staff only. */
-type Tab = OverviewTab | "portal";
+type Tab = OverviewTab;
 
-function parse(params: Search): { tab: Tab; filters: TaskFilters } {
+function parse(params: Search): { tab: Tab; view: "list" | "board"; filters: TaskFilters } {
   const tab = first(params.tab);
   const status = first(params.status);
   const priority = first(params.priority);
   const uuid = (v: string | undefined) => (v && /^[0-9a-f-]{36}$/i.test(v) ? v : undefined);
   return {
-    tab: tab === "review" || tab === "today" || tab === "portal" ? tab : "mine",
+    tab: tab === "review" || tab === "today" ? tab : "mine",
+    view: first(params.view) === "board" ? "board" : "list",
     filters: {
       workspace: uuid(first(params.workspace)),
       project: uuid(first(params.project)),
@@ -67,18 +66,9 @@ export default function OverviewPage({ searchParams }: PageProps<"/work">) {
 
 async function Overview({ searchParams }: { searchParams: Promise<Search> }) {
   const params = await searchParams;
-  const parsed = parse(params);
+  const { tab, view, filters } = parse(params);
   const user = await requireWorkUser();
-  const staff = isStaff(user);
-  // Guests never get the portal tab; a hand typed ?tab=portal falls back to My tasks.
-  const tab: Tab = parsed.tab === "portal" && !staff ? "mine" : parsed.tab;
-  const filters = parsed.filters;
-  const [workspaces, reviewCount, tasks, portalTasks] = await Promise.all([
-    listMyWorkspaces(),
-    countReviews(),
-    tab === "portal" ? Promise.resolve([] as TaskListItem[]) : listOverview(tab, filters),
-    staff ? listMyPortalTasks(user) : Promise.resolve([]),
-  ]);
+  const [workspaces, reviewCount, tasks] = await Promise.all([listMyWorkspaces(), countReviews(), listOverview(tab, filters)]);
   const projects = (await Promise.all(workspaces.map((w) => listProjects(w.id)))).flat();
 
   const keep = new URLSearchParams();
@@ -86,6 +76,7 @@ async function Overview({ searchParams }: { searchParams: Promise<Search> }) {
     const value = filters[key];
     if (value) keep.set(key, value);
   }
+  if (view === "board") keep.set("view", "board");
   const hrefFor = (t: Tab) => {
     const q = new URLSearchParams(keep);
     if (t !== "mine") q.set("tab", t);
@@ -109,7 +100,6 @@ async function Overview({ searchParams }: { searchParams: Promise<Search> }) {
     ...(tab === "review"
       ? []
       : [{ name: "status", label: "Status", all: "Open statuses", options: workStatuses.map((s) => ({ value: s.value, label: s.label })) }]),
-    { name: "priority", label: "Priority", all: "Any priority", options: workPriorities.map((p) => ({ value: p.value, label: p.label })) },
   ];
 
   return (
@@ -121,20 +111,21 @@ async function Overview({ searchParams }: { searchParams: Promise<Search> }) {
             { label: "My tasks", href: hrefFor("mine"), active: tab === "mine" },
             { label: "To review", href: hrefFor("review"), active: tab === "review", count: reviewCount },
             { label: "Today and overdue", href: hrefFor("today"), active: tab === "today" },
-            ...(staff
-              ? [{ label: "Portal tasks", href: hrefFor("portal"), active: tab === "portal", count: portalTasks.length }]
-              : []),
           ]}
         />
-        {tab !== "portal" && <FilterBar filters={filterDefs} basePath="/work" />}
+        <FilterBar filters={filterDefs} basePath="/work" />
+      </div>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <PriorityChips basePath="/work" />
+        <ViewToggle basePath="/work" view={view} />
       </div>
 
-      {tab === "portal" ? (
-        <PortalTaskGroup tasks={portalTasks} />
-      ) : tasks.length === 0 ? (
+      {tasks.length === 0 ? (
         <Empty tab={tab} filtered={Object.values(filters).some(Boolean)} hasWorkspaces={workspaces.length > 0} />
+      ) : view === "board" ? (
+        <TaskBoard tasks={tasks} timeZone={user.timeZone} />
       ) : tab === "mine" ? (
-        <GroupedByProject tasks={tasks} timeZone={user.timeZone} />
+        <DueGroups tasks={tasks} timeZone={user.timeZone} />
       ) : tab === "review" ? (
         <TaskGroup
           title="Waiting for your review"
@@ -145,26 +136,6 @@ async function Overview({ searchParams }: { searchParams: Promise<Search> }) {
       ) : (
         <TodayGroups tasks={tasks} timeZone={user.timeZone} />
       )}
-    </div>
-  );
-}
-
-/** Mijn taken: grouped per workspace and project, each group sorted by deadline. */
-function GroupedByProject({ tasks, timeZone }: { tasks: TaskListItem[]; timeZone: string }) {
-  const groups = new Map<string, { title: string; tasks: TaskListItem[]; firstDue: string }>();
-  for (const task of tasks) {
-    const key = task.project.id;
-    const group = groups.get(key) ?? { title: `${task.workspace.name} › ${task.project.name}`, tasks: [], firstDue: "~" };
-    group.tasks.push(task);
-    if (task.dueAt && task.dueAt < group.firstDue) group.firstDue = task.dueAt;
-    groups.set(key, group);
-  }
-  const ordered = [...groups.values()].sort((a, b) => a.firstDue.localeCompare(b.firstDue) || a.title.localeCompare(b.title));
-  return (
-    <div className="space-y-4">
-      {ordered.map((group) => (
-        <TaskGroup key={group.title} title={group.title} tasks={group.tasks} timeZone={timeZone} showContext={false} />
-      ))}
     </div>
   );
 }

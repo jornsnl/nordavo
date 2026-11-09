@@ -17,7 +17,9 @@ import {
   TaskActionButtons,
   TaskFieldsForm,
 } from "@/components/work/task-controls";
-import { DueLabel, PriorityBadge, StatusBadge, TaskRow } from "@/components/work/task-row";
+import { DueLabel, PriorityBadge, StatusBadge, TaskRow, priorityBorder } from "@/components/work/task-row";
+import { RecordLinkForm } from "@/components/work/record-link-form";
+import { PrimaryContactDetails, RecordChip } from "@/components/work/task-record";
 import {
   addCommentAction,
   archiveTaskAction,
@@ -30,6 +32,7 @@ import {
   updateTaskAction,
   uploadFileAction,
 } from "@/app/work/actions";
+import { setTaskRecordAction } from "@/app/work/record-actions";
 import { getTask, listProjectPeople, listProjects, requireWorkUser, type ActivityItem, type Person } from "@/lib/work/data";
 import { workOption, workPriorities, workStatuses } from "@/lib/work/labels";
 import { formatAgo, formatDateTimeIn, utcToLocalInput } from "@/lib/work/time";
@@ -83,7 +86,7 @@ async function TaskDetailView({ params }: { params: Promise<{ id: string }> }) {
         )}
       </nav>
 
-      <header className="space-y-3">
+      <header className={`space-y-3 pl-4 ${priorityBorder(task.priority)}`}>
         <h1 className="font-display text-2xl font-bold tracking-tight text-brand-900 sm:text-3xl">{task.title}</h1>
         <div className="flex flex-wrap items-center gap-2">
           <StatusBadge status={task.status} />
@@ -93,6 +96,41 @@ async function TaskDetailView({ params }: { params: Promise<{ id: string }> }) {
           {archived && <Badge tone="danger">In the trash</Badge>}
         </div>
       </header>
+
+      {/* The record and its primary contact: only ever loaded for the team with that module (never for guests). */}
+      {(task.record || (task.linkTypes.length > 0 && task.can.edit && !task.parent)) && (
+        <Card>
+          <CardHeader
+            title="Linked record"
+            description={task.record ? undefined : "Hang this task on a client, lead, vacancy, candidate or placement."}
+          />
+          <CardBody className="space-y-4">
+            {task.record && (
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <RecordChip record={task.record} className="text-sm" />
+                {task.primaryContact && (
+                  <div className="rounded-xl bg-surface px-3 py-2.5 sm:min-w-64">
+                    <p className="mb-1.5 text-xs font-semibold tracking-wide text-muted uppercase">Primary contact</p>
+                    <PrimaryContactDetails contact={task.primaryContact} />
+                  </div>
+                )}
+              </div>
+            )}
+            {task.can.edit && task.linkTypes.length > 0 && (task.record ? task.linkTypes.includes(task.record.type) : !task.parent) && (
+              <details className="group" open={!task.record}>
+                <summary className="w-fit cursor-pointer list-none text-sm font-medium text-brand-700 group-open:mb-3 pointer-coarse:min-h-11">
+                  {task.record ? "Change or remove the record" : "Link a record"}
+                </summary>
+                <RecordLinkForm
+                  action={setTaskRecordAction.bind(null, task.id)}
+                  initial={task.record ? { type: task.record.type, id: task.record.id, label: task.record.label ?? "Deleted record" } : null}
+                  types={task.linkTypes}
+                />
+              </details>
+            )}
+          </CardBody>
+        </Card>
+      )}
 
       {archived ? (
         <Card>
@@ -339,6 +377,7 @@ function describeActivity(entry: ActivityItem, assignees: Person[], people: Pers
       if (change("title")) parts.push("renamed it");
       if (d.description) parts.push("edited the description");
       if (change("project_id")) parts.push("moved it to another project");
+      if (d.record) parts.push("changed the linked record");
       const archived = change("archived_at");
       if (archived) parts.push(archived.to ? "archived it" : "restored it");
       return parts.join(", ") || "updated the task";

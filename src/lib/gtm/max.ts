@@ -2,8 +2,17 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import Papa from "papaparse";
 import type { Database, PhoneType } from "@/lib/database.types";
-import { fetchMaxCandidates, linkedinUrl, recordListExport, toCsv, chunk, type ListFilter, type MaxCandidate } from "./lists";
-import { normalizeLinkedin, normalizePhone, phoneTypeFor } from "./normalize";
+import {
+  chunk,
+  isSuppressedFor,
+  linkedinUrl,
+  loadSuppressions,
+  MAX_LIMIT,
+  recordListExport,
+  toCsv,
+  type MaxCandidate,
+} from "./lists";
+import { isExcludedFromCalling, normalizeLinkedin, normalizePhone, phoneTypeFor } from "./normalize";
 import { upsertContact } from "./upsert";
 
 /**
@@ -32,17 +41,84 @@ export function buildMaxCsv(candidates: MaxCandidate[]): string {
   return toCsv(MAX_CSV_HEADER, maxCsvRows(candidates));
 }
 
-export async function exportMaxList(
+/**
+ * Who goes to Max (feedback Julius, section 2.6): contacts with status
+ * Enrich, and the contacts of companies with lead status Enrich, without a
+ * phone number. Max matches on the person's LinkedIn URL, so contacts without
+ * one are counted apart. Suppressed contacts (calls) and contacts we may not
+ * approach are left out.
+ */
+export async function fetchEnrichCandidates(
   db: Db,
-  { filter, createdBy = null }: { filter: ListFilter; createdBy?: string | null },
+  limit = MAX_LIMIT,
+): Promise<{ candidates: MaxCandidate[]; withoutLinkedin: number }> {
+  const select =
+    "id, company_id, first_name, last_name, title, tier, linkedin_url, email, status, company:companies!contacts_company_id_fkey!inner(name, domain, website, linkedin_url, legal_form, segment, icp_score, lead_status)" as const;
+  const [byStatus, byCompany, suppressions] = await Promise.all([
+    db.from("contacts").select(select).eq("status", "enrich").is("phone", null).limit(MAX_LIMIT),
+    db
+      .from("contacts")
+      .select(select)
+      .eq("company.lead_status", "enrich")
+      .is("phone", null)
+      .not("status", "in", "(do_not_contact,not_interested,not_reached)")
+      .limit(MAX_LIMIT),
+    loadSuppressions(db),
+  ]);
+  if (byStatus.error) throw new Error(`Could not load contacts to enrich: ${byStatus.error.message}`);
+  if (byCompany.error) throw new Error(`Could not load contacts to enrich: ${byCompany.error.message}`);
+
+  const seen = new Set<string>();
+  const candidates: MaxCandidate[] = [];
+  let withoutLinkedin = 0;
+  for (const c of [...byStatus.data, ...byCompany.data]) {
+    if (seen.has(c.id)) continue;
+    seen.add(c.id);
+    const company = Array.isArray(c.company) ? c.company[0] : c.company;
+    if (!company) continue;
+    if (company.lead_status === "do_not_contact" || company.lead_status === "no_go") continue;
+    // Companies we may never call (eenmanszaak, vof): a number would only cost money at Max.
+    if (isExcludedFromCalling(company.legal_form)) continue;
+    if (isSuppressedFor({ contactId: c.id, companyId: c.company_id, email: c.email }, suppressions, "bellen")) continue;
+    if (!c.linkedin_url) {
+      withoutLinkedin += 1;
+      continue;
+    }
+    candidates.push({
+      contact_id: c.id,
+      company_id: c.company_id,
+      first_name: c.first_name,
+      last_name: c.last_name,
+      title: c.title,
+      tier: c.tier,
+      linkedin_url: c.linkedin_url,
+      email: c.email,
+      company_name: company.name,
+      domain: company.domain,
+      website: company.website,
+      company_linkedin: company.linkedin_url,
+      segment: company.segment,
+      icp_score: company.icp_score,
+      legal_form: company.legal_form,
+    });
+  }
+  candidates.sort((a, b) => (b.icp_score ?? -1) - (a.icp_score ?? -1) || (a.tier ?? 9) - (b.tier ?? 9));
+  return { candidates: candidates.slice(0, limit), withoutLinkedin };
+}
+
+/** The CSV for Max of everyone in Enrich, logged in list_exports (type max_verrijking). */
+export async function exportEnrichList(
+  db: Db,
+  { createdBy = null, limit = MAX_LIMIT }: { createdBy?: string | null; limit?: number },
 ): Promise<{ exportId: string | null; count: number; csv: string | null; filename: string }> {
   const filename = `nordavo-max-${new Date().toISOString().slice(0, 10)}.csv`;
-  const candidates = await fetchMaxCandidates(db, filter);
+  const { candidates } = await fetchEnrichCandidates(db, limit);
   if (candidates.length === 0) return { exportId: null, count: 0, csv: null, filename };
   const csv = buildMaxCsv(candidates);
   const exportId = await recordListExport(db, {
     type: "max_verrijking",
-    filter,
+    filter: { limit },
+    extra: { source: "enrich" },
     recordIds: candidates.map((c) => c.contact_id),
     destination: `csv:${filename}`,
     createdBy,
@@ -115,11 +191,13 @@ export type MaxImportResult = {
   noPhone: number;
   unmatched: number;
   unmatchedSamples: string[];
+  /** Companies of the contacts that got a number. */
+  companyIds: string[];
 };
 
 export async function importMaxCsv(db: Db, text: string): Promise<MaxImportResult> {
   const rows = parseMaxCsv(text);
-  const result: MaxImportResult = { rows: rows.length, matched: 0, updated: 0, alreadyHadPhone: 0, noPhone: 0, unmatched: 0, unmatchedSamples: [] };
+  const result: MaxImportResult = { rows: rows.length, matched: 0, updated: 0, alreadyHadPhone: 0, noPhone: 0, unmatched: 0, unmatchedSamples: [], companyIds: [] };
 
   const urls = [...new Set(rows.map((r) => r.linkedin).filter((u): u is string => Boolean(u)))];
   const contacts = new Map<string, { id: string; company_id: string; phone: string | null }>();
@@ -150,9 +228,10 @@ export async function importMaxCsv(db: Db, text: string): Promise<MaxImportResul
       { company_id: contact.company_id, linkedin_url: row.linkedin, phone: row.phone, phone_type: row.phoneType },
       "max",
     );
-    await db.from("contacts").update({ status: "verrijkt" }).eq("id", contact.id).in("status", ["nieuw", "gekwalificeerd"]);
+    await db.from("contacts").update({ status: "enriched" }).eq("id", contact.id).in("status", ["new", "qualified", "enrich"]);
     contact.phone = row.phone;
     result.updated += 1;
+    if (!result.companyIds.includes(contact.company_id)) result.companyIds.push(contact.company_id);
   }
   return result;
 }

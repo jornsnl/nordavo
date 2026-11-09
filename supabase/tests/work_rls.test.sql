@@ -72,7 +72,9 @@ grant execute on function pg_temp.act(text), pg_temp.id(text), pg_temp.uid(text)
 select pg_temp.act('julius@nordavo.nl');
 set role authenticated;
 
-insert into ids values ('nordavo', public.work_create_workspace('Nordavo', 'nordavo'));
+-- The Nordavo workspace exists as soon as there is a portal admin (record
+-- tasks live there, 20261110000000_work_records.sql); Julius is its admin.
+insert into ids select 'nordavo', id from public.work_workspaces where slug = 'nordavo';
 insert into ids values ('kg', public.work_create_workspace('KG', 'kg'));
 
 reset role;
@@ -82,7 +84,8 @@ insert into public.work_members (workspace_id, user_id, role) values
   (pg_temp.id('nordavo'), pg_temp.uid('judith@nordavo.nl'), 'member'),
   (pg_temp.id('nordavo'), pg_temp.uid('mira@nordavo.nl'), 'member'),
   (pg_temp.id('kg'), pg_temp.uid('sabine@kg.nl'), 'member'),
-  (pg_temp.id('kg'), pg_temp.uid('judith@nordavo.nl'), 'guest');
+  (pg_temp.id('kg'), pg_temp.uid('judith@nordavo.nl'), 'guest')
+on conflict do nothing;
 
 -- Floris is not a portal admin, so he cannot start a workspace.
 select pg_temp.act('floris@nordavo.nl');

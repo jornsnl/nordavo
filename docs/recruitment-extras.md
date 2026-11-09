@@ -110,9 +110,9 @@ Uitnodigingen (type `invite`) en wachtwoordherstel (type `recovery`) gaan niet d
 
 ## 4. Eén plek om te kijken (feedback punt 9)
 
-In Work, **My overview** (`/work`) staat voor teamleden een extra tabblad **Portal tasks**: de open taken uit de module Tasks van het portaal (`public.tasks`) die aan jou zijn toegewezen, met een teller. Per taak de titel, het record waar hij bij hoort (kandidaat, vacature, klant, ...), status, prioriteit en deadline, met een link naar dat record. Alleen lezen: afvinken en wijzigen doe je in het portaal (link *Open Tasks in the portal*).
+Het tabblad **Portal tasks** in Work is vervallen: sinds november 2026 zijn de taken van het portaal gewone Work taken, met het record eraan gekoppeld. Zie [work.md](work.md), onder *Taken en Work samengevoegd*.
 
-Gasten en freelancers zien dit tabblad nooit: de app toont het alleen aan admins en members, en `public.tasks` is in de database alleen voor het team leesbaar (RLS), dus ook een met de hand getypte `?tab=portal` geeft een gast niets.
+Gasten en freelancers zien bij zo'n taak nooit welk record erachter zit: de koppeling (`work_task_links`) is in de database alleen leesbaar voor het team met de module van dat record (RLS).
 
 ## Omgevingsvariabelen
 

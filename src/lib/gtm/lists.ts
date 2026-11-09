@@ -1,50 +1,23 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import Papa from "papaparse";
-import type {
-  CallListCandidate,
-  Database,
-  Json,
-  ListExportType,
-  MailListCandidate,
-  Segment,
-  SignalType,
-  SuppressionScope,
-} from "@/lib/database.types";
-import { askJson, ClaudeRefusalError, hasClaude } from "@/lib/ai/claude";
-import { checkOpeningLine, OPENING_LINE_SYSTEM, openingLineInput, openingLineSchema } from "@/lib/ai/prompts/opening-line";
-import { createSheet, webPartnersShareWith } from "@/lib/integrations/google-sheets";
-import { addLeadToCampaign, findOrCreateCampaign, hasInstantly } from "@/lib/integrations/instantly";
+import type { Database, Json, ListExportType, Segment, SignalType, SuppressionScope } from "@/lib/database.types";
 import { optionFor, segments, signalTypes } from "@/lib/labels";
-import { isExcludedFromCalling } from "./normalize";
 
 /**
- * Lists are saved filters, not loose files (hard rule 6). Each list type is
- * defined here once and used by the jobs (S5, S6, S7) and the Lijsten page.
- *
- * Hard rule 4: call and mail lists read from the views call_list_candidates
- * and mail_list_candidates, which already apply is_contactable (suppression
- * plus the 30-day rule). Right before anything is written the selected ids are
- * checked against the view again, because time passes between preview and
- * export (and between contacts within one run).
- * Hard rule 5: the call list view excludes eenmanszaak and vof; the code
- * checks the company's legal form again with isExcludedFromCalling.
- *
- * Approach logging (the 30-day rule starts counting here):
- *   - Call list: every contact on an exported call list gets an activity
- *     "verstuurd" on channel bellen with the list id in the notes. Handing a
- *     number to Web Partners is the moment of approach we control; the actual
- *     call outcome comes in later through S8 (Web Partners sheet). Without
- *     this, the same contact could be mailed while Web Partners is calling.
- *   - Mail: "verstuurd" on channel mail only after Instantly accepted the lead.
- *   - Max enrichment is not an approach: no activity, no status change.
+ * Exports to files and the export history (list_exports). The Lists page,
+ * the call list for Web Partners (S6) and the mail campaigns in Instantly
+ * (S7) are gone: call lists are saved views of the Contacts table now, worked
+ * on the call screen, and sequences replace the campaigns (docs/sales.md).
+ * What stays is shared by the Max export on Contacts, Enrich
+ * (src/lib/gtm/max.ts), the history of earlier exports and the syncs:
+ * filters as stored in list_exports, CSV helpers and the suppression check.
  */
 
 type Db = SupabaseClient<Database>;
 
 export const DEFAULT_LIMIT = 200;
 export const MAX_LIMIT = 1000;
-export const PREVIEW_ROWS = 25;
 
 export type ListDefinition = {
   type: ListExportType;
@@ -57,19 +30,19 @@ export const listDefinitions: Record<ListExportType, ListDefinition> = {
   bellijst: {
     type: "bellijst",
     label: "Call list",
-    description: "GO, mobile number, no sole proprietorship or general partnership, not suppressed and not contacted for 30 days.",
+    description: "Call list for Web Partners as a sheet or CSV, before the call screen. Only in the history now.",
     channel: "bellen",
   },
   mailcampagne: {
     type: "mailcampagne",
     label: "Mail campaign",
-    description: "GO, verified e-mail address, not suppressed and not contacted for 30 days. One campaign per signal.",
+    description: "Mail campaign in Instantly, one per signal, before sequences. Only in the history now.",
     channel: "mail",
   },
   max_verrijking: {
     type: "max_verrijking",
     label: "Max enrichment",
-    description: "GO contacts with LinkedIn and without a phone number, not suppressed. CSV for Max.",
+    description: "Contacts in Enrich with LinkedIn and without a phone number, not suppressed. CSV for Max.",
     channel: null,
   },
 };
@@ -156,77 +129,6 @@ export function fullName(first: string | null, last: string | null): string {
   return [first, last].filter(Boolean).join(" ").trim();
 }
 
-/**
- * A short reason to call: the company's opening line, else one built from the
- * signal. Dutch on purpose, like the rest of the call sheet: Web Partners
- * calls Dutch prospects with it.
- */
-export function callReason(c: { opening_line: string | null; signal_type: string | null; signal_title: string | null }): string {
-  if (c.opening_line?.trim()) return c.opening_line.trim();
-  const title = c.signal_title?.trim();
-  switch (c.signal_type) {
-    case "vacature":
-      return title ? `Heeft een vacature open: ${title}.` : "Heeft een developer of data vacature open.";
-    case "lang_open":
-      return title ? `Vacature staat al lang open: ${title}.` : "Heeft een vacature die al lang open staat.";
-    case "meerdere_rollen":
-      return title ? `Meerdere techrollen open, onder andere ${title}.` : "Heeft meerdere techrollen open.";
-    case "remote_extern":
-      return title ? `Vacature noemt remote of een extern team: ${title}.` : "Staat open voor remote of een extern team.";
-    case "freelance":
-      return title ? `Zoekt een freelancer: ${title}.` : "Zoekt een freelance developer.";
-    case "funding":
-      return "Heeft recent funding opgehaald.";
-    case "nieuwe_cto":
-      return "Heeft een nieuwe CTO of Head of Engineering.";
-    default:
-      return title ? `Signaal: ${title}.` : "Past bij ons ICP.";
-  }
-}
-
-/**
- * Dutch names for what reaches Dutch prospects or the Dutch call partner:
- * the Web Partners call sheet and the {{signaal}} / {{segment}} variables in
- * the (Dutch) Instantly mail templates. The portal uses the English labels.
- */
-const dutchSignalLabels: Record<SignalType, string> = {
-  vacature: "Vacature",
-  lang_open: "Lang open",
-  meerdere_rollen: "Meerdere rollen",
-  remote_extern: "Remote of extern team",
-  freelance: "Freelance opdracht",
-  funding: "Funding",
-  nieuwe_cto: "Nieuwe CTO",
-  overig: "Overig",
-};
-
-const dutchSegmentLabels: Record<Segment, string> = {
-  saas: "SaaS",
-  productie: "Productie",
-  agency_automation: "Automation agency",
-  agency_overig: "Overige agency",
-};
-
-export const CALL_SHEET_HEADER = ["Bedrijf", "Contact", "Functie", "Telefoon", "Signaal", "Reden om te bellen", "Domein", "LinkedIn"];
-
-export function buildCallSheetRows(
-  candidates: Pick<
-    CallListCandidate,
-    "company_name" | "first_name" | "last_name" | "title" | "phone" | "signal_type" | "signal_title" | "opening_line" | "domain" | "linkedin_url"
-  >[],
-): string[][] {
-  return candidates.map((c) => [
-    c.company_name,
-    fullName(c.first_name, c.last_name),
-    c.title ?? "",
-    c.phone,
-    [c.signal_type ? dutchSignalLabels[c.signal_type] : "", c.signal_title ?? ""].filter(Boolean).join(": "),
-    callReason(c),
-    c.domain,
-    linkedinUrl(c.linkedin_url),
-  ]);
-}
-
 /** Cells that a spreadsheet would run as a formula get a leading quote. Phone numbers (+31) stay as they are. */
 export function safeCsvCell(value: string | number | null | undefined): string {
   const text = value === null || value === undefined ? "" : String(value);
@@ -235,60 +137,6 @@ export function safeCsvCell(value: string | number | null | undefined): string {
 
 export function toCsv(header: string[], rows: (string | number | null)[][]): string {
   return Papa.unparse({ fields: header, data: rows.map((row) => header.map((_, i) => safeCsvCell(row[i]))) }, { newline: "\r\n" });
-}
-
-/** Contacts grouped per signal type; contacts without a signal are returned apart. */
-export function groupBySignalType<T extends { signal_type: SignalType | null }>(rows: T[]): { groups: Map<SignalType, T[]>; withoutSignal: T[] } {
-  const groups = new Map<SignalType, T[]>();
-  const withoutSignal: T[] = [];
-  for (const row of rows) {
-    if (!row.signal_type) {
-      withoutSignal.push(row);
-      continue;
-    }
-    const list = groups.get(row.signal_type) ?? [];
-    list.push(row);
-    groups.set(row.signal_type, list);
-  }
-  return { groups, withoutSignal };
-}
-
-/**
- * Is the company's stored opening line (written by S2 from the vacancy text)
- * based on this signal? Yes for a plain vacancy signal, or when the line names
- * the signal's title. Otherwise S7 writes a new one for this signal.
- */
-export function openingLineMatchesSignal(line: string | null, signalType: string | null, signalTitle: string | null): boolean {
-  if (!line?.trim()) return false;
-  if (signalType === "vacature") return true;
-  const words = (signalTitle ?? "")
-    .toLowerCase()
-    .split(/[^a-z0-9à-ÿ+#.]+/)
-    .filter((w) => w.length >= 4);
-  const text = line.toLowerCase();
-  return words.some((w) => text.includes(w));
-}
-
-export function campaignName(signalType: SignalType, segment: Segment | null, variant: string): string {
-  return [
-    "Nordavo",
-    optionFor(signalTypes, signalType).label,
-    segment ? optionFor(segments, segment).label : "All segments",
-    variant,
-  ].join(" · ");
-}
-
-export type CampaignVerdict = { rate: number | null; verdict: "te_vroeg" | "herschrijven" | "doorgaan" | "opschalen"; label: string };
-
-export const EVALUATE_AFTER = 150;
-
-/** Briefing rule: one signal per campaign, evaluate after 150 mails. Under 3% rewrite or stop, above 5% scale up. */
-export function evaluateCampaign(sent: number, replies: number): CampaignVerdict {
-  const rate = sent > 0 ? replies / sent : null;
-  if (sent < EVALUATE_AFTER) return { rate, verdict: "te_vroeg", label: `${EVALUATE_AFTER - sent} more mails until evaluation` };
-  if ((rate ?? 0) < 0.03) return { rate, verdict: "herschrijven", label: "Rewrite or stop" };
-  if ((rate ?? 0) > 0.05) return { rate, verdict: "opschalen", label: "Scale up" };
-  return { rate, verdict: "doorgaan", label: "Continue and keep measuring" };
 }
 
 export type SuppressionRow = { contact_id: string | null; company_id: string | null; email: string | null; scope: SuppressionScope };
@@ -316,75 +164,6 @@ export function chunk<T>(items: T[], size: number): T[][] {
 // ---------------------------------------------------------------------------
 // Queries
 // ---------------------------------------------------------------------------
-
-export type CallCandidate = CallListCandidate & { legal_form: string | null };
-export type MailCandidate = MailListCandidate;
-
-async function legalForms(db: Db, companyIds: string[]): Promise<Map<string, string | null>> {
-  const map = new Map<string, string | null>();
-  for (const ids of chunk([...new Set(companyIds)], 100)) {
-    const { data, error } = await db.from("companies").select("id, legal_form").in("id", ids);
-    if (error) throw new Error(`Could not load legal forms: ${error.message}`);
-    for (const row of data) map.set(row.id, row.legal_form);
-  }
-  return map;
-}
-
-async function queryCallView(db: Db, filter: ListFilter, limit: number, contactIds?: string[]) {
-  let query = db.from("call_list_candidates").select("*", { count: "exact" });
-  if (contactIds) query = query.in("contact_id", contactIds);
-  if (filter.segment) query = query.eq("segment", filter.segment);
-  if (filter.signalType) query = query.eq("signal_type", filter.signalType);
-  if (filter.tier) query = query.eq("tier", filter.tier);
-  if (filter.minScore) query = query.gte("icp_score", filter.minScore);
-  const { data, error, count } = await query
-    .order("icp_score", { ascending: false, nullsFirst: false })
-    .order("tier", { ascending: true, nullsFirst: false })
-    .limit(limit);
-  if (error) throw new Error(`Could not load call list: ${error.message}`);
-  return { rows: data, count: count ?? data.length };
-}
-
-async function queryMailView(db: Db, filter: ListFilter, limit: number, contactIds?: string[]) {
-  let query = db.from("mail_list_candidates").select("*", { count: "exact" });
-  if (contactIds) query = query.in("contact_id", contactIds);
-  if (filter.segment) query = query.eq("segment", filter.segment);
-  if (filter.signalType) query = query.eq("signal_type", filter.signalType);
-  if (filter.tier) query = query.eq("tier", filter.tier);
-  if (filter.minScore) query = query.gte("icp_score", filter.minScore);
-  const { data, error, count } = await query
-    .order("icp_score", { ascending: false, nullsFirst: false })
-    .order("tier", { ascending: true, nullsFirst: false })
-    .limit(limit);
-  if (error) throw new Error(`Could not load mail list: ${error.message}`);
-  return { rows: data, count: count ?? data.length };
-}
-
-/** Call list candidates, with the legal form checked again in code (rule 5). */
-export async function fetchCallCandidates(db: Db, filter: ListFilter): Promise<CallCandidate[]> {
-  const { rows } = await queryCallView(db, filter, filter.limit);
-  const forms = await legalForms(db, rows.map((r) => r.company_id));
-  return rows
-    .map((r) => ({ ...r, legal_form: forms.get(r.company_id) ?? null }))
-    .filter((r) => !isExcludedFromCalling(r.legal_form));
-}
-
-export async function fetchMailCandidates(db: Db, filter: ListFilter): Promise<MailCandidate[]> {
-  const { rows } = await queryMailView(db, filter, filter.limit);
-  return rows;
-}
-
-/** Ids from `contactIds` that are still in the view right now (rule 4 re-check). */
-export async function recheckContactable(db: Db, list: "bellijst" | "mailcampagne", contactIds: string[]): Promise<Set<string>> {
-  const ok = new Set<string>();
-  const view = list === "bellijst" ? "call_list_candidates" : "mail_list_candidates";
-  for (const ids of chunk(contactIds, 100)) {
-    const { data, error } = await db.from(view).select("contact_id").in("contact_id", ids);
-    if (error) throw new Error(`Could not check suppressions: ${error.message}`);
-    for (const row of data) ok.add(row.contact_id);
-  }
-  return ok;
-}
 
 export type MaxCandidate = {
   contact_id: string;
@@ -419,141 +198,9 @@ export async function loadSuppressions(db: Db): Promise<SuppressionRow[]> {
   return rows;
 }
 
-/**
- * S5: GO contacts with a LinkedIn URL and no phone, not suppressed for calls.
- * Companies we may never call (eenmanszaak, vof) are left out too: their
- * numbers would only cost money at Max.
- */
-export async function fetchMaxCandidates(db: Db, filter: ListFilter): Promise<MaxCandidate[]> {
-  let query = db
-    .from("contacts")
-    .select(
-      "id, company_id, first_name, last_name, title, tier, linkedin_url, email, company:companies!inner(name, domain, website, linkedin_url, legal_form, segment, icp_score, icp_decision)",
-    )
-    .is("phone", null)
-    .not("linkedin_url", "is", null)
-    .not("status", "in", "(klant,verloren,uitgesloten,kans,afspraak)")
-    .eq("company.icp_decision", "GO");
-  if (filter.segment) query = query.eq("company.segment", filter.segment);
-  if (filter.minScore) query = query.gte("company.icp_score", filter.minScore);
-  if (filter.tier) query = query.eq("tier", filter.tier);
-  const { data, error } = await query.order("tier", { ascending: true, nullsFirst: false }).limit(MAX_LIMIT);
-  if (error) throw new Error(`Could not load Max list: ${error.message}`);
-
-  const suppressions = await loadSuppressions(db);
-  const rows: MaxCandidate[] = [];
-  for (const c of data) {
-    const company = Array.isArray(c.company) ? c.company[0] : c.company;
-    if (!company || !c.linkedin_url) continue;
-    if (isExcludedFromCalling(company.legal_form)) continue;
-    if (isSuppressedFor({ contactId: c.id, companyId: c.company_id, email: c.email }, suppressions, "bellen")) continue;
-    rows.push({
-      contact_id: c.id,
-      company_id: c.company_id,
-      first_name: c.first_name,
-      last_name: c.last_name,
-      title: c.title,
-      tier: c.tier,
-      linkedin_url: c.linkedin_url,
-      email: c.email,
-      company_name: company.name,
-      domain: company.domain,
-      website: company.website,
-      company_linkedin: company.linkedin_url,
-      segment: company.segment,
-      icp_score: company.icp_score,
-      legal_form: company.legal_form,
-    });
-  }
-  rows.sort((a, b) => (b.icp_score ?? -1) - (a.icp_score ?? -1) || (a.tier ?? 9) - (b.tier ?? 9));
-  return rows.slice(0, filter.limit);
-}
-
 // ---------------------------------------------------------------------------
-// Preview (UI)
+// Writing: list_exports
 // ---------------------------------------------------------------------------
-
-export type PreviewRow = {
-  contactId: string;
-  companyId: string;
-  name: string;
-  title: string | null;
-  tier: number | null;
-  companyName: string;
-  domain: string;
-  segment: Segment | null;
-  score: number | null;
-  signalType: SignalType | null;
-  signalTitle: string | null;
-  /** Phone, email or LinkedIn, depending on the list. */
-  reach: string;
-};
-
-export type ListPreview = { count: number; capped: boolean; rows: PreviewRow[] };
-
-export async function previewList(db: Db, type: ListExportType, filter: ListFilter): Promise<ListPreview> {
-  if (type === "max_verrijking") {
-    const rows = await fetchMaxCandidates(db, { ...filter, limit: MAX_LIMIT });
-    return {
-      count: rows.length,
-      capped: rows.length >= MAX_LIMIT,
-      rows: rows.slice(0, PREVIEW_ROWS).map((r) => ({
-        contactId: r.contact_id,
-        companyId: r.company_id,
-        name: fullName(r.first_name, r.last_name),
-        title: r.title,
-        tier: r.tier,
-        companyName: r.company_name,
-        domain: r.domain,
-        segment: r.segment,
-        score: r.icp_score,
-        signalType: null,
-        signalTitle: null,
-        reach: linkedinUrl(r.linkedin_url),
-      })),
-    };
-  }
-  const { rows, count } =
-    type === "bellijst" ? await queryCallView(db, filter, PREVIEW_ROWS) : await queryMailView(db, filter, PREVIEW_ROWS);
-  return {
-    count,
-    capped: false,
-    rows: rows.map((r) => ({
-      contactId: r.contact_id,
-      companyId: r.company_id,
-      name: fullName(r.first_name, r.last_name),
-      title: r.title,
-      tier: r.tier,
-      companyName: r.company_name,
-      domain: r.domain,
-      segment: r.segment,
-      score: r.icp_score,
-      signalType: r.signal_type,
-      signalTitle: r.signal_title,
-      reach: "phone" in r ? r.phone : r.email,
-    })),
-  };
-}
-
-/** Counts for the list cards. */
-export async function listCounts(db: Db, filter: ListFilter): Promise<Record<ListExportType, { count: number; capped: boolean }>> {
-  const [call, mail, max] = await Promise.all([
-    queryCallView(db, filter, 1),
-    queryMailView(db, filter, 1),
-    fetchMaxCandidates(db, { ...filter, limit: MAX_LIMIT }),
-  ]);
-  return {
-    bellijst: { count: call.count, capped: false },
-    mailcampagne: { count: mail.count, capped: false },
-    max_verrijking: { count: max.length, capped: max.length >= MAX_LIMIT },
-  };
-}
-
-// ---------------------------------------------------------------------------
-// Writing: list_exports, statuses and activities
-// ---------------------------------------------------------------------------
-
-type Log = (message: string) => void;
 
 export async function recordListExport(
   db: Db,
@@ -582,298 +229,4 @@ export async function recordListExport(
     .single();
   if (error) throw new Error(`Could not record the export: ${error.message}`);
   return data.id;
-}
-
-async function setContactStatus(db: Db, contactIds: string[], status: "op_bellijst" | "in_mailcampagne") {
-  for (const ids of chunk(contactIds, 100)) {
-    const { error } = await db
-      .from("contacts")
-      .update({ status })
-      .in("id", ids)
-      .not("status", "in", "(bereikt,afspraak,kans,klant,verloren,uitgesloten)");
-    if (error) throw new Error(`Could not update status: ${error.message}`);
-  }
-}
-
-export type CallListExport = {
-  exportId: string | null;
-  count: number;
-  /** Dropped by the re-check right before writing. */
-  dropped: number;
-  destination: string | null;
-  csv: string | null;
-};
-
-/**
- * S6: build the call list for Web Partners. With `deliver: "sheet"` a Google
- * Sheet is created and shared with WEBPARTNERS_SHARE_WITH; with "csv" the
- * file is returned for download. Nothing is written when delivery fails.
- */
-export async function exportCallList(
-  db: Db,
-  { filter, deliver, createdBy = null, log = () => {} }: { filter: ListFilter; deliver: "sheet" | "csv"; createdBy?: string | null; log?: Log },
-): Promise<CallListExport> {
-  const candidates = await fetchCallCandidates(db, filter);
-  log(`${candidates.length} candidates for the call list.`);
-  if (candidates.length === 0) return { exportId: null, count: 0, dropped: 0, destination: null, csv: null };
-
-  const stillOk = await recheckContactable(db, "bellijst", candidates.map((c) => c.contact_id));
-  const rows = candidates.filter((c) => stillOk.has(c.contact_id) && !isExcludedFromCalling(c.legal_form));
-  const dropped = candidates.length - rows.length;
-  if (dropped > 0) log(`${dropped} contacts dropped out at the final check.`);
-  if (rows.length === 0) return { exportId: null, count: 0, dropped, destination: null, csv: null };
-
-  const sheetRows = buildCallSheetRows(rows);
-  const date = new Date().toISOString().slice(0, 10);
-  let destination: string | null = null;
-  let csv: string | null = null;
-  if (deliver === "sheet") {
-    const sheet = await createSheet({
-      title: `Nordavo bellijst ${date}`,
-      header: CALL_SHEET_HEADER,
-      rows: sheetRows,
-      shareWith: webPartnersShareWith(),
-    });
-    destination = sheet.url;
-    log(`Google Sheet created: ${sheet.url}`);
-  } else {
-    csv = toCsv(CALL_SHEET_HEADER, sheetRows);
-    destination = `csv:nordavo-bellijst-${date}.csv`;
-  }
-
-  const contactIds = rows.map((r) => r.contact_id);
-  const exportId = await recordListExport(db, {
-    type: "bellijst",
-    filter,
-    extra: { deliver },
-    recordIds: contactIds,
-    destination,
-    createdBy,
-  });
-
-  await setContactStatus(db, contactIds, "op_bellijst");
-  for (const batch of chunk(rows, 200)) {
-    const { error } = await db.from("activities").upsert(
-      batch.map((r) => ({
-        contact_id: r.contact_id,
-        company_id: r.company_id,
-        channel: "bellen" as const,
-        signal_id: r.signal_id,
-        outcome: "verstuurd" as const,
-        source: "webpartners" as const,
-        notes: `On call list for Web Partners (export ${exportId}).`,
-        external_id: `bellijst:${exportId}:${r.contact_id}`,
-        created_by: createdBy,
-      })),
-      { onConflict: "external_id", ignoreDuplicates: true },
-    );
-    if (error) throw new Error(`Could not record the activities: ${error.message}`);
-  }
-
-  return { exportId, count: rows.length, dropped, destination, csv };
-}
-
-// ---------------------------------------------------------------------------
-// S7: mail campaigns in Instantly, one per signal type
-// ---------------------------------------------------------------------------
-
-export type MailCampaignSummary = {
-  signalType: SignalType;
-  campaignId: string;
-  name: string;
-  pushed: number;
-  skipped: number;
-  failed: number;
-  exportId: string | null;
-};
-
-export type MailCampaignResult = {
-  campaigns: MailCampaignSummary[];
-  candidates: number;
-  withoutSignal: number;
-};
-
-async function ensureCampaign(db: Db, signalType: SignalType, segment: Segment | null, variant: string) {
-  const name = campaignName(signalType, segment, variant);
-  let query = db
-    .from("campaigns")
-    .select("id, name, external_id")
-    .eq("channel", "mail")
-    .eq("signal_type", signalType)
-    .eq("message_variant", variant);
-  query = segment ? query.eq("segment", segment) : query.is("segment", null);
-  const { data: existing, error } = await query.order("created_at").limit(1).maybeSingle();
-  if (error) throw new Error(`Could not look up the campaign: ${error.message}`);
-  if (existing?.external_id) return { id: existing.id, name: existing.name, instantlyId: existing.external_id };
-
-  const remote = await findOrCreateCampaign(existing?.name ?? name);
-  if (existing) {
-    const { error: updateError } = await db.from("campaigns").update({ external_id: remote.id }).eq("id", existing.id);
-    if (updateError) throw new Error(`Could not update campaign: ${updateError.message}`);
-    return { id: existing.id, name: existing.name, instantlyId: remote.id };
-  }
-
-  const { data: created, error: insertError } = await db
-    .from("campaigns")
-    .insert({
-      name,
-      channel: "mail",
-      signal_type: signalType,
-      segment,
-      message_variant: variant,
-      external_id: remote.id,
-      started_at: new Date().toISOString(),
-    })
-    .select("id")
-    .single();
-  if (insertError) {
-    if (insertError.code === "23505") {
-      const { data: byExternal } = await db.from("campaigns").select("id, name").eq("external_id", remote.id).single();
-      if (byExternal) return { id: byExternal.id, name: byExternal.name, instantlyId: remote.id };
-    }
-    throw new Error(`Could not create campaign: ${insertError.message}`);
-  }
-  return { id: created.id, name, instantlyId: remote.id };
-}
-
-/**
- * The opening line for one contact: the company's own line when it is based
- * on this signal, else one written by Claude for exactly this signal. Lines
- * are cached per company and signal within a run. Null means: do not mail.
- */
-async function resolveOpeningLine(c: MailCandidate, cache: Map<string, string | null>, log: Log): Promise<string | null> {
-  if (openingLineMatchesSignal(c.opening_line, c.signal_type, c.signal_title)) {
-    const own = checkOpeningLine(c.opening_line);
-    if (own) return own;
-  }
-  const key = `${c.company_id}:${c.signal_id ?? c.signal_type}`;
-  if (cache.has(key)) return cache.get(key) ?? null;
-  if (!hasClaude()) {
-    cache.set(key, null);
-    log(`No opening line for ${c.company_name}: ANTHROPIC_API_KEY is missing.`);
-    return null;
-  }
-  try {
-    const out = await askJson({
-      system: OPENING_LINE_SYSTEM,
-      input: openingLineInput({
-        companyName: c.company_name,
-        domain: c.domain,
-        segment: c.segment,
-        firstName: c.first_name,
-        title: c.title,
-        signalType: c.signal_type,
-        signalTitle: c.signal_title,
-      }),
-      schema: openingLineSchema,
-      effort: "low",
-      maxTokens: 2000,
-    });
-    const line = checkOpeningLine(out.opening_line);
-    if (!line) log(`Opening line for ${c.company_name} rejected by the check.`);
-    cache.set(key, line);
-    return line;
-  } catch (error) {
-    if (error instanceof ClaudeRefusalError) {
-      cache.set(key, null);
-      log(`Claude declined to write an opening line for ${c.company_name}.`);
-      return null;
-    }
-    throw error;
-  }
-}
-
-export async function pushMailCampaigns(
-  db: Db,
-  {
-    filter,
-    variant = "v1",
-    createdBy = null,
-    log = () => {},
-  }: { filter: ListFilter; variant?: string; createdBy?: string | null; log?: Log },
-): Promise<MailCampaignResult> {
-  if (!hasInstantly()) throw new Error("INSTANTLY_API_KEY is missing. Without Instantly no mail campaign can be filled.");
-
-  const candidates = await fetchMailCandidates(db, filter);
-  const { groups, withoutSignal } = groupBySignalType(candidates);
-  log(`${candidates.length} candidates, ${groups.size} signal types, ${withoutSignal.length} without a signal skipped.`);
-
-  const cache = new Map<string, string | null>();
-  const campaigns: MailCampaignSummary[] = [];
-
-  for (const [signalType, rows] of groups) {
-    const campaign = await ensureCampaign(db, signalType, filter.segment ?? null, variant);
-    const pushedIds: string[] = [];
-    let skipped = 0;
-    let failed = 0;
-
-    for (const batch of chunk(rows, 50)) {
-      // Rule 4: re-check right before writing.
-      const stillOk = await recheckContactable(db, "mailcampagne", batch.map((r) => r.contact_id));
-      for (const c of batch) {
-        if (!stillOk.has(c.contact_id)) {
-          skipped += 1;
-          continue;
-        }
-        try {
-          const line = await resolveOpeningLine(c, cache, log);
-          if (!line) {
-            skipped += 1;
-            continue;
-          }
-          await addLeadToCampaign(campaign.instantlyId, {
-            email: c.email,
-            first_name: c.first_name,
-            last_name: c.last_name,
-            company_name: c.company_name,
-            website: `https://${c.domain}`,
-            personalization: line,
-            custom_variables: {
-              signaal: dutchSignalLabels[signalType],
-              signaal_titel: c.signal_title,
-              segment: c.segment ? dutchSegmentLabels[c.segment] : null,
-            },
-          });
-          const { error } = await db.from("activities").upsert(
-            {
-              contact_id: c.contact_id,
-              company_id: c.company_id,
-              channel: "mail",
-              campaign_id: campaign.id,
-              signal_id: c.signal_id,
-              outcome: "verstuurd",
-              source: "instantly",
-              notes: `Added to Instantly campaign ${campaign.name}. Opening line: ${line}`,
-              external_id: `instantly:lead:${campaign.id}:${c.contact_id}`,
-              created_by: createdBy,
-            },
-            { onConflict: "external_id", ignoreDuplicates: true },
-          );
-          if (error) throw new Error(`Could not record the activity: ${error.message}`);
-          pushedIds.push(c.contact_id);
-        } catch (error) {
-          failed += 1;
-          log(`Error for ${c.email}: ${error instanceof Error ? error.message : String(error)}`);
-        }
-      }
-    }
-
-    let exportId: string | null = null;
-    if (pushedIds.length > 0) {
-      await setContactStatus(db, pushedIds, "in_mailcampagne");
-      exportId = await recordListExport(db, {
-        type: "mailcampagne",
-        filter: { ...filter, signalType },
-        extra: { campaign: campaign.name, variant },
-        recordIds: pushedIds,
-        destination: `https://app.instantly.ai/app/campaign/${campaign.instantlyId}/leads`,
-        campaignId: campaign.id,
-        createdBy,
-      });
-    }
-    log(`${campaign.name}: ${pushedIds.length} added, ${skipped} skipped, ${failed} failed.`);
-    campaigns.push({ signalType, campaignId: campaign.id, name: campaign.name, pushed: pushedIds.length, skipped, failed, exportId });
-  }
-
-  return { campaigns, candidates: candidates.length, withoutSignal: withoutSignal.length };
 }

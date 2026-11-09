@@ -18,6 +18,19 @@ const WORK_SIGN_IN = "/work/sign-in";
 // /apply/<token> is the public application form for candidates (no account).
 const PUBLIC_PATHS = ["/login", "/auth", "/api/jobs", WORK_SIGN_IN, "/work/invite", "/apply", ...TOKEN_API_PATHS];
 
+// External callers (portal role "caller") only have /caller, plus signing in
+// and out (feedback Julius, section 2.10): no portal, no Work, no API and so
+// no export. The role is in app_metadata, which the database keeps in sync
+// with profiles.role (migration 20261110030000), so this needs no query. The
+// pages check the role again (requireStaff, requireCaller) for sessions whose
+// token is older than a role change.
+const CALLER_PATHS = ["/caller", "/auth", "/login", "/api/webhooks"];
+
+function isCallerSession(claims: Record<string, unknown> | undefined) {
+  const meta = claims?.app_metadata;
+  return Boolean(meta && typeof meta === "object" && (meta as Record<string, unknown>).portal_role === "caller");
+}
+
 // All a session may reach before its second step: the code form, signing out
 // and the e-mail link landing point (it only swaps tokens and redirects).
 const SECOND_STEP_PATHS = [MFA_VERIFY_PATH, "/auth/signout", "/auth/confirm"];
@@ -88,12 +101,19 @@ export async function updateSession(request: NextRequest) {
     }
   }
 
+  if (claims && isCallerSession(claims) && !matches(CALLER_PATHS, pathname)) {
+    if (pathname.startsWith("/api/")) {
+      return NextResponse.json({ error: "Not allowed" }, { status: 403 });
+    }
+    return redirectWithCookies(request, response, "/caller");
+  }
+
   // Signed-in users skip the login screen, unless it is showing an error
   // (for example a client account that is not linked to a company yet).
   const showsLoginError =
     pathname === "/login" && request.nextUrl.searchParams.has("error");
   if (isSignedIn && !showsLoginError && (pathname === "/login" || pathname === "/")) {
-    return redirectWithCookies(request, response, "/dashboard");
+    return redirectWithCookies(request, response, isCallerSession(claims) ? "/caller" : "/dashboard");
   }
   if (isSignedIn && pathname === WORK_SIGN_IN && !request.nextUrl.searchParams.has("error")) {
     const next = request.nextUrl.searchParams.get("next");

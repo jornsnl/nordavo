@@ -92,9 +92,9 @@ export const s3DecisionMakers = defineJob({
         // Only move new contacts forward; never pull an existing contact back.
         const { error: statusError } = await ctx.db
           .from("contacts")
-          .update({ status: "gekwalificeerd" })
+          .update({ status: "qualified" })
           .eq("id", contact.id)
-          .eq("status", "nieuw");
+          .eq("status", "new");
         if (statusError) throw statusError;
         if (contact.created) created += 1;
         ctx.countOut();

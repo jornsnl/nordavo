@@ -21,6 +21,7 @@ import {
   type McpToolContext,
 } from "@/lib/mcp/shared";
 import { registerWriteTools } from "@/lib/mcp/write-tools";
+import { linkedWorkTasks, listWorkTasks, workTaskActivity } from "@/lib/mcp/work-tasks";
 import { talentPoolTop } from "@/lib/screening/talent-search";
 
 const READ_ONLY = { readOnlyHint: true, openWorldHint: false } as const;
@@ -674,55 +675,7 @@ function registerReadTools(server: McpServer, ctx: McpToolContext) {
     },
   );
 
-  // -------------------------------------------------------------------------
-  server.registerTool(
-    "get_company",
-    {
-      title: "Company (GTM)",
-      description:
-        "One GTM company (sales prospect) with ICP qualification, its contacts and latest hiring signals. Use search with type company to find ids.",
-      inputSchema: { id: idSchema },
-      annotations: READ_ONLY,
-    },
-    async ({ id }) => {
-      const company = check(
-        await db
-          .from("companies")
-          .select(
-            "id, name, domain, website, city, sector, segment, employees, linkedin_url, status, icp_decision, icp_score, icp_reason, red_flags, opening_line, client_id, qualified_at, created_at",
-          )
-          .eq("id", id)
-          .maybeSingle(),
-        "company",
-      );
-      if (!company || Array.isArray(company)) return fail("Company not found.");
-
-      const [contacts, signals, notes] = await Promise.all([
-        db
-          .from("contacts")
-          .select("id, first_name, last_name, title, tier, email, email_status, phone, linkedin_url, status, last_contacted_at")
-          .eq("company_id", id)
-          .order("tier", { ascending: true, nullsFirst: false })
-          .limit(50),
-        db
-          .from("signals")
-          .select("id, type, title, source, source_url, first_seen_at, last_seen_at")
-          .eq("company_id", id)
-          .order("last_seen_at", { ascending: false })
-          .limit(20),
-        latestNotes(ctx, "company", id),
-      ]);
-
-      return ok({
-        ...company,
-        icp_reason: clip(company.icp_reason, 1000),
-        url: url("company", company.id),
-        contacts: check(contacts, "contacts"),
-        signals: check(signals, "signals"),
-        recent_notes: notes,
-      });
-    },
-  );
+  // get_company (sales) lives in src/lib/mcp/sales-tools.ts.
 
   // -------------------------------------------------------------------------
   server.registerTool(
@@ -730,17 +683,17 @@ function registerReadTools(server: McpServer, ctx: McpToolContext) {
     {
       title: "Tasks",
       description:
-        "List tasks, earliest due date first. Filter on your own tasks (mine), status, due window or a linked record. Dates are YYYY-MM-DD in Europe/Amsterdam.",
+        "List the Work tasks you can open, earliest deadline first, with owners, reviewer, project and the linked record (client, lead/company, vacancy, candidate, application or placement). Filter on your own tasks (mine), status, due window or a linked record (entity_type with entity_id). due_at is UTC; due_date is the day in Europe/Amsterdam.",
       inputSchema: {
-        mine: z.boolean().default(false).describe("Only tasks assigned to the token owner."),
+        mine: z.boolean().default(false).describe("Only tasks the token owner is an owner of."),
         status: z
-          .enum(["open", "todo", "in_progress", "done", "all"])
+          .enum(["open", "todo", "in_progress", "review", "done", "cancelled", "all"])
           .default("open")
-          .describe("open = todo or in_progress (default)."),
+          .describe("open = todo, in_progress or review (default)."),
         due: z
           .enum(["overdue", "today", "week", "none"])
           .optional()
-          .describe("overdue = before today, today, week = today up to 7 days ahead, none = no due date."),
+          .describe("overdue = deadline passed and still open, today, week = today up to 7 days ahead, none = no deadline."),
         entity_type: z.enum(linkableTypes).optional().describe("Only tasks linked to this record type (requires entity_id)."),
         entity_id: idSchema.optional(),
         limit: limitSchema,
@@ -750,55 +703,7 @@ function registerReadTools(server: McpServer, ctx: McpToolContext) {
     },
     async ({ mine, status, due, entity_type, entity_id, limit, offset }) => {
       if (Boolean(entity_type) !== Boolean(entity_id)) return fail("Give entity_type and entity_id together.");
-      const today = amsterdamDate();
-      let q = db
-        .from("tasks")
-        .select(
-          "id, title, description, status, priority, due_date, entity_type, entity_id, completed_at, created_at, assignee_id, assignee:profiles!tasks_assignee_id_fkey(full_name, email)",
-          { count: "exact" },
-        )
-        .order("due_date", { ascending: true, nullsFirst: false })
-        .order("created_at")
-        .range(offset, offset + limit - 1);
-      if (mine) q = q.eq("assignee_id", ctx.userId);
-      if (status === "open") q = q.neq("status", "done");
-      else if (status !== "all") q = q.eq("status", status);
-      if (due === "overdue") q = q.lt("due_date", today);
-      if (due === "today") q = q.eq("due_date", today);
-      if (due === "week") q = q.gte("due_date", today).lte("due_date", amsterdamDate(7));
-      if (due === "none") q = q.is("due_date", null);
-      if (entity_type && entity_id) q = q.eq("entity_type", entity_type).eq("entity_id", entity_id);
-
-      const r = await q;
-      const rows = check(r, "tasks");
-      const labels = await resolveLabels(
-        db,
-        rows.flatMap((t) => (t.entity_type && t.entity_id ? [{ type: t.entity_type, id: t.entity_id }] : [])),
-      );
-      return ok({
-        today,
-        total: r.count,
-        tasks: rows.map((t) => ({
-          id: t.id,
-          title: t.title,
-          description: clip(t.description, 500),
-          status: t.status,
-          priority: t.priority,
-          due_date: t.due_date,
-          overdue: Boolean(t.due_date && t.status !== "done" && t.due_date < today),
-          assignee_id: t.assignee_id,
-          assignee: personName(t.assignee),
-          linked:
-            t.entity_type && t.entity_id
-              ? {
-                  type: t.entity_type,
-                  id: t.entity_id,
-                  label: labels.get(`${t.entity_type}:${t.entity_id}`) ?? null,
-                }
-              : null,
-          completed_at: t.completed_at,
-        })),
-      });
+      return ok(await listWorkTasks(db, ctx.userId, ctx.siteUrl, { mine, status, due, entity_type, entity_id, limit, offset }));
     },
   );
 
@@ -808,7 +713,7 @@ function registerReadTools(server: McpServer, ctx: McpToolContext) {
     {
       title: "Activity",
       description:
-        "Activity log (who changed what, newest first). With entity_type and entity_id: the timeline of that record, including its pipeline (applications) and linked tasks. Without: the latest activity across the portal.",
+        "Activity log (who changed what, newest first). With entity_type and entity_id: the timeline of that record, including its pipeline (applications) and its linked Work tasks; entity_type task gives the log of one Work task. Without: the latest activity across the portal.",
       inputSchema: {
         entity_type: z.enum(["client", "vacancy", "candidate", "placement", "application", "task"]).optional(),
         entity_id: idSchema.optional(),
@@ -825,6 +730,7 @@ function registerReadTools(server: McpServer, ctx: McpToolContext) {
         .order("created_at", { ascending: false })
         .limit(limit);
 
+      const workTasks: { id: string; title: string }[] = [];
       if (entity_type && entity_id) {
         const filters = [`and(entity_type.eq.${entity_type},entity_id.eq.${entity_id})`];
         if (entity_type === "vacancy" || entity_type === "candidate") {
@@ -838,20 +744,31 @@ function registerReadTools(server: McpServer, ctx: McpToolContext) {
           );
           if (apps.length) filters.push(`and(entity_type.eq.application,entity_id.in.(${apps.map((a) => a.id).join(",")}))`);
         }
-        if (entity_type !== "task") {
-          const tasks = check(
-            await db.from("tasks").select("id").eq("entity_type", entity_type).eq("entity_id", entity_id).limit(100),
-            "tasks",
-          );
-          if (tasks.length) filters.push(`and(entity_type.eq.task,entity_id.in.(${tasks.map((t) => t.id).join(",")}))`);
+        if (entity_type === "task") {
+          // A Work task: its own log, if the token owner may open it.
+          const { data: visible } = await db.rpc("work_api_can_view_task", { p_task: entity_id, p_user: ctx.userId });
+          if (!visible) return fail("Task not found.");
+          const { data: task } = await db.from("work_tasks").select("id, title, external_source, external_id").eq("id", entity_id).maybeSingle();
+          if (task) {
+            workTasks.push({ id: task.id, title: task.title });
+            if (task.external_source === "portal_tasks" && task.external_id) filters.push(`and(entity_type.eq.task,entity_id.eq.${task.external_id})`);
+          }
+        } else {
+          const linked = await linkedWorkTasks(db, entity_type, entity_id);
+          workTasks.push(...linked);
+          const oldIds = linked.flatMap((t) => (t.oldId && /^[0-9a-f-]{36}$/i.test(t.oldId) ? [t.oldId] : []));
+          if (oldIds.length) filters.push(`and(entity_type.eq.task,entity_id.in.(${oldIds.join(",")}))`);
         }
         q = q.or(filters.join(","));
       }
 
-      const rows = check(await q, "activity");
+      const [rows, workRows] = await Promise.all([
+        q.then((r) => check(r, "activity")),
+        workTaskActivity(db, workTasks, limit),
+      ]);
       const labels = await resolveLabels(db, rows.map((a) => ({ type: a.entity_type, id: a.entity_id })));
-      return ok({
-        activity: rows.map((a) => ({
+      const activity = [
+        ...rows.map((a) => ({
           at: a.created_at,
           type: a.entity_type,
           id: a.entity_id,
@@ -861,7 +778,9 @@ function registerReadTools(server: McpServer, ctx: McpToolContext) {
           changes: compactChanges(a.changes),
           by: personName(a.actor) ?? "systeem",
         })),
-      });
+        ...workRows.map((w) => ({ ...w, changes: compactChanges(w.changes) })),
+      ];
+      return ok({ activity: activity.sort((a, b) => b.at.localeCompare(a.at)).slice(0, limit) });
     },
   );
 

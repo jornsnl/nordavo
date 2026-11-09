@@ -12,6 +12,7 @@ import { DaysOpen } from "@/components/vacancies/days-open";
 import { Badge } from "@/components/ui/badge";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { Input, Select } from "@/components/ui/field";
+import { SearchSelect } from "@/components/ui/search-select";
 import { MobileList, MobileListItem } from "@/components/ui/mobile-list";
 import { ListSkeleton, Skeleton } from "@/components/ui/skeleton";
 import { Table, TBody, TD, TH, THead, TR } from "@/components/ui/table";
@@ -132,15 +133,19 @@ async function Filters({ searchParams }: { searchParams: SearchParams }) {
         <label htmlFor="vacancy-client" className="sr-only">
           Client
         </label>
-        <Select id="vacancy-client" name="client" defaultValue={client} className="lg:w-56">
-          <option value="">All clients</option>
-          <option value={TALENT_POOL_FILTER}>{TALENT_POOL_LABEL}</option>
-          {clients.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.label}
-            </option>
-          ))}
-        </Select>
+        <SearchSelect
+          id="vacancy-client"
+          name="client"
+          defaultValue={client || null}
+          className="lg:w-56"
+          placeholder="All clients"
+          searchPlaceholder="Search clients"
+          submitOnChange
+          options={[
+            { value: TALENT_POOL_FILTER, label: TALENT_POOL_LABEL },
+            ...clients.map((c) => ({ value: c.id, label: c.label })),
+          ]}
+        />
         <label htmlFor="vacancy-stage" className="sr-only">
           Talent stage
         </label>

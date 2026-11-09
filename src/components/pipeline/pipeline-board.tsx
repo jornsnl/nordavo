@@ -22,7 +22,7 @@ import { moveApplication, reorderStage } from "@/app/dashboard/vacancies/[id]/pi
 import { bulkMoveApplications } from "@/app/dashboard/vacancies/[id]/pipeline/recruitment-actions";
 import type { PipelineApplication } from "@/lib/data/applications";
 import type { CandidateOption } from "@/lib/data/candidates";
-import type { StaffMember } from "@/lib/data/tasks";
+import type { StaffMember } from "@/lib/data/staff";
 import type { ApplicationStage } from "@/lib/database.types";
 import { applicationStages, optionFor } from "@/lib/labels";
 import {

@@ -80,11 +80,14 @@ export function InviteForm({
             disabled={!enabled}
             onChange={(e) => setRole(e.target.value as ProfileRole)}
           >
-            {profileRoles.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
+            {/* External callers are invited under Callers. */}
+            {profileRoles
+              .filter((option) => option.value !== "caller")
+              .map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
           </Select>
         </Field>
         {role === "client" && (

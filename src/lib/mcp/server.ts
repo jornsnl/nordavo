@@ -4,6 +4,7 @@ import type { McpDb } from "@/lib/mcp/shared";
 import type { McpTokenContext } from "@/lib/mcp/tokens";
 import { scopeDbToModules } from "@/lib/mcp/module-scope";
 import { registerTools } from "@/lib/mcp/tools";
+import { registerSalesTools } from "@/lib/mcp/sales-tools";
 import { effectiveModules, portalModules } from "@/lib/modules";
 
 export const MCP_SERVER_NAME = "nordavo";
@@ -41,5 +42,6 @@ export function createNordavoMcpServer(ctx: McpTokenContext, db: McpDb, siteUrl:
   // The db is the secret key client: scope it to the owner's modules (2.5).
   const scoped = scopeDbToModules(db, effectiveModules(ctx.role, ctx.modules));
   registerTools(server, { ...ctx, db: scoped, siteUrl });
+  registerSalesTools(server, { ...ctx, db: scoped, siteUrl });
   return server;
 }

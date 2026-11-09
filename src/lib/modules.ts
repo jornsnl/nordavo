@@ -10,7 +10,7 @@ export const portalModules: { value: PortalModule; label: string; description: s
   {
     value: "sales",
     label: "Sales",
-    description: "GTM: leads, contacts, signals, lists, campaigns, suppressions and the GTM jobs.",
+    description: "Leads, contacts, pipeline, calls, call lists, meetings, sequences, partners, suppressions and the GTM jobs.",
   },
   {
     value: "recruitment",
@@ -47,8 +47,12 @@ export function effectiveModules(role: ProfileRole, stored: readonly string[] | 
 const routeModules: [prefix: string, module: PortalModule][] = [
   ["/dashboard/leads", "sales"],
   ["/dashboard/contacts", "sales"],
-  ["/dashboard/lists", "sales"],
-  ["/dashboard/campaigns", "sales"],
+  ["/dashboard/pipeline", "sales"],
+  ["/dashboard/calls", "sales"],
+  ["/dashboard/call-lists", "sales"],
+  ["/dashboard/meetings", "sales"],
+  ["/dashboard/sequences", "sales"],
+  ["/dashboard/partners", "sales"],
   ["/dashboard/suppressions", "sales"],
   ["/dashboard/vacancies", "recruitment"],
   ["/dashboard/candidates", "recruitment"],
@@ -71,7 +75,7 @@ export function canSeePath(path: string, modules: readonly PortalModule[] | null
 
 /** Which module a job belongs to. Mirrors public.job_module() in the database. */
 export function jobModule(jobName: string): PortalModule | null {
-  if (/^s[0-9]+-/.test(jobName) || jobName.startsWith("max-")) return "sales";
+  if (/^s[0-9]+-/.test(jobName) || jobName.startsWith("max-") || jobName.startsWith("claude-")) return "sales";
   if (jobName.startsWith("work-") || jobName.startsWith("clickup-")) return null;
   return "recruitment";
 }
