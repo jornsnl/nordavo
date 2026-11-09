@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useRef, useState, useTransition, type MouseEvent, type ReactNode, type TouchEventHandler } from "react";
+import { useId, useRef, useState, useTransition, type MouseEvent, type ReactNode, type TouchEventHandler } from "react";
 import Link from "next/link";
 import {
   DndContext,
@@ -19,11 +19,12 @@ import type { TaskListItem } from "@/lib/work/data";
 import type { WorkStatus } from "@/lib/work/database";
 import { workOption, workStatuses } from "@/lib/work/labels";
 import { FormMessage } from "@/components/ui/field";
-import { quickStatusAction } from "@/app/work/actions";
 import { DueLabel, People, PriorityBadge, priorityBorder } from "@/components/work/task-row";
 import { RecordChip } from "@/components/work/task-record";
-import { TASK_CHANGE_EVENT, TaskMenuButton, useTaskMenu, type TaskChangeDetail } from "@/components/work/task-menu";
-import { applyChange } from "@/lib/work/task-menu";
+import { TaskMenuButton, useTaskMenu } from "@/components/work/task-menu";
+import { useOfflineTasks } from "@/components/offline/use-offline-tasks";
+import { submitTaskOp } from "@/lib/offline/sync";
+import type { TaskView } from "@/lib/offline/overlay";
 
 /** A press this short of a move is a long press, not a drag: it opens the actions. */
 const STILL_PX = 8;
@@ -48,22 +49,27 @@ export function TaskBoard({
   tasks,
   timeZone,
   showContext = true,
+  view,
 }: {
   tasks: TaskListItem[];
   timeZone: string;
   showContext?: boolean;
+  /** Which tasks this board shows, for tasks made or changed on this device. */
+  view?: TaskView;
 }) {
   const dndId = useId();
-  const [items, setItems] = useState(tasks);
-  const [source, setSource] = useState(tasks);
+  // The server's tasks with this device's changes laid over them (offline sync).
+  const live = useOfflineTasks(tasks, view);
+  const [items, setItems] = useState(live);
+  const [source, setSource] = useState(live);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [error, setError] = useState<string>();
   const [, startTransition] = useTransition();
 
-  // New data from the server (after a save or a filter change) replaces the local state.
-  if (tasks !== source) {
-    setSource(tasks);
-    setItems(tasks);
+  // New data (from the server, or a change on this device) replaces the local state.
+  if (live !== source) {
+    setSource(live);
+    setItems(live);
   }
 
   const columns: WorkStatus[] = items.some((t) => t.status === "cancelled") ? [...baseColumns, "cancelled"] : baseColumns;
@@ -73,15 +79,6 @@ export function TaskBoard({
   const openMenu = useTaskMenu();
   const touchDrag = useRef(false);
 
-  // Changes from the action menu move the card at once (and back if refused).
-  useEffect(() => {
-    const onChange = (event: Event) => {
-      const { id, change } = (event as CustomEvent<TaskChangeDetail>).detail;
-      setItems((list) => list.map((t) => (t.id === id ? applyChange(t, change) : t)));
-    };
-    window.addEventListener(TASK_CHANGE_EVENT, onChange);
-    return () => window.removeEventListener(TASK_CHANGE_EVENT, onChange);
-  }, []);
 
   const findTask = (id: UniqueIdentifier) => items.find((t) => t.id === id) ?? null;
   const columnOf = (id: UniqueIdentifier): WorkStatus | null => (isStatus(id) ? id : (findTask(id)?.status ?? null));
@@ -105,13 +102,14 @@ export function TaskBoard({
     const to = over ? columnOf(over.id) : null;
     if (!task || !to || to === task.status) return;
 
-    const before = items;
     setItems((list) => list.map((t) => (t.id === task.id ? { ...t, status: to } : t)));
+    // Through the outbox: at once when online, later when not. A refusal is
+    // reported by the sync runtime and the card goes back with the server's list.
     startTransition(async () => {
-      const result = await quickStatusAction(task.id, to);
-      if (result.error) {
-        setItems(before);
-        setError(`"${task.title}" stays in ${statusLabel(task.status)}: ${result.error}`);
+      try {
+        await submitTaskOp({ op: "task.status", payload: { taskId: task.id, status: to, at: new Date().toISOString() } }, task);
+      } catch {
+        setError(`"${task.title}" stays in ${statusLabel(task.status)}: this device could not keep the change.`);
       }
     });
   }

@@ -452,6 +452,10 @@ export type WorkFunctions = {
       p_parent?: string | null;
       p_status?: WorkStatus;
       p_is_log?: boolean;
+      /** Chosen by the device (offline sync): the same id twice makes one task. */
+      p_id?: string | null;
+      /** When it happened on the device; at most 14 days ago and not in the future, else now. */
+      p_at?: string | null;
     } & Actor,
     string
   >;
@@ -499,7 +503,7 @@ export type WorkFunctions = {
   >;
   work_update_task: Fn<{ p_task: string; p_fields: Json } & Actor, undefined>;
   work_set_assignees: Fn<{ p_task: string; p_users: string[] } & Actor, undefined>;
-  work_set_status: Fn<{ p_task: string; p_status: WorkStatus; p_comment?: string | null } & Actor, undefined>;
+  work_set_status: Fn<{ p_task: string; p_status: WorkStatus; p_comment?: string | null; p_at?: string | null } & Actor, undefined>;
   work_add_comment: Fn<{ p_task: string; p_body: string; p_mentions?: string[] } & Actor, string>;
   work_move_task: Fn<{ p_task: string; p_project: string } & Actor, undefined>;
   work_duplicate_task: Fn<{ p_task: string } & Actor, string>;

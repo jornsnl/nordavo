@@ -11,6 +11,11 @@ import {
 } from "@/components/search/command-palette";
 import { TabBar, TabButton, type TabItem } from "@/components/ui/tab-bar";
 import { useDrawer } from "@/components/ui/use-drawer";
+import { SyncIndicator } from "@/components/offline/sync-indicator";
+import { SyncRuntime } from "@/components/offline/sync-runtime";
+
+/** Kept on the device ahead of time, so they open without a connection (read only, Work tasks also writable). */
+const OFFLINE_PAGES = ["/dashboard", "/work", "/dashboard/leads", "/dashboard/vacancies", "/dashboard/candidates", "/dashboard/clients"];
 import type { PortalModule } from "@/lib/database.types";
 import { canSeePath } from "@/lib/modules";
 import { SidebarNav } from "./sidebar-nav";
@@ -72,12 +77,19 @@ export function AppShell({
       <div className="flex-1 overflow-y-auto overscroll-contain">
         <SidebarNav onNavigate={() => setOpen(false)} modules={modules} />
       </div>
-      <div className="mt-6 border-t border-white/10 pt-4">{userMenu}</div>
+      <div className="mt-6 space-y-2 border-t border-white/10 pt-4">
+        <SyncIndicator tone="dark" />
+        {userMenu}
+      </div>
     </div>
   );
 
   return (
     <div className="min-h-dvh">
+      {/* Reads the path (request data): behind Suspense like the menus. */}
+      <Suspense fallback={null}>
+        <SyncRuntime warm={OFFLINE_PAGES} />
+      </Suspense>
       {/* Desktop sidebar */}
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 lg:block">
         {sidebar}
@@ -89,7 +101,10 @@ export function AppShell({
           <Link href="/dashboard" className="rounded-lg focus-visible:outline-2 focus-visible:outline-brand-500">
             <Logo />
           </Link>
-          <MobileSearchButton onClick={() => setSearchOpen(true)} />
+          <div className="flex items-center gap-1">
+            <SyncIndicator />
+            <MobileSearchButton onClick={() => setSearchOpen(true)} />
+          </div>
         </div>
       </header>
 

@@ -6,8 +6,9 @@ import { EmptyState } from "@/components/dashboard/empty-state";
 import { ListSkeleton } from "@/components/ui/skeleton";
 import { FilterBar, type FilterDef } from "@/components/work/filter-bar";
 import { PageTabs } from "@/components/work/page-tabs";
-import { DueGroups, TaskGroup } from "@/components/work/task-row";
-import { TaskBoard } from "@/components/work/task-board";
+import { LiveTasks } from "@/components/work/live-task-lists";
+import { QuickAddTask } from "@/components/work/quick-add-task";
+import type { TaskView } from "@/lib/offline/overlay";
 import { PriorityChips, ViewToggle } from "@/components/work/view-controls";
 import {
   countReviews,
@@ -17,10 +18,9 @@ import {
   requireWorkUser,
   type OverviewTab,
   type TaskFilters,
-  type TaskListItem,
 } from "@/lib/work/data";
-import { isWorkPriority, isWorkStatus, workStatuses } from "@/lib/work/labels";
-import { dueState } from "@/lib/work/time";
+import { isWorkPriority, isWorkStatus, openStatuses, workStatuses } from "@/lib/work/labels";
+import { dayIn, localInputToUtc } from "@/lib/work/time";
 
 export const metadata: Metadata = { title: "My overview" };
 
@@ -84,6 +84,21 @@ async function Overview({ searchParams }: { searchParams: Promise<Search> }) {
     return s ? `/work?${s}` : "/work";
   };
 
+  // Which tasks this list shows, so tasks made or changed on this device land right (offline sync).
+  const taskView: TaskView = {
+    ...(tab === "review" ? { reviewer: user.id, statuses: ["review"] } : { assignee: user.id }),
+    workspaceId: filters.workspace,
+    projectId: filters.project,
+    priority: filters.priority,
+    ...(tab !== "review" ? { statuses: filters.status ? [filters.status] : openStatuses } : {}),
+    ...(tab === "today"
+      ? {
+          statuses: (filters.status ? [filters.status] : openStatuses).filter((s) => s !== "review"),
+          dueBefore: localInputToUtc(`${dayIn(new Date(), user.timeZone)}T23:59`, user.timeZone) ?? undefined,
+        }
+      : {}),
+  };
+
   const filterDefs: FilterDef[] = [
     { name: "workspace", label: "Workspace", all: "All workspaces", options: workspaces.map((w) => ({ value: w.id, label: w.name })) },
     {
@@ -121,33 +136,28 @@ async function Overview({ searchParams }: { searchParams: Promise<Search> }) {
         <ViewToggle basePath="/work" view={view} />
       </div>
 
-      {tasks.length === 0 ? (
-        <Empty tab={tab} filtered={Object.values(filters).some(Boolean)} hasWorkspaces={workspaces.length > 0} />
-      ) : view === "board" ? (
-        <TaskBoard tasks={tasks} timeZone={user.timeZone} />
-      ) : tab === "mine" ? (
-        <DueGroups tasks={tasks} timeZone={user.timeZone} />
-      ) : tab === "review" ? (
-        <TaskGroup
-          title="Waiting for your review"
-          description="Approve, or send back with a comment"
-          tasks={tasks}
-          timeZone={user.timeZone}
+      {tab === "mine" && (
+        <QuickAddTask
+          projects={projects
+            .filter((p) => !p.archived && (!filters.project || p.id === filters.project))
+            .map((p) => {
+              const w = workspaces.find((ws) => ws.id === p.workspaceId);
+              return { id: p.id, name: p.name, workspace: { id: p.workspaceId, name: w?.name ?? "", slug: w?.slug ?? "" } };
+            })}
+          user={{ id: user.id, name: user.name, email: user.email }}
+          defaultProjectId={filters.project}
         />
-      ) : (
-        <TodayGroups tasks={tasks} timeZone={user.timeZone} />
       )}
-    </div>
-  );
-}
 
-function TodayGroups({ tasks, timeZone }: { tasks: TaskListItem[]; timeZone: string }) {
-  const overdue = tasks.filter((t) => dueState(t.dueAt, timeZone) === "overdue");
-  const today = tasks.filter((t) => dueState(t.dueAt, timeZone) !== "overdue");
-  return (
-    <div className="space-y-4">
-      {overdue.length > 0 && <TaskGroup title="Overdue" tone="danger" tasks={overdue} timeZone={timeZone} />}
-      {today.length > 0 && <TaskGroup title="Due today" tasks={today} timeZone={timeZone} />}
+      <LiveTasks
+        tasks={tasks}
+        view={taskView}
+        layout={view === "board" ? "board" : tab === "mine" ? "due" : tab === "review" ? "group" : "today"}
+        title="Waiting for your review"
+        description="Approve, or send back with a comment"
+        timeZone={user.timeZone}
+        empty={<Empty tab={tab} filtered={Object.values(filters).some(Boolean)} hasWorkspaces={workspaces.length > 0} />}
+      />
     </div>
   );
 }
