@@ -15,6 +15,7 @@ import { CheckinList } from "@/components/placements/checkin-list";
 import { addMonths, monthsBetween } from "@/components/placements/dates";
 import { GuaranteeProgress } from "@/components/placements/guarantee-progress";
 import { PlacementActions } from "@/components/placements/placement-actions";
+import { PlacementAcademyCard } from "@/components/academy/ats/placement-card";
 import {
   CheckinDate,
   PlacementStatusBadge,
@@ -221,6 +222,9 @@ async function PlacementDetail({
               />
             </CardBody>
           </Card>
+          <Suspense fallback={<ListSkeleton rows={3} />}>
+            <PlacementAcademyCard placementId={placement.id} />
+          </Suspense>
           <Suspense fallback={<ListSkeleton rows={3} />}>
             <EntityExtras entityType="placement" entityId={placement.id} />
           </Suspense>

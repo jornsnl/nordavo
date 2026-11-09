@@ -739,6 +739,19 @@ begin
 end;
 $$;
 
+-- Names of ATS candidates for the automation log (managers with module
+-- academy alone do not read candidates).
+create or replace function public.academy_candidate_names(p_candidate_ids uuid[])
+returns table (id uuid, full_name text)
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select c.id, c.full_name from public.candidates c
+  where public.academy_ats_can_read() and c.id = any (p_candidate_ids);
+$$;
+
 do $$
 declare
   v_fn text;
@@ -757,7 +770,7 @@ begin
     'academy_ats_developer_course()', 'academy_ats_client_course()', 'academy_ats_can_read()',
     'academy_ats_deadline(date, integer, text)',
     'academy_ats_enrol(uuid, uuid, uuid, uuid[])', 'academy_ats_rerun_placement(uuid)',
-    'academy_ats_queue_enrol(uuid[], uuid, uuid[], boolean)'
+    'academy_ats_queue_enrol(uuid[], uuid, uuid[], boolean)', 'academy_candidate_names(uuid[])'
   ] loop
     execute format('revoke execute on function public.%s from public, anon', v_fn);
     execute format('grant execute on function public.%s to authenticated, service_role', v_fn);
