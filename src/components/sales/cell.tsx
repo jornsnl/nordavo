@@ -139,7 +139,7 @@ export function CellEditor({
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
-    el.focus();
+    el.focus({ preventScroll: true });
     if ("setSelectionRange" in el && column.type !== "select" && column.type !== "date") {
       try {
         el.setSelectionRange(el.value.length, el.value.length);

@@ -50,8 +50,9 @@ export function RoleEditor({
         onChange={(e) => setNextRole(e.target.value as ProfileRole)}
         className={stacked ? "w-full" : "w-36 py-1.5"}
       >
+        {/* External callers are added and managed under Callers. */}
         {profileRoles.map((option) => (
-          <option key={option.value} value={option.value}>
+          <option key={option.value} value={option.value} disabled={option.value === "caller"} hidden={option.value === "caller" && nextRole !== "caller"}>
             {option.label}
           </option>
         ))}

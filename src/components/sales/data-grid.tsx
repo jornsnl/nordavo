@@ -381,6 +381,8 @@ export function SalesWorkspace({
             className="h-9 w-full rounded-xl border border-border bg-white pr-3 pl-9 text-sm"
           />
         </div>
+        {mode === "table" && (
+          <>
         <Button size="sm" variant="secondary" onClick={() => setChoosing(true)}>
           <Columns3 aria-hidden="true" />
           Columns
@@ -404,6 +406,8 @@ export function SalesWorkspace({
           <ListRestart aria-hidden="true" />
           Standard order
         </Button>
+          </>
+        )}
         <Button size="sm" variant="ghost" onClick={undo} disabled={undoStack.length === 0 || pending} title="Undo the last change (Ctrl+Z)">
           <Undo2 aria-hidden="true" />
           Undo
@@ -883,10 +887,11 @@ function Grid({
   };
 
   const toggleSelect = (id: string, index?: number, shift?: boolean) => {
+    const from = lastClicked.current;
     setSelected((prev) => {
       const next = new Set(prev);
-      if (shift && index !== undefined && lastClicked.current !== null) {
-        const [a, b] = [Math.min(index, lastClicked.current), Math.max(index, lastClicked.current)];
+      if (shift && index !== undefined && from !== null) {
+        const [a, b] = [Math.min(index, from), Math.max(index, from)];
         const on = !prev.has(id);
         for (let i = a; i <= b; i += 1) {
           if (on) next.add(rows[i].id);
