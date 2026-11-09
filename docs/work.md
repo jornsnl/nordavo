@@ -219,3 +219,40 @@ Gasten en freelancers in Work zien nooit welke klant, kandidaat of lead achter e
 - De interface laadt het record en de contactpersoon alleen voor teamleden met die module (`src/lib/work/records.ts`) en leest daarbij als de ingelogde gebruiker, nooit met de secret key.
 - De REST API en MCP van Work (`/api/work/v1`, `/api/work/mcp`) lezen `work_task_links` niet. Alleen de MCP van het portaal (`/api/mcp`, alleen teamleden) toont het record, beperkt tot de modules van de eigenaar van het token.
 - De test `work_guest_isolation.test.sql` controleert dit, en ook dat `work_close_record_tasks` en `work_api_record_tasks` gasten en teamleden zonder de module weigeren.
+
+## Offline
+
+Work werkt ook zonder verbinding, bijvoorbeeld in de trein. Dit is gebouwd voor de telefoon (de app op het beginscherm), maar werkt in elke browser na het eerste bezoek.
+
+### Wat kan zonder verbinding
+
+| Kan offline | Wacht op een verbinding |
+| --- | --- |
+| Mijn taken, het bord en Quick log openen (de laatste kopie) | Opmerkingen, bestanden, eigenaren, taken verplaatsen tussen projecten |
+| Een taak toevoegen (de regel "Add a task") | Het formulier op de taakpagina |
+| Starten, terug naar To do, naar review, klaar (actiemenu en bord) | Alle andere onderdelen van het portaal: die tonen de laatste kopie, alleen lezen |
+| Prioriteit wijzigen | |
+
+### Hoe het werkt
+
+| Onderdeel | Waar | Wat het doet |
+| --- | --- | --- |
+| Service worker | `public/sw.js` | Build bestanden en iconen eerst uit de cache. App pagina's altijd vers als er verbinding is; de laatste goede kopie (nooit een redirect naar inloggen, een fout of iets wat geen HTML is) wordt bewaard met de header `x-nordavo-cached-at` en getoond zonder verbinding. Een `warm` bericht bewaart de hoofdpagina's en hun build bestanden vooraf, hoogstens één keer per 5 minuten per pagina; `clear` wist de paginacache. Oude cacheversies gaan weg bij activate |
+| Lokale database | `src/lib/offline/db.ts` | IndexedDB `nordavo-offline` met `records` (laatste kopie per `task:<id>`), `meta` (aantal en tijdstip per soort, geweigerde wijzigingen), `outbox` (wachtende wijzigingen in volgorde) en `dirty` (lokaal gewijzigd, nog niet bevestigd) |
+| Overlay | `src/lib/offline/overlay.ts`, `useOfflineTasks` | Lijsten en het bord leggen de dirty taken over de serverlijst; taken die hier gemaakt zijn verschijnen meteen, op de plek waar ze horen |
+| Versturen | `src/lib/offline/sync.ts` | Elke wijziging gaat via de outbox, die meteen in volgorde wordt verstuurd. Offline, geen antwoord binnen 30 seconden of oudere wijzigingen die nog wachten: de wijziging wacht. Opnieuw bij het `online` event en elke 20 seconden. Geweigerd door de server: uit de outbox en gemeld. Na bevestiging blijft een taak 4 seconden gemarkeerd, zodat de pagina niet terugflitst |
+| Server | `src/app/work/sync-actions.ts` | Dezelfde controles en `work_*` functies als online, dus validatie, rechten, het activiteitenlog en meldingen blijven werken. Een update stuurt alleen de gewijzigde velden: wijzigingen aan andere velden van elders blijven staan, bij hetzelfde veld wint de laatste |
+| Database | `20261117000000_work_offline.sql` | `work_create_task` neemt het id dat het apparaat koos (`p_id`, idempotent: twee keer versturen geeft één taak). `work_create_task` en `work_set_status` nemen het tijdstip van de offline actie (`p_at`): geldig als het niet in de toekomst ligt en hoogstens 14 dagen oud is, anders geldt nu |
+| Indicator | Bovenbalk en menu | Groen vinkje (Synced), spinner (Syncing), Offline met het aantal wachtende wijzigingen, rood voor geweigerde wijzigingen. Tikken toont wat dit apparaat bewaart, welke pagina's offline openen en wat een verbinding nodig heeft |
+| Uitloggen | `PwaSupport` | Wist IndexedDB en de paginacache, na een waarschuwing als er nog wijzigingen wachten |
+
+Bij terugkeer naar de app (focus) wordt alleen ververst wat ouder is dan 30 seconden: een geïnstalleerde app krijgt bij elke wissel een focus event.
+
+### Testen
+
+```bash
+npm run e2e:build
+npm run e2e
+```
+
+`tests/e2e/offline.spec.ts` logt in op een productiebuild, wacht tot de service worker de hoofdpagina's heeft bewaard, gaat offline, herlaadt (de pagina opent van het apparaat), maakt een taak en wijzigt taken, gaat weer online en controleert dat alles op de server staat en de indicator "Synced" toont. De database regels staan in `supabase/tests/work_offline.test.sql`.

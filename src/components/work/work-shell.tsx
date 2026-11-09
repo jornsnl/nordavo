@@ -8,6 +8,11 @@ import { LogoMark } from "@/components/brand/logo";
 import { TabBar, TabButton, type TabItem } from "@/components/ui/tab-bar";
 import { useDrawer } from "@/components/ui/use-drawer";
 import { TaskMenuProvider } from "@/components/work/task-menu";
+import { SyncIndicator } from "@/components/offline/sync-indicator";
+import { SyncRuntime } from "@/components/offline/sync-runtime";
+
+/** Kept on the device ahead of time, so they open without a connection. */
+const OFFLINE_PAGES = ["/work", "/work?view=board", "/work/log"];
 
 const tabs: TabItem[] = [
   { label: "My tasks", href: "/work", icon: ClipboardList, match: (path) => path === "/work" },
@@ -55,12 +60,19 @@ export function WorkShell({
         </Suspense>
         {workspaces}
       </div>
-      <div className="mt-6 border-t border-white/10 pt-4">{userMenu}</div>
+      <div className="mt-6 space-y-2 border-t border-white/10 pt-4">
+        <SyncIndicator tone="dark" />
+        {userMenu}
+      </div>
     </div>
   );
 
   return (
     <div className="min-h-dvh">
+      {/* Reads the path (request data): behind Suspense like the menus. */}
+      <Suspense fallback={null}>
+        <SyncRuntime warm={OFFLINE_PAGES} />
+      </Suspense>
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 lg:block">{sidebar}</aside>
 
       <header className="sticky top-0 z-20 border-b border-border bg-white/90 pt-safe backdrop-blur-lg lg:hidden">
@@ -69,6 +81,9 @@ export function WorkShell({
             <LogoMark className="size-7" />
             <span className="font-display text-base font-bold text-brand-900">Work</span>
           </Link>
+          <div className="ml-auto">
+            <SyncIndicator />
+          </div>
         </div>
       </header>
 

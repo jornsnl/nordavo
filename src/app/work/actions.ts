@@ -341,6 +341,8 @@ const taskSchema = z.object({
   due_at: z.string().optional(),
   reviewer_id: id.optional(),
   parent_id: id.optional(),
+  /** Optional id the device chose (crypto.randomUUID): a form sent twice makes one task. */
+  id: id.optional(),
 });
 
 export async function createTaskAction(projectId: string, _prev: WorkActionState, formData: FormData): Promise<WorkActionState> {
@@ -391,6 +393,7 @@ export async function createTaskAction(projectId: string, _prev: WorkActionState
     p_reviewer: parsed.data.reviewer_id ?? null,
     p_assignees: ids(formData, "assignees"),
     p_parent: parsed.data.parent_id ?? null,
+    p_id: parsed.data.id ?? null,
   });
   if (error || !data) return { error: workErrorMessage(error) };
   sendQueuedMail();
@@ -576,7 +579,7 @@ export async function removeFileAction(attachmentId: string, taskId: string) {
 export async function quickLogAction(_prev: WorkActionState, formData: FormData): Promise<WorkActionState> {
   const user = await requireWorkUser();
   const parsed = z
-    .object({ project_id: id, title, description, done_at: z.string().optional() })
+    .object({ project_id: id, title, description, done_at: z.string().optional(), id: id.optional() })
     .safeParse(formValues(formData));
   if (!parsed.success) return invalid(parsed.error);
   const supabase = await createClient();
@@ -589,6 +592,7 @@ export async function quickLogAction(_prev: WorkActionState, formData: FormData)
     p_assignees: [user.id],
     p_status: "done",
     p_is_log: true,
+    p_id: parsed.data.id ?? null,
   });
   if (error || !data) return { error: workErrorMessage(error) };
   revalidatePath("/work", "layout");

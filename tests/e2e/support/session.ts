@@ -25,3 +25,12 @@ export async function signIn(page: Page, next = "/work") {
   await page.locator("#password").press("Enter");
   await expect(page).not.toHaveURL(/\/login/);
 }
+
+/** A change someone else makes on the server meanwhile (fake only). */
+export async function patchFake(table: string, id: string, fields: Record<string, unknown>) {
+  await fetch("http://127.0.0.1:54321/__patch", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ table, id, fields }),
+  });
+}

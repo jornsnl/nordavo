@@ -9,7 +9,8 @@
  *   node tests/e2e/support/fake-supabase.mjs   (port FAKE_SUPABASE_PORT, default 54321)
  *
  * Point the app at it with NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321.
- * GET /__state returns the tables, so a test can check what reached "the server".
+ * GET /__state returns the tables, so a test can check what reached "the server";
+ * POST /__patch changes a row behind the app's back (someone else, elsewhere).
  */
 import { createServer } from "node:http";
 import { createHmac, randomUUID } from "node:crypto";
@@ -506,6 +507,12 @@ const server = createServer(async (req, res) => {
 
   if (req.method === "OPTIONS") return send(204, null);
   if (url.pathname === "/__state") return send(200, db);
+  // A change "someone else" made on the server, e.g. { table, id, fields: { archived_at } }.
+  if (url.pathname === "/__patch" && body?.table && body?.id) {
+    const row = (db[body.table] ?? []).find((r) => r.id === body.id);
+    if (row) Object.assign(row, body.fields ?? {});
+    return send(row ? 200 : 404, row ?? { message: "not found" });
+  }
   if (url.pathname === "/__reset") {
     db = seed();
     return send(200, { ok: true });

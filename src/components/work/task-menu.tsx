@@ -15,11 +15,13 @@ import {
   Undo2,
   type LucideIcon,
 } from "lucide-react";
-import { duplicateTaskAction, quickStatusAction, updateTaskAction } from "@/app/work/actions";
+import { duplicateTaskAction } from "@/app/work/actions";
+import { submitTaskOp } from "@/lib/offline/sync";
 import { ActionSheet, type ActionItem } from "@/components/ui/action-sheet";
 import { toast } from "@/components/ui/toaster";
 import { useLongPress } from "@/components/ui/use-long-press";
 import {
+  applyChange,
   changeMessage,
   taskMenuEntries,
   undoFor,
@@ -28,36 +30,34 @@ import {
   type TaskMenuTask,
 } from "@/lib/work/task-menu";
 
-/** Fired on window when a change is applied (or rolled back), so boards can move a card at once. */
-export const TASK_CHANGE_EVENT = "work:task-change";
-export type TaskChangeDetail = { id: string; change: TaskChange };
-
-/** Sends one change through the same server actions as the task page. */
-export async function sendTaskChange(taskId: string, change: TaskChange): Promise<{ error?: string }> {
-  if (change.kind === "status") return quickStatusAction(taskId, change.status);
-  const form = new FormData();
-  form.set("priority", change.priority);
-  return updateTaskAction(taskId, {}, form);
+/** Sends one change through the offline-first outbox: at once when online, later when not. */
+export function sendTaskChange(taskId: string, change: TaskChange) {
+  return submitTaskOp(
+    change.kind === "status"
+      ? { op: "task.status", payload: { taskId, status: change.status, at: new Date().toISOString() } }
+      : { op: "task.update", payload: { taskId, fields: { priority: change.priority } } },
+  );
 }
 
-/** Applies one change: moves the card, sends it, then a message with Undo (or the refusal). */
+/**
+ * Applies one change: the device's copy changes at once (lists and boards
+ * show it), the change goes to the server now or when back online, and a
+ * message offers Undo. A refusal by the server is reported by the sync
+ * runtime, the same way for changes made offline.
+ */
 export async function applyTaskChange(task: TaskMenuTask, change: TaskChange, isUndo = false): Promise<void> {
-  window.dispatchEvent(new CustomEvent<TaskChangeDetail>(TASK_CHANGE_EVENT, { detail: { id: task.id, change } }));
-  const result = await sendTaskChange(task.id, change);
-  const back = undoFor(task, change);
-  if (result.error) {
-    // Put the card back where it was, whatever the undo rules say.
-    const revert: TaskChange =
-      change.kind === "status" ? { kind: "status", status: task.status } : { kind: "priority", priority: task.priority };
-    window.dispatchEvent(new CustomEvent<TaskChangeDetail>(TASK_CHANGE_EVENT, { detail: { id: task.id, change: revert } }));
-    toast(result.error, { tone: "error" });
+  try {
+    await sendTaskChange(task.id, change);
+  } catch {
+    toast("This change could not be saved on this device.", { tone: "error" });
     return;
   }
   if (isUndo) {
     toast("Undone.");
     return;
   }
-  const after = change.kind === "status" ? { ...task, status: change.status } : { ...task, priority: change.priority };
+  const back = undoFor(task, change);
+  const after = applyChange(task, change);
   toast(changeMessage(change), back ? { action: { label: "Undo", onClick: () => void applyTaskChange(after, back, true) } } : {});
 }
 

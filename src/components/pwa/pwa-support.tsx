@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { Share, SquarePlus, X } from "lucide-react";
 import { INSTALL_HINT_KEY, shouldShowInstallHint } from "@/lib/pwa/install-hint";
+import { countOutbox, isAvailable } from "@/lib/offline/db";
+import { clearDevice } from "@/lib/offline/worker";
 
 /** Pages where the hint makes sense: signed in areas, not the public form or sign in. */
 const HINT_PATHS = ["/dashboard", "/portal", "/work", "/academy"];
@@ -58,6 +60,37 @@ export function PwaSupport() {
     // Let the page settle first, so the hint is not the first thing that moves.
     const timer = window.setTimeout(() => setShowHint(true), 1500);
     return () => window.clearTimeout(timer);
+  }, []);
+
+  // Sign out wipes what this device kept (src/lib/offline), after a warning
+  // when changes have not reached the server yet. Every shell signs out with
+  // a form posting to /auth/signout, so one listener covers them all.
+  useEffect(() => {
+    const onSubmit = async (event: SubmitEvent) => {
+      const form = event.target;
+      if (!(form instanceof HTMLFormElement) || !form.action.includes("/auth/signout") || form.dataset.cleared) return;
+      event.preventDefault();
+      let pending = 0;
+      try {
+        pending = isAvailable() ? await countOutbox() : 0;
+      } catch {
+        // No database: nothing waiting.
+      }
+      if (
+        pending > 0 &&
+        !window.confirm(
+          `${pending === 1 ? "1 change on this device has" : `${pending} changes on this device have`} not reached the server yet. If you sign out now, ${pending === 1 ? "it is" : "they are"} lost. Sign out anyway?`,
+        )
+      ) {
+        return;
+      }
+      await clearDevice();
+      form.dataset.cleared = "1";
+      // form.submit() skips this listener and posts the form as before.
+      form.submit();
+    };
+    document.addEventListener("submit", onSubmit, true);
+    return () => document.removeEventListener("submit", onSubmit, true);
   }, []);
 
   function dismiss() {

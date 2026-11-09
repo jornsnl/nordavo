@@ -11,8 +11,9 @@ import { FilterBar } from "@/components/work/filter-bar";
 import { NewTaskButton } from "@/components/work/forms";
 import { Markdown } from "@/components/work/markdown";
 import { PageTabs } from "@/components/work/page-tabs";
-import { DueGroups, TaskGroup } from "@/components/work/task-row";
-import { TaskBoard } from "@/components/work/task-board";
+import { LiveTasks } from "@/components/work/live-task-lists";
+import { QuickAddTask } from "@/components/work/quick-add-task";
+import type { TaskView } from "@/lib/offline/overlay";
 import { PriorityChips, ViewToggle } from "@/components/work/view-controls";
 import { createTaskAction } from "@/app/work/actions";
 import { getProject, listProjectPeople, listProjectTasks, requireWorkUser } from "@/lib/work/data";
@@ -68,6 +69,26 @@ async function Project({ params, searchParams }: { params: Promise<{ id: string 
   const open = tasks.filter((t) => openStatuses.includes(t.status));
   const done = tasks.filter((t) => t.status === "done");
   const cancelled = tasks.filter((t) => t.status === "cancelled");
+
+  // Which tasks each list shows, so tasks made or changed on this device land right (offline sync).
+  const statusFilter = isWorkStatus(status) ? status : undefined;
+  const scope: TaskView = {
+    projectId: id,
+    priority: isWorkPriority(priority) ? priority : undefined,
+    assignee: owner && /^[0-9a-f-]{36}$/i.test(owner) ? owner : undefined,
+  };
+  const only = (statuses: typeof openStatuses): TaskView => ({
+    ...scope,
+    statuses: statusFilter ? statuses.filter((s) => s === statusFilter) : statuses,
+  });
+  const allStatuses = showDone ? [...openStatuses, "done" as const, "cancelled" as const] : openStatuses;
+  const noTasks = (
+    <EmptyState
+      icon={FolderOpen}
+      title="No tasks here"
+      description={project.archived ? "This project is archived." : "Create a task, or change the filters."}
+    />
+  );
 
   return (
     <>
@@ -138,19 +159,26 @@ async function Project({ params, searchParams }: { params: Promise<{ id: string 
         <ViewToggle basePath={base} view={view} />
       </div>
 
-      {tasks.length === 0 ? (
-        <EmptyState
-          icon={FolderOpen}
-          title="No tasks here"
-          description={project.archived ? "This project is archived." : "Create a task, or change the filters."}
-        />
-      ) : view === "board" ? (
-        <TaskBoard tasks={tasks} timeZone={user.timeZone} showContext={false} />
+      {!project.archived && (
+        <div className="mb-4">
+          <QuickAddTask
+            projects={[{ id, name: project.name, workspace: { id: project.workspace.id, name: project.workspace.name, slug: project.workspace.slug } }]}
+            user={{ id: user.id, name: user.name, email: user.email }}
+          />
+        </div>
+      )}
+
+      {view === "board" ? (
+        <LiveTasks tasks={tasks} view={only(allStatuses)} layout="board" timeZone={user.timeZone} showContext={false} empty={noTasks} />
       ) : (
         <div className="space-y-4">
-          <DueGroups tasks={open} timeZone={user.timeZone} showContext={false} />
-          {done.length > 0 && <TaskGroup title="Done" tasks={done} timeZone={user.timeZone} showContext={false} />}
-          {cancelled.length > 0 && <TaskGroup title="Cancelled" tasks={cancelled} timeZone={user.timeZone} showContext={false} />}
+          <LiveTasks tasks={open} view={only(openStatuses)} layout="due" timeZone={user.timeZone} showContext={false} empty={tasks.length === 0 ? noTasks : null} />
+          {showDone && (
+            <>
+              <LiveTasks tasks={done} view={only(["done"])} layout="group" title="Done" timeZone={user.timeZone} showContext={false} empty={null} />
+              <LiveTasks tasks={cancelled} view={only(["cancelled"])} layout="group" title="Cancelled" timeZone={user.timeZone} showContext={false} empty={null} />
+            </>
+          )}
         </div>
       )}
     </>
