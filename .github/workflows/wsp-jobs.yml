@@ -1,0 +1,51 @@
+name: Working style profile jobs
+
+# Working Style Profile (docs/working-style-profile.md). Calls the running
+# app, so the app's own environment (SUPABASE_SECRET_KEY, RESEND_API_KEY,
+# MAIL_FROM_RECRUITMENT or MAIL_FROM) is used and nothing is installed here.
+#
+#   wsp-daily  daily at 07:00 Europe/Amsterdam (the guard keeps the right
+#              UTC hour across summer and winter time): expired links, the
+#              one reminder after 3 days, retention (deleting what is due)
+#   wsp-mail   every hour at :23, mail still waiting in the outbox
+on:
+  schedule:
+    - cron: "0 5,6 * * *"
+    - cron: "23 * * * *"
+  workflow_dispatch:
+    inputs:
+      job:
+        description: "wsp-daily or wsp-mail"
+        required: true
+        default: wsp-mail
+
+concurrency:
+  group: wsp-${{ github.event.schedule || github.event.inputs.job }}
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Pick the job
+        id: pick
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "job=${{ github.event.inputs.job }}" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          case "${{ github.event.schedule }}" in
+            "0 5,6 * * *")
+              if [ "$(TZ=Europe/Amsterdam date +%H)" = "07" ]; then echo "job=wsp-daily" >> "$GITHUB_OUTPUT"; fi ;;
+            "23 * * * *") echo "job=wsp-mail" >> "$GITHUB_OUTPUT" ;;
+          esac
+      - name: Call the app for ${{ steps.pick.outputs.job }}
+        if: steps.pick.outputs.job != ''
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          SITE_URL: ${{ secrets.NEXT_PUBLIC_SITE_URL }}
+          JOB: ${{ steps.pick.outputs.job }}
+        run: |
+          curl -fsS -X POST -H "Authorization: Bearer $CRON_SECRET" -H "Content-Type: application/json" \
+            -d '{"params": {}}' "$SITE_URL/api/jobs/$JOB"

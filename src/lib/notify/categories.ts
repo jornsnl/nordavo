@@ -15,6 +15,12 @@ export const mailCategories = [
   { value: "academy_top_candidate", label: "Academy top candidate" },
   { value: "academy_reminder", label: "Academy reminder" },
   { value: "academy_digest", label: "Academy summary" },
+  // Working Style Profile (docs/working-style-profile.md)
+  { value: "wsp_invite", label: "Working style profile invitation" },
+  { value: "wsp_reminder", label: "Working style profile reminder" },
+  { value: "wsp_permission", label: "Working style profile permission request" },
+  { value: "wsp_withdrawn", label: "Working style profile withdrawn" },
+  { value: "wsp_completed", label: "Working style profile completed" },
   { value: "weekly_report", label: "Weekly report" },
   { value: "job_failure", label: "Job failure" },
   { value: "other", label: "Other" },
