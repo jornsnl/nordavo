@@ -14,6 +14,7 @@ export const mailCategories = [
   { value: "academy_welcome", label: "Academy welcome (placed)" },
   { value: "academy_top_candidate", label: "Academy top candidate" },
   { value: "academy_reminder", label: "Academy reminder" },
+  { value: "academy_digest", label: "Academy summary" },
   { value: "weekly_report", label: "Weekly report" },
   { value: "job_failure", label: "Job failure" },
   { value: "other", label: "Other" },

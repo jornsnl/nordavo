@@ -10,6 +10,10 @@ const tabs = [
   { label: "Overview", href: "/dashboard/academy/overview" },
   { label: "Automation", href: "/dashboard/academy/automation" },
   { label: "Library", href: "/dashboard/academy/library" },
+  // Area learn: assignment reviews and overdue tasks.
+  { label: "Reviews", href: "/dashboard/academy/reviews" },
+  { label: "Tasks", href: "/dashboard/academy/tasks" },
+  { label: "Documents", href: "/dashboard/academy/documents" },
 ];
 
 function isActive(pathname: string, href: string) {

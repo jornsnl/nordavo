@@ -1,14 +1,16 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { notFound } from "next/navigation";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, Award } from "lucide-react";
 import { z } from "zod";
 import { requireAcademyUser } from "@/lib/academy/auth";
 import { getCourse, getCourseOutline } from "@/lib/academy/data";
 import { t } from "@/lib/academy/i18n";
+import { getMyCertificate } from "@/lib/academy/media/learner";
+import { formatAcademyDate } from "@/lib/academy/time";
 import { continueTarget, courseProgress } from "@/lib/academy/progress";
 import { ModuleList } from "@/components/academy/course/module-list";
-import { ActionLink, ProgressBar } from "@/components/academy/ui";
+import { ActionLink, ProgressBar, actionClasses } from "@/components/academy/ui";
 import { ListSkeleton, Skeleton } from "@/components/ui/skeleton";
 
 export const metadata: Metadata = { title: "Course" };
@@ -25,7 +27,7 @@ async function Course({ params }: Pick<PageProps<"/academy/courses/[courseId]">,
   const { courseId } = await params;
   if (!z.guid().safeParse(courseId).success) notFound();
   const user = await requireAcademyUser();
-  const [course, outline] = await Promise.all([getCourse(courseId), getCourseOutline(courseId)]);
+  const [course, outline, certificate] = await Promise.all([getCourse(courseId), getCourseOutline(courseId), getMyCertificate(courseId)]);
   if (!course) notFound();
 
   const progress = courseProgress(outline);
@@ -52,6 +54,21 @@ async function Course({ params }: Pick<PageProps<"/academy/courses/[courseId]">,
           <ProgressBar percent={progress.percent} label={t(user.locale, "home.progress")} />
           <p className="mt-1.5 text-xs text-muted">{t(user.locale, "home.lessonsDone", { done: progress.done, total: progress.total })}</p>
         </div>
+        {/* Media area: the certificate once the course is completed. */}
+        {certificate && (
+          <div className="flex flex-col gap-3 rounded-xl bg-academy-orange-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+            <p className="flex items-center gap-2 text-sm text-academy-blue-900">
+              <Award className="size-5 shrink-0 text-academy-orange-600" aria-hidden="true" />
+              <span>
+                {t(user.locale, "certificate.ready")}{" "}
+                <span className="text-muted">{t(user.locale, "certificate.issued", { date: formatAcademyDate(certificate.issued_at, user.locale, user.timeZone) })}</span>
+              </span>
+            </p>
+            <a href={`/academy/certificates/${certificate.id}`} className={actionClasses("primary", "shrink-0")}>
+              {t(user.locale, "certificate.download")}
+            </a>
+          </div>
+        )}
       </header>
 
       {outline.length === 0 ? (

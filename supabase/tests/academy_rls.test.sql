@@ -303,10 +303,9 @@ do $$ begin
   raise exception 'FAIL: questionnaire without consent';
 exception when insufficient_privilege then null;
 end $$;
-insert into public.academy_questionnaire_consents (profile_id, block_id) values
-  ('00000000-0000-0000-0000-00000000a007', '00000000-0000-0000-0000-00000000a1b7');
-insert into public.academy_questionnaire_responses (block_id, profile_id, answers, submitted_at)
-values ('00000000-0000-0000-0000-00000000a1b7', '00000000-0000-0000-0000-00000000a007', '{"q1": 3}', now());
+-- Consent and answers go through the functions (20261113100000_academy_learn_blocks.sql).
+select public.academy_questionnaire_consent('00000000-0000-0000-0000-00000000a1b7', true);
+select public.academy_save_questionnaire('00000000-0000-0000-0000-00000000a1b7', '{}', true);
 select public.academy_open_lesson('00000000-0000-0000-0000-00000000a1e1', (select id from public.academy_courses where slug = 'developer'));
 reset role;
 
@@ -318,7 +317,7 @@ where id = '00000000-0000-0000-0000-00000000ac81';
 insert into public.academy_assignment_assessments (submission_id, ai_total, ai_status) values ('00000000-0000-0000-0000-00000000ac81', 72, 'ready');
 select pg_temp.check((select count(*) from public.academy_notes) = 1, 'managers read notes');
 select pg_temp.check((select count(*) from public.academy_pulse_answers) = 1, 'managers read pulse answers');
-select pg_temp.check((select count(*) from public.academy_questionnaire_responses) = 0, 'academy members without admin read no questionnaire');
+select pg_temp.check((select count(*) from public.academy_questionnaire_responses) = 1, 'Academy managers read the questionnaire');
 reset role;
 
 select pg_temp.act('admin.ac@nordavo.nl');

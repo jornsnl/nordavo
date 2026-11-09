@@ -6,8 +6,8 @@ Dit document is het contract voor iedereen die de Academy uitbreidt. Het beschri
 
 | Onderdeel | Waar |
 | --- | --- |
-| Migraties | `supabase/migrations/20261112000000_academy_foundation.sql` (rollen, mensen, content, toegang), `20261112010000_academy_placements.sql` (plaatsing, ritme, verlof, meldingen), `20261112020000_academy_learning.sql` (leerdata, afrond-engine, RPC's), `20261112030000_academy_curriculum.sql` (startcurriculum), `20261112040000_academy_editor.sql` (editorhulpen) |
-| SQL tests | `supabase/tests/academy_rls.test.sql` (rollen en zichtbaarheid), `supabase/tests/academy_engine.test.sql` (afrondregels, ontgrendelen, dupliceren) |
+| Migraties | `supabase/migrations/20261112000000_academy_foundation.sql` (rollen, mensen, content, toegang), `20261112010000_academy_placements.sql` (plaatsing, ritme, verlof, meldingen), `20261112020000_academy_learning.sql` (leerdata, afrond-engine, RPC's), `20261112030000_academy_curriculum.sql` (startcurriculum), `20261112040000_academy_editor.sql` (editorhulpen), `20261113000000_academy_media.sql` (video, documenten, werkbladen, certificaten, zie 12) |
+| SQL tests | `supabase/tests/academy_rls.test.sql` (rollen en zichtbaarheid), `supabase/tests/academy_engine.test.sql` (afrondregels, ontgrendelen, dupliceren), `supabase/tests/academy_media.test.sql` (media, werkbladen, certificaat) |
 | Types | `src/lib/academy/database.ts` (samengevoegd in `src/lib/database.types.ts`) |
 | Puur (getest) | `src/lib/academy/i18n.ts`, `time.ts`, `sanitize.ts`, `progress.ts`, `people.ts`, `routing.ts`, `mail.ts`, `blocks/types.ts` |
 | Server | `src/lib/academy/auth.ts`, `data.ts` (deelnemer), `admin.ts` (beheer), `blocks/server.ts` |
@@ -86,7 +86,7 @@ Alle tabellen hebben RLS. Beheer heeft overal de policy `Academy managers manage
 | `academy_videos`, `academy_video_versions` | Een video (vaste id) met versies: `storage_path`, `duration_seconds`, `subtitles_nl_path`, `subtitles_en_path`, `transcript`, `transcript_status`. `academy_videos.current_version_id` wijst de actieve versie aan |
 | `academy_documents`, `academy_document_versions` | Document: `kind` (download/worksheet), `scope` (global of placement met `placement_id`), `category` (workbook, template, checklist, contract_summary, gdpr, policy, escalation_matrix, decision_matrix, blocker_agreement, other), `worksheet_fields` (jsonb), `current_version`, `new_until` (label "nieuw"). Versies met `storage_path`, `file_name` |
 
-Bloktypes (check op `academy_lesson_blocks.type`): `explanation`, `video`, `document`, `worksheet`, `assignment`, `tasks`, `knowledge_check`, `notes`, `questionnaire`. Het type `questionnaire` is gereserveerd voor de persoonlijkheidstest.
+Bloktypes (check op `academy_lesson_blocks.type`): `explanation`, `video`, `document`, `worksheet`, `assignment`, `tasks`, `knowledge_check`, `notes`, `questionnaire`. Het type `questionnaire` is de persoonlijkheidstest (sectie 12).
 
 Deelnemers lezen gepubliceerde courses waar ze toegang toe hebben, de titels van alle gepubliceerde modules en lessen daarin (ook op slot, die tonen met een slotje), en de blokken alleen als de les open is. Concepten zien alleen beheerders.
 
@@ -98,13 +98,13 @@ Deelnemers lezen gepubliceerde courses waar ze toegang toe hebben, de titels van
 | `academy_notes` | Eigen notitie per les (`lesson_id`) of module (`module_id`) | Eigen beheren; beheer leest; nooit klanten of meelezers |
 | `academy_watch_progress` | Per video (niet per versie): `version_id`, `position_seconds`, `percent` (gaat nooit omlaag), `watched_seconds`, `completed_at` | Schrijven via `academy_record_watch()`; lezen eigen en wie voortgang mag zien |
 | `academy_worksheet_answers` | Per document per persoon: `answers`, `submitted_at` | Eigen beheren; beheer leest |
-| `academy_assignment_submissions` | Per blok per persoon per poging: `body`, `file_path`, `link_url`, `status` (submitted, changes_requested, approved), `feedback`, `final_score` | Eigen inleveren en aanpassen zolang niet goedgekeurd; status, feedback en score alleen beheer (trigger `academy_submissions_guard`) |
+| `academy_assignment_submissions` | Per blok per persoon per poging: `body`, `file_path`, `link_url`, `status` (submitted, changes_requested, approved), `feedback`, `final_score` | Eigen lezen; inleveren via `academy_submit_assignment()`; status, feedback en score alleen beheer via `academy_review_submission()` (trigger `academy_submissions_guard`). Zie sectie 12 |
 | `academy_assignment_assessments` | AI voorstel op de rubric (`ai_scores`, `ai_total`, `ai_summary`, `ai_status`) en `rubric_scores` van Nordavo | Alleen beheer |
 | `academy_tasks` | Taken van een takenblok: `deadline_offset_days`, `shared`, `placement_only`, `required` | Lezen als de les open is (placement-only pas met een plaatsing) of als gedeelde taak van de eigen plaatsing |
-| `academy_task_status` | Status per persoon (`profile_id`) of per plaatsing voor gedeelde taken (`profile_id` null, `placement_id`): `due_at`, `done_at`, `done_by`, `reminded_at` | Eigen taken afvinken; gedeelde taken door klantbeheerder, klant lid of developer van de plaatsing; lezen voor de hele plaatsing |
-| `academy_check_questions` | Vragen met `options` en `correct_index`, `explanation` | Alleen beheer (de deelnemer krijgt vragen zonder antwoord via een functie, nog te bouwen) |
-| `academy_check_attempts` | Pogingen: `answers`, `score`, `max_score` | Eigen lezen; schrijven via een functie (nog te bouwen) |
-| `academy_questionnaire_consents`, `academy_questionnaire_responses` | Persoonlijkheidstest: eigen toestemming, antwoorden alleen met geldige toestemming | De persoon zelf en admins (niet alle beheerders) |
+| `academy_task_status` | Status per persoon (`profile_id`) of per plaatsing voor gedeelde taken (`profile_id` null, `placement_id`): `due_at`, `done_at`, `done_by`, `reminded_at`, `reminder_count` | Eigen taken afvinken; gedeelde taken door klantbeheerder, klant lid of developer van de plaatsing; lezen voor de hele plaatsing |
+| `academy_check_questions` | Vragen met `options` en `correct_index`, `explanation` | Alleen beheer; de deelnemer krijgt vragen zonder antwoord via `academy_check_questions_for()` |
+| `academy_check_attempts` | Pogingen: `answers`, `score`, `max_score` | Eigen lezen; schrijven via `academy_submit_check()` (scoort in de database) |
+| `academy_questionnaire_consents`, `academy_questionnaire_responses` | Persoonlijkheidstest: eigen toestemming (met tijdstip, in te trekken), antwoorden alleen met geldige toestemming | De persoon zelf leest; schrijven via functies; beheer (admin of module `academy`) leest en beheert. Nooit klanten, meelezers of andere deelnemers |
 | `academy_lesson_progress` | Per les per persoon: `started_at`, `last_viewed_at`, `last_course_id`, `required_total`, `required_done`, `percent`, `completed_at` | Alleen via functies; lezen eigen en wie voortgang mag zien |
 | `academy_module_completions` | Module afgerond (eenmaal vastgelegd, blijft) | Idem |
 | `academy_certificates` | `number`, `full_name`, `storage_path`, `issued_at` per persoon per course | Lezen eigen en wie voortgang mag zien; schrijven beheer |
@@ -125,14 +125,15 @@ Deelnemers lezen gepubliceerde courses waar ze toegang toe hebben, de titels van
 
 ### Opslag
 
-Bucket `attachments`, paden onder `academy/`:
+Bucket `attachments`, paden onder `academy/` (video's staan in de bucket `academy-media`, zie 12):
 
 | Pad | Wie leest |
 | --- | --- |
-| `academy/video/<video_id>/...` | `academy_can_see_video` |
+| `academy/video/<video_id>/...` (bucket `academy-media`) | `academy_can_see_video` |
 | `academy/document/<document_id>/...` | `academy_can_see_document` |
 | `academy/submission/<profile_id>/...` | De persoon (mag ook uploaden) en beheer |
-| `academy/certificate/<profile_id>/...` | Wie voortgang van die persoon mag zien |
+| `academy/certificate/<profile_id>/...` | Wie voortgang van die persoon mag zien (het certificaat wordt nu bij het downloaden gemaakt, zie 12) |
+| `academy/image/<id>/<bestand>` | Iedere deelnemer en beheer (afbeeldingen in de uitleg) |
 
 Beheer beheert alles onder `academy/` (`can_access_entity('academy')` is nu module `academy`).
 
@@ -145,14 +146,14 @@ Per blok zet beheer `required` aan of uit, en voor sommige types een regel in `c
 | Type | Regel (`completion`) | Klaar als (`academy_block_done_<type>`) |
 | --- | --- | --- |
 | explanation | | Gezien (`academy_record_block_view`) |
-| document | | Geopend of gedownload (`academy_record_block_view`) |
+| document | | Geopend of gedownload (`academy_record_block_view`, ook via de downloadroute). Zonder document of bestand: klaar |
 | notes | | Een notitie die niet leeg is, op de les of (content `scope: module`) op de module |
-| video | `min_percent` (standaard 90) | `academy_watch_progress.percent` minstens zoveel |
-| worksheet | | Antwoorden ingeleverd (`submitted_at`) voor het document van het blok |
-| assignment | `require`: `submitted` (standaard) of `approved` | Laatste poging ingeleverd of goedgekeurd |
-| tasks | | Alle verplichte taken die voor de persoon gelden zijn af (placement-only telt pas met een plaatsing, gedeelde taken via de plaatsing) |
+| video | `min_percent` (standaard 90) | `academy_watch_progress.percent` minstens zoveel, of tot het eind gekeken. Zonder video of zonder bestand: klaar |
+| worksheet | | Antwoorden ingeleverd (`submitted_at`) voor het document van het blok. Zonder werkblad of zonder velden: klaar |
+| assignment | `require`: `submitted` (standaard) of `approved` | Laatste poging ingeleverd (of na aanpassing opnieuw) of goedgekeurd |
+| tasks | | Alle verplichte taakinstanties die voor de persoon gelden zijn af (`academy_task_instances`): eigen taken, placement-only pas met een plaatsing, gedeelde taken per plaatsing waar de taak geldt. Zonder plaatsing tellen gedeelde taken niet |
 | knowledge_check | `min_percent` (standaard 0) | Een poging met minstens die score |
-| questionnaire | | Ingeleverd |
+| questionnaire | | Ingeleverd, met toestemming die niet is ingetrokken |
 
 Een les is af (groen vinkje) als alle verplichte blokken klaar zijn; een les zonder verplichte blokken is af zodra hij geopend is. Er is geen afrondknop. `completed_at` wordt één keer gezet en nooit gewist, ook niet als er later verplichte blokken bij komen. Een module is af als alle gepubliceerde lessen af zijn; dat wordt in `academy_module_completions` vastgelegd en blijft staan als er lessen bijkomen.
 
@@ -189,7 +190,7 @@ Scopes: `all` is de hele course (een geplaatste developer, klanten), `default` z
 | `academy_lesson_blocks_state(lesson)` | Deelnemer | `done` per blok |
 | `academy_open_lesson(lesson, course?)` | Deelnemer | Les geopend: `last_viewed_at`, `last_course_id`, voortgang opnieuw berekend; geeft de voortgang als json. Beheer zonder toegang: niets (voorbeeld) |
 | `academy_record_block_view(block)` | Deelnemer | Blok gezien |
-| `academy_record_watch(video, version, position, percent, watched_seconds)` | Deelnemer | Kijkvoortgang; percent alleen omhoog |
+| `academy_record_watch(video, version, position, percent, watched_seconds, ranges)` | Deelnemer | Kijkvoortgang; percent alleen omhoog. Met `ranges` (wat echt is afgespeeld) rekent de server het percent uit, zie 12 |
 | `academy_touch()` | Deelnemer | `last_active_at` (hooguit eens per 5 minuten) |
 | `academy_my_placements()` | Klant, developer | Eigen plaatsingen zonder geld: rol, status, data, uren, overlapvenster, proeftijd, klant, developer, vacature, Nordavo contact (naam, mail, boekingslink) |
 | `academy_placement_people(placement)` | Leden, beheer | Namen, mail en rol in de plaatsing |
@@ -208,6 +209,9 @@ Scopes: `all` is de hele course (een geplaatste developer, klanten), `default` z
 | `/academy/courses/[courseId]` | | Modules met lessen, vinkjes en slotjes, reden van het slot |
 | `/academy/courses/[courseId]/lessons/[lessonId]?module=` | | Lesspeler: lessen links, voortgangsbalk, wat nog moet, blokken, Vorige en Volgende. `module` kiest de plek als de les in meer modules staat |
 | `/academy/settings` | | Taal, tijdzone (NL of India), mailsamenvatting |
+| `/academy/notifications` | | Meldingen, gelezen markeren (zie 12) |
+| `/academy/certificates/[id]` | Persoon, beheer, wie voortgang mag zien | Certificaat als PDF |
+| `/academy/files/document/[id]`, `/academy/files/image/...`, `/academy/files/subtitles/[version]/[nl\|en]` | Volgens RLS | Download, afbeelding, ondertitels |
 | `/academy/security` | | Tweestapsverificatie en passkeys |
 | `/dashboard/academy` | Beheer | Courses, nieuwe course |
 | `/dashboard/academy/courses/[id]` | Beheer | Course: publiceren, instellingen, modules slepen, per module de vrijgaveregel, lessen slepen, nieuwe of hergebruikte les, dupliceren, toegang per persoon of groep |
@@ -216,6 +220,9 @@ Scopes: `all` is de hele course (een geplaatste developer, klanten), `default` z
 | `/dashboard/academy/people/[id]` | Beheer | Taal, startdatum, mailsamenvatting, nieuwe inloglink, courses met scope en open modules per persoon, groepen |
 | `/dashboard/academy/groups` | Beheer | Kandidatengroepen |
 | `/dashboard/academy/library` | Beheer | Alle lessen en documenten en waar ze gebruikt worden |
+| `/dashboard/academy/reviews`, `/dashboard/academy/reviews/[id]` | Beheer | Wachtrij en beoordeling van opdrachten met AI-voorstel (sectie 12) |
+| `/dashboard/academy/tasks` | Beheer | Achterstallige taken (sectie 12) |
+| `/dashboard/academy/documents`, `/dashboard/academy/documents/[id]` | Beheer | Documenten en werkbladen: versies, velden, werkboek van een module, alle antwoorden (ook als CSV) |
 
 Klanten zien in het klantportaal een tab Academy. In het Academy-scherm staat een knop terug naar het klantportaal.
 
@@ -238,7 +245,7 @@ Een bloktype bestaat uit vier delen:
 
 De editor bewerkt alleen `content` van het blok; de blokkaart (`src/components/academy/admin/block-card.tsx`) slaat titel, verplicht, regel en content samen op met `updateBlock()`. Heeft een type eigen rijen (taken, vragen, versies), dan roept de editor eigen server actions aan. De viewer schrijft zijn data met eigen server actions of RPC's; de triggers berekenen de les opnieuw en de viewer roept daarna `router.refresh()` aan. Voor "gezien" is er `useRecordViewWhenSeen(blockId, enabled)` in `explanation-viewer.tsx`.
 
-Gebouwd: **Uitleg** (rijke tekst met koppen, lijsten, vet, cursief, citaat, links en afbeeldingen via URL; `sanitizeHtml` bij opslaan en bij tonen, zie `src/lib/academy/sanitize.ts`; geplakte tekst wordt opgeschoond; klaar als het einde van de tekst in beeld is geweest) en **Notities** (per les of per module, met optionele vraag erboven, automatisch opslaan na 0,8 seconde en bij verlaten van het veld). De andere types hebben een tijdelijke editor en viewer (`placeholder.tsx`): ze kunnen al worden toegevoegd, gesleept, benoemd en verplicht gemaakt, en hun tabellen en afrondfuncties bestaan.
+Gebouwd: **Uitleg** (rijke tekst met koppen, lijsten, vet, cursief, citaat, links en afbeeldingen via URL of upload; `sanitizeHtml` bij opslaan en bij tonen, zie `src/lib/academy/sanitize.ts`; geplakte tekst wordt opgeschoond; klaar als het einde van de tekst in beeld is geweest) en **Notities** (per les of per module, met optionele vraag erboven, automatisch opslaan na 0,8 seconde en bij verlaten van het veld). **Video**, **Document** en **Werkblad** staan in sectie 13. De andere types hebben een tijdelijke editor en viewer (`placeholder.tsx`): ze kunnen al worden toegevoegd, gesleept, benoemd en verplicht gemaakt, en hun tabellen en afrondfuncties bestaan.
 
 ### Een bloktype toevoegen of afbouwen
 
@@ -270,16 +277,9 @@ Beide courses staan als **concept**: niemand buiten Nordavo ziet ze tot een behe
 
 | Taak | Aanknopingspunten |
 | --- | --- |
-| Videoblok | `academy_videos`, `academy_video_versions`, `academy_watch_progress`, `academy_record_watch()`, `academy_block_done_video` (min_percent), opslag `academy/video/<id>/`, registry `video`, `blockStateLoaders.video` (ondertekende URL, positie). Transcript en ondertitels: kolommen op de versie |
-| Documenten en werkbladen | `academy_documents` (+ versies, `new_until`), `academy_worksheet_answers`, `academy_record_block_view()` voor downloads, registry `document` en `worksheet`, module-werkboek via `academy_modules.workbook_document_id` (staat al als label op de coursepagina) |
-| Opdrachtblok | `academy_assignment_submissions`, `academy_assignment_assessments` (AI voorstel, alleen beheer), opslag `academy/submission/<profile_id>/`, `completion.require` |
-| Takenblok | `academy_tasks`, `academy_task_status`, `deadlineFromOffset`, `relativeDeadlineLabel`, het vak `OpenTasksSection` in `src/components/academy/home/sections.tsx` |
-| Kennischeck | `academy_check_questions` (alleen beheer), `academy_check_attempts`; nog nodig: een security definer functie die vragen zonder antwoord geeft en een poging scoort |
-| Persoonlijkheidstest | Bloktype `questionnaire`, `academy_questionnaire_consents`, `academy_questionnaire_responses` (persoon en admins) |
-| Plaatsingspagina, verlof, feestdagen, rituelen, pulse, reviews | Tabellen in `20261112010000_academy_placements.sql`, `academy_my_placements()`, de vakken `RitualsSection` en `UpcomingSection`, de kaart `PlacementSection`. Plaatsingsleden toevoegen (`academy_placement_members`) heeft nog geen scherm |
-| Certificaat, meldingen, mailsamenvatting | `academy_certificates`, `academy_course_done()`, pdf-lib (zoals profile-pdf), `academy_notifications`, `academy_notify()`, `academy_members.digest_frequency` en `digest_sent_at`. De bel in de kop telt ongelezen meldingen; een meldingenpagina bestaat nog niet |
+| Plaatsingspagina, verlof, feestdagen, rituelen, pulse, reviews | Tabellen in `20261112010000_academy_placements.sql`, `academy_my_placements()`, de vakken `RitualsSection` en `UpcomingSection`, de kaart `PlacementSection`. Plaatsingsleden toevoegen (`academy_placement_members`) heeft nog geen scherm. Openstaande coursetaken van de plaatsing: `<PlacementTasksPanel>` of `getPlacementTasks()` (sectie 12) |
 | Beheeroverzichten, afhaakanalyse, AI-concept uit transcript | `academy_people_progress()`, `academy_lesson_progress`, `academy_members.last_active_at`. De mensenlijst toont de 300 laatst toegevoegden |
-| Kandidatenbeheer en ATS-koppeling | `candidates.top_candidate`, `academy_members.candidate_id`, `academy_groups` (met `vacancy_id`), `academy_add_person()` met scope en open modules. Bij "geplaatst": rol naar developer en scope `all` (opnieuw `academy_add_person` met rol developer); voortgang blijft |
+| Kandidatenbeheer en ATS-koppeling | `candidates.top_candidate`, `academy_members.candidate_id`, `academy_groups` (met `vacancy_id`), `academy_add_person()` met scope en open modules. Bij "geplaatst": rol naar developer en scope `all` (opnieuw `academy_add_person` met rol developer); voortgang blijft. Scores voor de kandidaatkaart en de talentpool: `academy_candidate_check_scores()`, `academy_candidate_assignments()`, `academy_candidate_questionnaire_results()`, `academy_candidate_learn_summary()` (sectie 12) |
 
 ## 11. Omgevingsvariabelen
 
@@ -287,4 +287,133 @@ Beide courses staan als **concept**: niemand buiten Nordavo ziet ze tot een behe
 | --- | --- | --- |
 | `SUPABASE_SECRET_KEY` | Nieuwe accounts maken bij mensen toevoegen, nieuwe wachtwoordlink | Alleen bestaande accounts toevoegen; inloglink naar `/login` |
 | `RESEND_API_KEY`, `MAIL_FROM` | Uitnodigingen | De mail wordt gelogd, niet verstuurd |
+| `ACADEMY_TRANSCRIPTION_PROVIDER`, `OPENAI_API_KEY` (+ `OPENAI_TRANSCRIPTION_MODEL`), `DEEPGRAM_API_KEY` (+ `DEEPGRAM_MODEL`) | Automatisch transcript van video's (zie 12) | Transcript typen of uploaden; de editor meldt dat het uit staat |
+| `RESEND_API_KEY`, `MAIL_FROM`, `SUPABASE_SECRET_KEY`, `CRON_SECRET` | Mailsamenvatting (job `academy-digest`) | De mail wordt gelogd; niets wordt als verstuurd gemarkeerd |
 | `NEXT_PUBLIC_ACADEMY_BOOKING_URL` | Knop "Plan een call met Nordavo" als de plaatsing geen Nordavo contact met boekingslink heeft | Geen knop |
+| `ANTHROPIC_API_KEY` | AI-voorstel op de rubric bij opdrachten (sectie 12). Automatisch na inleveren vraagt ook `SUPABASE_SECRET_KEY`; anders met de knop op de beoordelingspagina | Geen voorstel; Nordavo beoordeelt zelf |
+| `CRON_SECRET` | De dagelijkse job `academy-task-reminders` (`.github/workflows/academy-task-reminders.yml`) | De job draait alleen met de hand (Jobs of `npm run job`) |
+
+## 12. Opdracht, taken, kennischeck en vragenlijst (gebied learn)
+
+Vier bloktypes: opdracht (`assignment`), taken (`tasks`), kennischeck (`knowledge_check`) en vragenlijst (`questionnaire`, de persoonlijkheidstest). Alles wat iemand inlevert, afvinkt of beantwoordt gaat via security definer functies; RLS laat de deelnemer alleen eigen rijen lezen.
+
+| Onderdeel | Waar |
+| --- | --- |
+| Migratie | `supabase/migrations/20261113100000_academy_learn_blocks.sql` (vervangt `academy_block_done_tasks`, `academy_block_done_questionnaire` en de policies van de vragenlijst) |
+| SQL test | `supabase/tests/academy_learn.test.sql` |
+| Types | `src/lib/academy/learn/database.ts` (`LearnFunctions`, samengevoegd in `src/lib/database.types.ts`) |
+| Puur (getest in `tests/academy-learn.test.ts`) | `src/lib/academy/learn/assignment.ts` (rubric, formats, bestandsnamen), `tasks.ts` (deadline-status, sorteren, invoer), `check.ts` (vraaginvoer, resultaat), `questionnaire.ts` (definitie, scoren) |
+| Server | `src/lib/academy/learn/states.ts` (`blockStateLoaders`), `data.ts` (deelnemer: taken, plaatsingstaken), `admin.ts` (beheer), `ai.ts` (AI-voorstel) |
+| Acties | `src/app/academy/learn-actions.ts` (deelnemer), `src/app/dashboard/academy/learn-actions.ts` (taken en vragen in de editor, beoordelen, AI) |
+| UI | `src/components/academy/blocks/{assignment,tasks,knowledge-check,questionnaire}.tsx`, `src/components/academy/learn/*` |
+| Teksten | `src/lib/academy/i18n/learn.ts` (samengevoegd in `i18n.ts`) |
+| Job | `src/jobs/academy-tasks.ts` (`academy-task-reminders`), planning in `.github/workflows/academy-task-reminders.yml` (dagelijks 08:00 Amsterdam) |
+
+### Opdracht
+
+* Content: `prompt` (de opdracht in de eigen situatie, bijvoorbeeld "schrijf je eerste taak uit volgens het 5W sjabloon") en `formats` (`text`, `file`, `link`; standaard alle drie). Regel `completion.require`: `submitted` (standaard) of `approved`.
+* Inleveren: `academy_submit_assignment(block, body, file_path, file_name, link_url)`. Bestanden (hooguit 20 MB) gaan naar `attachments` onder `academy/submission/<profile_id>/<block_id>/...`; de functie weigert een pad buiten de eigen map. Zolang Nordavo niet heeft gereageerd past de deelnemer dezelfde poging aan (het AI-voorstel wordt dan opnieuw gemaakt). Na "aanpassing gevraagd" wordt opnieuw inleveren een nieuwe poging; alle pogingen blijven. Goedgekeurd is klaar.
+* Beoordelen: `/dashboard/academy/reviews` (wachtrij: wacht op Nordavo, aanpassing gevraagd, goedgekeurd, alles) en `/dashboard/academy/reviews/[id]`: de opdracht, wat is ingeleverd, de geschiedenis, het AI-voorstel en het formulier. `academy_review_submission(submission, status, feedback, final_score, rubric)` alleen voor de laatste poging; bij aanpassing is feedback verplicht. De deelnemer krijgt een melding (`academy_notify`, soort `assignment_approved` of `assignment_changes_requested`, in zijn taal, met link naar de les) en ziet feedback, status en eindscore in de les; nooit het AI-voorstel of de rubric.
+* Rubric (vast): helderheid (`clarity`), proactiviteit (`proactivity`), durft nee te zeggen (`says_no`), Engels (`english`), elk 1 tot 5. Het totaal is het aandeel van het maximum (`rubricTotal`, 0 tot 100).
+* AI-voorstel: `proposeAssessment()` in `ai.ts` met de Anthropic SDK (`src/lib/ai/claude.ts`), leest tekst en een PDF tot 10 MB, opent links niet. Opgeslagen in `academy_assignment_assessments` (`ai_scores`, `ai_total`, `ai_summary`, `ai_status`); alleen beheer leest dat. Na inleveren draait het vanzelf (met `ANTHROPIC_API_KEY` en `SUPABASE_SECRET_KEY`), anders met de knop "Ask the AI for a proposal". Het is altijd een voorstel: Nordavo kan het overnemen in de rubric en zet zelf de eindscore. Zonder sleutel staat het voorstel uit en beoordeelt Nordavo zelf.
+
+### Taken
+
+* In de editor per taak: titel, uitleg, deadline in dagen na de startdatum (0 is dag 1; snelkeuzes dag 1, dag 3, week 1, 2, 4, dag 30, dag 90), verplicht, alleen bij een plaatsing, gedeeld binnen de plaatsing (gedeeld is altijd ook alleen bij plaatsing). Taken worden per stuk opgeslagen, los van "Save block".
+* `academy_task_instances(profiel?, plaatsing?, blok?)` (intern) bepaalt voor wie een taak geldt en de echte deadline:
+
+| Soort | Geldt voor | Deadline |
+| --- | --- | --- |
+| Eigen taak | Iedereen die de les mag openen | Startdatum van de persoon (anders de eerste plaatsingsstart) plus offset, einde van die dag in de eigen tijdzone (`academy_deadline`, gelijk aan `deadlineFromOffset`) |
+| Alleen bij plaatsing | Idem, maar pas als de persoon in een plaatsing zit. Kandidaten zien hem niet | Idem |
+| Gedeeld | Per plaatsing (niet beëindigd) waar iemand die afvinkt (klantbeheerder, klant lid, developer) de les mag openen | Start van de plaatsing plus offset, in `overlap_time_zone` |
+
+* Afvinken (en terugzetten): `academy_set_task_done(task, placement?, done)`. Eigen taken door de persoon; gedeelde taken door klantbeheerder, klant lid of developer van de plaatsing, en dan ziet de hele plaatsing het (met wie het deed). Meelezers zien, maar vinken niet af.
+* De deelnemer ziet zijn taken in de les (`academy_my_tasks(block)`) en de openstaande op de startpagina (`OpenTasksSection`, hooguit 8, achterstallige eerst), met de datum in zijn eigen tijdzone en "uiterlijk dag 1" / "in week 2" zolang er nog geen startdatum is.
+* **Voor de plaatsingspagina** (andere bouwer): `getPlacementTasks(placementId)` in `src/lib/academy/learn/data.ts` geeft de rijen van `academy_placement_tasks(placement)` (gedeelde taken en de placement-only taken van de mensen van wie de kijker voortgang mag zien; leden van de plaatsing en beheer), en `<PlacementTasksPanel placementId user showDone? />` in `src/components/academy/learn/placement-tasks.tsx` is een kant-en-klaar paneel met afvinken (server component, binnen `<Suspense>`). `TaskCheckList` (client) is de lijst zelf.
+* Achterstallig: `/dashboard/academy/tasks` (`academy_overdue_tasks()`, alleen beheer) en per persoon op de mensenpagina (`academy_person_tasks()`). De job `academy-task-reminders` roept `academy_remind_overdue_tasks()` aan: een melding (`task_overdue`) aan de persoon of, bij gedeelde taken, aan wie in de plaatsing afvinkt; hooguit drie keer, een week ertussen (`reminded_at`, `reminder_count`). De mailsamenvatting neemt de meldingen mee.
+
+### Kennischeck
+
+* Drie meerkeuzevragen per check (de editor waarschuwt bij een ander aantal): vraag, 2 tot 6 opties, het goede antwoord, uitleg. Per stuk opgeslagen in `academy_check_questions` (alleen beheer leest die, met antwoord).
+* `academy_check_questions_for(block)` geeft vragen en opties zonder antwoord aan wie de les mag openen. `academy_submit_check(block, answers)` scoort in de database (alle vragen beantwoord), slaat de poging op en geeft per vraag goed/fout, het goede antwoord en de uitleg terug. `academy_check_results(block)` geeft de laatste eigen poging met uitleg, het aantal pogingen en de beste score. Opnieuw proberen mag; elke poging blijft. De regel `min_percent` telt per poging. Een beheerder in voorbeeld krijgt een score, maar er wordt niets opgeslagen.
+* Scores: Nordavo op de mensenpagina (beste, laatste, pogingen); klantbeheerders en meelezers alleen het gemiddelde via `academy_people_progress()`, nooit antwoorden.
+
+### Vragenlijst (persoonlijkheidstest)
+
+**De inhoud van de persoonlijkheidstest volgt nog (Julius specificeert die).** Gebouwd is het generieke mechanisme:
+
+* In de editor: inleiding, toestemmingstekst, labels voor 1 en 5 van de schaal, of de deelnemer zijn uitslag ziet (standaard niet), scoringsdimensies (optioneel) en vragen: schaal 1 tot 5 (eventueel omgekeerd), keuze (per optie een score 1 tot 5 voor de dimensie) of open, elk verplicht of niet. Vaste vraag-id's; pas vragen aan voordat mensen beginnen.
+* Toestemming eerst: `academy_questionnaire_consent(block, true)` legt `consented_at` vast; intrekken (`false`) zet `withdrawn_at` en verwijdert de antwoorden. Daarna kan de persoon opnieuw beginnen.
+* `academy_save_questionnaire(block, answers, submit)`: bewaren als concept of versturen. De database controleert de antwoorden per soort en rekent per dimensie het gemiddelde uit (`academy_questionnaire_score`, gelijk aan `scoreQuestionnaire` in TS); het resultaat staat in `result` als `{ dimensions: [{ key, label, score, answered }] }`. Verstuurd blijft verstuurd.
+* Toegang: antwoorden en toestemming leest alleen de persoon zelf en Nordavo met module `academy` (admins en members met de module); nooit klanten, meelezers of andere deelnemers (getest). De mensenpagina toont toestemming, uitslag en antwoorden. Werkt voor kandidaten en topkandidaten zodra de les in hun open modules staat.
+* Let op: de definitie (vragen, dimensies, optiescores) staat in de blokcontent en is dus leesbaar voor wie de les mag openen; de antwoorden en uitslagen niet.
+
+### Voor het ATS
+
+Functies voor Academy beheerders en teamleden met module `recruitment`; per ATS-kandidaat (`academy_members.candidate_id`), `null` is iedereen. Nooit antwoorden.
+
+| Functie | Per rij |
+| --- | --- |
+| `academy_candidate_check_scores(candidate?)` | Kandidaat, kennischeck (blok, titel, les), pogingen, `best_percent`, `last_percent`, `last_attempt_at` |
+| `academy_candidate_assignments(candidate?)` | Kandidaat, opdracht: laatste poging, status, `ai_total` (voorstel), `final_score` (Nordavo), `review_path` (link naar de beoordeling) |
+| `academy_candidate_questionnaire_results(candidate?)` | Kandidaat, vragenlijst: `consented_at`, `submitted_at`, `result` (dimensiescores); alleen met geldige toestemming |
+| `academy_candidate_learn_summary(candidates[]?)` | Eén rij per kandidaat voor kolommen in de talentpool: `checks_done`, `check_average_percent` (gemiddelde van de beste scores), `assignments_submitted`, `assignments_approved`, `assignment_average_score`, `questionnaire_done` |
+
+## 13. Media, werkbladen, certificaten en meldingen
+
+Migratie `20261113000000_academy_media.sql`, test `supabase/tests/academy_media.test.sql`, unit tests `tests/academy-media.test.ts`. Code in `src/lib/academy/media/*` (puur: `files.ts`, `vtt.ts`, `watch.ts`, `worksheet.ts`, `digest.ts`, `certificate-pdf.ts`, `state.ts`; server: `server.ts`, `learner.ts`, `transcription.ts`, `transcribe-run.ts`), acties in `src/app/dashboard/academy/media-actions.ts` (beheer) en `src/app/academy/media-actions.ts` (deelnemer), teksten in `src/lib/academy/i18n-media.ts` (samengevoegd in `i18n.ts`).
+
+### Videoblok
+
+| Onderdeel | Hoe |
+| --- | --- |
+| Opslag | Bucket `academy-media` (privé, 5 GB per bestand, mp4, webm, mov, vtt), pad `academy/video/<video_id>/v<versie>-<naam>`, ondertitels `.../v<versie>-subtitles-<nl\|en>.vtt`. Lezen: `academy_can_read_file`; schrijven alleen beheer. De uploadlimiet van het Supabase-project (Storage settings) moet minstens zo hoog staan |
+| Uploaden | De server action geeft een ondertekende upload-URL (`createSignedUploadUrl`). Tot 6 MB één PUT, groter resumable (TUS, `/storage/v1/upload/resumable`) in stukken van 6 MB met de sessie van de beheerder, per stuk opnieuw geprobeerd; lukt resumable niet, dan de hele file naar de ondertekende URL. De lengte leest de browser uit het bestand (`duration_seconds`) |
+| Vervangen | Nieuwe versie, `current_version_id` schuift. Voortgang staat per video, dus niemand raakt iets kwijt. Ondertitels en transcript horen bij een versie. Oudere versies: weer live zetten of verwijderen |
+| Hergebruik | Dezelfde video in meer lessen ("use a video that is already in the Academy"); voortgang telt overal |
+| Verwijderen | Video met alle versies, bestanden en ieders kijkvoortgang erop; of alleen uit het blok halen |
+| Ondertitels NL en EN | WebVTT of SRT uploaden, bewerken in de editor (wordt opgeschoond naar WebVTT), of maken uit een transcript met tijden. De speler laadt ze via `/academy/files/subtitles/<versie>/<taal>` (zelfde domein, RLS) |
+| Transcript | Automatisch na het uploaden als er een sleutel is (`after()`, daarna de job `academy-transcribe` als vangnet), daarna te corrigeren in de editor (status `corrected`; een latere automatische run overschrijft dat niet). Met tijden staat het als cue-blokken (`00:00:01.000 --> 00:00:04.000` en de tekst), zonder tijden als gewone tekst. Ook te typen of te uploaden (.vtt, .srt, .txt). Fout: `transcript_error` op de versie, zichtbaar in de editor |
+| Providers | `ACADEMY_TRANSCRIPTION_PROVIDER` = `openai` (`OPENAI_API_KEY`, `whisper-1`, bestand tot 25 MB) of `deepgram` (`DEEPGRAM_API_KEY`, `nova-2`, krijgt een ondertekende link, elke grootte). Leeg: de eerste met een sleutel. Zonder sleutel: melding in de editor, handmatig transcript. Een nieuwe provider is één object in `transcription.ts` |
+| Speler | Huisstijl, werkt op een telefoon (`playsInline`). 1x, 1.25x, 1.5x, 2x (onthouden in de browser), verder waar je was (niet als je bijna klaar was), transcript onder de video (aan of uit per blok, klik op een regel springt erheen), melding als de video is vernieuwd. Beheer ziet een voorbeeld, er wordt niets opgeslagen |
+| Kijkpercentage | Alleen echt afspelen telt: de speler maakt per `timeupdate` een stukje `[van, tot]` als de tijd niet sneller liep dan de klok bij die snelheid toelaat (`playedStep`), dus spoelen telt niet. Elke 15 seconden, bij pauze, aan het eind en bij weggaan gaan de stukjes naar `academy_record_watch(..., p_ranges)`. De server voegt ze samen met wat al bekeken is van deze versie (`academy_watch_ranges`) en rekent `percent` = gedekte seconden / lengte (100 als er hooguit 1,5 seconde ontbreekt); het percent dat de speler stuurt telt dan niet. Zonder ranges (oude aanroepen) begrenst de som van `watched_seconds` het percent. `percent` gaat nooit omlaag; bij een nieuwe versie beginnen de ranges opnieuw |
+| Klaar | `academy_block_done_video`: percent minstens `min_percent` of tot het eind; zonder video of bestand klaar |
+
+### Documenten en werkbladen
+
+* Een document is globaal en herbruikbaar: in lesblokken van beide courses en als werkboek van een module (`academy_modules.workbook_document_id`, op de documentpagina in te stellen; op de coursepagina een downloadlink). Wijzig je het document, dan geldt dat overal. Beheer in `/dashboard/academy/documents` (ook vanuit het blok: nieuw maken of uit de bibliotheek kiezen).
+* **Download** (`kind = download`): PDF, Word, Excel (ook PowerPoint, CSV, ODT, ODS, TXT), tot 20 MB, in `attachments/academy/document/<id>/v<versie>-<naam>`. Elke upload is een nieuwe versie (`current_version`), met optioneel "wat is er veranderd" en het label "nieuw" voor twee weken (`new_until`, weg te halen). De deelnemer ziet soort, formaat, grootte, versie, datum en "Nieuw", en downloadt via `/academy/files/document/<id>?block=<blok>`: die route registreert het blok als geopend en stuurt door naar een ondertekende link.
+* **Werkblad** (`kind = worksheet`): Nordavo zet de velden in `worksheet_fields`: kort antwoord, lang antwoord, keuze (één optie), vinkje (één, of meer opties), getal (met min en max), datum; met label, hulptekst en verplicht. Sleutels blijven als je een label wijzigt, dus antwoorden blijven staan.
+* De deelnemer vult in, het wordt na 0,8 seconde en bij weggaan opgeslagen (`academy_worksheet_answers`, per persoon), en levert in. Inleveren kan pas als de verplichte velden ingevuld zijn; de database controleert dat opnieuw (`academy_worksheet_answers_guard`, de tijd is die van de server) en zet de antwoorden dan op slot. Nordavo kan een werkblad weer openzetten; een afgeronde les blijft afgerond.
+* Zien: de persoon zijn eigen antwoorden, Nordavo alles: per werkblad op de documentpagina (tabel en CSV via `/dashboard/academy/documents/<id>/answers`) en per persoon op `/dashboard/academy/people/<id>`. Klanten, klantbeheerders en meelezers nooit (getest).
+
+### Afbeeldingen in de uitleg
+
+Knop "Upload an image" in de uitlegeditor: PNG, JPG, GIF of WebP tot 10 MB naar `attachments/academy/image/<id>/<naam>`. De HTML krijgt `/academy/files/image/<id>/<naam>`; die route stuurt een ingelogde deelnemer of beheerder door naar een ondertekende link (RLS: iedereen met een Academy-rij en beheer). Afbeeldingen via een URL blijven werken.
+
+### Certificaat
+
+* Automatisch: als een module wordt afgerond (`academy_module_completions`) kijkt `academy_issue_certificate(course, profile)` of de course (gepubliceerd, met toegang) helemaal af is. Zo ja: rij in `academy_certificates` op naam (`profiles.full_name`), met nummer, en een melding `certificate`. Eén keer per persoon per course; wie al klaar was bij de migratie krijgt hem meteen.
+* De PDF (pdf-lib, A4 liggend, lichtblauw met oranje, het kompas, naam, course, datum, nummer, NL of EN) wordt bij het openen gemaakt uit de rij: `/academy/certificates/<id>` (download, `?view=1` in de browser, `?lang=nl|en`). Lezen volgens RLS: de persoon, Nordavo en wie de voortgang mag zien. `storage_path` blijft leeg.
+* De deelnemer ziet de knop op de coursepagina; Nordavo op de persoonspagina.
+
+### Meldingen
+
+* De bel in de kop telt ongelezen meldingen en opent `/academy/notifications`: nieuwste eerst, ongelezen gemarkeerd, gelezen bij openen, per stuk of alles tegelijk.
+* **Een melding maken (voor alle bouwers):** in TypeScript altijd via `notifyAcademy()` uit `src/lib/academy/notify.ts`:
+
+  ```ts
+  await notifyAcademy({
+    profileId,
+    kind: "task_overdue",
+    title: { nl: "Een taak is te laat", en: "A task is overdue" },
+    body: { nl: "...", en: "..." },
+    link: `/academy/courses/${courseId}`,
+    payload: { task_id: taskId },
+  });
+  ```
+
+  Tekst als string of `{ nl, en }` (de taal van de ontvanger kiest), `link` een pad in het portaal, ook een lijst in één keer. Schrijft met de service role als `SUPABASE_SECRET_KEY` er is, anders met de meegegeven client (beheer mag via RLS). Gooit nooit een fout. In SQL (security definer functies, triggers): `perform public.academy_notify(profile, kind, title, body, link, payload)`.
+* **Mailsamenvatting:** job `academy-digest`, elk uur (`.github/workflows/academy-jobs.yml`, of `npm run job -- academy-digest`, `--dry-run=1` telt alleen). Per persoon met `digest_frequency` `daily` of `weekly`: vanaf 08:00 in de eigen tijdzone (`profiles.time_zone`), dagelijks één keer per lokale dag, wekelijks op maandag. Inhoud: ongelezen meldingen van de laatste 30 dagen die nog niet in een samenvatting zaten (hooguit 25 in de mail), in de eigen taal, met links. Verstuurd via `sendMail` (categorie `academy_digest`); daarna `digested_at` op de meldingen en `digest_sent_at` op de persoon. Zonder `RESEND_API_KEY` wordt de mail gelogd en niets gemarkeerd, zodat hij later alsnog gaat. Geen nieuwe meldingen: geen mail.
+* Jobs `academy-*` horen bij module `academy` (`job_module`).

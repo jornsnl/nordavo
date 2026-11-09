@@ -29,14 +29,20 @@ export async function AcademyHeaderMenu() {
           <LayoutDashboard className="size-[18px]" aria-hidden="true" />
         </Link>
       )}
-      <span className={`${iconLink} relative`} title={tr("shell.notifications")} aria-label={`${tr("shell.notifications")}: ${unread}`}>
+      {/* Media area: the bell opens /academy/notifications. */}
+      <Link
+        href="/academy/notifications"
+        className={`${iconLink} relative`}
+        title={tr("shell.notifications")}
+        aria-label={t(user.locale, "notifications.bell", { count: unread })}
+      >
         <Bell className="size-[18px]" aria-hidden="true" />
         {unread > 0 && (
           <span className="absolute top-1 right-1 flex min-w-4 items-center justify-center rounded-full bg-academy-orange-600 px-1 text-[10px] font-bold text-white">
             {unread > 9 ? "9+" : unread}
           </span>
         )}
-      </span>
+      </Link>
       <Link href="/academy/settings" className={iconLink} aria-label={tr("shell.settings")} title={tr("shell.settings")}>
         <Settings className="size-[18px]" aria-hidden="true" />
       </Link>

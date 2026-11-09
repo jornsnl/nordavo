@@ -62,7 +62,8 @@ export const blockTypes: Record<AcademyBlockType, BlockTypeMeta> = {
     adminLabel: "Video",
     adminDescription: "Own recording with subtitles, transcript and watch progress.",
     media: "video",
-    defaultContent: {},
+    // transcript: show the transcript under the player (media area).
+    defaultContent: { transcript: true },
     defaultRequired: true,
     completionFields: [{ key: "min_percent", label: "Watched at least (%)", kind: "percent", defaultValue: 90, min: 1, max: 100 }],
     requirement: (c, locale) => t(locale, "req.video", { percent: numberOr(c.min_percent, 90) }),
@@ -90,9 +91,9 @@ export const blockTypes: Record<AcademyBlockType, BlockTypeMeta> = {
   assignment: {
     type: "assignment",
     adminLabel: "Assignment",
-    adminDescription: "Hand in text, a file or a link; Nordavo reviews it.",
+    adminDescription: "Hand in text, a file or a link; Nordavo reviews it, with an AI proposal on the rubric.",
     media: null,
-    defaultContent: { prompt: "" },
+    defaultContent: { prompt: "", formats: ["text", "file", "link"] },
     defaultRequired: true,
     completionFields: [
       {
@@ -144,13 +145,12 @@ export const blockTypes: Record<AcademyBlockType, BlockTypeMeta> = {
   questionnaire: {
     type: "questionnaire",
     adminLabel: "Questionnaire",
-    adminDescription: "Reserved for the personality test: own consent and access rights.",
+    adminDescription: "Questionnaire (personality test): scale, choice and open questions, consent first, answers only for Nordavo.",
     media: null,
     defaultContent: {},
     defaultRequired: false,
     completionFields: [],
     requirement: (_c, locale) => t(locale, "req.questionnaire"),
-    reserved: true,
   },
 };
 
