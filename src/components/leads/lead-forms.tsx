@@ -140,7 +140,7 @@ export function LogActivityButton({ contacts, action }: { contacts: ContactOptio
       label="Log activity"
       icon={Plus}
       title="Log activity"
-      description="A call, email, LinkedIn message or meeting. This counts towards the 30 day rule."
+      description="A call, email, LinkedIn message or meeting. It appears on the timeline of the company."
       action={action}
       modalSize="lg"
     >
@@ -149,14 +149,14 @@ export function LogActivityButton({ contacts, action }: { contacts: ContactOptio
         return (
           <>
             <Field label="Contact" htmlFor="contact_id" error={e.contact_id}>
-              <Select id="contact_id" name="contact_id" defaultValue={contacts[0]?.id ?? ""}>
-                <option value="">The company, no specific contact</option>
-                {contacts.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </Select>
+              <SearchSelect
+                id="contact_id"
+                name="contact_id"
+                defaultValue={contacts[0]?.id ?? null}
+                placeholder="The company, no specific contact"
+                searchPlaceholder="Search contacts"
+                options={contacts.map((c) => ({ value: c.id, label: c.name }))}
+              />
             </Field>
             <div className="grid gap-5 sm:grid-cols-3">
               <Field label="Channel" htmlFor="channel" required error={e.channel}>
@@ -238,14 +238,18 @@ export function SuppressButton({
         return (
           <>
             <Field label="Who" htmlFor="target" required error={e.target}>
-              <Select id="target" name="target" defaultValue={defaultTarget}>
-                <option value="company">The whole company, all contacts</option>
-                {contacts.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </Select>
+              <SearchSelect
+                id="target"
+                name="target"
+                defaultValue={defaultTarget}
+                required
+                allowClear={false}
+                searchPlaceholder="Search contacts"
+                options={[
+                  { value: "company", label: "The whole company, all contacts" },
+                  ...contacts.map((c) => ({ value: c.id, label: c.name })),
+                ]}
+              />
             </Field>
             <div className="grid gap-5 sm:grid-cols-2">
               <Field label="Reason" htmlFor="reason" required error={e.reason}>

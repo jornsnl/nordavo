@@ -8,7 +8,8 @@ import { ScoreBar } from "@/components/talent/score-bar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
-import { Field, Select, Textarea } from "@/components/ui/field";
+import { Field, Textarea } from "@/components/ui/field";
+import { SearchSelect } from "@/components/ui/search-select";
 import type { TalentPoolHit } from "@/lib/screening/talent-search";
 import type { TalentActionState } from "@/lib/talent/types";
 import { createPoolProfileAction, talentPoolSearchAction, type TalentPoolState } from "@/app/dashboard/vacancies/screening-actions";
@@ -32,14 +33,15 @@ export function TalentPoolSearch({ vacancies, claude }: { vacancies: VacancyOpti
               <Textarea id="pool-query" name="query" rows={3} defaultValue={state.query ?? ""} maxLength={4000} />
             </Field>
             <Field label="Or a vacancy" htmlFor="pool-vacancy" hint="Uses the stack and must haves of the vacancy. Candidates already in its pipeline are left out.">
-              <Select id="pool-vacancy" name="vacancy_id" defaultValue={state.vacancyId ?? ""}>
-                <option value="">No vacancy, use the text</option>
-                {vacancies.map((v) => (
-                  <option key={v.id} value={v.id}>
-                    {v.title} ({v.clientName})
-                  </option>
-                ))}
-              </Select>
+              <SearchSelect
+                key={state.vacancyId ?? ""}
+                id="pool-vacancy"
+                name="vacancy_id"
+                defaultValue={state.vacancyId ?? null}
+                placeholder="No vacancy, use the text"
+                searchPlaceholder="Search vacancies"
+                options={vacancies.map((v) => ({ value: v.id, label: v.title, hint: v.clientName }))}
+              />
             </Field>
             <Button type="submit" disabled={pending} aria-busy={pending}>
               {pending ? <LoaderCircle className="animate-spin" aria-hidden="true" /> : <Search aria-hidden="true" />}
@@ -127,16 +129,16 @@ function HitCard({ rank, hit, vacancies, defaultVacancyId }: { rank: number; hit
           </dl>
           <form action={profileAction} className="flex flex-col gap-2 border-t border-border pt-3 sm:flex-row sm:items-end">
             <Field label="Anonymous profile for" htmlFor={`profile-vacancy-${hit.candidateId}`} className="sm:w-80">
-              <Select id={`profile-vacancy-${hit.candidateId}`} name="vacancy_id" defaultValue={defaultVacancyId ?? ""} required>
-                <option value="" disabled>
-                  Choose a vacancy
-                </option>
-                {vacancies.map((v) => (
-                  <option key={v.id} value={v.id}>
-                    {v.title} ({v.clientName})
-                  </option>
-                ))}
-              </Select>
+              <SearchSelect
+                id={`profile-vacancy-${hit.candidateId}`}
+                name="vacancy_id"
+                defaultValue={defaultVacancyId ?? null}
+                required
+                allowClear={false}
+                placeholder="Choose a vacancy"
+                searchPlaceholder="Search vacancies"
+                options={vacancies.map((v) => ({ value: v.id, label: v.title, hint: v.clientName }))}
+              />
             </Field>
             <Button type="submit" variant="secondary" disabled={pending} aria-busy={pending}>
               {pending ? <LoaderCircle className="animate-spin" aria-hidden="true" /> : <FileText aria-hidden="true" />}

@@ -16,6 +16,7 @@ import { PendingSubmit, submitWithoutReset } from "@/components/placements/form-
 import { Button } from "@/components/ui/button";
 import { Field, FormMessage, Input, Select, Textarea } from "@/components/ui/field";
 import { Modal } from "@/components/ui/modal";
+import { SearchSelect } from "@/components/ui/search-select";
 
 /** Mark held or no show, approve or reject (admins), and the fee (admins). */
 export function MeetingActions({
@@ -212,15 +213,15 @@ function AddMeetingForm({ callers, onDone }: { callers: { id: string; name: stri
 
       <div className="grid gap-5 sm:grid-cols-2">
         <Field label="Contact" htmlFor="meeting-contact">
-          <Select id="meeting-contact" name="contact_id" disabled={!company} defaultValue="">
-            <option value="">No contact</option>
-            {(company?.contacts ?? []).map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-                {c.title ? `, ${c.title}` : ""}
-              </option>
-            ))}
-          </Select>
+          <SearchSelect
+            key={company?.id ?? "none"}
+            id="meeting-contact"
+            name="contact_id"
+            disabled={!company}
+            placeholder="No contact"
+            searchPlaceholder="Search contacts"
+            options={(company?.contacts ?? []).map((c) => ({ value: c.id, label: c.name, hint: c.title ?? undefined }))}
+          />
         </Field>
         <Field label="Caller" htmlFor="meeting-caller" hint="The caller earns their fee once the meeting is approved.">
           <Select id="meeting-caller" name="caller_id" defaultValue="">

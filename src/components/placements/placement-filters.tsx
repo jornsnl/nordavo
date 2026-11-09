@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 import { Select } from "@/components/ui/field";
+import { SearchSelect } from "@/components/ui/search-select";
 import { STATUS_FILTERS, type StatusFilter } from "./status-filters";
 
 export function PlacementFilters({
@@ -73,14 +74,14 @@ export function PlacementFilters({
         <label htmlFor="filter-client" className="sr-only">
           Client
         </label>
-        <Select id="filter-client" value={clientId} onChange={(e) => update({ klant: e.target.value })}>
-          <option value="">All clients</option>
-          {clients.map((client) => (
-            <option key={client.id} value={client.id}>
-              {client.name}
-            </option>
-          ))}
-        </Select>
+        <SearchSelect
+          id="filter-client"
+          value={clientId || null}
+          onChange={(value) => update({ klant: value ?? "" })}
+          placeholder="All clients"
+          searchPlaceholder="Search clients"
+          options={clients.map((client) => ({ value: client.id, label: client.name }))}
+        />
       </div>
     </div>
   );

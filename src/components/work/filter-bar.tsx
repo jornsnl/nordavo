@@ -2,9 +2,20 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { Select } from "@/components/ui/field";
+import { SearchSelect } from "@/components/ui/search-select";
 
 export type FilterOption = { value: string; label: string };
-export type FilterDef = { name: string; label: string; options: FilterOption[]; all: string };
+export type FilterDef = {
+  name: string;
+  label: string;
+  options: FilterOption[];
+  all: string;
+  /** A list that can grow long (projects): a search field instead of a native select. */
+  searchable?: boolean;
+};
+
+/** Short fixed lists (status, workspace, a few people) stay native selects. */
+const SEARCH_FROM = 12;
 
 /**
  * Filters as select boxes that update the URL (?workspace=&status=...), so a
@@ -26,7 +37,19 @@ export function FilterBar({ filters, basePath }: { filters: FilterDef[]; basePat
 
   return (
     <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">
-      {filters.map((filter) => (
+      {filters.map((filter) =>
+        filter.searchable || filter.options.length > SEARCH_FROM ? (
+          <div key={filter.name} className="min-w-0 sm:w-56">
+            <SearchSelect
+              value={params.get(filter.name) || null}
+              onChange={(value) => change(filter.name, value ?? "")}
+              aria-label={filter.label}
+              placeholder={filter.all}
+              searchPlaceholder={`Search ${filter.label.toLowerCase()}`}
+              options={filter.options}
+            />
+          </div>
+        ) : (
         <label key={filter.name} className="min-w-0 sm:w-44">
           <span className="sr-only">{filter.label}</span>
           <Select
@@ -43,7 +66,8 @@ export function FilterBar({ filters, basePath }: { filters: FilterDef[]; basePat
             ))}
           </Select>
         </label>
-      ))}
+        ),
+      )}
     </div>
   );
 }

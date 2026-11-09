@@ -2,7 +2,8 @@
 
 import { useRef } from "react";
 import { Check } from "lucide-react";
-import { Field, FormMessage, Input, Select, Textarea } from "@/components/ui/field";
+import { Field, FormMessage, Input, Textarea } from "@/components/ui/field";
+import { SearchSelect } from "@/components/ui/search-select";
 import { PendingSubmit, submitWithoutReset } from "@/components/placements/form-utils";
 import { useWorkAction, type WorkAction } from "@/components/work/forms";
 
@@ -34,16 +35,17 @@ export function QuickLogForm({
       </Field>
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Project" htmlFor="log_project" required error={errors.project_id}>
-          <Select id="log_project" name="project_id" defaultValue={defaultProjectId ?? ""}>
-            <option value="" disabled>
-              Pick a project
-            </option>
-            {projects.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.label}
-              </option>
-            ))}
-          </Select>
+          <SearchSelect
+            id="log_project"
+            name="project_id"
+            defaultValue={defaultProjectId ?? null}
+            required
+            allowClear={false}
+            aria-invalid={Boolean(errors.project_id)}
+            placeholder="Pick a project"
+            searchPlaceholder="Search projects"
+            options={projects.map((p) => ({ value: p.id, label: p.label }))}
+          />
         </Field>
         <Field label="When" htmlFor="log_when" hint="Your time zone">
           <Input id="log_when" name="done_at" type="datetime-local" defaultValue={nowLocal} />
