@@ -40,6 +40,16 @@ Het logo is `public/email/logo-mark.png` en wordt geladen vanaf `NEXT_PUBLIC_SIT
 4. **Opnieuw deployen**, zodat de nieuwe variabelen geladen worden.
 5. **Testen**: ga als beheerder naar Instellingen (`/dashboard/settings`), blok **Email**. Daar zie je welke variabelen goed staan. Vul een adres in, kies de afzender en klik op **Send test mail**. Gaat het mis, dan staat de reden van Resend in de melding (bijvoorbeeld een domein dat nog niet geverifieerd is). Test elke afzender een keer.
 
+## Mail log
+
+Elke mail die het portaal verstuurt of probeert te versturen komt in de tabel `public.mail_log` (migratie `20261109000000_mail_log.sql`). Beheerders zien die in Instellingen, tab **Mail log** (`/dashboard/settings/mail-log`):
+
+* per mail: tijd, ontvangers, afzender, onderwerp, soort mail en status (Sent, Failed of Not sent omdat de configuratie ontbreekt), met de foutmelding van Resend als het misging;
+* filteren op soort en status, en zoeken op onderwerp of een exact mailadres;
+* klik op een mail voor de details, het Resend id, een voorbeeld van de mail zoals hij verstuurd is en de platte tekst versie.
+
+Het log wordt geschreven met `SUPABASE_SECRET_KEY`; zonder die sleutel gaat de mail gewoon, maar komt hij niet in het log. Alleen beheerders kunnen het log lezen (RLS) en niemand kan het via de app wijzigen. Regels ouder dan 180 dagen worden opgeruimd zodra er nieuwe mail gelogd wordt. Geef bij een nieuwe mail een `category` mee aan `sendMail` (zie `src/lib/notify/categories.ts`), anders komt hij onder Other.
+
 ## Mail van Supabase (inloggen en uitnodigen)
 
 Twee soorten mail komen niet uit het portaal maar van Supabase Auth: de uitnodiging uit Instellingen (`inviteUserByEmail`) en de inloglink in Work als die via Supabase gaat. Die gebruiken standaard de mailserver van Supabase, die maar een paar mails per uur toestaat en niet vanaf jullie domein verstuurt. Zet ze ook via Resend:

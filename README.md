@@ -13,7 +13,7 @@ Het interne portaal van [Nordavo](https://nordavo.nl): de brug tussen Nederlands
 | Pipeline | `/dashboard/vacancies/[id]/pipeline` | Kanbanbord per vacature: sourcing tot plaatsing, slepen met muis of toetsenbord |
 | Kandidaten | `/dashboard/candidates` | Profielen, skills, cv-upload, video-intro, sollicitaties |
 | Plaatsingen | `/dashboard/placements` | Startdatum, tarief, 30 dagen garantie, check-ins, opzegtermijn van een maand |
-| Instellingen | `/dashboard/settings` | Profiel, wachtwoord, tweestapsverificatie, passkeys, Claude Code koppelen (MCP), mail controleren en testmail versturen ([docs/mail.md](docs/mail.md)), gebruikers en rollen, uitnodigen |
+| Instellingen | `/dashboard/settings` | Profiel, wachtwoord, tweestapsverificatie, passkeys, Claude Code koppelen (MCP), mail controleren, testmail versturen en mail log van alle verzonden mail ([docs/mail.md](docs/mail.md)), gebruikers en rollen, uitnodigen |
 | Klantportaal | `/portal` | Voor klanten: eigen vacatures, voorgestelde kandidaten met cv, akkoord of afwijzen met feedback, plaatsingen, beveiliging (`/portal/security`) |
 | Werving | `/dashboard/vacancies/[id]/...` | Het hele wervingsproces: nieuwe fases, parkeren, sollicitatieform per vacature, import en CV upload, AI screening, beoordelen, toppers, interviews plannen, hiring report. Zie [docs/recruitment.md](docs/recruitment.md) |
 | Work | `/work` | De eigen takentool die ClickUp vervangt: workspaces (Nordavo, KG), projecten, taken met review, gasten (freelancers), meldingen per mail, API. Engels. Zie [docs/work.md](docs/work.md) |

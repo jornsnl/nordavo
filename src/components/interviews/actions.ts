@@ -81,7 +81,7 @@ export async function planInterview(_prev: PlanInterviewState, formData: FormDat
     kind,
     url: inviteUrl,
   });
-  const sent = await sendMail({ to: email, subject: mail.subject, html: mail.html, text: mail.text }).catch(() => false);
+  const sent = await sendMail({ category: "interview_invite", to: email, subject: mail.subject, html: mail.html, text: mail.text }).catch(() => false);
   if (sent) {
     await supabase.from("interviews").update({ invite_mailed_at: new Date().toISOString() }).eq("id", id);
   }

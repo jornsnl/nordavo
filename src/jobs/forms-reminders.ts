@@ -72,7 +72,7 @@ export const formsReminders = defineJob({
           link: applyUrl(siteUrl, i.token),
           deadline: i.deadline,
         });
-        const ok = await sendMail({ to: candidate.email!, cc: i.cc ?? undefined, from: recruitmentFrom(), ...content });
+        const ok = await sendMail({ category: "form_reminder", to: candidate.email!, cc: i.cc ?? undefined, from: recruitmentFrom(), ...content });
         if (!ok) throw new Error("mail not sent");
         const at = new Date().toISOString();
         await ctx.db.from("form_invites").update({ reminded_at: at, reminder_count: i.reminder_count + 1 }).eq("id", i.id);

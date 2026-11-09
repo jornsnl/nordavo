@@ -116,6 +116,7 @@ export async function runJob(
         .eq("id", runId);
     }
     await sendMail({
+      category: "job_failure",
       subject: `Nordavo job failed: ${job.name}`,
       html: `<p>The job <strong>${escapeHtml(job.name)}</strong> failed.</p>
 <pre style="white-space:pre-wrap">${escapeHtml(message.slice(0, 4000))}</pre>

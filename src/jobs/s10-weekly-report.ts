@@ -30,6 +30,7 @@ export const s10WeeklyReport = defineJob({
 
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
     const sent = await sendMail({
+      category: "weekly_report",
       to: process.env.REPORT_EMAIL_TO,
       subject: reportSubject(report),
       html: renderReportHtml(report, siteUrl ? `${siteUrl.replace(/\/$/, "")}/dashboard/report?periode=deze-week` : undefined),

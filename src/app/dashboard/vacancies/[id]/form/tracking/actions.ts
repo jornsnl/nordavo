@@ -102,6 +102,7 @@ export async function sendFormAction(input: z.input<typeof inputSchema>): Promis
     } else {
       const mail = inviteMail({ candidateName: name, vacancyTitle: vacancy.title, link, deadline });
       const ok = await sendMail({
+        category: "form_invite",
         to: email,
         cc: cc.length > 0 ? cc.join(",") : undefined,
         replyTo: user.email || undefined,

@@ -22,6 +22,7 @@ import { PasswordForm } from "@/components/settings/password-form";
 import { ProfileForm } from "@/components/settings/profile-form";
 import { RoleEditor } from "@/components/settings/role-editor";
 import { TestMailForm } from "@/components/settings/test-mail-form";
+import { SettingsTabs } from "@/components/settings/settings-tabs";
 import { recruitmentFrom } from "@/lib/notify/mail";
 import { CustomFieldsSettings } from "@/components/custom-fields/custom-fields-settings";
 import { McpSection } from "@/components/settings/security/mcp-section";
@@ -50,6 +51,9 @@ export default function Page() {
         title="Settings"
         description="Your own account and, as an admin, who has access to the portal."
       />
+      <Suspense fallback={null}>
+        <Tabs />
+      </Suspense>
 
       <div className="space-y-6">
         <Card>
@@ -99,6 +103,11 @@ export default function Page() {
       </div>
     </>
   );
+}
+
+async function Tabs() {
+  const user = await getCurrentUser();
+  return <SettingsTabs active="general" isAdmin={user.role === "admin"} />;
 }
 
 async function Profile() {
@@ -167,7 +176,7 @@ async function MailSection() {
     <Card>
       <CardHeader
         title="Email"
-        description="Every mail the portal sends goes through Resend in the Nordavo template. Send a test mail to check the setup."
+        description="Every mail the portal sends goes through Resend in the Nordavo template. Send a test mail to check the setup; every mail appears in the Mail log tab."
       />
       <CardBody className="space-y-6 py-5">
         <ul className="divide-y divide-border rounded-xl border border-border text-sm">
