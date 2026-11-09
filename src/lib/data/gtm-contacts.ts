@@ -2,7 +2,6 @@ import "server-only";
 import { requireStaff } from "@/lib/auth";
 import type { ContactStatus, EmailStatus, PhoneType } from "@/lib/database.types";
 import type { ContactRole } from "@/lib/sales/database";
-import { formatDate } from "@/lib/format";
 import { contactStatuses, emailStatuses, optionFor, suppressionReasons } from "@/lib/labels";
 import { createClient } from "@/lib/supabase/server";
 import { getCompanySuppressions, orFilterPattern, type SuppressionItem } from "@/lib/data/companies";
