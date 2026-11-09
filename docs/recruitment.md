@@ -25,6 +25,12 @@ Automatisch naar de volgende fase:
 * techstack check: geslaagd naar Fill out, niet geslaagd naar Rejected (pas na bevestiging);
 * interview geboekt in Cal.com: naar Interview of Client interview.
 
+## Academy in het ATS
+
+De Academy gebruikt dezelfde kandidaat als het ATS. Op de kandidaat staat een kaart Academy (voortgang, modules en lessen met data, kennischecks, opdrachten met AI-voorstel en eindscore, kijkpercentage, laatste activiteit, certificaat), met knoppen om de kandidaat aan de developercourse toe te voegen, modules open te zetten en topkandidaat aan of uit te zetten. `/dashboard/candidates/academy` is de talentpool met deze kolommen: sorteren, filteren en in bulk toevoegen of markeren (ook een hele vacature). De kandidatenlijst heeft een kolom Academy. Het is achtergrond: niemand wordt automatisch afgewezen.
+
+Een plaatsing vastleggen start de Academy: de developer krijgt de hele developercourse, de contactpersoon van de klant een account met de klantcourse, en de plaatsingspagina een tijdlijn. De kaart Academy op de plaatsing laat zien wat er gebeurde. Alles staat in [academy.md](academy.md), sectie 14.
+
 ## Wat de klant ziet
 
 Klanten lezen niets meer rechtstreeks uit de tabellen. Het klantportaal haalt alles op via vaste databasefuncties (`portal_*`). Die geven alleen terug wat het portaal toont: naam, titel, locatie, ervaring, skills, samenvatting, video, scores en het eigen oordeel.
@@ -47,6 +53,7 @@ Bestaande teamleden houden alles tot een beheerder het aanpast.
    * `20261108040000_recruitment_planning.sql`
    * `20261108050000_custom_fields_and_extras.sql`
    * `20261108090000_recruitment_integration.sql`
+   * De Academy-migraties (zie [academy.md](academy.md)), voor de koppeling `20261113300000_academy_ats_core.sql`, `20261113310000_academy_ats_read.sql` en `20261113320000_academy_ats_manage.sql`
 
    Draai eerst de oudere `20261107000000_bootstrap_nordavo_admin.sql` als dat nog niet gebeurd is.
 2. **Omgevingsvariabelen** (zie `.env.example`):
@@ -65,7 +72,7 @@ Bestaande teamleden houden alles tot een beheerder het aanpast.
    Zonder sleutels werkt het portaal gewoon. De onderdelen die een sleutel nodig hebben laten dan zien wat er ontbreekt.
 3. **Wisselkoers.** Een beheerder vult de eerste INR per EUR koers in op `/dashboard/exchange-rate`. Tot die tijd staan bedragen alleen in roepies.
 4. **Cal.com.** Elke interviewer zet zijn Cal.com link in Instellingen, Interviews. Maak een webhook naar `/api/webhooks/calcom` voor BOOKING_CREATED, BOOKING_RESCHEDULED en BOOKING_CANCELLED, met hetzelfde geheim als `CALCOM_WEBHOOK_SECRET`.
-5. **Geplande jobs.** De workflows in `.github/workflows` draaien de herinneringen (forms dagelijks, interviews ieder uur). Ze hebben de secrets `CRON_SECRET` en `NEXT_PUBLIC_SITE_URL` nodig. CV scoren kan ook gepland: `npm run job -- screening-score`.
+5. **Geplande jobs.** De workflows in `.github/workflows` draaien de herinneringen (forms dagelijks, interviews ieder uur) en de Academy-koppeling (`academy-ats-jobs.yml`). Ze hebben de secrets `CRON_SECRET` en `NEXT_PUBLIC_SITE_URL` nodig. CV scoren kan ook gepland: `npm run job -- screening-score`.
 6. **Supabase e-mail** voor inloggen met een link (gasten): zie [recruitment-extras.md](recruitment-extras.md).
 7. **Rechten per teamlid.** Een beheerder zet in Instellingen, Users per persoon de onderdelen aan, bijvoorbeeld Judith: Recruitment, Clients en Report.
 
