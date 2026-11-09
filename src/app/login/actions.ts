@@ -29,7 +29,9 @@ export async function login(
       error:
         error.code === "email_not_confirmed"
           ? "Your e-mail address is not confirmed yet. Check your inbox for the invitation."
-          : "This e-mail address and password do not match.",
+          : error.code === "user_banned"
+            ? "Your access is paused or has ended. Contact Nordavo if you think this is a mistake."
+            : "This e-mail address and password do not match.",
       email,
     };
   }
@@ -49,6 +51,9 @@ export async function login(
 
   if (profile?.role === "client") {
     redirect("/portal");
+  }
+  if (profile?.role === "caller") {
+    redirect("/caller");
   }
   if (profile?.role !== "admin" && profile?.role !== "member") {
     redirect(safeNextPath(formData.get("next"), "/work"));

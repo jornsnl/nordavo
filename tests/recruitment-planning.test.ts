@@ -32,6 +32,7 @@ test("routes and menu items follow modules", () => {
   assert.equal(moduleForPath("/dashboard/vacancies/1/pipeline"), "recruitment");
   assert.equal(moduleForPath("/dashboard/tasks"), null);
   assert.equal(canSeePath("/dashboard/contacts", ["recruitment"]), false);
+  assert.equal(canSeePath("/dashboard/calls", ["recruitment"]), false);
   assert.equal(canSeePath("/dashboard/candidates", ["recruitment"]), true);
   assert.equal(canSeePath("/dashboard/settings", []), true);
   assert.equal(canSeePath("/dashboard/leads", null), true);
