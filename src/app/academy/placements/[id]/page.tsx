@@ -8,7 +8,7 @@ import { requireAcademyUser } from "@/lib/academy/auth";
 import { t } from "@/lib/academy/i18n";
 import { getPlacementPage } from "@/lib/academy/placement/data";
 import { env } from "@/lib/env";
-import { PlacementOpenTasks } from "@/components/academy/placement/open-tasks";
+import { PlacementTasksPanel } from "@/components/academy/learn/placement-tasks";
 import {
   DocumentsPanel,
   FactsPanel,
@@ -74,8 +74,10 @@ async function Placement({ params }: Pick<PageProps<"/academy/placements/[id]">,
           <RitualsPanel {...ctx} />
           <TimelinePanel {...ctx} />
           <LeavePanel {...ctx} />
-          {/* Open course tasks of this placement: slot for the tasks block (src/components/academy/tasks/). */}
-          <PlacementOpenTasks placementId={placement.id} userId={user.id} locale={locale} timeZone={user.timeZone} />
+          {/* Open course tasks of this placement (tasks block, area learn). */}
+          <Suspense fallback={<ListSkeleton rows={3} />}>
+            <PlacementTasksPanel placementId={placement.id} user={user} />
+          </Suspense>
         </div>
         <div className="min-w-0 space-y-6">
           <FactsPanel {...ctx} />

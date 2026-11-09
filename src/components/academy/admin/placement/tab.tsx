@@ -9,7 +9,10 @@ import { milestoneState, parseReviewAnswers } from "@/lib/academy/placement/time
 import { env } from "@/lib/env";
 import { formatDate } from "@/lib/format";
 import { ConsistencyGrid } from "@/components/academy/placement/sections";
-import { PlacementOpenTasks } from "@/components/academy/placement/open-tasks";
+import { Suspense } from "react";
+import { requireAcademyUser } from "@/lib/academy/auth";
+import { PlacementTasksPanel } from "@/components/academy/learn/placement-tasks";
+import { ListSkeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import {
@@ -239,7 +242,9 @@ export async function PlacementAcademyTab({ placementId }: { placementId: string
             </CardBody>
           </Card>
 
-          <PlacementOpenTasks placementId={placement.id} userId={null} locale="en" timeZone="Europe/Amsterdam" />
+          <Suspense fallback={<ListSkeleton rows={3} />}>
+            <PlacementTasks placementId={placement.id} />
+          </Suspense>
         </div>
 
         <aside className="min-w-0 space-y-6">
@@ -406,4 +411,10 @@ function PulseTrend({ series, pulses }: { series: PulseSeries; pulses: PulseRow[
       </details>
     </div>
   );
+}
+
+/** Open course tasks of the placement (tasks block, area learn), as Nordavo sees them. */
+async function PlacementTasks({ placementId }: { placementId: string }) {
+  const user = await requireAcademyUser();
+  return <PlacementTasksPanel placementId={placementId} user={user} showDone />;
 }

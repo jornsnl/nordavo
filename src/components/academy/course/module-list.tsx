@@ -84,10 +84,14 @@ export function ModuleList({
               </ul>
             )}
             {mod.workbookDocumentId && open && (
-              <p className="flex items-center gap-2 border-t border-academy-blue-100 px-4 py-2.5 text-xs text-academy-blue-800 sm:px-5">
+              // Media area: the workbook downloads through /academy/files/document/<id>.
+              <a
+                href={`/academy/files/document/${mod.workbookDocumentId}`}
+                className="flex items-center gap-2 border-t border-academy-blue-100 px-4 py-2.5 text-xs font-medium text-academy-blue-800 hover:bg-academy-blue-50 hover:text-academy-orange-700 sm:px-5 pointer-coarse:min-h-11"
+              >
                 <BookOpen className="size-3.5" aria-hidden="true" />
                 {t(locale, "course.workbook")}
-              </p>
+              </a>
             )}
           </li>
         );

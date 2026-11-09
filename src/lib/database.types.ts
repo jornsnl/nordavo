@@ -6,6 +6,8 @@ import type { WorkFunctions, WorkTables } from "@/lib/work/database";
 import type { FormsFunctions, FormsTables } from "@/lib/forms/database";
 import type { AcademyFunctions, AcademyTables } from "@/lib/academy/database";
 import type { AcademyPlacementFunctions, AcademyPlacementTables } from "@/lib/academy/placement/database";
+import type { LearnFunctions } from "@/lib/academy/learn/database";
+import type { AcademyMediaFunctions, AcademyMediaTables } from "@/lib/academy/media/database";
 import type {
   ActivityDirection,
   ActivityType,
@@ -2525,7 +2527,7 @@ export type Database = {
         };
         Relationships: [];
       };
-    } & WorkTables & FormsTables & SalesTables & AcademyTables & AcademyPlacementTables;
+    } & WorkTables & FormsTables & SalesTables & AcademyTables & AcademyMediaTables & AcademyPlacementTables;
     Views: {
       call_list_candidates: { Row: ListCandidateBase & { phone: string; linkedin_url: string | null }; Relationships: [] };
       mail_list_candidates: { Row: ListCandidateBase & { email: string }; Relationships: [] };
@@ -2696,7 +2698,7 @@ export type Database = {
         Args: { p_entity: CustomFieldEntity; p_new: Json; p_old?: Json };
         Returns: CustomFieldValues;
       };
-    } & WorkFunctions & FormsFunctions & SalesFunctions & AcademyFunctions & AcademyPlacementFunctions;
+    } & WorkFunctions & FormsFunctions & SalesFunctions & AcademyFunctions & LearnFunctions & AcademyMediaFunctions & AcademyPlacementFunctions;
     Enums: { [_ in never]: never };
     CompositeTypes: { [_ in never]: never };
   };

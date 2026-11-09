@@ -13,6 +13,8 @@ import { interviewReminders } from "./interview-reminders";
 import { clickupImport, workDaily, workNotify } from "./work";
 import { formsReminders } from "./forms-reminders";
 import { academyPlacements, academyRituals } from "./academy-placements";
+import { academyTaskReminders } from "./academy-tasks";
+import { academyDigest, academyTranscribe } from "./academy";
 
 /**
  * Every job, by name. Run with `npm run job -- <name>` or POST /api/jobs/<name>.
@@ -40,6 +42,9 @@ export const jobs: Record<string, Job> = Object.fromEntries(
   formsReminders,
   academyRituals,
   academyPlacements,
+  academyTaskReminders,
+  academyDigest,
+  academyTranscribe,
   ].map((job) => [job.name, job]),
 );
 

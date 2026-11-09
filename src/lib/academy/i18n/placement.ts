@@ -153,10 +153,6 @@ export const placementEn = {
   "docs.category.blocker_agreement": "Blocker agreement",
   "docs.forAll": "For every placement",
 
-  // Open tasks of the placement
-  "tasks.title": "Open course tasks",
-  "tasks.placeholder": "The open course tasks of this placement appear here.",
-
   // Pulse
   "pulse.title": "Pulse",
   "pulse.text": "Three quick questions every two weeks. Only Nordavo reads your answer.",
@@ -319,9 +315,6 @@ export const placementNl: Record<PlacementMessageKey, string> = {
   "docs.category.decision_matrix": "Beslissingsmatrix",
   "docs.category.blocker_agreement": "Blokkadeafspraak",
   "docs.forAll": "Voor elke plaatsing",
-
-  "tasks.title": "Openstaande coursetaken",
-  "tasks.placeholder": "Hier komen de openstaande coursetaken van deze plaatsing.",
 
   "pulse.title": "Pulse",
   "pulse.text": "Elke twee weken drie korte vragen. Alleen Nordavo leest je antwoord.",

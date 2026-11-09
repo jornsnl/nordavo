@@ -1,23 +1,27 @@
 name: Academy jobs
 
-# Academy placements (docs/academy.md, Plaatsingspagina, rituelen en pulse).
-# Calls the running app, which runs the jobs with its own environment
-# (SUPABASE_SECRET_KEY); nothing is installed here.
-#   academy-rituals     every hour: reminders follow each person's own time
-#                       zone (from 16:00 local time), so the job runs hourly
-#   academy-placements  daily 08:00 Europe/Amsterdam: pulse rounds, pulse
-#                       reminders, review forms of the timeline
+# Academy media jobs (docs/academy.md). Calls the running app, so the app's
+# own environment (RESEND_API_KEY, MAIL_FROM, OPENAI_API_KEY or
+# DEEPGRAM_API_KEY, SUPABASE_SECRET_KEY) is used and nothing is installed
+# here.
+#
+#   academy-digest      every hour; the job itself sends each person's daily
+#                       or weekly summary in the first run after 08:00 in
+#                       their own time zone (Amsterdam or India), so no guard
+#                       on the hour is needed here
+#   academy-transcribe  every hour at :41, finishes transcripts still pending
 on:
   schedule:
-    - cron: "41 * * * *" # academy-rituals
-    - cron: "5 6,7 * * *" # academy-placements, 08:00 Amsterdam
+    - cron: "7 * * * *"
+    - cron: "41 * * * *"
   workflow_dispatch:
     inputs:
       job:
-        description: "academy-rituals or academy-placements"
+        description: "academy-digest or academy-transcribe"
         required: true
+        default: academy-digest
       params:
-        description: 'Optional JSON params, e.g. {"today":"2026-12-01"}'
+        description: 'Optional JSON params, e.g. {"dry-run":"1"}'
         required: false
 
 concurrency:
@@ -27,7 +31,7 @@ concurrency:
 jobs:
   run:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
       - name: Pick the job
         id: pick
@@ -36,18 +40,17 @@ jobs:
             echo "job=${{ github.event.inputs.job }}" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          HOUR=$(TZ=Europe/Amsterdam date +%H)
           case "${{ github.event.schedule }}" in
-            "41 * * * *") echo "job=academy-rituals" >> "$GITHUB_OUTPUT" ;;
-            "5 6,7 * * *") [ "$HOUR" = "08" ] && echo "job=academy-placements" >> "$GITHUB_OUTPUT" ;;
+            "7 * * * *") echo "job=academy-digest" >> "$GITHUB_OUTPUT" ;;
+            "41 * * * *") echo "job=academy-transcribe" >> "$GITHUB_OUTPUT" ;;
           esac
-          true
       - name: Call the app for ${{ steps.pick.outputs.job }}
         if: steps.pick.outputs.job != ''
         env:
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
           SITE_URL: ${{ secrets.NEXT_PUBLIC_SITE_URL }}
           PARAMS: ${{ github.event.inputs.params || '{}' }}
+          JOB: ${{ steps.pick.outputs.job }}
         run: |
           curl -fsS -X POST -H "Authorization: Bearer $CRON_SECRET" -H "Content-Type: application/json" \
-            -d "{\"params\": $PARAMS}" "$SITE_URL/api/jobs/${{ steps.pick.outputs.job }}"
+            -d "{\"params\": $PARAMS}" "$SITE_URL/api/jobs/$JOB"

@@ -1,0 +1,31 @@
+name: Academy task reminders
+
+# Reminders for overdue Academy course tasks (docs/academy.md, section 12).
+# Calls the running app, so the app's own environment is used and nothing
+# is installed here. Runs at 08:00 Europe/Amsterdam (the guard keeps the
+# right UTC hour across summer and winter time); that is 12:30 in India.
+on:
+  schedule:
+    - cron: "0 6,7 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: academy-task-reminders
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Call the app for academy-task-reminders
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          SITE_URL: ${{ secrets.NEXT_PUBLIC_SITE_URL }}
+        run: |
+          if [ "${{ github.event_name }}" = "schedule" ] && [ "$(TZ=Europe/Amsterdam date +%H)" != "08" ]; then
+            echo "Not 08:00 in Amsterdam, skipping."
+            exit 0
+          fi
+          curl -fsS -X POST -H "Authorization: Bearer $CRON_SECRET" -H "Content-Type: application/json" \
+            -d '{"params": {}}' "$SITE_URL/api/jobs/academy-task-reminders"

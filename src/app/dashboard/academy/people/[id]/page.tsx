@@ -7,6 +7,9 @@ import { ACADEMY_ROLES } from "@/lib/academy/people";
 import { formatDateTime } from "@/lib/format";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { PersonAccess, PersonGroups, PersonSettingsForm } from "@/components/academy/admin/person-forms";
+import { PersonLearningCards } from "@/components/academy/learn/person-learning";
+// Area: media (certificates, worksheet answers).
+import { PersonCertificates, PersonWorksheets } from "@/components/academy/admin/person-media";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { ListSkeleton } from "@/components/ui/skeleton";
@@ -55,6 +58,13 @@ async function Person({ params }: Pick<PageProps<"/dashboard/academy/people/[id]
               <PersonAccess detail={detail} />
             </CardBody>
           </Card>
+          {/* Area learn: knowledge checks, assignments, tasks, questionnaire. */}
+          <Suspense fallback={<ListSkeleton rows={3} />}>
+            <PersonLearningCards profileId={person.profile_id} />
+          </Suspense>
+          <Suspense fallback={<ListSkeleton rows={2} />}>
+            <PersonWorksheets profileId={person.profile_id} />
+          </Suspense>
         </div>
         <div className="space-y-6">
           <Card>
@@ -63,6 +73,9 @@ async function Person({ params }: Pick<PageProps<"/dashboard/academy/people/[id]
               <PersonSettingsForm detail={detail} />
             </CardBody>
           </Card>
+          <Suspense fallback={<ListSkeleton rows={1} />}>
+            <PersonCertificates profileId={person.profile_id} />
+          </Suspense>
           <Card>
             <CardHeader title="Groups" />
             <CardBody>
