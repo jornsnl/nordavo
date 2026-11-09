@@ -458,6 +458,8 @@ export type AcademyTaskStatusRow = {
   done_at: string | null;
   done_by: string | null;
   reminded_at: string | null;
+  /** Reminders sent for an overdue task (20261113100000_academy_learn_blocks.sql). */
+  reminder_count: number;
   created_at: string;
   updated_at: string;
 };

@@ -4,6 +4,8 @@ import type { AcademyUser } from "@/lib/academy/auth";
 import { t } from "@/lib/academy/i18n";
 import { convertWallTime, formatAcademyDate, formatAcademyDateTime, localDateIso } from "@/lib/academy/time";
 import { ActionLink, Panel, ProgressBar } from "@/components/academy/ui";
+import { listMyOpenTasks, myTaskItem } from "@/lib/academy/learn/data";
+import { TaskCheckList } from "@/components/academy/learn/task-list";
 
 // Sections of the Academy start page (/academy). The page decides which
 // sections a role sees (src/app/academy/page.tsx). The empty ones are slots
@@ -16,14 +18,25 @@ function Empty({ text }: { text: string }) {
   return <p className="text-sm text-muted">{text}</p>;
 }
 
-/** Open course tasks of the user (and of their placement). Slot: tasks block builder. */
+/** Open course tasks of the user and the shared tasks of their placements (area learn, academy_my_tasks). */
 export async function OpenTasksSection({ user }: HomeSectionProps) {
+  const open = await listMyOpenTasks();
+  const shown = open.slice(0, OPEN_TASKS_SHOWN);
   return (
     <Panel title={<span className="flex items-center gap-2"><CheckSquare className="size-4 text-academy-blue-600" aria-hidden="true" />{t(user.locale, "home.openTasks")}</span>}>
-      <Empty text={t(user.locale, "home.nothingYet")} />
+      {shown.length === 0 ? (
+        <Empty text={user.member ? t(user.locale, "tasks.allDone") : t(user.locale, "home.nothingYet")} />
+      ) : (
+        <>
+          <TaskCheckList items={shown.map(myTaskItem)} locale={user.locale} timeZone={user.timeZone} showLesson />
+          {open.length > shown.length && <p className="mt-3 text-xs text-muted">{t(user.locale, "tasks.more", { count: open.length - shown.length })}</p>}
+        </>
+      )}
     </Panel>
   );
 }
+
+const OPEN_TASKS_SHOWN = 8;
 
 /** Rituals of this week in the user's placements. Slot: rituals builder. */
 export async function RitualsSection({ user }: HomeSectionProps) {
