@@ -7,6 +7,8 @@
 
 import type { AcademyLocale } from "@/lib/academy/database";
 import { learnEn, learnNl } from "@/lib/academy/i18n/learn";
+// Area: media (video, documents, worksheets, certificates, notifications).
+import { mediaEn, mediaNl } from "@/lib/academy/i18n-media";
 
 const en = {
   // Shell
@@ -136,6 +138,8 @@ const en = {
 
   // Area learn: assignment, tasks, knowledge check, questionnaire (i18n/learn.ts)
   ...learnEn,
+  // Area: media (src/lib/academy/i18n-media.ts)
+  ...mediaEn,
 } as const;
 
 export type AcademyMessageKey = keyof typeof en;
@@ -259,6 +263,8 @@ const nl: Record<AcademyMessageKey, string> = {
 
   // Area learn (i18n/learn.ts)
   ...learnNl,
+  // Area: media (src/lib/academy/i18n-media.ts)
+  ...mediaNl,
 };
 
 export const academyMessages: Record<AcademyLocale, Record<AcademyMessageKey, string>> = { en, nl };

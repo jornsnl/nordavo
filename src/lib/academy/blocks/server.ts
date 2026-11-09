@@ -6,6 +6,9 @@ import { sanitizeHtml } from "@/lib/academy/sanitize";
 import { sanitizeAssignmentContent } from "@/lib/academy/learn/assignment";
 import { parseQuestionnaire, questionnaireContent } from "@/lib/academy/learn/questionnaire";
 import { loadAssignmentStates, loadCheckStates, loadQuestionnaireStates, loadTaskStates } from "@/lib/academy/learn/states";
+// Area: media (video, document, worksheet).
+import { documentStateLoader, videoStateLoader, worksheetStateLoader } from "@/lib/academy/media/server";
+import { videoShowsTranscript } from "@/lib/academy/media/state";
 import type { createClient } from "@/lib/supabase/server";
 
 // The server half of the block registry (docs/academy.md):
@@ -44,6 +47,10 @@ export const contentSanitizers: Partial<Record<AcademyBlockType, (content: Block
   tasks: () => ({}),
   knowledge_check: () => ({}),
   questionnaire: (content) => questionnaireContent(parseQuestionnaire(content as Json)),
+  // Area: media. The file, versions, fields and answers are rows of their own.
+  video: (content) => ({ transcript: videoShowsTranscript(content) }),
+  document: () => ({}),
+  worksheet: () => ({}),
 };
 
 /** The content to store for a block, cleaned for its type. Throws when too large. */
@@ -89,6 +96,10 @@ export const blockStateLoaders: Partial<Record<AcademyBlockType, BlockStateLoade
   tasks: loadTaskStates,
   knowledge_check: loadCheckStates,
   questionnaire: loadQuestionnaireStates,
+  // Area: media (src/lib/academy/media/server.ts).
+  video: videoStateLoader,
+  document: documentStateLoader,
+  worksheet: worksheetStateLoader,
 };
 
 /** State per block id for the viewers of one lesson. */

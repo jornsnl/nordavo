@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
+  ImageUp,
   Bold,
   Heading2,
   Heading3,
@@ -17,6 +18,9 @@ import {
 } from "lucide-react";
 import { explanationHtml } from "@/lib/academy/blocks/types";
 import { isSafeUrl, sanitizeHtml } from "@/lib/academy/sanitize";
+// Area: media (image upload).
+import { reserveImageUpload } from "@/app/dashboard/academy/media-actions";
+import { uploadFile } from "@/components/academy/media/upload";
 import type { BlockEditorProps } from "./types";
 
 type Command = { label: string; icon: LucideIcon; run: () => void };
@@ -31,6 +35,40 @@ function exec(command: string, value?: string) {
 export function ExplanationEditor({ block, content, onChange, disabled }: BlockEditorProps) {
   const ref = useRef<HTMLDivElement>(null);
   const initial = useRef(explanationHtml(content));
+  // Image upload (media area): the caret is kept while the file dialog is open.
+  const fileInput = useRef<HTMLInputElement>(null);
+  const savedRange = useRef<Range | null>(null);
+  const [imageStatus, setImageStatus] = useState<string | null>(null);
+
+  function keepSelection() {
+    const selection = window.getSelection();
+    const range = selection && selection.rangeCount > 0 ? selection.getRangeAt(0) : null;
+    savedRange.current = range && ref.current?.contains(range.commonAncestorContainer) ? range.cloneRange() : null;
+  }
+
+  async function uploadImage(file: File) {
+    setImageStatus("Uploading the image…");
+    const target = await reserveImageUpload({ fileName: file.name, size: file.size, type: file.type });
+    if (!target.ok) {
+      setImageStatus(target.error);
+      return;
+    }
+    try {
+      await uploadFile({ bucket: target.bucket, path: target.path, signedUrl: target.signedUrl }, file, { contentType: file.type });
+    } catch (error) {
+      setImageStatus(error instanceof Error ? error.message : "Upload failed.");
+      return;
+    }
+    ref.current?.focus();
+    const selection = window.getSelection();
+    if (savedRange.current && selection) {
+      selection.removeAllRanges();
+      selection.addRange(savedRange.current);
+    }
+    exec("insertImage", target.src);
+    emit();
+    setImageStatus(null);
+  }
 
   // Fill the editor once; afterwards the DOM is the source and React stays out of the way.
   useEffect(() => {
@@ -65,7 +103,7 @@ export function ExplanationEditor({ block, content, onChange, disabled }: BlockE
       },
     },
     {
-      label: "Image",
+      label: "Image from a link",
       icon: ImageIcon,
       run: () => {
         const url = window.prompt("Image address (https://...)");
@@ -92,7 +130,39 @@ export function ExplanationEditor({ block, content, onChange, disabled }: BlockE
             <Icon className="size-4" aria-hidden="true" />
           </button>
         ))}
+        <button
+          type="button"
+          title="Upload an image"
+          aria-label="Upload an image"
+          disabled={disabled}
+          onMouseDown={(e) => {
+            e.preventDefault();
+            keepSelection();
+          }}
+          onClick={() => fileInput.current?.click()}
+          className="flex size-8 items-center justify-center rounded-lg text-muted transition hover:bg-white hover:text-brand-900 disabled:opacity-50 pointer-coarse:size-10"
+        >
+          <ImageUp className="size-4" aria-hidden="true" />
+        </button>
+        <input
+          ref={fileInput}
+          type="file"
+          accept="image/png,image/jpeg,image/gif,image/webp"
+          className="sr-only"
+          tabIndex={-1}
+          aria-hidden="true"
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (file) void uploadImage(file);
+            e.target.value = "";
+          }}
+        />
       </div>
+      {imageStatus && (
+        <p className="border-b border-border bg-surface px-3 py-1.5 text-xs text-muted" aria-live="polite">
+          {imageStatus}
+        </p>
+      )}
       <div
         ref={ref}
         id={`explanation-${block.id}`}

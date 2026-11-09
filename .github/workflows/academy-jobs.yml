@@ -1,0 +1,56 @@
+name: Academy jobs
+
+# Academy media jobs (docs/academy.md). Calls the running app, so the app's
+# own environment (RESEND_API_KEY, MAIL_FROM, OPENAI_API_KEY or
+# DEEPGRAM_API_KEY, SUPABASE_SECRET_KEY) is used and nothing is installed
+# here.
+#
+#   academy-digest      every hour; the job itself sends each person's daily
+#                       or weekly summary in the first run after 08:00 in
+#                       their own time zone (Amsterdam or India), so no guard
+#                       on the hour is needed here
+#   academy-transcribe  every hour at :41, finishes transcripts still pending
+on:
+  schedule:
+    - cron: "7 * * * *"
+    - cron: "41 * * * *"
+  workflow_dispatch:
+    inputs:
+      job:
+        description: "academy-digest or academy-transcribe"
+        required: true
+        default: academy-digest
+      params:
+        description: 'Optional JSON params, e.g. {"dry-run":"1"}'
+        required: false
+
+concurrency:
+  group: academy-${{ github.event.schedule || github.event.inputs.job }}
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Pick the job
+        id: pick
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "job=${{ github.event.inputs.job }}" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          case "${{ github.event.schedule }}" in
+            "7 * * * *") echo "job=academy-digest" >> "$GITHUB_OUTPUT" ;;
+            "41 * * * *") echo "job=academy-transcribe" >> "$GITHUB_OUTPUT" ;;
+          esac
+      - name: Call the app for ${{ steps.pick.outputs.job }}
+        if: steps.pick.outputs.job != ''
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          SITE_URL: ${{ secrets.NEXT_PUBLIC_SITE_URL }}
+          PARAMS: ${{ github.event.inputs.params || '{}' }}
+          JOB: ${{ steps.pick.outputs.job }}
+        run: |
+          curl -fsS -X POST -H "Authorization: Bearer $CRON_SECRET" -H "Content-Type: application/json" \
+            -d "{\"params\": $PARAMS}" "$SITE_URL/api/jobs/$JOB"
