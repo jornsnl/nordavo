@@ -10,8 +10,10 @@ import {
 } from "@/lib/security/mfa";
 
 // /api/webhooks, /api/mcp and /api/work authenticate themselves (signatures,
-// bearer tokens) and never use the session cookie.
-const TOKEN_API_PATHS = ["/api/webhooks", "/api/mcp", "/api/work"];
+// bearer tokens) and never use the session cookie. /api/academy/calendar is
+// the calendar subscription of a placement (token in the path, for calendar
+// apps that cannot sign in).
+const TOKEN_API_PATHS = ["/api/webhooks", "/api/mcp", "/api/work", "/api/academy/calendar"];
 // /api/jobs takes CRON_SECRET or a staff session, so a session there still
 // needs its second step.
 // The task tool has its own sign-in page, and invite links must open signed out.
