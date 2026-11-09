@@ -121,7 +121,13 @@ function AttemptView({ attempt, locale, timeZone }: { attempt: AssignmentAttempt
   );
 }
 
-export function AssignmentViewer({ block, state, locale, timeZone, preview }: BlockViewerProps) {
+/** The form state starts from the latest attempt: remount when it changes (after handing in). */
+export function AssignmentViewer(props: BlockViewerProps) {
+  const latest = attemptsFromState(props.state)[0];
+  return <AssignmentView key={latest ? `${latest.id}:${latest.submittedAt}:${latest.status}` : "new"} {...props} />;
+}
+
+function AssignmentView({ block, state, locale, timeZone, preview }: BlockViewerProps) {
   const router = useRouter();
   const prompt = assignmentPrompt(block.content);
   const formats = assignmentFormats(block.content);
