@@ -16,6 +16,7 @@ import { academyPlacements, academyRituals } from "./academy-placements";
 import { academyAtsSync, academyReminders, academyRetention } from "./academy-ats";
 import { academyTaskReminders } from "./academy-tasks";
 import { academyDigest, academyTranscribe } from "./academy";
+import { wspDaily, wspMail } from "./wsp";
 
 /**
  * Every job, by name. Run with `npm run job -- <name>` or POST /api/jobs/<name>.
@@ -49,6 +50,8 @@ export const jobs: Record<string, Job> = Object.fromEntries(
   academyTaskReminders,
   academyDigest,
   academyTranscribe,
+  wspDaily,
+  wspMail,
   ].map((job) => [job.name, job]),
 );
 

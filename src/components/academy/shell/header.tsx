@@ -1,11 +1,12 @@
 import Link from "next/link";
-import { Bell, LayoutDashboard, LogOut, Settings, ShieldCheck } from "lucide-react";
+import { Bell, ClipboardList, LayoutDashboard, LogOut, Settings, ShieldCheck } from "lucide-react";
 import { LogoMark } from "@/components/brand/logo";
 import { Avatar } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { requireAcademyUser } from "@/lib/academy/auth";
 import { countUnreadNotifications } from "@/lib/academy/data";
 import { t } from "@/lib/academy/i18n";
+import { isWspEnabled } from "@/lib/wsp/data";
 import { LocaleSwitch } from "./locale-switch";
 
 const iconLink =
@@ -15,6 +16,8 @@ const iconLink =
 export async function AcademyHeaderMenu() {
   const user = await requireAcademyUser();
   const unread = user.member ? await countUnreadNotifications() : 0;
+  // Working Style Profile (docs/working-style-profile.md): for people linked to an ATS candidate, while the feature is on.
+  const workingStyle = Boolean(user.member?.candidate_id) && (await isWspEnabled());
   const tr = (key: Parameters<typeof t>[1]) => t(user.locale, key);
   return (
     <div className="flex items-center gap-1.5 sm:gap-2">
@@ -43,6 +46,11 @@ export async function AcademyHeaderMenu() {
           </span>
         )}
       </Link>
+      {workingStyle && (
+        <Link href="/academy/working-style" className={iconLink} aria-label="My working style profile" title="My working style profile">
+          <ClipboardList className="size-[18px]" aria-hidden="true" />
+        </Link>
+      )}
       <Link href="/academy/settings" className={iconLink} aria-label={tr("shell.settings")} title={tr("shell.settings")}>
         <Settings className="size-[18px]" aria-hidden="true" />
       </Link>

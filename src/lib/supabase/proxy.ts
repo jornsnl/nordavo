@@ -19,7 +19,10 @@ const TOKEN_API_PATHS = ["/api/webhooks", "/api/mcp", "/api/work", "/api/academy
 // The task tool has its own sign-in page, and invite links must open signed out.
 const WORK_SIGN_IN = "/work/sign-in";
 // /apply/<token> is the public application form for candidates (no account).
-const PUBLIC_PATHS = ["/login", "/auth", "/api/jobs", WORK_SIGN_IN, "/work/invite", "/apply", ...TOKEN_API_PATHS];
+// /working-style/<token> is the personal link of the Working Style Profile
+// (docs/working-style-profile.md): no account needed, the token is checked
+// by the database.
+const PUBLIC_PATHS = ["/login", "/auth", "/api/jobs", WORK_SIGN_IN, "/work/invite", "/apply", "/working-style", ...TOKEN_API_PATHS];
 
 // External callers (portal role "caller") only have /caller, plus signing in
 // and out (feedback Julius, section 2.10): no portal, no Work, no API and so
