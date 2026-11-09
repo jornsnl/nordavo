@@ -20,9 +20,9 @@ const escape = (v: string) => v.replace(/</g, "&lt;").replace(/"/g, "&quot;");
 // ---------------------------------------------------------------------------
 
 test("effectiveModules: admins all, members what is stored, others none", () => {
-  assert.deepEqual(effectiveModules("admin", []), ["sales", "recruitment", "clients", "report"]);
+  assert.deepEqual(effectiveModules("admin", []), ["sales", "recruitment", "clients", "report", "academy"]);
   assert.deepEqual(effectiveModules("member", ["report", "recruitment", "bogus"]), ["recruitment", "report"]);
-  assert.deepEqual(effectiveModules("member", null), ["sales", "recruitment", "clients", "report"]);
+  assert.deepEqual(effectiveModules("member", null), ["sales", "recruitment", "clients", "report", "academy"]);
   assert.deepEqual(effectiveModules("client", ["sales"]), []);
   assert.deepEqual(effectiveModules("external", ["sales"]), []);
 });

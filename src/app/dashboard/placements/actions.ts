@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import {
@@ -11,6 +12,8 @@ import {
 } from "@/lib/action-state";
 import { requireStaff } from "@/lib/auth";
 import { todayIso } from "@/lib/format";
+import { processAtsEvents } from "@/lib/academy/ats/process";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { localInputToUtc, safeTimeZone } from "@/lib/work/time";
 import { addDays, addMonths } from "@/components/placements/dates";
@@ -188,6 +191,21 @@ export async function createPlacement(
       "createPlacement follow-ups",
       followUps.map((result) => result?.error).filter(Boolean),
     );
+  }
+
+  // Status placed starts the Academy automation (docs/academy.md, ATS-koppeling):
+  // the database queued it; accounts, courses, placement page and welcome
+  // mails follow after the response. Without SUPABASE_SECRET_KEY the job
+  // academy-ats-sync picks it up once the key is there.
+  const admin = createAdminClient();
+  if (admin) {
+    after(async () => {
+      try {
+        await processAtsEvents(admin, { placementId: placement.id });
+      } catch (cause) {
+        console.error("createPlacement academy automation", cause);
+      }
+    });
   }
 
   revalidateAll(placement.id);

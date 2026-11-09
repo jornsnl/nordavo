@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Download } from "lucide-react";
 import { buttonClasses } from "@/components/ui/button";
 import { Card, CardHeader } from "@/components/ui/card";
-import { Select } from "@/components/ui/field";
+import { SearchSelect } from "@/components/ui/search-select";
 import { Table, TBody, TD, TH, THead, TR } from "@/components/ui/table";
 import { optionFor, vacancyStatuses } from "@/lib/labels";
 import type { VacancyStatus } from "@/lib/database.types";
@@ -89,15 +89,16 @@ export function RecruitmentReportSection({
           <label htmlFor="report-vacancy" className="sr-only">
             Vacancy
           </label>
-          <Select id="report-vacancy" name="vacancy" defaultValue={filters.vacancyId ?? ""} className="w-64 max-sm:w-full">
-            <option value="">All vacancies</option>
-            {vacancies.map((v) => (
-              <option key={v.id} value={v.id}>
-                {v.title}
-                {v.client ? `, ${v.client}` : ""}
-              </option>
-            ))}
-          </Select>
+          <SearchSelect
+            id="report-vacancy"
+            name="vacancy"
+            defaultValue={filters.vacancyId ?? null}
+            className="w-64 max-sm:w-full"
+            placeholder="All vacancies"
+            searchPlaceholder="Search vacancies"
+            submitOnChange
+            options={vacancies.map((v) => ({ value: v.id, label: v.title, hint: v.client ?? undefined }))}
+          />
           <button type="submit" className={buttonClasses({ variant: "secondary", size: "sm" })}>
             Show
           </button>

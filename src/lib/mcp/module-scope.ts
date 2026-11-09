@@ -58,7 +58,13 @@ const moduleLabels: Record<PortalModule, string> = {
   recruitment: "Recruitment",
   clients: "Clients",
   report: "Report",
+  academy: "Academy",
 };
+
+/** The module a table belongs to; every academy_* table is Academy. */
+export function modulesForTable(table: string): PortalModule[] | undefined {
+  return tableModules[table] ?? (table.startsWith("academy_") ? ["academy"] : undefined);
+}
 
 type QueryResult = {
   data: null;
@@ -117,7 +123,7 @@ export function scopeDbToModules<D extends object>(db: D, modules: readonly Port
   const hidden = hiddenEntityTypes(modules);
 
   const from = (table: string): unknown => {
-    const needs = tableModules[table];
+    const needs = modulesForTable(table);
     if (needs && !needs.some((module) => modules.includes(module))) {
       return deniedQuery(accessError(needs));
     }

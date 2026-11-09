@@ -18,7 +18,6 @@ export type VacancyFormValues = {
   is_talent_pool: boolean;
   talent_stage: TalentStage;
   source: VacancySource | null;
-  onepage_deal_id: string | null;
   hours: number | null;
   timezone_overlap: string | null;
   budget_min: number | null;
@@ -189,23 +188,6 @@ export function VacancyForm({
               </option>
             ))}
           </Select>
-        </Field>
-        <Field
-          label="Deal in OnePageCRM"
-          htmlFor="onepage_deal_id"
-          error={errors.onepage_deal_id}
-          hint="The deal id, so sent profiles end up on the deal."
-        >
-          <Input
-            id="onepage_deal_id"
-            name="onepage_deal_id"
-            autoComplete="off"
-            autoCapitalize="none"
-            spellCheck={false}
-            enterKeyHint="next"
-            defaultValue={defaults?.onepage_deal_id ?? ""}
-            {...invalid("onepage_deal_id")}
-          />
         </Field>
         <Field label="Owner" htmlFor="owner_id" error={errors.owner_id} hint="Who at Nordavo runs this vacancy">
           <Select id="owner_id" name="owner_id" defaultValue={defaults?.owner_id ?? ""} {...invalid("owner_id")}>

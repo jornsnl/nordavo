@@ -5,6 +5,7 @@ import { LoaderCircle } from "lucide-react";
 import { ActionFeedback } from "@/components/talent/action-button";
 import { Button } from "@/components/ui/button";
 import { Field, Input, Select, Textarea } from "@/components/ui/field";
+import { SearchSelect } from "@/components/ui/search-select";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { SCREENING_MODELS } from "@/lib/screening/scoring";
 import type { TalentActionState } from "@/lib/talent/types";
@@ -36,16 +37,15 @@ export function CompareForm({ promptId, vacancies }: { promptId: string | null; 
     <form action={action} className="space-y-2">
       <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-end">
         <Field label="Vacancy" htmlFor={`cmp-v-${promptId ?? "0"}`} className="sm:w-64">
-          <Select id={`cmp-v-${promptId ?? "0"}`} name="vacancy_id" defaultValue="" required>
-            <option value="" disabled>
-              Choose a vacancy
-            </option>
-            {vacancies.map((v) => (
-              <option key={v.id} value={v.id}>
-                {v.title}
-              </option>
-            ))}
-          </Select>
+          <SearchSelect
+            id={`cmp-v-${promptId ?? "0"}`}
+            name="vacancy_id"
+            required
+            allowClear={false}
+            placeholder="Choose a vacancy"
+            searchPlaceholder="Search vacancies"
+            options={vacancies.map((v) => ({ value: v.id, label: v.title }))}
+          />
         </Field>
         <Field label="Sample" htmlFor={`cmp-n-${promptId ?? "0"}`} className="sm:w-24">
           <Input id={`cmp-n-${promptId ?? "0"}`} name="sample" type="number" min={1} max={50} defaultValue={10} inputMode="numeric" />

@@ -2,6 +2,7 @@ import "server-only";
 import { cache } from "react";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import { hasClientPortal } from "@/lib/academy/routing";
 import type { PortalModule, ProfileRole } from "@/lib/database.types";
 import { effectiveModules } from "@/lib/modules";
 import { MFA_VERIFY_PATH, checkSecondStep } from "@/lib/security/mfa";
@@ -12,8 +13,14 @@ export type CurrentUser = {
   email: string;
   name: string;
   role: ProfileRole;
-  /** Only set for client portal users. */
+  /** Only set for client users (also Academy-only ones, see clientPortal). */
   clientId: string | null;
+  /**
+   * May use the client portal: client users without an Academy role or with
+   * client_admin. client_member and client_reader only have the Academy
+   * (the database refuses them the portal too: current_client_id()).
+   */
+  clientPortal: boolean;
   /** IANA time zone the user sees dates in (deadlines are stored in UTC). */
   timeZone: string;
   /** Modules this user sees (2.5). Admins have all; client and Work only accounts none. */
@@ -52,9 +59,25 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser> => {
 
   // Unknown or missing roles get the least access.
   const role: ProfileRole =
-    profile?.role === "admin" || profile?.role === "member" || profile?.role === "client" || profile?.role === "caller"
+    profile?.role === "admin" ||
+    profile?.role === "member" ||
+    profile?.role === "client" ||
+    profile?.role === "caller" ||
+    profile?.role === "developer" ||
+    profile?.role === "candidate"
       ? profile.role
       : "external";
+
+  // Client users: the Academy role decides whether they have the portal.
+  let academyRole: string | null = null;
+  if (role === "client") {
+    const { data: member } = await supabase
+      .from("academy_members")
+      .select("academy_role")
+      .eq("profile_id", userId)
+      .maybeSingle();
+    academyRole = member?.academy_role ?? null;
+  }
 
   return {
     id: userId,
@@ -62,6 +85,7 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser> => {
     name: profile?.full_name || email.split("@")[0] || "Nordavo",
     role,
     clientId: role === "client" ? (profile?.client_id ?? null) : null,
+    clientPortal: hasClientPortal(role, academyRole),
     timeZone: profile?.time_zone || "Europe/Amsterdam",
     modules: effectiveModules(role, profile?.modules),
   };
@@ -75,6 +99,10 @@ export function isStaff(user: CurrentUser) {
 export function homePathFor(user: CurrentUser) {
   if (user.role === "external") return "/work";
   if (user.role === "caller") return "/caller";
+  // Developers and candidates only have the Academy (docs/academy.md).
+  if (user.role === "developer" || user.role === "candidate") return "/academy";
+  // Academy-only client users (client_member, client_reader).
+  if (user.role === "client" && !user.clientPortal) return "/academy";
   return isStaff(user) ? "/dashboard" : "/portal";
 }
 
@@ -110,7 +138,7 @@ export async function requireAdmin(): Promise<CurrentUser> {
 /** Client portal users only, always linked to a client company. */
 export async function requireClient(): Promise<CurrentUser & { clientId: string }> {
   const user = await getCurrentUser();
-  if (user.role !== "client") redirect(homePathFor(user));
+  if (user.role !== "client" || !user.clientPortal) redirect(homePathFor(user));
   if (!user.clientId) redirect("/login?error=account");
   return { ...user, clientId: user.clientId };
 }

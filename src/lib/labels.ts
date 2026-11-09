@@ -26,7 +26,6 @@ import type {
   PlacementStatus,
   ProfileRole,
   Seniority,
-  TaskPriority,
   TaskStatus,
   VacancyStatus,
 } from "@/lib/database.types";
@@ -150,18 +149,14 @@ export const taskStatuses: Option<TaskStatus>[] = [
   { value: "done", label: "Done", tone: "success" },
 ];
 
-export const taskPriorities: Option<TaskPriority>[] = [
-  { value: "low", label: "Low", tone: "neutral" },
-  { value: "normal", label: "Normal", tone: "brand" },
-  { value: "high", label: "High", tone: "danger" },
-];
-
 export const profileRoles: Option<ProfileRole>[] = [
   { value: "admin", label: "Admin", tone: "accent" },
   { value: "member", label: "Internal user", tone: "brand" },
   { value: "client", label: "Client", tone: "neutral" },
   { value: "external", label: "Work only", tone: "neutral" },
   { value: "caller", label: "External caller", tone: "warning" },
+  { value: "developer", label: "Developer (Academy)", tone: "success" },
+  { value: "candidate", label: "Candidate (Academy)", tone: "neutral" },
 ];
 
 // ---------------------------------------------------------------------------

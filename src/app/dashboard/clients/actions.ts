@@ -127,6 +127,10 @@ const contactSchema = z.object({
   email: z.email({ error: "This is not a valid email address." }).optional(),
   phone: z.string().max(50, "Use at most 50 characters.").optional(),
   job_title: z.string().max(200, "Use at most 200 characters.").optional(),
+  linkedin_url: z
+    .url({ protocol: /^https?$/, error: "Enter a valid LinkedIn link, starting with https://" })
+    .max(500, "This link is too long.")
+    .optional(),
   is_primary: z.literal("on").optional(),
 });
 
@@ -148,6 +152,7 @@ export async function saveContactAction(
     email: fields.email ?? null,
     phone: fields.phone ?? null,
     job_title: fields.job_title ?? null,
+    linkedin_url: fields.linkedin_url ?? null,
     is_primary: is_primary === "on",
   };
 

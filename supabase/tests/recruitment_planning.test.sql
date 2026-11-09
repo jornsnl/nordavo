@@ -34,7 +34,7 @@ end $$;
 grant execute on function pg_temp.act(text), pg_temp.check(boolean, text) to authenticated, service_role;
 
 -- New members start with every module, so nothing changed for existing users.
-select pg_temp.check((select modules = array['sales', 'recruitment', 'clients', 'report']
+select pg_temp.check((select modules = array['sales', 'recruitment', 'clients', 'report', 'academy']
   from public.profiles where email = 'sam@nordavo.nl'), 'members start with every module');
 
 -- Data of both worlds, written as the database owner.

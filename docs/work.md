@@ -53,6 +53,8 @@ Eén persoon kan in meerdere workspaces zitten met verschillende rollen, bijvoor
 
 Iedereen die je in Work uitnodigt, als admin, member of guest, krijgt in het portaal de rol `external`. Daarmee zie je alleen `/work`: niet het dashboard, niet de klanten, kandidaten, leads of vacatures, en geen andere workspaces. Dat staat niet alleen in de interface, maar wordt afgedwongen in de database (RLS), dus ook via een directe link of de API kom je er niet bij.
 
+Developers en kandidaten van de Academy (portaalrol `developer` of `candidate`) hebben geen Work. Wordt een Work gast developer of kandidaat, dan worden zijn lidmaatschappen gedeactiveerd (in het toegangslog als `deactivated`) en zijn API-tokens ingetrokken; een nieuwe uitnodiging accepteren lukt niet. De database controleert de portaalrol in `work_private.role_in()` (zie `docs/academy.md`, sectie 17).
+
 - Freelancer op één project: nodig uit als **Guest** bij dat project.
 - Freelancer op de hele workspace: nodig uit als **Member**. Die ziet alle open projecten van die workspace, en verder niets.
 
@@ -186,12 +188,16 @@ Er is nog maar één takenlijst: Work. De module Tasks van het portaal (`/dashbo
 ### Taken op een record
 
 - Een Work taak kan hangen aan een klant, lead (bedrijf), vacature, kandidaat, sollicitatie of plaatsing (`public.work_task_links`, één record per taak).
-- **Op de taakpagina** ziet een teamlid met de module van dat record het record (met link), en bij een lead of klant de primaire contactpersoon: naam, functie, mailadres, telefoon en LinkedIn (bij een lead `contacts.is_primary`, bij een klant `client_contacts.is_primary`). Met *Change or remove the record* kies je een ander record (zoeken per soort record) of haal je de koppeling weg (`work_set_task_link`). Een taak zonder record krijgt daar *Link a record*.
+- **Op de taakpagina** ziet een teamlid met de module van dat record het record (met link), en bij een lead of klant de primaire contactpersoon: naam, functie, mailadres, telefoon en LinkedIn (bij een lead `contacts.is_primary`, bij een klant `client_contacts.is_primary`; de LinkedIn van een klantcontact vul je in op de klantpagina, blok Contacts, en staat in `client_contacts.linkedin_url`). Met *Change or remove the record* kies je een ander record (zoeken per soort record) of haal je de koppeling weg (`work_set_task_link`). Een taak zonder record krijgt daar *Link a record*.
 - **Een nieuwe taak** in een project kan meteen een record krijgen (`work_create_record_task` met dat project).
 - **Detailpagina's** (klant, lead, vacature, kandidaat, plaatsing): het blok *Tasks* toont de Work taken van dat record, open eerst op deadline en daarna de laatst afgeronde. Snel toevoegen maakt een Work taak in het afgeschermde project *Portal records* van de workspace Nordavo; een deadline als dag wordt 17:00 in jouw tijdzone. Afvinken zet de taak op Done als jij reviewer of admin bent, anders gaat hij naar Review bij de reviewer (de reviewregel van Work blijft gelden). Bij een lead of klant staat de primaire contactpersoon in elke open taak. De titel linkt naar de taak in Work.
-- **Activiteit** van een record toont ook het log van de gekoppelde Work taken, en de oude regels van portaaltaken van voor de overgang.
+- **Activiteit** van een record toont ook het log van de gekoppelde Work taken, en de oude regels van portaaltaken van voor de overgang (ook een oude prioriteit, nu met Urgent erbij).
 - **Een record verwijderen** verwijdert ook zijn Work taken (trigger per tabel).
 - **Zoeken** (Ctrl K in het portaal) vindt ook Work taken (`work_search`, binnen wat je mag zien).
+
+### Doorzoekbare keuzelijsten
+
+Elke keuzelijst die lang kan worden (klanten, bedrijven, contacten, kandidaten, vacatures, projecten, skills) is een zoekveld (`src/components/ui/search-select.tsx`): typ een deel van de naam en kies. Zo werken onder meer het klantfilter van Placements, de vacature bij een plaatsing, een interview en het rapport, de klant bij een rol of uitnodiging in Instellingen, de vacature in de talentpool, het skillfilter van Candidates, de contactpersoon bij een activiteit, een suppression en een meeting, het projectfilter van Work, het project bij uitnodigen in Work en bij *Log finished work*, en de vacature bij een job of een prompt vergelijken. Korte vaste lijsten (status, prioriteit, rol, het team) blijven gewone keuzelijsten; een filter in Work met meer dan 12 keuzes wordt vanzelf een zoekveld.
 
 ### Dashboard en plaatsingen
 

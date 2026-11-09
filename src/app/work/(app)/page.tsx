@@ -90,6 +90,7 @@ async function Overview({ searchParams }: { searchParams: Promise<Search> }) {
       name: "project",
       label: "Project",
       all: "All projects",
+      searchable: true,
       options: projects
         .filter((p) => !filters.workspace || p.workspaceId === filters.workspace)
         .map((p) => ({

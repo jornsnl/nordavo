@@ -7,6 +7,7 @@ import type { ProfileRole } from "@/lib/database.types";
 import { profileRoles } from "@/lib/labels";
 import { portalModules } from "@/lib/modules";
 import { Field, FormMessage, Input, Select } from "@/components/ui/field";
+import { SearchSelect } from "@/components/ui/search-select";
 import { PendingSubmit, submitWithoutReset } from "@/components/placements/form-utils";
 
 export function InviteForm({
@@ -98,21 +99,17 @@ export function InviteForm({
             error={errors.client_id}
             hint="This account only sees the vacancies and candidates of this client."
           >
-            <Select
+            <SearchSelect
               id="invite_client_id"
               name="client_id"
-              defaultValue=""
               disabled={!enabled}
+              required
               aria-invalid={Boolean(errors.client_id)}
               aria-describedby={describedBy("client_id")}
-            >
-              <option value="">Pick a client</option>
-              {clients.map((client) => (
-                <option key={client.id} value={client.id}>
-                  {client.name}
-                </option>
-              ))}
-            </Select>
+              placeholder="Pick a client"
+              searchPlaceholder="Search clients"
+              options={clients.map((client) => ({ value: client.id, label: client.name }))}
+            />
           </Field>
         )}
         {role === "member" && (

@@ -27,6 +27,11 @@ export const portalModules: { value: PortalModule; label: string; description: s
     label: "Report",
     description: "The report page; each section also needs its own module (sales or recruitment).",
   },
+  {
+    value: "academy",
+    label: "Academy",
+    description: "Nordavo Academy: courses, lessons, people, answers, reviews and progress of clients, developers and candidates.",
+  },
 ];
 
 export const ALL_MODULES: PortalModule[] = portalModules.map((m) => m.value);
@@ -59,6 +64,7 @@ const routeModules: [prefix: string, module: PortalModule][] = [
   ["/dashboard/placements", "recruitment"],
   ["/dashboard/clients", "clients"],
   ["/dashboard/report", "report"],
+  ["/dashboard/academy", "academy"],
 ];
 
 export function moduleForPath(path: string): PortalModule | null {
@@ -77,6 +83,7 @@ export function canSeePath(path: string, modules: readonly PortalModule[] | null
 export function jobModule(jobName: string): PortalModule | null {
   if (/^s[0-9]+-/.test(jobName) || jobName.startsWith("max-") || jobName.startsWith("claude-")) return "sales";
   if (jobName.startsWith("work-") || jobName.startsWith("clickup-")) return null;
+  if (jobName.startsWith("academy-")) return "academy";
   return "recruitment";
 }
 

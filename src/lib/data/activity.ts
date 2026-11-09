@@ -9,7 +9,6 @@ import {
   entityTypes,
   placementStatuses,
   seniorities,
-  taskPriorities,
   taskStatuses,
   vacancyStatuses,
 } from "@/lib/labels";
@@ -117,7 +116,8 @@ function valueLabel(entityType: string, field: string, value: Json | undefined):
   if (typeof value !== "string") return String(value);
   if (field === "status") return statusLabel(entityType, value);
   if (field === "stage") return applicationStages.find((o) => o.value === value)?.label ?? value;
-  if (field === "priority") return taskPriorities.find((o) => o.value === value)?.label ?? value;
+  // Old Tasks rows had low, normal and high; Work adds urgent.
+  if (field === "priority") return workPriorities.find((o) => o.value === value)?.label ?? value;
   if (field === "seniority") return seniorities.find((o) => o.value === value)?.label ?? value;
   if (field === "client_decision") return clientDecisions.find((o) => o.value === value)?.label ?? value;
   if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return formatDate(value);

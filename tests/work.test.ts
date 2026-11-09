@@ -155,6 +155,18 @@ test("authenticateWorkToken accepts live tokens and rejects revoked or expired o
   assert.deepEqual(await authenticateWorkToken(null, db, now), { ok: false, reason: "missing" });
 });
 
+test("authenticateWorkToken refuses developers and candidates (Academy only)", async () => {
+  const now = new Date("2026-11-01T00:00:00Z");
+  for (const role of ["developer", "candidate"]) {
+    const token = generateWorkToken();
+    const { db } = fakeDb({
+      work_api_tokens: [{ id: "t1", user_id: "u1", token_hash: token.hash, access: "write", expires_at: null, revoked_at: null, last_used_at: null }],
+      profiles: [{ id: "u1", full_name: "Asha", email: "asha@example.in", role }],
+    });
+    assert.deepEqual(await authenticateWorkToken(`Bearer ${token.token}`, db, now), { ok: false, reason: "no_access" }, role);
+  }
+});
+
 // ---------------------------------------------------------------------------
 // Notifications
 // ---------------------------------------------------------------------------

@@ -296,9 +296,15 @@ export type SalesFunctions = {
     } & Actor,
     string
   >;
+  /** p_moved: the dragged row; the reorder is one activity on it (20261111000000_sales_gaps.sql). */
   sales_set_positions: Fn<
-    { p_entity: "company" | "contact"; p_ids: string[]; p_positions: number[] } & Actor,
+    { p_entity: "company" | "contact"; p_ids: string[]; p_positions: number[]; p_moved?: string | null } & Actor,
     number
+  >;
+  /** A concept text for a sequence step, logged in Activities (20261111000000_sales_gaps.sql). */
+  sales_draft_step: Fn<
+    { p_step: string; p_subject?: string | null; p_body: string; p_source?: string } & Actor,
+    string
   >;
   sales_claim_contact: Fn<{ p_contact: string } & Actor, boolean>;
   sales_release_contact: Fn<{ p_contact: string } & Actor, undefined>;

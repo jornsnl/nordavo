@@ -7,6 +7,7 @@ import type { InterviewerOption } from "@/lib/data/interviews";
 import { interviewKinds } from "@/lib/recruitment/interviews";
 import { Button } from "@/components/ui/button";
 import { Field, FormMessage, Input, Select } from "@/components/ui/field";
+import { SearchSelect } from "@/components/ui/search-select";
 import { Modal } from "@/components/ui/modal";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { planInterview, type PlanInterviewState } from "./actions";
@@ -114,13 +115,15 @@ function PlanInterviewForm({
       <FormMessage error={state.error} />
       {applications.length > 1 ? (
         <Field label="Vacancy" htmlFor="plan-application" required error={errors.application_id}>
-          <Select id="plan-application" name="application_id" defaultValue={applications[0]?.id}>
-            {applications.map((a) => (
-              <option key={a.id} value={a.id}>
-                {a.label}
-              </option>
-            ))}
-          </Select>
+          <SearchSelect
+            id="plan-application"
+            name="application_id"
+            defaultValue={applications[0]?.id ?? null}
+            required
+            allowClear={false}
+            searchPlaceholder="Search vacancies"
+            options={applications.map((a) => ({ value: a.id, label: a.label }))}
+          />
         </Field>
       ) : (
         <input type="hidden" name="application_id" value={applications[0]?.id ?? ""} />

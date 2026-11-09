@@ -42,11 +42,6 @@ const vacancySchema = z
       error: "Choose a stage.",
     }),
     source: z.enum(["klant_eigen", "samen_opgesteld", "gescrapet"], { error: "Choose a source." }).optional(),
-    onepage_deal_id: z
-      .string()
-      .max(100, "Use at most 100 characters.")
-      .regex(/^[\w-]+$/, "Paste only the deal id from OnePageCRM, without spaces.")
-      .optional(),
     monthly_budget: amount.optional(),
     budget_min: amount.optional(),
     budget_max: amount.optional(),
@@ -113,7 +108,6 @@ function toRow(data: z.infer<typeof vacancySchema>) {
     status: data.status,
     talent_stage: data.talent_stage,
     source: data.source ?? null,
-    onepage_deal_id: data.onepage_deal_id ?? null,
     monthly_budget: data.monthly_budget ?? null,
     budget_min: data.budget_min ?? null,
     budget_max: data.budget_max ?? null,

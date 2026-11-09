@@ -47,7 +47,6 @@ async function EditVacancyForm({ params }: { params: Promise<{ id: string }> }) 
         is_talent_pool: vacancy.is_talent_pool,
         talent_stage: vacancy.talent_stage,
         source: vacancy.source,
-        onepage_deal_id: vacancy.onepage_deal_id,
         hours: vacancy.hours,
         timezone_overlap: vacancy.timezone_overlap,
         budget_min: vacancy.budget_min,

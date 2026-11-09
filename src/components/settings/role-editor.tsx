@@ -5,6 +5,7 @@ import { type ActionState, initialActionState } from "@/lib/action-state";
 import type { ProfileRole } from "@/lib/database.types";
 import { profileRoles } from "@/lib/labels";
 import { Select } from "@/components/ui/field";
+import { SearchSelect } from "@/components/ui/search-select";
 import { SubmitButton } from "@/components/ui/submit-button";
 
 /**
@@ -62,21 +63,17 @@ export function RoleEditor({
           <label htmlFor={idFor("client")} className="sr-only">
             Client of {userName}
           </label>
-          <Select
+          <SearchSelect
             id={idFor("client")}
             name="client_id"
-            value={nextClient}
-            onChange={(e) => setNextClient(e.target.value)}
-            className={stacked ? "w-full" : "w-44 py-1.5"}
+            value={nextClient || null}
+            onChange={(value) => setNextClient(value ?? "")}
+            className={stacked ? "w-full" : "w-52"}
             aria-invalid={Boolean(state.fieldErrors?.client_id)}
-          >
-            <option value="">Pick a client</option>
-            {clients.map((client) => (
-              <option key={client.id} value={client.id}>
-                {client.name}
-              </option>
-            ))}
-          </Select>
+            placeholder="Pick a client"
+            searchPlaceholder="Search clients"
+            options={clients.map((client) => ({ value: client.id, label: client.name }))}
+          />
         </>
       )}
       <SubmitButton size={stacked ? "md" : "sm"} variant="secondary" disabled={!changed} pendingLabel="Saving">

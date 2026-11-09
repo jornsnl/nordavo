@@ -3,7 +3,7 @@ import { Suspense } from "react";
 import Link from "next/link";
 import Form from "next/form";
 import { redirect } from "next/navigation";
-import { Plus, Search, SearchX, Sparkles, Star, Users } from "lucide-react";
+import { GraduationCap, Plus, Search, SearchX, Sparkles, Star, Users } from "lucide-react";
 import { EmptyState } from "@/components/dashboard/empty-state";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { AutoSubmitSelects } from "@/components/entity/auto-submit";
@@ -12,11 +12,13 @@ import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { Input, Select } from "@/components/ui/field";
+import { SearchSelect } from "@/components/ui/search-select";
 import { MobileList, MobileListItem } from "@/components/ui/mobile-list";
 import { ListSkeleton } from "@/components/ui/skeleton";
 import { TBody, TD, TH, THead, TR, Table } from "@/components/ui/table";
 import { getApplicationVacancyId } from "@/lib/data/applications";
 import { listCandidateSkills, listCandidates } from "@/lib/data/candidates";
+import { listAcademyColumns } from "@/lib/academy/ats/data";
 import type { CandidateStatus } from "@/lib/database.types";
 import { candidateStatuses, optionFor } from "@/lib/labels";
 import { CustomFieldCells, CustomFieldFilters, CustomFieldHeaders, CustomFieldSummary } from "@/components/custom-fields/list-columns";
@@ -44,6 +46,10 @@ export default function Page({ searchParams }: PageProps<"/dashboard/candidates"
             <ButtonLink href="/dashboard/candidates/talent-pool" variant="secondary">
               <Sparkles aria-hidden="true" />
               Talent pool
+            </ButtonLink>
+            <ButtonLink href="/dashboard/candidates/academy" variant="secondary">
+              <GraduationCap aria-hidden="true" />
+              Academy results
             </ButtonLink>
             <ButtonLink href="/dashboard/candidates/new">
               <Plus aria-hidden="true" />
@@ -85,6 +91,8 @@ async function CandidateList({ searchParams }: { searchParams: SearchParams }) {
     candidateListFields(params),
   ]);
   const candidates = customFields.apply(found);
+  // Academy to ATS (docs/academy.md): progress in the developer course, live.
+  const academy = await listAcademyColumns(candidates.map((c) => c.id));
   const filtered = !!(q || status || skill || toppers) || customFields.filters.length > 0;
   const current = { q, status, skill, toppers };
 
@@ -145,15 +153,16 @@ async function CandidateList({ searchParams }: { searchParams: SearchParams }) {
           <label htmlFor="candidate-skill" className="sr-only">
             Skill
           </label>
-          <Select id="candidate-skill" name="skill" defaultValue={skill ?? ""} className="max-sm:w-full">
-            <option value="">All skills</option>
-            {skill && !skills.includes(skill) && <option value={skill}>{skill}</option>}
-            {skills.map((s) => (
-              <option key={s} value={s}>
-                {s}
-              </option>
-            ))}
-          </Select>
+          <SearchSelect
+            id="candidate-skill"
+            name="skill"
+            defaultValue={skill ?? null}
+            className="max-sm:w-full sm:w-48"
+            placeholder="All skills"
+            searchPlaceholder="Search skills"
+            submitOnChange
+            options={[...(skill && !skills.includes(skill) ? [skill] : []), ...skills].map((s) => ({ value: s, label: s }))}
+          />
           {filtered && (
             <ButtonLink href="/dashboard/candidates" variant="ghost" className="shrink-0 sm:hidden">
               Clear
@@ -251,6 +260,7 @@ async function CandidateList({ searchParams }: { searchParams: SearchParams }) {
                 <TH>Skills</TH>
                 <CustomFieldHeaders fields={customFields} />
                 <TH>Status</TH>
+                <TH className="text-right">Academy</TH>
                 <TH className="text-right">Active</TH>
               </tr>
             </THead>
@@ -296,6 +306,9 @@ async function CandidateList({ searchParams }: { searchParams: SearchParams }) {
                     <TD>
                       <Badge tone={statusOption.tone}>{statusOption.label}</Badge>
                     </TD>
+                    <TD className="text-right whitespace-nowrap tabular-nums">
+                      <AcademyCell value={academy.get(c.id)} />
+                    </TD>
                     <TD className="text-right tabular-nums">
                       <span className="sr-only">Active applications: </span>
                       {c.activeApplications}
@@ -308,5 +321,15 @@ async function CandidateList({ searchParams }: { searchParams: SearchParams }) {
         </>
       )}
     </div>
+  );
+}
+
+function AcademyCell({ value }: { value: { enrolled: boolean; progress: number; inactive: boolean; certificate: boolean } | undefined }) {
+  if (!value?.enrolled) return <span className="text-muted">–</span>;
+  return (
+    <span className={value.inactive ? "font-medium text-danger" : undefined} title={value.inactive ? "Inactive for 14 days" : undefined}>
+      {value.certificate ? "✓ " : ""}
+      {value.progress}%
+    </span>
   );
 }

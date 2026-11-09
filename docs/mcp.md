@@ -106,7 +106,7 @@ Lijsten geven standaard 25 en maximaal 100 rijen, met `offset` om te bladeren. R
 | `open_list_for_callers` / `close_list_for_callers` | Een bellijst open of dicht zetten voor bellers, met einddatum en volgorde. Alleen als de eigenaar van het token admin is |
 | `upsert_companies` | Nieuwe bedrijven met vacatures en beslissers uit Apify of Prospeo. Ontdubbeld op genormaliseerd domein, daarna op de LinkedIn pagina; bekende bedrijven worden aangevuld, nooit overschreven |
 | `set_icp_verdict` | ICP-oordeel, score, reden, prio, categorie en openingszin; de leadstatus volgt (Ready, Review of No go) |
-| `draft_sequence_text` | Een concept voor een stap van een sequence; Julius keurt goed in het portaal |
+| `draft_sequence_text` | Een concept voor een stap van een sequence, via `sales_draft_step` en dus in Activities op de sequence met bron `claude`; Julius keurt goed in het portaal |
 | `start_sequence` | Een actieve sequence starten voor een of meer bedrijven |
 | `update_sequence_tasks` | Mail en LinkedIn stappen afvinken als klaargezet in Instantly of Seleqt, of overslaan |
 | `pause_company` | Een bedrijf overal pauzeren na een reply: sequences op pauze, open belstappen vervallen |

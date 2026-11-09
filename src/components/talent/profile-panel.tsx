@@ -177,8 +177,8 @@ export function ProfilePanel({ vacancyId, match }: { vacancyId: string; match: M
           {!profile.sentAt && profile.approvedAt && consentOk && (
             <>
               <p className="text-xs text-muted">
-                Send the PDF to the client yourself, then mark it as sent. If there is a deal in OnePageCRM, a note and a next action
-                are added.
+                Send the PDF to the client yourself, then mark it as sent. The company moves to Profiles sent in the
+                pipeline.
               </p>
               <ActionButton action={markProfileSentAction.bind(null, profile.id)} variant="primary" pendingLabel="Working">
                 <Send aria-hidden="true" />

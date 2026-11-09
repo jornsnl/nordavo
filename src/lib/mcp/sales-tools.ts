@@ -1152,7 +1152,7 @@ function registerSalesWriteTools(server: McpServer, ctx: McpToolContext) {
     {
       title: "Draft sequence text",
       description:
-        "Write a concept subject and text for one sequence step. It waits next to the approved text until Julius approves it in the portal; only approved text is ever used. Placeholders such as {first_name}, {company} and {opening_line} are fine.",
+        "Write a concept subject and text for one sequence step. It waits next to the approved text until Julius approves it in the portal; only approved text is ever used. Logged in Activities on the sequence with source claude. Placeholders such as {first_name}, {company} and {opening_line} are fine.",
       inputSchema: {
         step_id: idSchema,
         subject: z.string().trim().max(500).optional().describe("Mail only."),
@@ -1166,13 +1166,22 @@ function registerSalesWriteTools(server: McpServer, ctx: McpToolContext) {
       const step = check(await db.from("sequence_steps").select("id, channel, sequence_id").eq("id", step_id).maybeSingle(), "step");
       if (!step || Array.isArray(step)) return fail("Step not found.");
       if (subject && step.channel !== "mail") return fail("Only mail steps have a subject.");
-      const { error } = await db
-        .from("sequence_steps")
-        .update({ draft_subject: subject ?? null, draft_body: body, draft_source: "claude", draft_at: new Date().toISOString() })
-        .eq("id", step_id);
+      // Through the database function, so the concept is logged in Activities with source claude.
+      const { data, error } = await db.rpc("sales_draft_step", {
+        p_step: step_id,
+        p_subject: subject ?? null,
+        p_body: body,
+        p_source: "claude",
+        p_actor: actor,
+      });
       return (
         rpcError(error, "save the concept") ??
-        ok({ step_id, waiting_for_approval: true, url: `${ctx.siteUrl.replace(/\/$/, "")}/dashboard/sequences/${step.sequence_id}` })
+        ok({
+          step_id,
+          activity_id: data,
+          waiting_for_approval: true,
+          url: `${ctx.siteUrl.replace(/\/$/, "")}/dashboard/sequences/${step.sequence_id}`,
+        })
       );
     },
   );
