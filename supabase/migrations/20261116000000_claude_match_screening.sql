@@ -10,11 +10,14 @@
 --   3  claude-match and claude-screening are recruitment jobs, the other
 --      claude-* jobs stay sales.
 
-alter table public.vacancies add column match_requested_at timestamptz;
-alter table public.applications add column score_requested_at timestamptz;
+-- Safe to run again: everything below skips what already exists.
+alter table public.vacancies add column if not exists match_requested_at timestamptz;
+alter table public.applications add column if not exists score_requested_at timestamptz;
 
-create index on public.vacancies (match_requested_at) where match_requested_at is not null;
-create index on public.applications (score_requested_at) where score_requested_at is not null;
+create index if not exists vacancies_match_requested_at_idx
+  on public.vacancies (match_requested_at) where match_requested_at is not null;
+create index if not exists applications_score_requested_at_idx
+  on public.applications (score_requested_at) where score_requested_at is not null;
 
 create or replace function public.job_module(p_job_name text)
 returns text
