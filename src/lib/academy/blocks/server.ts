@@ -8,7 +8,7 @@ import { parseQuestionnaire, questionnaireContent } from "@/lib/academy/learn/qu
 import { loadAssignmentStates, loadCheckStates, loadQuestionnaireStates, loadTaskStates } from "@/lib/academy/learn/states";
 // Area: media (video, document, worksheet).
 import { documentStateLoader, videoStateLoader, worksheetStateLoader } from "@/lib/academy/media/server";
-import { videoShowsTranscript } from "@/lib/academy/media/state";
+import { videoBlockContent } from "@/lib/academy/media/state";
 import type { createClient } from "@/lib/supabase/server";
 
 // The server half of the block registry (docs/academy.md):
@@ -48,7 +48,7 @@ export const contentSanitizers: Partial<Record<AcademyBlockType, (content: Block
   knowledge_check: () => ({}),
   questionnaire: (content) => questionnaireContent(parseQuestionnaire(content as Json)),
   // Area: media. The file, versions, fields and answers are rows of their own.
-  video: (content) => ({ transcript: videoShowsTranscript(content) }),
+  video: (content) => videoBlockContent(content as Json),
   document: () => ({}),
   worksheet: () => ({}),
 };

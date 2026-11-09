@@ -5,6 +5,12 @@
 
 begin;
 
+-- Start from empty course content: the start curriculum (seeded by
+-- 20261114000000_academy_start_content.sql) would change the counts below.
+-- The courses and modules stay; everything is rolled back at the end.
+delete from public.academy_lessons;
+delete from public.academy_documents;
+
 insert into auth.users (id, email, raw_user_meta_data) values
   ('00000000-0000-0000-0000-00000000a001', 'admin.ac@nordavo.nl', '{"full_name": "Julius"}'),
   ('00000000-0000-0000-0000-00000000a002', 'hr.ac@nordavo.nl', '{"full_name": "HR"}'),

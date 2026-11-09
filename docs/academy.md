@@ -271,7 +271,7 @@ Gebouwd: **Uitleg** (rijke tekst met koppen, lijsten, vet, cursief, citaat, link
 * Klantcourse `client` (NL): Voordat je begint (kern, af voor de start van de developer), De eerste 30 dagen, Communiceren over 4.000 km, Delegeren en beslissingsruimte (1 tot en met 4 zijn kern), Feedback en corrigeren, Van externe naar teamgenoot (opent 30 dagen na de startdatum, als voorbeeld van "module 6 vanaf maand 2"), Plannen, verlof en meten, Als het schuurt, en opschalen, Een team bouwen (vanaf derde plaatsing).
 * Developercourse `developer` (EN): Welcome to a Dutch team en Communicating with Dutch colleagues (open voor kandidaten: `in_default_access`), Working independently and escalating, Quality, security and growth.
 
-Beide courses staan als **concept**: niemand buiten Nordavo ziet ze tot een beheerder de course publiceert. De modules staan op gepubliceerd en op volgorde. Lessen, video's en documenten komen later; een module zonder gepubliceerde lessen houdt de volgende niet tegen.
+Beide courses staan als **concept**: niemand buiten Nordavo ziet ze tot een beheerder de course publiceert. De modules staan op gepubliceerd en op volgorde. Een module zonder gepubliceerde lessen houdt de volgende niet tegen. De lessen met hun blokken (eerste versie, concepttekst) staan in sectie 16.
 
 ## 10. Nog te bouwen (door anderen)
 
@@ -615,3 +615,116 @@ In de lessen-editor (`/dashboard/academy/lessons/[id]`): kies een video uit de l
 | Kennischeck | `knowledge_check`, content `{}`, drie rijen in `academy_check_questions` (vraag, opties, `correct_index`, uitleg) |
 
 De blokken komen achteraan, niet verplicht, met titel "Draft: ...", en staan in `academy_block_drafts`. Een restrictive policy op `academy_lesson_blocks` en `academy_tasks` verbergt ze voor deelnemers tot Nordavo ze accepteert (dan verplicht zoals het bloktype standaard is, en de conceptitel weg) of weggooit. Bewerken gebeurt gewoon in het blok; dat houdt het concept verborgen. Zonder `ANTHROPIC_API_KEY` wordt het transcript (zonder WebVTT-tijden) de conceptuitleg met lege taken- en kennischeckblokken.
+## 16. Startcurriculum (inhoud)
+
+**Concept.** De bronnen (nordavo_academy.xlsx, de HTML courses, "Nordavo course structuur klant.docx" en de policies in Drive) waren niet beschikbaar bij het bouwen. De teksten, vragen, taken en werkbladen zijn daarom een eerste versie, geschreven vanuit wat we van Nordavo weten (de driehoek, 30 dagen garantie, maandelijkse opzegging, overlapvenster, rituelen, pulse, review na 90 dagen, escalatie via Nordavo). Julius en Floris lopen alles na voordat de courses live gaan. Waar een feit of getal van Nordavo nodig is, staat `[Nordavo vult in: ...]` (klantcourse) of `[Nordavo to fill in: ...]` (developercourse); er zijn geen verlofdagen, bedragen of termijnen verzonnen.
+
+| Onderdeel | Waar |
+| --- | --- |
+| Migratie | `supabase/migrations/20261114000000_academy_start_content.sql`: de functie `academy_seed_start_curriculum()` met de inhoud als json, en één aanroep |
+| SQL test | `supabase/tests/academy_curriculum.test.sql` (aantallen, drie vragen per check, lege video blokkeert niet, opnieuw draaien voegt niets toe en overschrijft niets) |
+| Unit test | `tests/academy-curriculum.test.ts` (de inhoud is precies wat de editor zou opslaan: HTML door `sanitizeHtml`, werkbladvelden door `normalizeFields`, opdracht, notities en video in hun opgeslagen vorm) |
+| Editor | Videoblok zonder video toont "Waiting for a recording" met de opnamebrief (`content.recording_note`, `videoRecordingNote` en `videoBlockContent` in `src/lib/academy/media/state.ts`) |
+
+### Hoe het zaadje werkt
+
+* Elke rij heeft een vaste id: `md5('nordavo-academy-start:' || sleutel)::uuid`. Sleutels: les `client-4.1`, blok `client-4.1:block:3`, taak `...:task:1`, vraag `...:question:2`, document `document:ws-client-5w`.
+* Een les die al bestaat wordt overgeslagen, met alles erin. Wat een beheerder in de editor aanpast (tekst, blokken, taken, vragen, volgorde, status, een les uit een module halen) blijft dus staan. Is de module weg (geen `seed_key`), dan wordt de les overgeslagen.
+* `select public.academy_seed_start_curriculum();` (alleen database-eigenaar of service role) voegt alleen ontbrekende lessen toe en geeft het aantal terug. Een verwijderde les komt zo terug, in de oorspronkelijke versie. Werkbladen en policy-documenten worden gedeeld en één keer aangemaakt.
+* Courses blijven concept; de instellingen van de modules (kern, module 1 voor de start, developer modules 1 en 2 open voor kandidaten, module 6 na 30 dagen, op volgorde) zijn niet aangeraakt. De lessen staan op gepubliceerd, zodat publiceren van de course één stap is.
+
+### Opbouw van een les en afrondregels
+
+Elke les: **video** (plaats voor de opname), **uitleg** (300 tot 700 woorden, koppen en lijsten), en waar het past **kennischeck** (precies drie vragen met uitleg), **document**, **werkblad**, **opdracht**, **taken** en **notities**.
+
+| Blok | Verplicht | Regel | Opmerking |
+| --- | --- | --- | --- |
+| Video | Ja | minstens 90% | Zonder video of bestand telt het blok als klaar (`academy_block_done_video`), dus het houdt geen les tegen. Zodra Julius of Floris de opname uploadt, geldt 90% voor wie de les nog niet af had; een afgeronde les blijft afgerond. De deelnemer ziet "De video volgt binnenkort", de editor "Waiting for a recording" met wat er opgenomen moet worden |
+| Uitleg | Ja | gezien | |
+| Kennischeck | Ja | een poging (min 0%) | Zet `min_percent` hoger als een score verplicht moet zijn |
+| Document (policies) | Ja | geopend | Zonder bestand klaar; na upload moet de developer het openen |
+| Werkblad | Ja | ingeleverd | |
+| Opdracht | Ja | ingeleverd | Op "approved" zetten als Nordavo eerst moet goedkeuren |
+| Taken | Ja | verplichte taken af | Deadlines relatief aan de startdatum (0 is dag 1). Taken "alleen bij plaatsing" en gedeelde taken tellen pas met een plaatsing. Zet de startdatum van klantmensen gelijk aan de startdatum van hun developer, anders kloppen de deadlines niet |
+| Notities | Nee | | Met een vraag erboven |
+
+### Klantcourse (NL)
+
+| Module | Les | Na video en uitleg |
+| --- | --- | --- |
+| 1. Voordat je begint | 1.1 Hoe de samenwerking werkt: de driehoek | kennischeck, notities |
+| 1. Voordat je begint | 1.2 Tijdzones en het overlapvenster | kennischeck, 3 taken (1 alleen bij plaatsing, 1 gedeeld) |
+| 1. Voordat je begint | 1.3 De eerste week voorbereiden | kennischeck, 4 taken (3 alleen bij plaatsing, 1 gedeeld) |
+| 2. De eerste 30 dagen | 2.1 Dag 1 en week 1 | kennischeck, 3 taken (1 alleen bij plaatsing, 2 gedeeld) |
+| 2. De eerste 30 dagen | 2.2 Het ritme: weekplan, check-in en vrijdagreview | kennischeck, 2 taken (1 alleen bij plaatsing, 1 gedeeld), notities |
+| 2. De eerste 30 dagen | 2.3 De 30-dagengarantie en je eerste evaluatie | kennischeck, werkblad "30-dagenevaluatie", 2 taken (1 alleen bij plaatsing, 1 gedeeld) |
+| 3. Communiceren over 4.000 km | 3.1 Schrijven dat in één keer landt | kennischeck, notities |
+| 3. Communiceren over 4.000 km | 3.2 Calls, camera en stiltes | kennischeck, notities |
+| 3. Communiceren over 4.000 km | 3.3 Kanalen en reactietijden afspreken | kennischeck, werkblad "Communicatieafspraken", 1 taak (1 gedeeld) |
+| 4. Delegeren en beslissingsruimte | 4.1 Een taak uitschrijven met het 5W-sjabloon | kennischeck, werkblad "5W-sjabloon: een taak uitschrijven", opdracht "Schrijf je eerste taak uit volgens het 5W-sjabloon" |
+| 4. Delegeren en beslissingsruimte | 4.2 Beslissingsruimte: wat mag je developer zelf beslissen | kennischeck, werkblad "Beslissingsmatrix" |
+| 4. Delegeren en beslissingsruimte | 4.3 Blokkades: afspreken wanneer je developer aan de bel trekt | kennischeck, werkblad "Blokkadeafspraak", 1 taak (1 gedeeld) |
+| 5. Feedback en corrigeren | 5.1 Feedback geven die aankomt | kennischeck, notities |
+| 5. Feedback en corrigeren | 5.2 Corrigeren zonder gezichtsverlies | kennischeck |
+| 5. Feedback en corrigeren | 5.3 Feedback vragen en de pulse | kennischeck, 1 taak (1 alleen bij plaatsing) |
+| 6. Van externe naar teamgenoot | 6.1 Onderdeel van het team, niet van de leverancier | kennischeck, 2 taken (2 alleen bij plaatsing) |
+| 6. Van externe naar teamgenoot | 6.2 Eigenaarschap geven | kennischeck, notities |
+| 6. Van externe naar teamgenoot | 6.3 Cultuur, feestdagen en een gezamenlijke agenda | kennischeck, 1 taak (1 alleen bij plaatsing) |
+| 7. Plannen, verlof en meten | 7.1 Plannen met een tijdsverschil | kennischeck |
+| 7. Plannen, verlof en meten | 7.2 Verlof en afwezigheid | kennischeck |
+| 7. Plannen, verlof en meten | 7.3 Meten zonder te micromanagen, en de review na 90 dagen | kennischeck, werkblad "Review na 90 dagen: voorbereiding", 1 taak (1 alleen bij plaatsing) |
+| 8. Als het schuurt, en opschalen | 8.1 Signalen herkennen | kennischeck |
+| 8. Als het schuurt, en opschalen | 8.2 Het lastige gesprek voeren | kennischeck, notities |
+| 8. Als het schuurt, en opschalen | 8.3 Opschalen via Nordavo: de escalatiematrix | kennischeck, werkblad "Escalatiematrix" |
+| 9. Een team bouwen (vanaf derde plaatsing) | 9.1 Van een paar developers naar een team | kennischeck |
+| 9. Een team bouwen (vanaf derde plaatsing) | 9.2 Structuur: documentatie, overdracht en groei | kennischeck, notities |
+
+### Developercourse (EN)
+
+| Module | Les | Na video en uitleg |
+| --- | --- | --- |
+| 1. Welcome to a Dutch team | 1.1 How Nordavo works: you, your client and Nordavo | kennischeck, notities |
+| 1. Welcome to a Dutch team | 1.2 What Dutch work culture looks like | kennischeck |
+| 1. Welcome to a Dutch team | 1.3 Time zones and the overlap window | kennischeck, 2 taken (1 alleen bij plaatsing) |
+| 2. Communicating with Dutch colleagues | 2.1 Directness: hearing it and using it | kennischeck, notities |
+| 2. Communicating with Dutch colleagues | 2.2 Asking questions and saying no | kennischeck |
+| 2. Communicating with Dutch colleagues | 2.3 Writing clear updates: the daily check-in | kennischeck, notities |
+| 3. Working independently and escalating | 3.1 Nordavo policies: leave, working from home, conduct and compensation | kennischeck, document "Leave Policy", document "Work From Home Policy", document "Code of Conduct", document "Compensation Policy" |
+| 3. Working independently and escalating | 3.2 Your week: weekly plan, check-in and Friday review | kennischeck, opdracht "Write your weekly plan", 2 taken (2 alleen bij plaatsing) |
+| 3. Working independently and escalating | 3.3 When you are stuck: blockers and decisions | kennischeck |
+| 3. Working independently and escalating | 3.4 Escalating: when and how | kennischeck, werkblad "Escalation matrix", opdracht "Write an escalation message" |
+| 4. Quality, security and growth | 4.1 Quality you can show | kennischeck |
+| 4. Quality, security and growth | 4.2 Security and client data | kennischeck, 2 taken (1 alleen bij plaatsing) |
+| 4. Quality, security and growth | 4.3 Growing in your role: feedback and the 90-day review | kennischeck, werkblad "90-day review: preparation", 1 taak (1 alleen bij plaatsing), notities |
+
+De policy-les (developer 3.1) staat bewust in module 3: kandidaten zien alleen module 1 en 2, en de policies (met name Compensation) zijn voor geplaatste developers. Wil je hem eerder, sleep hem dan naar module 1 of zet de policies per plaatsing op de plaatsingspagina.
+
+Werkbladen: 5W-sjabloon, Beslissingsmatrix, Communicatieafspraken, Blokkadeafspraak, 30-dagenevaluatie, Review na 90 dagen (klant), Escalatiematrix (klant en developer, eigen versie), 90-day review preparation (developer). Policy-documenten zonder bestand: Leave Policy, Work From Home Policy, Code of Conduct, Compensation Policy (soort download, categorie policy).
+
+### Nog te doen voor Julius en Floris
+
+1. **Teksten nalopen.** Elke uitleg, kennischeck (vraag, opties, goede antwoord, uitleg), taak en werkblad. Klopt de toon, klopt wat er over Nordavo staat, mist er iets uit de oorspronkelijke HTML courses of de docx?
+2. **Placeholders invullen** (zoek in `/dashboard/academy` of met de query hieronder):
+   * Klant 1.1: voorwaarden van de garantie, opzegtermijn en hoe je opzegt, reactietijd van Nordavo.
+   * Klant 2.3: exacte voorwaarden van de 30-dagengarantie en vanaf wanneer de 30 dagen tellen.
+   * Klant 6.1: of en hoe Nordavo een bezoek ondersteunt.
+   * Klant 7.2: verlofdagen en aanvraagtermijn, ziekmelding en facturatie, afspraak over Nederlandse en Indiase feestdagen.
+   * Klant 8.3: reactietijden per niveau, telefoonnummer voor urgente zaken, opzegtermijn en vervanging.
+   * Klant 9.1: hoe Nordavo een lead-rol inricht.
+   * Developer 1.1: hoe en hoe snel Nordavo bereikbaar is.
+   * Developer 3.1: een regel samenvatting per policy (na upload).
+   * Developer 4.2: regels voor apparaten en werkplek (of verwijzing naar de Work From Home Policy).
+   * Developer 4.3: hoe Nordavo groei ondersteunt (training, budget), als dat er is.
+3. **Policies uploaden** in `/dashboard/academy/documents` (Leave, Work From Home, Code of Conduct, Compensation): het document bestaat al, upload het bestand als versie 1.
+4. **Video's opnemen** (39, één per les). In de editor staat bij elk videoblok wat erin moet; upload de opname in hetzelfde blok. Transcript en ondertitels volgen vanzelf als de transcriptiesleutel er is (sectie 13).
+5. **Instellingen kiezen**: minimumscore op kennischecks, opdrachten op "approved", eventueel een werkboek per module.
+6. **Publiceren**: `/dashboard/academy`, course openen, Publish. Eerst de klantcourse of de developercourse, of allebei.
+
+Overgebleven placeholders vinden:
+
+```sql
+select l.title, b.type
+from academy_lesson_blocks b join academy_lessons l on l.id = b.lesson_id
+where b.content::text ~ '\[Nordavo (vult in|to fill in):';
+```
+
