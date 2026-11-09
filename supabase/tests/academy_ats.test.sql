@@ -129,6 +129,11 @@ select pg_temp.check((select count(*) from public.academy_ats_settings) = 0, 'sa
 select pg_temp.check((select count(*) from public.academy_ats_pool()) = 0, 'sales gets an empty pool');
 select pg_temp.check(public.academy_ats_candidate_detail('00000000-0000-0000-0000-0000000ca001') is null, 'sales gets no candidate card');
 select pg_temp.check((select count(*) from public.academy_admin_people()) = 0, 'sales gets no overview');
+select pg_temp.check((select count(*) from public.academy_ats_columns(array['00000000-0000-0000-0000-0000000ca001'::uuid])) = 0, 'sales gets no list columns');
+select pg_temp.check((select count(*) from public.academy_candidate_names(array['00000000-0000-0000-0000-0000000ca001'::uuid])) = 0, 'sales gets no candidate names');
+select pg_temp.check((select count(*) from public.academy_lesson_funnel(public.academy_ats_developer_course())) = 0, 'sales gets no funnel');
+select pg_temp.check(public.academy_group_report('00000000-0000-0000-0000-0000000c6001') is null, 'sales gets no group report');
+select pg_temp.check((select count(*) from public.academy_admin_rollup('client')) = 0, 'sales gets no rollup');
 select pg_temp.check(pg_temp.denied($$select public.academy_ats_queue_enrol(array['00000000-0000-0000-0000-0000000ca001'::uuid])$$), 'sales cannot enrol');
 reset role;
 
@@ -152,6 +157,7 @@ set role authenticated;
 update public.academy_ats_settings set reminder_after_days = 7, reminder_repeat_days = 7, reminder_max = 3;
 select pg_temp.check((select updated_at > now() - interval '1 minute' from public.academy_ats_settings), 'managers change the settings');
 select pg_temp.check(public.can_see_job('academy-reminders'), 'managers run academy jobs');
+select pg_temp.check((select full_name from public.academy_candidate_names(array['00000000-0000-0000-0000-0000000ca001'::uuid])) = 'Ravi Kumar', 'managers get candidate names for the log');
 
 -- ---------------------------------------------------------------------------
 -- Enrolment from the ATS.

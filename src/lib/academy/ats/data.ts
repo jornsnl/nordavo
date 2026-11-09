@@ -338,3 +338,31 @@ export async function listOverviewOptions() {
   };
 }
 
+
+/** The AI draft panel of a lesson: its videos with a transcript, and the draft blocks. */
+export async function getLessonDraftState(lessonId: string) {
+  await requireAcademyManager();
+  const supabase = await createClient();
+  const { data: blocks } = await supabase.from("academy_lesson_blocks").select("id, type, title, video_id, position").eq("lesson_id", lessonId).order("position");
+  const ids = (blocks ?? []).map((b) => b.id);
+  const videoIds = [...new Set((blocks ?? []).map((b) => b.video_id).filter((v): v is string => Boolean(v)))];
+  const [drafts, videos] = await Promise.all([
+    ids.length ? supabase.from("academy_block_drafts").select("block_id, source, created_at").in("block_id", ids) : Promise.resolve({ data: [] }),
+    videoIds.length ? supabase.from("academy_videos").select("id, title, current_version_id").in("id", videoIds) : Promise.resolve({ data: [] }),
+  ]);
+  const versionIds = (videos.data ?? []).map((v) => v.current_version_id).filter((v): v is string => Boolean(v));
+  const { data: versions } = versionIds.length
+    ? await supabase.from("academy_video_versions").select("id, transcript, transcript_status").in("id", versionIds)
+    : { data: [] as { id: string; transcript: string | null; transcript_status: string }[] };
+  const versionById = new Map((versions ?? []).map((v) => [v.id, v]));
+  const draftById = new Map((drafts.data ?? []).map((d) => [d.block_id, d]));
+  return {
+    videos: (videos.data ?? []).map((v) => {
+      const version = v.current_version_id ? versionById.get(v.current_version_id) : undefined;
+      return { id: v.id, title: v.title, transcriptChars: version?.transcript?.length ?? 0, transcriptStatus: version?.transcript_status ?? "none" };
+    }),
+    drafts: (blocks ?? [])
+      .filter((b) => draftById.has(b.id))
+      .map((b) => ({ id: b.id, type: b.type, title: b.title, source: draftById.get(b.id)!.source })),
+  };
+}

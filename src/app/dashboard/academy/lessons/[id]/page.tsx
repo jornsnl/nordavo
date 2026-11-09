@@ -6,6 +6,9 @@ import { z } from "zod";
 import { getLessonEditor } from "@/lib/academy/admin";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { LessonEditorView } from "@/components/academy/admin/lesson-editor";
+import { LessonDraftPanel } from "@/components/academy/ats/draft-panel";
+import { hasClaude } from "@/lib/ai/claude";
+import { getLessonDraftState } from "@/lib/academy/ats/data";
 import { ListSkeleton } from "@/components/ui/skeleton";
 
 export const metadata: Metadata = { title: "Lesson editor" };
@@ -21,7 +24,7 @@ export default function Page({ params }: PageProps<"/dashboard/academy/lessons/[
 async function Editor({ params }: Pick<PageProps<"/dashboard/academy/lessons/[id]">, "params">) {
   const { id } = await params;
   if (!z.guid().safeParse(id).success) notFound();
-  const editor = await getLessonEditor(id);
+  const [editor, draftState] = await Promise.all([getLessonEditor(id), getLessonDraftState(id)]);
   if (!editor) notFound();
   const first = editor.usedIn[0];
   return (
@@ -38,6 +41,7 @@ async function Editor({ params }: Pick<PageProps<"/dashboard/academy/lessons/[id
           ) : undefined
         }
       />
+      <LessonDraftPanel lessonId={editor.lesson.id} claude={hasClaude()} videos={draftState.videos} drafts={draftState.drafts} />
       <LessonEditorView editor={editor} />
     </>
   );
