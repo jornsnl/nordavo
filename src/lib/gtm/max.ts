@@ -150,7 +150,7 @@ export async function importMaxCsv(db: Db, text: string): Promise<MaxImportResul
       { company_id: contact.company_id, linkedin_url: row.linkedin, phone: row.phone, phone_type: row.phoneType },
       "max",
     );
-    await db.from("contacts").update({ status: "verrijkt" }).eq("id", contact.id).in("status", ["nieuw", "gekwalificeerd"]);
+    await db.from("contacts").update({ status: "enriched" }).eq("id", contact.id).in("status", ["new", "qualified", "enrich"]);
     contact.phone = row.phone;
     result.updated += 1;
   }

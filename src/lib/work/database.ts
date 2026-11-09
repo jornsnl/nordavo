@@ -243,7 +243,24 @@ export type WorkApiTokenRow = {
   revoked_at: string | null;
 };
 
+/** Link of a task to one portal record (20261110000000_work_records.sql). Team only. */
+export type WorkTaskLinkRow = {
+  task_id: string;
+  entity_type: "client" | "vacancy" | "candidate" | "application" | "placement" | "company";
+  entity_id: string;
+  created_by: string | null;
+  created_at: string;
+};
+
 export type WorkTables = {
+  work_task_links: Table<
+    WorkTaskLinkRow,
+    "task_id" | "entity_type" | "entity_id",
+    [
+      { foreignKeyName: "work_task_links_task_id_fkey"; columns: ["task_id"]; isOneToOne: true; referencedRelation: "work_tasks"; referencedColumns: ["id"] },
+      ToProfile<"work_task_links_created_by_fkey", "created_by">,
+    ]
+  >;
   work_workspaces: Table<WorkWorkspaceRow, "name" | "slug", [ToProfile<"work_workspaces_created_by_fkey", "created_by">]>;
   work_members: Table<
     WorkMemberRow,
@@ -437,6 +454,24 @@ export type WorkFunctions = {
       p_is_log?: boolean;
     } & Actor,
     string
+  >;
+  work_create_record_task: Fn<
+    {
+      p_entity_type: WorkTaskLinkRow["entity_type"] | null;
+      p_entity_id: string | null;
+      p_title: string;
+      p_description?: string | null;
+      p_priority?: WorkPriority;
+      p_due_at?: string | null;
+      p_assignees?: string[];
+      p_project?: string | null;
+      p_status?: WorkStatus;
+    } & Actor,
+    string
+  >;
+  work_set_task_link: Fn<
+    { p_task: string; p_entity_type: WorkTaskLinkRow["entity_type"] | null; p_entity_id: string | null } & Actor,
+    undefined
   >;
   work_update_task: Fn<{ p_task: string; p_fields: Json } & Actor, undefined>;
   work_set_assignees: Fn<{ p_task: string; p_users: string[] } & Actor, undefined>;

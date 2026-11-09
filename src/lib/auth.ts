@@ -52,7 +52,7 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser> => {
 
   // Unknown or missing roles get the least access.
   const role: ProfileRole =
-    profile?.role === "admin" || profile?.role === "member" || profile?.role === "client"
+    profile?.role === "admin" || profile?.role === "member" || profile?.role === "client" || profile?.role === "caller"
       ? profile.role
       : "external";
 
@@ -74,6 +74,7 @@ export function isStaff(user: CurrentUser) {
 /** The landing page for a user, based on their role. */
 export function homePathFor(user: CurrentUser) {
   if (user.role === "external") return "/work";
+  if (user.role === "caller") return "/caller";
   return isStaff(user) ? "/dashboard" : "/portal";
 }
 
@@ -113,3 +114,25 @@ export async function requireClient(): Promise<CurrentUser & { clientId: string 
   if (!user.clientId) redirect("/login?error=account");
   return { ...user, clientId: user.clientId };
 }
+
+export type CurrentCaller = CurrentUser & { callerId: string; callerName: string };
+
+/**
+ * External callers only (feedback Julius, section 2.10): an active caller row
+ * (paused or stopped callers lose access at once) and a verified
+ * authenticator app. Without an app they first set one up on
+ * /caller/security, which is the only page they can open until then.
+ */
+export const requireCaller = cache(async (options: { allowWithoutMfa?: boolean } = {}): Promise<CurrentCaller> => {
+  const user = await getCurrentUser();
+  if (user.role !== "caller") redirect(homePathFor(user));
+  const supabase = await createClient();
+  const [{ data: callerId }, { data: factors }] = await Promise.all([
+    supabase.rpc("current_caller_id"),
+    supabase.auth.mfa.listFactors(),
+  ]);
+  if (!callerId) redirect("/login?error=caller_inactive");
+  const hasApp = (factors?.totp ?? []).some((f) => f.status === "verified");
+  if (!hasApp && !options.allowWithoutMfa) redirect("/caller/security");
+  return { ...user, callerId, callerName: user.name };
+});

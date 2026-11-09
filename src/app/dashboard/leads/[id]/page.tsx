@@ -29,12 +29,10 @@ import { listClientOptions } from "@/lib/data/clients";
 import { getCompany, getCompanySignals, type SignalItem, type SuppressionItem } from "@/lib/data/companies";
 import { getCompanyContacts, type CompanyContact } from "@/lib/data/gtm-contacts";
 import { formatDate, formatDateTime } from "@/lib/format";
-import { hasOnePage } from "@/lib/integrations/onepage";
 import { activityChannels, optionFor, suppressionReasons, suppressionScopes } from "@/lib/labels";
 import {
   linkClientAction,
   logActivityAction,
-  pushToCrmAction,
   suppressAction,
   updateCompanyAction,
 } from "../actions";
@@ -81,11 +79,6 @@ async function LeadDetail({ params }: { params: Params }) {
   const websiteHref =
     company.website && /^https?:\/\//i.test(company.website) ? company.website : `https://${company.domain}`;
   const contactOptions = contacts.map((c) => ({ id: c.id, name: c.title ? `${c.name}, ${c.title}` : c.name }));
-  const crmBlockedReason = !hasOnePage()
-    ? "OnePageCRM is not connected yet: ONEPAGE_USER_ID and ONEPAGE_API_KEY are missing on the server. Sending only works once they are set."
-    : company.icp_decision !== "GO"
-      ? "Only contacts of a GO company go to the CRM. This company is not qualified yet."
-      : null;
 
   return (
     <>
@@ -239,8 +232,6 @@ async function LeadDetail({ params }: { params: Params }) {
           <div className="min-w-0 max-lg:order-1">
             <ContactsPanel
               contacts={contacts}
-              crmActionFor={(contactId) => pushToCrmAction.bind(null, company.id, contactId)}
-              crmBlockedReason={crmBlockedReason}
               actions={
                 <AddContactButton companyName={company.name} action={createContactAction.bind(null, company.id)} />
               }
@@ -352,7 +343,7 @@ function ActivitiesCard({ activities, actions }: { activities: GtmActivityItem[]
               <li key={a.id} className="space-y-1.5 px-5 py-3">
                 <div className="flex flex-wrap items-center gap-2 text-sm">
                   <Badge tone={channel.tone}>{channel.label}</Badge>
-                  <OutcomeBadge outcome={a.outcome} />
+                  {a.outcome && <OutcomeBadge outcome={a.outcome} />}
                   {a.contactName && <span className="font-medium text-ink">{a.contactName}</span>}
                   <span className="text-xs text-muted">{formatDateTime(a.date)}</span>
                 </div>

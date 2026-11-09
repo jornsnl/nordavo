@@ -10,7 +10,7 @@ export const portalModules: { value: PortalModule; label: string; description: s
   {
     value: "sales",
     label: "Sales",
-    description: "GTM: leads, contacts, signals, lists, campaigns, suppressions and the GTM jobs.",
+    description: "Leads, contacts, pipeline, calls, call lists, meetings, sequences, partners, suppressions and the GTM jobs.",
   },
   {
     value: "recruitment",
@@ -47,8 +47,12 @@ export function effectiveModules(role: ProfileRole, stored: readonly string[] | 
 const routeModules: [prefix: string, module: PortalModule][] = [
   ["/dashboard/leads", "sales"],
   ["/dashboard/contacts", "sales"],
-  ["/dashboard/lists", "sales"],
-  ["/dashboard/campaigns", "sales"],
+  ["/dashboard/pipeline", "sales"],
+  ["/dashboard/calls", "sales"],
+  ["/dashboard/call-lists", "sales"],
+  ["/dashboard/meetings", "sales"],
+  ["/dashboard/sequences", "sales"],
+  ["/dashboard/partners", "sales"],
   ["/dashboard/suppressions", "sales"],
   ["/dashboard/vacancies", "recruitment"],
   ["/dashboard/candidates", "recruitment"],

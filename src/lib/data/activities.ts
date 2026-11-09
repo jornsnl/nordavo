@@ -8,7 +8,7 @@ export type GtmActivityItem = {
   id: string;
   date: string;
   channel: ActivityChannel;
-  outcome: ActivityOutcome;
+  outcome: ActivityOutcome | null;
   source: ActivitySource;
   notes: string | null;
   nextAction: string | null;

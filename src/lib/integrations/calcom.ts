@@ -6,7 +6,7 @@ import type { Database, TablesInsert } from "@/lib/database.types";
 import { normalizeEmail, splitName } from "@/lib/gtm/normalize";
 import { upsertCompany, upsertContact } from "@/lib/gtm/upsert";
 import { companyDomainFromEmail, findContactByEmail } from "@/lib/gtm/webpartners";
-import { amsterdamDate, promoteContactStatus } from "./onepage";
+import { amsterdamDate, promoteContactStatus } from "@/lib/sales/status";
 
 /**
  * Cal.com webhook (S8, realtime): bookings on the sales link become meeting
@@ -187,6 +187,6 @@ export async function handleCalBooking(db: Db, booking: CalBooking): Promise<Cal
     .select("id");
   if (error) throw error;
   const activityId = data?.[0]?.id ?? null;
-  if (booking.trigger !== "BOOKING_CANCELLED") await promoteContactStatus(db, contact.id, "afspraak");
+  if (booking.trigger !== "BOOKING_CANCELLED") await promoteContactStatus(db, contact.id, "reached");
   return { status: "handled", activityId, contactId: contact.id, duplicate: activityId === null };
 }

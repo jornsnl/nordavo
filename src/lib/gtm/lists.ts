@@ -584,13 +584,13 @@ export async function recordListExport(
   return data.id;
 }
 
-async function setContactStatus(db: Db, contactIds: string[], status: "op_bellijst" | "in_mailcampagne") {
+async function setContactStatus(db: Db, contactIds: string[], status: "in_outreach") {
   for (const ids of chunk(contactIds, 100)) {
     const { error } = await db
       .from("contacts")
       .update({ status })
       .in("id", ids)
-      .not("status", "in", "(bereikt,afspraak,kans,klant,verloren,uitgesloten)");
+      .in("status", ["new", "qualified", "enrich", "enriched"]);
     if (error) throw new Error(`Could not update status: ${error.message}`);
   }
 }
@@ -651,7 +651,7 @@ export async function exportCallList(
     createdBy,
   });
 
-  await setContactStatus(db, contactIds, "op_bellijst");
+  await setContactStatus(db, contactIds, "in_outreach");
   for (const batch of chunk(rows, 200)) {
     const { error } = await db.from("activities").upsert(
       batch.map((r) => ({
@@ -860,7 +860,7 @@ export async function pushMailCampaigns(
 
     let exportId: string | null = null;
     if (pushedIds.length > 0) {
-      await setContactStatus(db, pushedIds, "in_mailcampagne");
+      await setContactStatus(db, pushedIds, "in_outreach");
       exportId = await recordListExport(db, {
         type: "mailcampagne",
         filter: { ...filter, signalType },

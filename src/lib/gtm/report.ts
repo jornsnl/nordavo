@@ -79,7 +79,7 @@ const reachedOnPhone: ActivityOutcome[] = [
 const replyOutcomes: ActivityOutcome[] = ["reply_positief", "reply_neutraal", "reply_negatief"];
 const outboundChannels: ActivityChannel[] = ["bellen", "mail", "linkedin"];
 
-export type ActivityFact = { contact_id: string | null; channel: ActivityChannel; outcome: ActivityOutcome };
+export type ActivityFact = { contact_id: string | null; channel: ActivityChannel; outcome: ActivityOutcome | null };
 
 export function summarizeActivities(rows: ActivityFact[]): ActivitySummary {
   const approached = new Set<string>();
@@ -103,13 +103,13 @@ export function summarizeActivities(rows: ActivityFact[]): ActivitySummary {
     // list" (it starts the 30-day rule); only real call outcomes count as called.
     if (row.channel === "bellen" && row.outcome !== "verstuurd") {
       summary.called += 1;
-      if (reachedOnPhone.includes(row.outcome)) {
+      if (row.outcome && reachedOnPhone.includes(row.outcome)) {
         summary.reached += 1;
         if (row.contact_id) reachedContacts.add(row.contact_id);
       }
     }
     if (row.channel === "mail" && row.outcome === "verstuurd") summary.mailed += 1;
-    if (replyOutcomes.includes(row.outcome)) {
+    if (row.outcome && replyOutcomes.includes(row.outcome)) {
       summary.replies += 1;
       if (row.contact_id) reachedContacts.add(row.contact_id);
     }

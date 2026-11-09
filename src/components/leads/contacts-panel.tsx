@@ -2,7 +2,6 @@ import type { ReactNode } from "react";
 import { CircleCheck, CircleX, ExternalLink, Link2, Mail, Phone } from "lucide-react";
 import { buttonClasses } from "@/components/ui/button";
 import { ContactStatusBadge, EmailStatusBadge, TierBadge } from "@/components/leads/badges";
-import { PushToCrmButton } from "@/components/leads/lead-forms";
 import type { FormAction } from "@/components/leads/action-modal";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
@@ -36,13 +35,9 @@ function ChannelState({ label, state }: { label: string; state: Contactability }
 
 export function ContactsPanel({
   contacts,
-  crmActionFor,
-  crmBlockedReason,
   actions,
 }: {
   contacts: CompanyContact[];
-  crmActionFor: (contactId: string) => FormAction;
-  crmBlockedReason: string | null;
   /** Header buttons, e.g. "Add contact". */
   actions?: ReactNode;
 }) {
@@ -185,13 +180,7 @@ export function ContactsPanel({
                     <ExternalLink className="size-3.5" aria-hidden="true" />
                     <span className="sr-only">(opens in a new tab)</span>
                   </a>
-                ) : (
-                  <PushToCrmButton
-                    contactName={c.name}
-                    action={crmActionFor(c.id)}
-                    blockedReason={crmBlockedReason}
-                  />
-                )}
+                ) : null}
               </div>
             </li>
           ))}

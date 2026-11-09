@@ -17,8 +17,6 @@ const JOB_ENV: Record<string, { required: string[]; optional?: string[] }> = {
   "s7-mail-campaign": { required: ["INSTANTLY_API_KEY", "ANTHROPIC_API_KEY"] },
   "s8-instantly-sync": { required: ["INSTANTLY_API_KEY"] },
   "s8-webpartners-import": { required: ["GOOGLE_SERVICE_ACCOUNT_JSON", "WEBPARTNERS_APPOINTMENTS_SHEET_ID"] },
-  "s9-onepage-push": { required: ["ONEPAGE_USER_ID", "ONEPAGE_API_KEY"] },
-  "s9-onepage-pull": { required: ["ONEPAGE_USER_ID", "ONEPAGE_API_KEY"] },
   "s10-weekly-report": { required: ["RESEND_API_KEY", "REPORT_EMAIL_TO"] },
   "interview-reminders": { required: ["RESEND_API_KEY", "MAIL_FROM"] },
   "t2-match": {

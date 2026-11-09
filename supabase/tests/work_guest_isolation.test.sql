@@ -24,7 +24,6 @@ insert into public.candidates (id, full_name) values ('00000000-0000-0000-0000-0
 insert into public.vacancies (id, title, client_id) values ('00000000-0000-0000-0000-0000000000c3', 'Secret vacancy', '00000000-0000-0000-0000-0000000000c1');
 insert into public.companies (id, name, domain) values ('00000000-0000-0000-0000-0000000000c4', 'Secret lead', 'secret.test');
 insert into public.contacts (company_id) values ('00000000-0000-0000-0000-0000000000c4');
-insert into public.tasks (title) values ('Secret CRM task');
 insert into public.notes (entity_type, entity_id, body) values ('client', '00000000-0000-0000-0000-0000000000c1', 'Secret note');
 insert into public.applications (vacancy_id, candidate_id) values ('00000000-0000-0000-0000-0000000000c3', '00000000-0000-0000-0000-0000000000c2');
 insert into public.placements (candidate_id, client_id, start_date) values ('00000000-0000-0000-0000-0000000000c2', '00000000-0000-0000-0000-0000000000c1', current_date);
@@ -46,6 +45,10 @@ insert into public.work_members (workspace_id, user_id, role) values
   ((select id from ids where name = 'freelance'), '00000000-0000-0000-0000-0000000000a3', 'member');
 set local role authenticated;
 select public.work_add_project_member((select id from ids where name = 'job'), '00000000-0000-0000-0000-0000000000a2', null);
+-- A task in the guest's project that hangs on a client (tasks merged into Work).
+insert into ids select 'linked', public.work_create_record_task(
+  'client', '00000000-0000-0000-0000-0000000000c1', 'Prepare intake', null, 'high', null,
+  array['00000000-0000-0000-0000-0000000000a2'::uuid], (select id from ids where name = 'job'));
 reset role;
 
 -- Being invited into Work never gives portal access.
@@ -93,6 +96,26 @@ set local role authenticated;
 select pg_temp.act('00000000-0000-0000-0000-0000000000a2');
 select pg_temp.assert_no_portal('the guest');
 do $$ begin
+  -- The guest works on the task, but never sees which record it is about.
+  if not exists (select 1 from public.work_tasks where id = (select id from ids where name = 'linked')) then
+    raise exception 'FAIL: the guest should see the task they own';
+  end if;
+  if exists (select 1 from public.work_task_links) then
+    raise exception 'FAIL: the guest can see which record a task is linked to';
+  end if;
+  begin
+    perform public.work_set_task_link((select id from ids where name = 'linked'), null, null);
+    raise exception 'FAIL: the guest could remove the record link';
+  exception when others then
+    if sqlerrm like 'FAIL:%' then raise; end if;
+  end;
+  begin
+    perform public.work_create_record_task('client', '00000000-0000-0000-0000-0000000000c1', 'Peek', null, 'normal', null,
+      '{}', (select id from ids where name = 'job'));
+    raise exception 'FAIL: the guest could link a task to a client';
+  exception when others then
+    if sqlerrm like 'FAIL:%' then raise; end if;
+  end;
   if (select count(*) from public.work_workspaces) <> 1 then
     raise exception 'FAIL: the guest should see only their own workspace';
   end if;
@@ -104,6 +127,9 @@ end $$;
 select pg_temp.act('00000000-0000-0000-0000-0000000000a3');
 select pg_temp.assert_no_portal('the workspace member');
 do $$ begin
+  if exists (select 1 from public.work_task_links) then
+    raise exception 'FAIL: the workspace member can see which record a task is linked to';
+  end if;
   if (select array_agg(slug) from public.work_workspaces) is distinct from array['freelance'] then
     raise exception 'FAIL: the member should see only their own workspace';
   end if;

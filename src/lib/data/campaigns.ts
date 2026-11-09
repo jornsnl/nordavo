@@ -23,7 +23,7 @@ export type CampaignStats = {
 const PAGE = 1000;
 const MAX_ROWS = 100_000;
 
-type ActivityRow = { campaign_id: string | null; contact_id: string | null; outcome: ActivityOutcome; date: string };
+type ActivityRow = { campaign_id: string | null; contact_id: string | null; outcome: ActivityOutcome | null; date: string };
 type AppointmentRow = { contact_id: string | null; date: string };
 
 const REPLIES: ActivityOutcome[] = ["reply_positief", "reply_neutraal", "reply_negatief"];

@@ -2,7 +2,7 @@
 
 import { Suspense, use, useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
-import { Briefcase, CheckSquare, LayoutDashboard, Menu, Radar, X } from "lucide-react";
+import { Briefcase, KanbanSquare, LayoutDashboard, Menu, Radar, X } from "lucide-react";
 import { Logo } from "@/components/brand/logo";
 import {
   CommandPalette,
@@ -17,7 +17,7 @@ import { SidebarNav } from "./sidebar-nav";
 // The most used modules as tabs on phones; everything else sits under "Meer".
 const tabs: TabItem[] = [
   { label: "Overview", href: "/dashboard", icon: LayoutDashboard, match: (path) => path === "/dashboard" },
-  { label: "Tasks", href: "/dashboard/tasks", icon: CheckSquare },
+  { label: "Work", href: "/work", icon: KanbanSquare },
   { label: "Leads", href: "/dashboard/leads", icon: Radar },
   { label: "Vacancies", href: "/dashboard/vacancies", icon: Briefcase },
 ];

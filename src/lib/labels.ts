@@ -158,9 +158,10 @@ export const taskPriorities: Option<TaskPriority>[] = [
 
 export const profileRoles: Option<ProfileRole>[] = [
   { value: "admin", label: "Admin", tone: "accent" },
-  { value: "member", label: "Member", tone: "brand" },
+  { value: "member", label: "Internal user", tone: "brand" },
   { value: "client", label: "Client", tone: "neutral" },
   { value: "external", label: "Work only", tone: "neutral" },
+  { value: "caller", label: "External caller", tone: "warning" },
 ];
 
 // ---------------------------------------------------------------------------
@@ -188,18 +189,17 @@ export const companyStatuses: Option<CompanyStatus>[] = [
   { value: "uitgesloten", label: "Suppressed", tone: "danger" },
 ];
 
+/** Cleaned contact statuses (section 2.6). */
 export const contactStatuses: Option<ContactStatus>[] = [
-  { value: "nieuw", label: "New", tone: "neutral" },
-  { value: "gekwalificeerd", label: "Qualified", tone: "brand" },
-  { value: "verrijkt", label: "Enriched", tone: "brand" },
-  { value: "op_bellijst", label: "On call list", tone: "accent" },
-  { value: "in_mailcampagne", label: "In mail campaign", tone: "accent" },
-  { value: "bereikt", label: "Reached", tone: "brand" },
-  { value: "afspraak", label: "Meeting", tone: "success" },
-  { value: "kans", label: "Opportunity", tone: "success" },
-  { value: "klant", label: "Client", tone: "success" },
-  { value: "verloren", label: "Lost", tone: "neutral" },
-  { value: "uitgesloten", label: "Suppressed", tone: "danger" },
+  { value: "new", label: "New", tone: "neutral" },
+  { value: "qualified", label: "Qualified", tone: "brand" },
+  { value: "enrich", label: "Enrich", tone: "warning" },
+  { value: "enriched", label: "Enriched", tone: "brand" },
+  { value: "in_outreach", label: "In outreach", tone: "accent" },
+  { value: "reached", label: "Reached", tone: "success" },
+  { value: "not_reached", label: "Not reached after 3 attempts", tone: "warning" },
+  { value: "not_interested", label: "Not interested", tone: "neutral" },
+  { value: "do_not_contact", label: "Do not contact", tone: "danger" },
 ];
 
 /** Contact tiers: who to approach first. */
@@ -232,6 +232,7 @@ export const activityChannels: Option<ActivityChannel>[] = [
   { value: "mail", label: "Mail", tone: "brand" },
   { value: "linkedin", label: "LinkedIn", tone: "brand" },
   { value: "meeting", label: "Meeting", tone: "success" },
+  { value: "system", label: "System", tone: "neutral" },
 ];
 
 export const activityOutcomes: Option<ActivityOutcome>[] = [
@@ -252,6 +253,17 @@ export const activityOutcomes: Option<ActivityOutcome>[] = [
   { value: "gewonnen", label: "Won", tone: "success" },
   { value: "verloren", label: "Lost", tone: "neutral" },
   { value: "notitie", label: "Note", tone: "neutral" },
+  { value: "no_answer", label: "No answer", tone: "neutral" },
+  { value: "call_back", label: "Call back", tone: "warning" },
+  { value: "reached_interested", label: "Reached: interested", tone: "success" },
+  { value: "meeting_planned", label: "Meeting planned", tone: "success" },
+  { value: "reached_not_interested", label: "Reached: not interested", tone: "neutral" },
+  { value: "referred", label: "Referred", tone: "brand" },
+  { value: "wrong_person", label: "Wrong person", tone: "warning" },
+  { value: "wrong_number", label: "Wrong number", tone: "danger" },
+  { value: "meeting_held", label: "Meeting held", tone: "success" },
+  { value: "meeting_no_show", label: "No show", tone: "danger" },
+  { value: "meeting_cancelled", label: "Meeting cancelled", tone: "neutral" },
 ];
 
 export const suppressionReasons: Option<SuppressionReason>[] = [

@@ -104,9 +104,9 @@ export const s8InstantlySync = defineJob({
       counts.activities += 1;
       ctx.countOut();
 
-      if (event.type === "reply" && ["nieuw", "gekwalificeerd", "verrijkt", "op_bellijst", "in_mailcampagne"].includes(contact.status)) {
-        await db.from("contacts").update({ status: "bereikt" }).eq("id", contact.id);
-        contact.status = "bereikt";
+      if (event.type === "reply" && ["new", "qualified", "enrich", "enriched", "in_outreach"].includes(contact.status)) {
+        await db.from("contacts").update({ status: "reached" }).eq("id", contact.id);
+        contact.status = "reached";
       }
     });
 
