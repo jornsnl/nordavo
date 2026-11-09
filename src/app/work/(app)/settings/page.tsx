@@ -90,7 +90,7 @@ async function Settings() {
             <summary className="cursor-pointer font-medium">How to use the API</summary>
             <div className="mt-3 space-y-2 text-xs">
               <p>Send the token as a bearer token. Examples:</p>
-              <pre className="overflow-x-auto rounded-lg bg-white p-3 font-mono">{`curl -H "Authorization: Bearer wrk_…" ${api}/tasks?assignee=me
+              <pre className="relative overflow-x-auto rounded-lg bg-white p-3 font-mono">{`curl -H "Authorization: Bearer wrk_…" ${api}/tasks?assignee=me
 curl -X POST -H "Authorization: Bearer wrk_…" -H "Content-Type: application/json" \\
   -d '{"status":"review"}' ${api}/tasks/<id>/status`}</pre>
               <p>

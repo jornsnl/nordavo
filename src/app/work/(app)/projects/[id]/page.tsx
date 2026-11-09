@@ -133,7 +133,7 @@ async function Project({ params, searchParams }: { params: Promise<{ id: string 
           ]}
         />
       </div>
-      <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="mb-5 flex items-center justify-between gap-3">
         <PriorityChips basePath={base} />
         <ViewToggle basePath={base} view={view} />
       </div>

@@ -193,7 +193,7 @@ export function ConsistencyGrid({ consistency, rituals, locale }: { consistency:
         <h3 className="text-sm font-semibold text-academy-blue-900">{t(locale, "rituals.consistency")}</h3>
         {consistency.percent !== null && <p className="text-xs text-muted">{t(locale, "rituals.consistencyTotal", { percent: consistency.percent })}</p>}
       </div>
-      <div className="mt-2 overflow-x-auto">
+      <div className="mt-2 relative overflow-x-auto">
         <table className="w-full min-w-max border-separate border-spacing-1 text-xs">
           <thead>
             <tr>

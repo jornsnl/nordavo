@@ -21,7 +21,7 @@ export function LocaleSwitch({ locale, label, disabled }: { locale: AcademyLocal
 
   return (
     <div role="group" aria-label={label} className="flex items-center gap-1 rounded-xl border border-academy-blue-200 bg-white p-0.5">
-      <Languages className="ml-1.5 size-4 text-academy-blue-600" aria-hidden="true" />
+      <Languages className="ml-1.5 size-4 max-sm:hidden text-academy-blue-600" aria-hidden="true" />
       {(["nl", "en"] as const).map((value) => (
         <button
           key={value}

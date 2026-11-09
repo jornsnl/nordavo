@@ -12,7 +12,7 @@ export function SettingsTabs({ active, isAdmin }: { active: (typeof tabs)[number
   if (!isAdmin) return null;
   return (
     <nav aria-label="Settings sections" className="-mt-2 mb-6 border-b border-border sm:mb-8">
-      <ul className="-mb-px flex gap-1 overflow-x-auto">
+      <ul className="-mb-px flex gap-1 relative overflow-x-auto">
         {tabs.map((tab) => {
           const current = tab.key === active;
           return (

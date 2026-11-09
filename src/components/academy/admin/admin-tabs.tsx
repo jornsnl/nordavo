@@ -39,7 +39,7 @@ export function AcademyAdminTabsFallback() {
 
 function Tabs({ pathname }: { pathname: string }) {
   return (
-    <nav aria-label="Academy" className="scrollbar-none -mx-1 mb-6 flex gap-1 overflow-x-auto border-b border-border px-1">
+    <nav aria-label="Academy" className="scrollbar-none -mx-1 mb-6 flex gap-1 relative overflow-x-auto border-b border-border px-1">
       {tabs.map((tab) => {
         const active = isActive(pathname, tab.href);
         return (

@@ -212,7 +212,7 @@ function ApplicationDetails({
       </div>
       {shortlistError && <FormMessage error={shortlistError} />}
 
-      <div role="tablist" aria-label="Sections" className="-mx-1 flex snap-strip scrollbar-none gap-1 overflow-x-auto px-1">
+      <div role="tablist" aria-label="Sections" className="-mx-1 flex snap-strip scrollbar-none gap-1 relative overflow-x-auto px-1">
         {tabs.map((t) => (
           <button
             key={t.value}

@@ -115,7 +115,7 @@ async function Detail({ params }: { params: Promise<{ id: string; assessmentId: 
 
           <Card>
             <CardHeader title="Raw answers" description="Staff only. Never shown to clients, also not in the PDF." />
-            <CardBody className="overflow-x-auto p-0">
+            <CardBody className="relative overflow-x-auto p-0">
               <Table>
                 <THead>
                   <TR>

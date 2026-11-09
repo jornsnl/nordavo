@@ -290,7 +290,7 @@ function ReasonTable({ title, total, rows }: { title: string; total: number; row
 
 function SimpleTable({ head, rows }: { head: string[]; rows: (string | number)[][] }) {
   return (
-    <div className="overflow-x-auto">
+    <div className="relative overflow-x-auto">
       <table className="w-full text-left text-sm">
         <thead className="border-b border-border bg-surface/60 text-xs font-semibold tracking-wide text-muted uppercase">
           <tr>

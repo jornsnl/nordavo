@@ -128,10 +128,10 @@ summary,
 
 /*
  * iOS zooms into any focused field under 16px. Keep form controls at 16px
- * on touch screens; desktop keeps the compact text-sm size. Fields that ask
+ * on touch screens and phone widths; desktop keeps the compact text-sm size. Fields that ask
  * for a larger size themselves (the verification code) keep it.
  */
-@media (pointer: coarse) {
+@media (pointer: coarse), (max-width: 47.999rem) {
   :is(input:not([type="checkbox"], [type="radio"], [type="range"]), select, textarea):not(
       [class*="text-lg"],
       [class*="text-xl"],
@@ -173,6 +173,8 @@ summary,
 
 /* Momentum scroll strips, e.g. filter chips and kanban columns. */
 @utility snap-strip {
+  /* Positioned, so absolute children (sr-only labels) stay inside the strip. */
+  position: relative;
   overflow-x: auto;
   overscroll-behavior-x: contain;
   scroll-snap-type: x mandatory;

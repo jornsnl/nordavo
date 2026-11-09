@@ -10,7 +10,7 @@ import { isWspEnabled } from "@/lib/wsp/data";
 import { LocaleSwitch } from "./locale-switch";
 
 const iconLink =
-  "flex size-9 items-center justify-center rounded-lg text-academy-blue-800 transition hover:bg-academy-blue-100 focus-visible:outline-2 focus-visible:outline-academy-orange-600 pointer-coarse:size-11";
+  "flex size-9 items-center justify-center rounded-lg text-academy-blue-800 transition hover:bg-academy-blue-100 focus-visible:outline-2 focus-visible:outline-academy-orange-600 pointer-coarse:size-10 sm:pointer-coarse:size-11";
 
 /** The right side of the Academy header: language, notifications, settings, sign out. */
 export async function AcademyHeaderMenu() {
@@ -20,7 +20,7 @@ export async function AcademyHeaderMenu() {
   const workingStyle = Boolean(user.member?.candidate_id) && (await isWspEnabled());
   const tr = (key: Parameters<typeof t>[1]) => t(user.locale, key);
   return (
-    <div className="flex items-center gap-1.5 sm:gap-2">
+    <div className="flex min-w-0 shrink-0 items-center gap-0.5 sm:gap-2">
       <LocaleSwitch locale={user.locale} label={tr("shell.language")} disabled={!user.member} />
       {user.role === "client" && user.clientPortal && (
         <Link href="/portal" className={`${iconLink} max-sm:hidden w-auto px-2.5 text-sm font-medium`}>
@@ -80,11 +80,12 @@ export function AcademyHeaderMenuSkeleton() {
 
 export function AcademyBrand() {
   return (
-    <Link href="/academy" className="flex items-center gap-2.5 rounded-lg focus-visible:outline-2 focus-visible:outline-academy-orange-600">
+    <Link href="/academy" className="relative flex min-w-0 items-center gap-2.5 rounded-lg focus-visible:outline-2 focus-visible:outline-academy-orange-600">
       <LogoMark className="size-8" />
       <span className="font-display text-base font-bold tracking-tight text-academy-blue-900">
         <span className="max-sm:hidden">Nordavo </span>
-        <span className="text-academy-orange-600">Academy</span>
+        {/* The narrowest phones show the logo only, so the header buttons fit. */}
+        <span className="text-academy-orange-600 max-[399px]:sr-only">Academy</span>
       </span>
     </Link>
   );

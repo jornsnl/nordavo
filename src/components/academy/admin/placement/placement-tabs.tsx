@@ -7,7 +7,7 @@ export function PlacementTabs({ placementId, active }: { placementId: string; ac
     { key: "academy", label: "Academy", href: `/dashboard/placements/${placementId}?tab=academy` },
   ] as const;
   return (
-    <nav aria-label="Placement" className="scrollbar-none -mx-1 mb-6 flex gap-1 overflow-x-auto border-b border-border px-1">
+    <nav aria-label="Placement" className="scrollbar-none -mx-1 mb-6 flex gap-1 relative overflow-x-auto border-b border-border px-1">
       {tabs.map((tab) => (
         <Link
           key={tab.key}

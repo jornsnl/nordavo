@@ -7,7 +7,7 @@ export function ContactTabs({ active }: { active: "all" | "enrich" }) {
       isActive ? "border-brand-700 text-brand-900" : "border-transparent text-muted hover:text-brand-800"
     }`;
   return (
-    <nav aria-label="Contacts" className="scrollbar-none mb-6 flex gap-6 overflow-x-auto border-b border-border">
+    <nav aria-label="Contacts" className="scrollbar-none mb-6 flex gap-6 relative overflow-x-auto border-b border-border">
       <Link href="/dashboard/contacts" className={tab(active === "all")} aria-current={active === "all" ? "page" : undefined}>
         All contacts
       </Link>

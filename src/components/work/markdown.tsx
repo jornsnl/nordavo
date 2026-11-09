@@ -26,7 +26,7 @@ function blocks(text: string): ReactNode[] {
       while (i < lines.length && !/^```/.test(lines[i])) code.push(lines[i++]);
       i++;
       out.push(
-        <pre key={key++} className="overflow-x-auto rounded-lg bg-surface px-3 py-2 font-mono text-xs">
+        <pre key={key++} className="relative overflow-x-auto rounded-lg bg-surface px-3 py-2 font-mono text-xs">
           {code.join("\n")}
         </pre>,
       );

@@ -4,7 +4,7 @@ export type PageTab = { label: string; href: string; active: boolean; count?: nu
 
 export function PageTabs({ label, tabs }: { label: string; tabs: PageTab[] }) {
   return (
-    <nav aria-label={label} className="-mx-4 overflow-x-auto px-4 scrollbar-none sm:mx-0 sm:px-0">
+    <nav aria-label={label} className="-mx-4 relative overflow-x-auto px-4 scrollbar-none sm:mx-0 sm:px-0">
       <ul className="flex w-max gap-1 rounded-xl border border-border bg-white p-1 shadow-xs">
         {tabs.map((tab) => (
           <li key={tab.href}>

@@ -197,7 +197,7 @@ export function SendFormPanel({
             <p className="text-sm text-muted">No candidates here.</p>
           </CardBody>
         ) : (
-          <div className="overflow-x-auto">
+          <div className="relative overflow-x-auto">
             <table className="w-full min-w-[720px] text-left text-sm">
               <thead className="border-b border-border bg-surface/60 text-xs font-semibold tracking-wide text-muted uppercase">
                 <tr>
