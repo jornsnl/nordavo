@@ -4,6 +4,7 @@
 
 import type { WorkFunctions, WorkTables } from "@/lib/work/database";
 import type { FormsFunctions, FormsTables } from "@/lib/forms/database";
+import type { AcademyFunctions, AcademyTables } from "@/lib/academy/database";
 import type {
   ActivityDirection,
   ActivityType,
@@ -27,8 +28,9 @@ export type Json =
 /**
  * "member" is shown as Internal user. "external": only uses the task tool
  * (/work). "caller": an external caller, sees only the call screen (2.10).
+ * "developer" and "candidate": Academy only (/academy), see docs/academy.md.
  */
-export type ProfileRole = "admin" | "member" | "client" | "external" | "caller";
+export type ProfileRole = "admin" | "member" | "client" | "external" | "caller" | "developer" | "candidate";
 export type ClientStatus = "lead" | "active" | "inactive";
 export type Seniority = "medior" | "senior" | "lead";
 export type VacancyStatus = "open" | "on_hold" | "filled" | "closed";
@@ -85,7 +87,7 @@ export type PlacementStatus = "active" | "notice" | "ended";
 export type TaskStatus = "todo" | "in_progress" | "done";
 export type EntityType = "client" | "vacancy" | "candidate" | "application" | "placement" | "company";
 /** Portal modules a team member sees (recruitment planning, 2.5). Admins see all. */
-export type PortalModule = "sales" | "recruitment" | "clients" | "report";
+export type PortalModule = "sales" | "recruitment" | "clients" | "report" | "academy";
 export type InterviewKind = "interview" | "english_interview" | "client_interview";
 export type InterviewStatus = "invited" | "scheduled" | "rescheduled" | "cancelled" | "done" | "no_show";
 // Account security
@@ -529,6 +531,8 @@ export type Database = {
           origin: CandidateOrigin;
           custom_fields: CustomFieldValues;
           is_topper: boolean;
+          top_candidate: boolean;
+          top_candidate_at: string | null;
           topper_reason: string | null;
           topper_by: string | null;
           topper_at: string | null;
@@ -570,6 +574,8 @@ export type Database = {
           origin?: CandidateOrigin;
           custom_fields?: CustomFieldValues;
           is_topper?: boolean;
+          top_candidate?: boolean;
+          top_candidate_at?: string | null;
           topper_reason?: string | null;
           topper_by?: string | null;
           topper_at?: string | null;
@@ -611,6 +617,8 @@ export type Database = {
           origin?: CandidateOrigin;
           custom_fields?: CustomFieldValues;
           is_topper?: boolean;
+          top_candidate?: boolean;
+          top_candidate_at?: string | null;
           topper_reason?: string | null;
           topper_by?: string | null;
           topper_at?: string | null;
@@ -770,6 +778,12 @@ export type Database = {
           start_date: string;
           end_date: string | null;
           monthly_rate: number | null;
+          hours_per_week: number | null;
+          overlap_start: string | null;
+          overlap_end: string | null;
+          overlap_time_zone: string;
+          probation_end_date: string | null;
+          nordavo_contact_id: string | null;
           status: PlacementStatus;
           notice_given_at: string | null;
           guarantee_until: string | null;
@@ -787,6 +801,12 @@ export type Database = {
           start_date: string;
           end_date?: string | null;
           monthly_rate?: number | null;
+          hours_per_week?: number | null;
+          overlap_start?: string | null;
+          overlap_end?: string | null;
+          overlap_time_zone?: string;
+          probation_end_date?: string | null;
+          nordavo_contact_id?: string | null;
           status?: PlacementStatus;
           notice_given_at?: string | null;
           next_checkin_at?: string | null;
@@ -803,6 +823,12 @@ export type Database = {
           start_date?: string;
           end_date?: string | null;
           monthly_rate?: number | null;
+          hours_per_week?: number | null;
+          overlap_start?: string | null;
+          overlap_end?: string | null;
+          overlap_time_zone?: string;
+          probation_end_date?: string | null;
+          nordavo_contact_id?: string | null;
           status?: PlacementStatus;
           notice_given_at?: string | null;
           next_checkin_at?: string | null;
@@ -2495,7 +2521,7 @@ export type Database = {
         };
         Relationships: [];
       };
-    } & WorkTables & FormsTables & SalesTables;
+    } & WorkTables & FormsTables & SalesTables & AcademyTables;
     Views: {
       call_list_candidates: { Row: ListCandidateBase & { phone: string; linkedin_url: string | null }; Relationships: [] };
       mail_list_candidates: { Row: ListCandidateBase & { email: string }; Relationships: [] };
@@ -2666,7 +2692,7 @@ export type Database = {
         Args: { p_entity: CustomFieldEntity; p_new: Json; p_old?: Json };
         Returns: CustomFieldValues;
       };
-    } & WorkFunctions & FormsFunctions & SalesFunctions;
+    } & WorkFunctions & FormsFunctions & SalesFunctions & AcademyFunctions;
     Enums: { [_ in never]: never };
     CompositeTypes: { [_ in never]: never };
   };

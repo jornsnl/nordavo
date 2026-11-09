@@ -1,6 +1,6 @@
 "use client";
 
-import { Handshake, LayoutDashboard, ShieldCheck } from "lucide-react";
+import { GraduationCap, Handshake, LayoutDashboard, ShieldCheck } from "lucide-react";
 import { TabBar, type TabItem } from "@/components/ui/tab-bar";
 import { isActivePortalPath } from "./nav-items";
 
@@ -12,6 +12,7 @@ const tabs: TabItem[] = [
     match: (path) => isActivePortalPath(path, "/portal"),
   },
   { label: "Placements", href: "/portal/placements", icon: Handshake },
+  { label: "Academy", href: "/academy", icon: GraduationCap },
   { label: "Security", href: "/portal/security", icon: ShieldCheck },
 ];
 

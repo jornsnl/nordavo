@@ -27,6 +27,7 @@ import { createClient } from "@/lib/supabase/server";
 function revalidateSecurityPages() {
   revalidatePath("/dashboard/settings");
   revalidatePath("/portal/security");
+  revalidatePath("/academy/security");
 }
 
 const nameSchema = z

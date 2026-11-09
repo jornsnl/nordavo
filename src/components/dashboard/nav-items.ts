@@ -5,9 +5,11 @@ import {
   CalendarCheck,
   Contact,
   Filter,
+  GraduationCap,
   Handshake,
   HeartHandshake,
   KanbanSquare,
+  Library,
   LayoutDashboard,
   ListChecks,
   Phone,
@@ -17,6 +19,7 @@ import {
   ShieldOff,
   Upload,
   Users,
+  UsersRound,
   Workflow,
   type LucideIcon,
 } from "lucide-react";
@@ -61,6 +64,15 @@ export const navSections: NavSection[] = [
       { label: "Vacancies", href: "/dashboard/vacancies", icon: Briefcase },
       { label: "Candidates", href: "/dashboard/candidates", icon: Users },
       { label: "Placements", href: "/dashboard/placements", icon: Handshake },
+    ],
+  },
+  {
+    label: "Academy",
+    items: [
+      { label: "Courses", href: "/dashboard/academy", icon: GraduationCap },
+      { label: "People", href: "/dashboard/academy/people", icon: Contact },
+      { label: "Groups", href: "/dashboard/academy/groups", icon: UsersRound },
+      { label: "Library", href: "/dashboard/academy/library", icon: Library },
     ],
   },
   {

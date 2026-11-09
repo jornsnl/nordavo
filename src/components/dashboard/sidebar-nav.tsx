@@ -59,7 +59,10 @@ function NavList({
                 pathname !== null &&
                 (href === "/dashboard"
                   ? pathname === href
-                  : pathname === href || pathname.startsWith(`${href}/`));
+                  : href === "/dashboard/academy"
+                    ? // Courses: the editor pages, not People, Groups or Library.
+                      pathname === href || /^\/dashboard\/academy\/(courses|lessons)(\/|$)/.test(pathname)
+                    : pathname === href || pathname.startsWith(`${href}/`));
               return (
                 <li key={href}>
                   <Link

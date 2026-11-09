@@ -28,6 +28,27 @@
   --muted: #5b6779;
   --danger: #c2410c;
   --danger-bg: #fff4ed;
+
+  /*
+   * Nordavo Academy house style: orange for buttons and actions, light blue
+   * for everything else (backgrounds, cards, progress, navigation). Only the
+   * Academy (/academy) uses these; see docs/academy.md.
+   */
+  --academy-orange-800: #9a3412;
+  --academy-orange-700: #b93d0c;
+  --academy-orange-600: #c2410c;
+  --academy-orange-500: #f26b1d;
+  --academy-orange-100: #ffe8d6;
+  --academy-orange-50: #fff5ed;
+  --academy-blue-900: #0b3550;
+  --academy-blue-800: #11486c;
+  --academy-blue-700: #1b6390;
+  --academy-blue-600: #2a7fb4;
+  --academy-blue-500: #4b9fd5;
+  --academy-blue-300: #9fd0ef;
+  --academy-blue-200: #c5e4f7;
+  --academy-blue-100: #e1f1fb;
+  --academy-blue-50: #f2f9fe;
 }
 
 @theme inline {
@@ -50,6 +71,21 @@
   --color-muted: var(--muted);
   --color-danger: var(--danger);
   --color-danger-bg: var(--danger-bg);
+  --color-academy-orange-800: var(--academy-orange-800);
+  --color-academy-orange-700: var(--academy-orange-700);
+  --color-academy-orange-600: var(--academy-orange-600);
+  --color-academy-orange-500: var(--academy-orange-500);
+  --color-academy-orange-100: var(--academy-orange-100);
+  --color-academy-orange-50: var(--academy-orange-50);
+  --color-academy-blue-900: var(--academy-blue-900);
+  --color-academy-blue-800: var(--academy-blue-800);
+  --color-academy-blue-700: var(--academy-blue-700);
+  --color-academy-blue-600: var(--academy-blue-600);
+  --color-academy-blue-500: var(--academy-blue-500);
+  --color-academy-blue-300: var(--academy-blue-300);
+  --color-academy-blue-200: var(--academy-blue-200);
+  --color-academy-blue-100: var(--academy-blue-100);
+  --color-academy-blue-50: var(--academy-blue-50);
   --font-sans: var(--font-inter);
   --font-display: var(--font-jakarta);
 }
@@ -157,4 +193,73 @@ summary,
   .sheet-up {
     animation: sheet-up 220ms cubic-bezier(0.32, 0.72, 0, 1);
   }
+}
+
+/*
+ * Academy explanation blocks: sanitized rich text (src/lib/academy/sanitize.ts).
+ */
+.academy-prose {
+  line-height: 1.7;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+.academy-prose > * + * {
+  margin-top: 0.85em;
+}
+.academy-prose h2 {
+  font-family: var(--font-jakarta);
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--academy-blue-900);
+  margin-top: 1.4em;
+}
+.academy-prose h3 {
+  font-family: var(--font-jakarta);
+  font-size: 1.12rem;
+  font-weight: 650;
+  color: var(--academy-blue-900);
+  margin-top: 1.2em;
+}
+.academy-prose h4 {
+  font-weight: 650;
+  color: var(--academy-blue-800);
+}
+.academy-prose ul {
+  list-style: disc;
+  padding-left: 1.4em;
+}
+.academy-prose ol {
+  list-style: decimal;
+  padding-left: 1.4em;
+}
+.academy-prose li + li {
+  margin-top: 0.3em;
+}
+.academy-prose a {
+  color: var(--academy-blue-700);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.academy-prose img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 0.75rem;
+}
+.academy-prose blockquote {
+  border-left: 3px solid var(--academy-blue-300);
+  padding-left: 1em;
+  color: var(--muted);
+}
+.academy-prose pre {
+  overflow-x: auto;
+  border-radius: 0.75rem;
+  background: var(--academy-blue-50);
+  padding: 0.75em 1em;
+  font-size: 0.875rem;
+}
+.academy-prose code {
+  font-size: 0.9em;
+}
+.academy-prose hr {
+  border-color: var(--academy-blue-200);
 }

@@ -52,7 +52,12 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser> => {
 
   // Unknown or missing roles get the least access.
   const role: ProfileRole =
-    profile?.role === "admin" || profile?.role === "member" || profile?.role === "client" || profile?.role === "caller"
+    profile?.role === "admin" ||
+    profile?.role === "member" ||
+    profile?.role === "client" ||
+    profile?.role === "caller" ||
+    profile?.role === "developer" ||
+    profile?.role === "candidate"
       ? profile.role
       : "external";
 
@@ -75,6 +80,8 @@ export function isStaff(user: CurrentUser) {
 export function homePathFor(user: CurrentUser) {
   if (user.role === "external") return "/work";
   if (user.role === "caller") return "/caller";
+  // Developers and candidates only have the Academy (docs/academy.md).
+  if (user.role === "developer" || user.role === "candidate") return "/academy";
   return isStaff(user) ? "/dashboard" : "/portal";
 }
 
