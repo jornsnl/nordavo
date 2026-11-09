@@ -189,9 +189,15 @@ select pg_temp.check((select bool_and(wsp_enabled) from public.vacancies where i
   '00000000-0000-0000-0000-0000000e2001', '00000000-0000-0000-0000-0000000e2002', '00000000-0000-0000-0000-0000000e2003')), 'new vacancies: on by default');
 select pg_temp.act('rec.wsp@nordavo.nl');
 set role authenticated;
-update public.vacancies set wsp_enabled = false where id = '00000000-0000-0000-0000-0000000e2002';
-update public.candidates set wsp_mode = 'never' where id = '00000000-0000-0000-0000-0000000e3003';
+select public.wsp_set_vacancy('00000000-0000-0000-0000-0000000e2002', false);
+select public.wsp_set_person('00000000-0000-0000-0000-0000000e3003', 'never');
 reset role;
+select pg_temp.act('sales.wsp@nordavo.nl');
+set role authenticated;
+select pg_temp.check(pg_temp.fails($$select public.wsp_set_person('00000000-0000-0000-0000-0000000e3003', 'always')$$), 'sales cannot change the person setting');
+select pg_temp.check(pg_temp.fails($$select public.wsp_set_vacancy('00000000-0000-0000-0000-0000000e2002', true)$$), 'sales cannot change the vacancy setting');
+reset role;
+select pg_temp.check((select wsp_mode from public.candidates where id = '00000000-0000-0000-0000-0000000e3003') = 'never', 'person setting kept');
 select pg_temp.check((select count(*) from public.wsp_audit_log where action = 'settings_changed' and details ->> 'scope' = 'vacancy'
   and actor = '00000000-0000-0000-0000-0000000e0002') = 1, 'vacancy setting change logged');
 select pg_temp.check((select count(*) from public.wsp_audit_log where action = 'settings_changed' and details ->> 'scope' = 'person'
@@ -659,7 +665,11 @@ update public.applications set stage = 'rejected' where id = '00000000-0000-0000
 update public.applications set rejected_at = now() - interval '30 days' where id = '00000000-0000-0000-0000-0000000e4002';
 update public.wsp_assessments set invited_at = now() - interval '40 days' where person_id = '00000000-0000-0000-0000-0000000e3004';
 -- Talent pool consent: kept 365 days after the questionnaire.
-update public.candidates set talent_pool_consent_at = now() where id = '00000000-0000-0000-0000-0000000e3007';
+select pg_temp.act('rec.wsp@nordavo.nl');
+set role authenticated;
+select public.wsp_set_person('00000000-0000-0000-0000-0000000e3007', null, true);
+reset role;
+select pg_temp.check((select count(*) from public.wsp_audit_log where action = 'settings_changed' and details ->> 'field' = 'talent_pool_consent') = 1, 'talent pool consent change logged');
 -- A running placement: kept.
 select pg_temp.check((public.wsp_run_daily() ->> 'deleted')::integer >= 1, 'the daily job deletes what is due');
 select pg_temp.check(pg_temp.count_for('00000000-0000-0000-0000-0000000e3004') = 0, 'Always Person (rejected 30 days ago) deleted');

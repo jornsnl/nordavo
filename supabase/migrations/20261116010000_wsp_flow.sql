@@ -496,6 +496,47 @@ begin
 end;
 $$;
 
+-- Vacancy and person settings for staff (recruitment or Academy managers);
+-- the triggers above log every change.
+create or replace function public.wsp_set_vacancy(p_vacancy uuid, p_enabled boolean)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  perform wsp_private.require_staff();
+  update public.vacancies set wsp_enabled = p_enabled where id = p_vacancy;
+  if not found then
+    raise exception 'Vacancy not found.';
+  end if;
+end;
+$$;
+
+create or replace function public.wsp_set_person(p_person uuid, p_mode text default null, p_talent_pool_consent boolean default null)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  perform wsp_private.require_staff();
+  update public.candidates set
+    wsp_mode = coalesce(p_mode, wsp_mode),
+    talent_pool_consent_at = case
+      when p_talent_pool_consent is null then talent_pool_consent_at
+      when p_talent_pool_consent then coalesce(talent_pool_consent_at, now())
+      else null end
+  where id = p_person;
+  if not found then
+    raise exception 'Candidate not found.';
+  end if;
+end;
+$$;
+
+revoke execute on function public.wsp_set_vacancy(uuid, boolean), public.wsp_set_person(uuid, text, boolean) from public, anon;
+grant execute on function public.wsp_set_vacancy(uuid, boolean), public.wsp_set_person(uuid, text, boolean) to authenticated;
+
 -- "Send working style profile": also when the vacancy is off; never for a
 -- person on Never, never with the system off. Optionally for a vacancy and client.
 create or replace function public.wsp_send(p_person uuid, p_vacancy uuid default null, p_client uuid default null)

@@ -10,6 +10,7 @@ import type { TablesInsert, TablesUpdate } from "@/lib/database.types";
 import { backgroundCheckStatuses, noteKinds } from "@/lib/labels";
 import { bulkMoveSchema, moveArgs, parseScreeningTools, type BulkMoveInput } from "@/lib/recruitment/pipeline";
 import { createClient } from "@/lib/supabase/server";
+import { sendWspMailAfter } from "@/lib/wsp/after";
 
 function revalidateApplication(row: { vacancy_id: string; candidate_id: string }) {
   revalidatePath(`/dashboard/vacancies/${row.vacancy_id}/pipeline`);
@@ -63,6 +64,7 @@ export async function bulkMoveApplications(vacancyId: string, input: BulkMoveInp
 
   const { data: moved, error } = await supabase.rpc("move_applications", args);
   if (error) return { error: "The move failed. Please try again." };
+  sendWspMailAfter(); // a stage can be the Working Style Profile trigger
 
   revalidatePath(`/dashboard/vacancies/${vacancyId}/pipeline`);
   revalidatePath(`/dashboard/vacancies/${vacancyId}`);
@@ -186,6 +188,8 @@ export async function setShortlisted(applicationId: string, shortlisted: boolean
   if (error) return { error: GENERIC_ERROR };
   if (!data) return { error: "This candidate is no longer in the pipeline." };
   revalidateApplication(data);
+  // Shortlist can be the trigger of the Working Style Profile: send what the database queued.
+  if (shortlisted) sendWspMailAfter();
   return { ok: true, message: shortlisted ? "Added to the shortlist." : "Taken off the shortlist." };
 }
 

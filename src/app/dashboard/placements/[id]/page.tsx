@@ -19,6 +19,7 @@ import { addMonths, monthsBetween } from "@/components/placements/dates";
 import { GuaranteeProgress } from "@/components/placements/guarantee-progress";
 import { PlacementActions } from "@/components/placements/placement-actions";
 import { PlacementAcademyCard } from "@/components/academy/ats/placement-card";
+import { WspCandidateCard } from "@/components/wsp/candidate-card";
 import {
   CheckinDate,
   PlacementStatusBadge,
@@ -238,6 +239,11 @@ async function PlacementDetail({
           <Suspense fallback={<ListSkeleton rows={3} />}>
             <PlacementAcademyCard placementId={placement.id} />
           </Suspense>
+          {placement.candidate && (
+            <Suspense fallback={<ListSkeleton rows={2} />}>
+              <WspCandidateCard candidateId={placement.candidate.id} title="Working style profile (developer)" />
+            </Suspense>
+          )}
           <Suspense fallback={<ListSkeleton rows={3} />}>
             <EntityExtras entityType="placement" entityId={placement.id} />
           </Suspense>

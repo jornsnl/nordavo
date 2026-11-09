@@ -156,6 +156,8 @@ export type WspFunctions = {
   wsp_is_staff: Fn<Record<string, never>, boolean>;
   wsp_my_person_id: Fn<Record<string, never>, string | null>;
   wsp_update_settings: Fn<{ p_settings: Json }, WspSettingsRow>;
+  wsp_set_vacancy: Fn<{ p_vacancy: string; p_enabled: boolean }, undefined>;
+  wsp_set_person: Fn<{ p_person: string; p_mode?: WspMode | null; p_talent_pool_consent?: boolean | null }, undefined>;
   wsp_send: Fn<{ p_person: string; p_vacancy?: string | null; p_client?: string | null }, string>;
   wsp_resend: Fn<{ p_assessment: string }, string>;
   wsp_link: Fn<{ p_assessment: string; p_vacancy?: string | null; p_client?: string | null }, boolean>;

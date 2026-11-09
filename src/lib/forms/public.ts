@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { ATTACHMENTS_BUCKET } from "@/lib/storage";
 import type { FormVia } from "./database";
 import { readBlocks, type Block } from "./schema";
+import { vacancyTextWithSentence } from "@/lib/wsp/view";
 
 /**
  * The public form (/apply/<token>) reads with the service role, so it only
@@ -73,7 +74,7 @@ export async function resolvePublicForm(token: string): Promise<ResolvedForm> {
     via = form.headhunted_token === token ? "headhunted" : "general";
   }
 
-  const { data: form } = await db.from("recruitment_forms").select("status, version, title").eq("id", formId).maybeSingle();
+  const { data: form } = await db.from("recruitment_forms").select("status, version, title, vacancy_id").eq("id", formId).maybeSingle();
   if (!form) return { state: "not_found" };
   if (form.status !== "published" || form.version === 0) return { state: "closed", title: form.title };
 
@@ -85,9 +86,10 @@ export async function resolvePublicForm(token: string): Promise<ResolvedForm> {
     .maybeSingle();
   if (!version) return { state: "closed", title: form.title };
 
-  const [headerImageUrl, logoUrl] = await Promise.all([
+  const [headerImageUrl, logoUrl, wsp] = await Promise.all([
     signed(db, version.header_image_path),
     signed(db, version.logo_path),
+    workingStyleOn(db, form.vacancy_id),
   ]);
 
   return {
@@ -97,7 +99,8 @@ export async function resolvePublicForm(token: string): Promise<ResolvedForm> {
       version: form.version,
       via,
       title: version.title,
-      intro: version.intro,
+      // Working Style Profile on for the vacancy: the fixed sentence goes with the vacancy text.
+      intro: vacancyTextWithSentence(version.intro, wsp) || null,
       blocks: readBlocks(version.blocks),
       headerImageUrl,
       logoUrl,
@@ -105,6 +108,15 @@ export async function resolvePublicForm(token: string): Promise<ResolvedForm> {
       alreadyCompleted,
     },
   };
+}
+
+/** The Working Style Profile is on for the system and for this vacancy (docs/working-style-profile.md). */
+async function workingStyleOn(db: NonNullable<ReturnType<typeof createAdminClient>>, vacancyId: string): Promise<boolean> {
+  const [{ data: enabled }, { data: vacancy }] = await Promise.all([
+    db.rpc("wsp_enabled"),
+    db.from("vacancies").select("*").eq("id", vacancyId).maybeSingle(),
+  ]);
+  return enabled === true && (vacancy as unknown as { wsp_enabled?: boolean } | null)?.wsp_enabled === true;
 }
 
 async function signed(db: NonNullable<ReturnType<typeof createAdminClient>>, path: string | null) {

@@ -17,6 +17,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { localInputToUtc, safeTimeZone } from "@/lib/work/time";
 import { addDays, addMonths } from "@/components/placements/dates";
+import { sendWspMailAfter } from "@/lib/wsp/after";
 
 const id = z.guid();
 
@@ -207,6 +208,9 @@ export async function createPlacement(
       }
     });
   }
+
+  // Working Style Profile: a developer with a report gets a permission request, or an invitation (setting).
+  sendWspMailAfter();
 
   revalidateAll(placement.id);
   revalidatePath("/dashboard/vacancies");

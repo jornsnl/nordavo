@@ -164,6 +164,8 @@ export async function getCandidateWsp(candidateId: string): Promise<CandidateWsp
 
 export type StaffAssessment = {
   assessment: WspAssessmentRow;
+  /** The link has expired (status expired, or past expires_at while open). */
+  expired: boolean;
   candidate: { id: string; full_name: string };
   report: ReportData | null;
   flags: { flag_type: string; details: unknown }[];
@@ -192,8 +194,10 @@ export async function getStaffAssessment(assessmentId: string): Promise<StaffAss
   const { data: actors } = actorIds.length ? await supabase.from("profiles").select("id, full_name, email").in("id", actorIds) : { data: [] };
   const actorName = new Map((actors ?? []).map((p) => [p.id, p.full_name || p.email]));
   const byItem = new Map((answers ?? []).map((a) => [a.item_id, a]));
+  const open = assessment.status === "invited" || assessment.status === "started";
   return {
     assessment,
+    expired: assessment.status === "expired" || (open && new Date(assessment.expires_at).getTime() <= Date.now()),
     candidate,
     report,
     flags: flags ?? [],
@@ -223,4 +227,17 @@ export async function listClientReports() {
   const supabase = await createClient();
   const { data } = await supabase.rpc("wsp_client_reports");
   return data ?? [];
+}
+
+// ---------------------------------------------------------------------------
+// Vacancy
+// ---------------------------------------------------------------------------
+
+/** The vacancy setting (wsp_enabled); null when the system is off or the user is not staff. */
+export async function getVacancyWsp(vacancyId: string): Promise<{ enabled: boolean } | null> {
+  if (!(await isWspEnabled()) || !(await isWspStaff())) return null;
+  const supabase = await createClient();
+  const { data } = await supabase.from("vacancies").select("*").eq("id", vacancyId).maybeSingle();
+  if (!data) return null;
+  return { enabled: (data as unknown as { wsp_enabled?: boolean }).wsp_enabled === true };
 }

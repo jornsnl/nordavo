@@ -14,6 +14,7 @@ import { PersonCertificates, PersonWorksheets } from "@/components/academy/admin
 import { Badge } from "@/components/ui/badge";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { ListSkeleton } from "@/components/ui/skeleton";
+import { WspCandidateCard } from "@/components/wsp/candidate-card";
 
 export const metadata: Metadata = { title: "Academy person" };
 
@@ -80,6 +81,11 @@ async function Person({ params }: Pick<PageProps<"/dashboard/academy/people/[id]
           <Suspense fallback={<ListSkeleton rows={1} />}>
             <PersonCertificates profileId={person.profile_id} />
           </Suspense>
+          {person.candidate_id && (
+            <Suspense fallback={<ListSkeleton rows={2} />}>
+              <WspCandidateCard candidateId={person.candidate_id} />
+            </Suspense>
+          )}
           <Card>
             <CardHeader title="Groups" />
             <CardBody>
