@@ -3,6 +3,11 @@ import { getCurrentUser, isStaff, requireStaff } from "@/lib/auth";
 import type { PortalModule } from "@/lib/database.types";
 import { AppShell } from "@/components/dashboard/app-shell";
 import { UserMenu, UserMenuSkeleton } from "@/components/dashboard/user-menu";
+import type { Metadata } from "next";
+import { installableMetadata } from "@/lib/pwa/manifest";
+
+/** The installable part: the manifest and the iOS home screen tags. */
+export const metadata: Metadata = installableMetadata;
 
 export default function DashboardLayout({
   children,

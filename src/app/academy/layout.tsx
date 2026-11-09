@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
+import { installableMetadata } from "@/lib/pwa/manifest";
 import { Suspense } from "react";
 import { AcademyBrand, AcademyHeaderMenu, AcademyHeaderMenuSkeleton } from "@/components/academy/shell/header";
 import { PreviewNotice } from "@/components/academy/shell/preview-notice";
 
 export const metadata: Metadata = {
+  ...installableMetadata,
   title: { default: "Academy", template: "%s · Nordavo Academy" },
 };
 

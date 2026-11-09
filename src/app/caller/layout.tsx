@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { installableMetadata } from "@/lib/pwa/manifest";
 import { Suspense } from "react";
 import Link from "next/link";
 import { LogOut } from "lucide-react";
@@ -8,6 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { requireCaller } from "@/lib/auth";
 
 export const metadata: Metadata = {
+  ...installableMetadata,
   title: { default: "Calling", template: "%s · Nordavo calling" },
 };
 

@@ -5,11 +5,20 @@ import { Share, SquarePlus, X } from "lucide-react";
 import { INSTALL_HINT_KEY, shouldShowInstallHint } from "@/lib/pwa/install-hint";
 
 /** Pages where the hint makes sense: signed in areas, not the public form or sign in. */
-const HINT_PATHS = ["/dashboard", "/portal", "/work"];
+const HINT_PATHS = ["/dashboard", "/portal", "/work", "/academy"];
+
+/**
+ * The installable part, the same layouts that link the manifest
+ * (installableMetadata). Public pages (/apply, /working-style, invites) do
+ * not register the service worker.
+ */
+export const APP_PATHS = ["/dashboard", "/portal", "/work", "/academy", "/caller", "/login"];
+
+const under = (paths: string[], path: string) => paths.some((p) => path === p || path.startsWith(`${p}/`));
 
 /**
  * Home screen app support:
- * 1. registers the service worker (offline page) in production;
+ * 1. registers the service worker (offline page) in production, in the app part only;
  * 2. on iPhone and iPad in the browser, explains once how to put Nordavo on
  *    the home screen. iOS has no install button or prompt for web apps, so
  *    this is the only way people find out. Dismissed for 30 days.
@@ -18,12 +27,13 @@ export function PwaSupport() {
   const [showHint, setShowHint] = useState(false);
 
   useEffect(() => {
-    if (process.env.NODE_ENV === "production" && "serviceWorker" in navigator) {
+    const path = window.location.pathname;
+    // Production only: in development the worker would serve stale builds.
+    if (process.env.NODE_ENV === "production" && "serviceWorker" in navigator && under(APP_PATHS, path)) {
       navigator.serviceWorker.register("/sw.js", { scope: "/", updateViaCache: "none" }).catch(() => {});
     }
 
-    const path = window.location.pathname;
-    if (!HINT_PATHS.some((p) => path === p || path.startsWith(`${p}/`))) return;
+    if (!under(HINT_PATHS, path)) return;
 
     let dismissedAt: number | null = null;
     try {

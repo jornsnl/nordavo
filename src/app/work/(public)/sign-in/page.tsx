@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
+import { installableMetadata } from "@/lib/pwa/manifest";
 import { Suspense } from "react";
 import Link from "next/link";
 import { LogoMark } from "@/components/brand/logo";
 import { safeNextPath } from "@/lib/safe-redirect";
 import { EmailLinkForm, GoogleButton } from "./sign-in-form";
 
-export const metadata: Metadata = { title: "Sign in · Work" };
+export const metadata: Metadata = { ...installableMetadata, title: "Sign in · Work" };
 
 const errors: Record<string, string> = {
   google: "Google sign-in did not work. Use the e-mail you were invited with, or ask for an invite.",
