@@ -12,6 +12,7 @@ import { t2Match } from "./t2-match";
 import { interviewReminders } from "./interview-reminders";
 import { clickupImport, workDaily, workNotify } from "./work";
 import { formsReminders } from "./forms-reminders";
+import { academyTaskReminders } from "./academy-tasks";
 
 /**
  * Every job, by name. Run with `npm run job -- <name>` or POST /api/jobs/<name>.
@@ -37,6 +38,7 @@ export const jobs: Record<string, Job> = Object.fromEntries(
   workDaily,
   clickupImport,
   formsReminders,
+  academyTaskReminders,
   ].map((job) => [job.name, job]),
 );
 

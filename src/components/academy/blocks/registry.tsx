@@ -16,6 +16,10 @@ import { ExplanationEditor } from "./explanation-editor";
 import { ExplanationViewer } from "./explanation-viewer";
 import { NotesEditor, NotesViewer } from "./notes";
 import { PlaceholderEditor, PlaceholderViewer } from "./placeholder";
+import { AssignmentEditor, AssignmentViewer } from "./assignment";
+import { KnowledgeCheckEditor, KnowledgeCheckViewer } from "./knowledge-check";
+import { QuestionnaireEditor, QuestionnaireViewer } from "./questionnaire";
+import { TasksEditor, TasksViewer } from "./tasks";
 import type { BlockEditorProps, BlockViewerProps } from "./types";
 
 /**
@@ -44,8 +48,9 @@ export const blockRegistry: Record<AcademyBlockType, BlockComponents> = {
   video: { icon: PlayCircle, editor: PlaceholderEditor, viewer: PlaceholderViewer },
   document: { icon: FileText, editor: PlaceholderEditor, viewer: PlaceholderViewer },
   worksheet: { icon: ClipboardList, editor: PlaceholderEditor, viewer: PlaceholderViewer },
-  assignment: { icon: PenLine, editor: PlaceholderEditor, viewer: PlaceholderViewer },
-  tasks: { icon: CheckSquare, editor: PlaceholderEditor, viewer: PlaceholderViewer },
-  knowledge_check: { icon: ListChecks, editor: PlaceholderEditor, viewer: PlaceholderViewer },
-  questionnaire: { icon: Sparkles, editor: PlaceholderEditor, viewer: PlaceholderViewer },
+  // Area learn (src/lib/academy/learn, docs/academy.md section 12).
+  assignment: { icon: PenLine, editor: AssignmentEditor, viewer: AssignmentViewer },
+  tasks: { icon: CheckSquare, editor: TasksEditor, viewer: TasksViewer },
+  knowledge_check: { icon: ListChecks, editor: KnowledgeCheckEditor, viewer: KnowledgeCheckViewer },
+  questionnaire: { icon: Sparkles, editor: QuestionnaireEditor, viewer: QuestionnaireViewer },
 };

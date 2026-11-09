@@ -3,6 +3,9 @@ import type { AcademyBlockType, AcademyLessonBlockRow } from "@/lib/academy/data
 import type { Json } from "@/lib/database.types";
 import { type BlockContent, blockContent, explanationHtml, notesPrompt, notesScope } from "@/lib/academy/blocks/types";
 import { sanitizeHtml } from "@/lib/academy/sanitize";
+import { sanitizeAssignmentContent } from "@/lib/academy/learn/assignment";
+import { parseQuestionnaire, questionnaireContent } from "@/lib/academy/learn/questionnaire";
+import { loadAssignmentStates, loadCheckStates, loadQuestionnaireStates, loadTaskStates } from "@/lib/academy/learn/states";
 import type { createClient } from "@/lib/supabase/server";
 
 // The server half of the block registry (docs/academy.md):
@@ -36,6 +39,11 @@ const MAX_CONTENT_BYTES = 200_000;
 export const contentSanitizers: Partial<Record<AcademyBlockType, (content: BlockContent) => BlockContent>> = {
   explanation: (content) => ({ html: sanitizeHtml(explanationHtml(content)) }),
   notes: (content) => ({ scope: notesScope(content), prompt: notesPrompt(content).slice(0, 1000) }),
+  // Area learn (src/lib/academy/learn): tasks and check questions are own rows.
+  assignment: (content) => sanitizeAssignmentContent(content as Json),
+  tasks: () => ({}),
+  knowledge_check: () => ({}),
+  questionnaire: (content) => questionnaireContent(parseQuestionnaire(content as Json)),
 };
 
 /** The content to store for a block, cleaned for its type. Throws when too large. */
@@ -76,6 +84,11 @@ export const blockStateLoaders: Partial<Record<AcademyBlockType, BlockStateLoade
     }
     return states;
   },
+  // Area learn (src/lib/academy/learn/states.ts).
+  assignment: loadAssignmentStates,
+  tasks: loadTaskStates,
+  knowledge_check: loadCheckStates,
+  questionnaire: loadQuestionnaireStates,
 };
 
 /** State per block id for the viewers of one lesson. */

@@ -140,7 +140,8 @@ test("every block type has labels and requirement texts in both languages", () =
       assert.ok(blockTypes[type].requirement({}, locale).length > 0);
     }
   }
-  assert.ok(blockTypes.questionnaire.reserved);
+  // The questionnaire is built (area learn): no longer reserved.
+  assert.ok(!blockTypes.questionnaire.reserved);
 });
 
 test("the dictionaries have the same keys and placeholders", () => {

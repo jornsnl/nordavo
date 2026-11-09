@@ -6,6 +6,7 @@
 // Placeholders: {name} is replaced by vars.name.
 
 import type { AcademyLocale } from "@/lib/academy/database";
+import { learnEn, learnNl } from "@/lib/academy/i18n/learn";
 
 const en = {
   // Shell
@@ -132,6 +133,9 @@ const en = {
   // Errors
   "error.generic": "Something went wrong. Please try again.",
   "error.notOpen": "This lesson is not open for you.",
+
+  // Area learn: assignment, tasks, knowledge check, questionnaire (i18n/learn.ts)
+  ...learnEn,
 } as const;
 
 export type AcademyMessageKey = keyof typeof en;
@@ -252,6 +256,9 @@ const nl: Record<AcademyMessageKey, string> = {
 
   "error.generic": "Er ging iets mis. Probeer het opnieuw.",
   "error.notOpen": "Deze les staat niet voor je open.",
+
+  // Area learn (i18n/learn.ts)
+  ...learnNl,
 };
 
 export const academyMessages: Record<AcademyLocale, Record<AcademyMessageKey, string>> = { en, nl };

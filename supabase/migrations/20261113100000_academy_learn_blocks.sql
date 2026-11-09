@@ -522,6 +522,36 @@ as $$
   order by i.done_at is not null, i.due_at nulls last, l.title, t.position, t.id;
 $$;
 
+-- The tasks of one person (own tasks and the shared tasks of their
+-- placements), for Nordavo's people page.
+create or replace function public.academy_person_tasks(p_profile_id uuid)
+returns table (
+  task_id uuid,
+  lesson_id uuid,
+  lesson_title text,
+  title text,
+  required boolean,
+  shared boolean,
+  placement_only boolean,
+  placement_id uuid,
+  due_at timestamptz,
+  done_at timestamptz,
+  reminder_count integer
+)
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select i.task_id, i.lesson_id, l.title, t.title, t.required, t.shared, t.placement_only, i.placement_id,
+    i.due_at, i.done_at, i.reminder_count
+  from public.academy_task_instances(p_profile_id, null, null) i
+  join public.academy_tasks t on t.id = i.task_id
+  join public.academy_lessons l on l.id = i.lesson_id
+  where public.academy_is_manager()
+  order by i.done_at is not null, i.due_at nulls last, l.title, t.position, t.id;
+$$;
+
 -- Overdue tasks, for Nordavo (/dashboard/academy/tasks).
 create or replace function public.academy_overdue_tasks()
 returns table (
@@ -1174,7 +1204,7 @@ begin
     'academy_deadline(date, integer, text)', 'academy_submit_assignment(uuid, text, text, text, text)',
     'academy_review_submission(uuid, text, text, integer, jsonb)',
     'academy_my_tasks(uuid)', 'academy_set_task_done(uuid, uuid, boolean)', 'academy_placement_tasks(uuid)',
-    'academy_overdue_tasks()', 'academy_check_questions_for(uuid)', 'academy_submit_check(uuid, jsonb)',
+    'academy_overdue_tasks()', 'academy_person_tasks(uuid)', 'academy_check_questions_for(uuid)', 'academy_submit_check(uuid, jsonb)',
     'academy_check_results(uuid)', 'academy_questionnaire_consent(uuid, boolean)',
     'academy_save_questionnaire(uuid, jsonb, boolean)', 'academy_candidate_check_scores(uuid)',
     'academy_candidate_assignments(uuid)', 'academy_candidate_questionnaire_results(uuid)',

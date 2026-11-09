@@ -305,11 +305,13 @@ select pg_temp.act('hr.ln@nordavo.nl');
 set role authenticated;
 select pg_temp.check((select count(*) from public.academy_overdue_tasks()) = 3, 'Nordavo sees the overdue tasks');
 select pg_temp.check((select days_overdue from public.academy_overdue_tasks() where task_id = '00000000-0000-0000-0000-00000000c0a2') >= 32, 'days overdue');
+select pg_temp.check((select count(*) from public.academy_person_tasks('00000000-0000-0000-0000-00000000c007')) = 3, 'people page: tasks of the developer');
 reset role;
 
 select pg_temp.act('dev.ln@example.in');
 set role authenticated;
 select pg_temp.check((select count(*) from public.academy_overdue_tasks()) = 0, 'learners get no overview');
+select pg_temp.check((select count(*) from public.academy_person_tasks('00000000-0000-0000-0000-00000000c008')) = 0, 'learners get no tasks of others');
 reset role;
 
 -- The job reminds once, not again within a week.

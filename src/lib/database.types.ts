@@ -5,6 +5,7 @@
 import type { WorkFunctions, WorkTables } from "@/lib/work/database";
 import type { FormsFunctions, FormsTables } from "@/lib/forms/database";
 import type { AcademyFunctions, AcademyTables } from "@/lib/academy/database";
+import type { LearnFunctions } from "@/lib/academy/learn/database";
 import type {
   ActivityDirection,
   ActivityType,
@@ -2692,7 +2693,7 @@ export type Database = {
         Args: { p_entity: CustomFieldEntity; p_new: Json; p_old?: Json };
         Returns: CustomFieldValues;
       };
-    } & WorkFunctions & FormsFunctions & SalesFunctions & AcademyFunctions;
+    } & WorkFunctions & FormsFunctions & SalesFunctions & AcademyFunctions & LearnFunctions;
     Enums: { [_ in never]: never };
     CompositeTypes: { [_ in never]: never };
   };
