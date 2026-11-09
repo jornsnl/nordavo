@@ -116,7 +116,7 @@ async function Overview({ searchParams }: { searchParams: Promise<Search> }) {
         />
         <FilterBar filters={filterDefs} basePath="/work" />
       </div>
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex items-center justify-between gap-3">
         <PriorityChips basePath="/work" />
         <ViewToggle basePath="/work" view={view} />
       </div>

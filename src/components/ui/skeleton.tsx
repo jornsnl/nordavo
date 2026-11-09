@@ -12,3 +12,28 @@ export function ListSkeleton({ rows = 5 }: { rows?: number }) {
     </div>
   );
 }
+
+/**
+ * What a section shows the moment a link is tapped (loading.tsx), until the
+ * page streams in: a page header and a list, so the click answers at once.
+ */
+export function PageSkeleton({ rows = 6, label = "Loading" }: { rows?: number; label?: string }) {
+  return (
+    <div role="status" aria-live="polite" aria-busy="true">
+      <span className="sr-only">{label}…</span>
+      <div className="mb-6 space-y-3 sm:mb-8" aria-hidden="true">
+        <Skeleton className="h-3 w-20" />
+        <Skeleton className="h-8 w-56 max-w-full" />
+        <Skeleton className="h-4 w-80 max-w-full" />
+      </div>
+      <div className="mb-4 flex gap-2" aria-hidden="true">
+        <Skeleton className="h-10 w-28" />
+        <Skeleton className="h-10 w-28" />
+        <Skeleton className="h-10 w-20" />
+      </div>
+      <div aria-hidden="true">
+        <ListSkeleton rows={rows} />
+      </div>
+    </div>
+  );
+}

@@ -242,6 +242,7 @@ export function SidebarSearchButton({ onClick }: { onClick: () => void }) {
     <button
       type="button"
       onClick={onClick}
+      data-drawer-focus
       aria-keyshortcuts="Control+K Meta+K"
       className="mb-6 flex w-full items-center gap-3 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-brand-100/70 transition hover:bg-white/10 hover:text-white active:bg-white/10 max-lg:py-2.5 focus-visible:outline-2 focus-visible:outline-accent-500"
     >

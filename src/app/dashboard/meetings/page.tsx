@@ -100,7 +100,7 @@ async function Meetings({ searchParams }: { searchParams: Search }) {
   const base = { month, caller: callerFilter, status };
   const tabs = (
     <nav aria-label="Meetings views" className="-mt-2 mb-6 border-b border-border">
-      <ul className="-mb-px flex gap-1 overflow-x-auto">
+      <ul className="-mb-px flex gap-1 relative overflow-x-auto">
         {[
           { key: "register", label: "Register" },
           { key: "month", label: "Month overview" },

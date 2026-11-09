@@ -225,7 +225,7 @@ function ColumnPreview({ columns }: { columns: ParsedCallList["columns"] }) {
           <section key={sheet} aria-label={`Columns of ${sheet}`} className="space-y-2">
             <h3 className="font-semibold">{sheet}</h3>
             {mapping.recognized.length > 0 && (
-              <div className="overflow-x-auto">
+              <div className="relative overflow-x-auto">
                 <table className="w-full text-left text-xs">
                   <thead className="text-muted">
                     <tr>

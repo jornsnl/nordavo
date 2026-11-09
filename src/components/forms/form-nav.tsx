@@ -26,7 +26,7 @@ export function FormNav({ vacancyId, active }: { vacancyId: string; active: (typ
           Pipeline
         </Link>
       </div>
-      <nav aria-label="Application form" className="flex gap-1 overflow-x-auto rounded-xl border border-border bg-card p-1 shadow-xs sm:inline-flex">
+      <nav aria-label="Application form" className="flex gap-1 relative overflow-x-auto rounded-xl border border-border bg-card p-1 shadow-xs sm:inline-flex">
         {items.map((item) => {
           const Icon = item.icon;
           const current = item.key === active;

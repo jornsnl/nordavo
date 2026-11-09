@@ -1,11 +1,12 @@
 "use client";
 
-import { Suspense, useEffect, useState, type ReactNode } from "react";
+import { Suspense, useCallback, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { CheckCheck, ClipboardList, Inbox, Menu, NotebookPen, Search, Settings, X, type LucideIcon } from "lucide-react";
 import { LogoMark } from "@/components/brand/logo";
 import { TabBar, TabButton, type TabItem } from "@/components/ui/tab-bar";
+import { useDrawer } from "@/components/ui/use-drawer";
 
 const tabs: TabItem[] = [
   { label: "My tasks", href: "/work", icon: ClipboardList, match: (path) => path === "/work" },
@@ -37,12 +38,8 @@ export function WorkShell({
 }) {
   const [open, setOpen] = useState(false);
 
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (event: KeyboardEvent) => event.key === "Escape" && setOpen(false);
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [open]);
+  const close = useCallback(() => setOpen(false), []);
+  useDrawer(open, close, "work-drawer");
 
   const sidebar = (
     <div className="flex h-full flex-col bg-brand-900 px-4 py-5 max-lg:pt-[calc(1.25rem+env(safe-area-inset-top))] max-lg:pb-[calc(1.25rem+env(safe-area-inset-bottom))]">
@@ -50,6 +47,7 @@ export function WorkShell({
         <LogoMark className="size-8" />
         <span className="font-display text-lg font-bold text-white">Work</span>
       </Link>
+      <SidebarSearch onSearch={() => setOpen(false)} />
       <div className="flex-1 space-y-6 overflow-y-auto overscroll-contain" onClick={(e) => (e.target as HTMLElement).closest("a") && setOpen(false)}>
         <Suspense fallback={<NavLinks pathname={null} />}>
           <ActiveNavLinks />
@@ -160,5 +158,24 @@ export function NavLink({ href, active, children }: { href: string; active: bool
       {active && <span aria-hidden="true" className="absolute inset-y-2 left-0 w-0.5 rounded-full bg-accent-500" />}
       {children}
     </Link>
+  );
+}
+
+/** Search tasks straight from the menu (on phones: the drawer). Opens /work/search. */
+function SidebarSearch({ onSearch }: { onSearch: () => void }) {
+  return (
+    <form action="/work/search" role="search" className="mb-6" onSubmit={onSearch}>
+      <label className="flex items-center gap-3 rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-brand-100/70 focus-within:outline-2 focus-within:outline-accent-500 max-lg:min-h-11">
+        <Search className="size-[18px] shrink-0 text-brand-200/60" aria-hidden="true" />
+        <span className="sr-only">Search tasks</span>
+        <input
+          type="search"
+          name="q"
+          placeholder="Search tasks"
+          enterKeyHint="search"
+          className="min-w-0 flex-1 bg-transparent py-2 text-white outline-none placeholder:text-brand-200/50"
+        />
+      </label>
+    </form>
   );
 }

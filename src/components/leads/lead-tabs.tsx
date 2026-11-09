@@ -28,7 +28,7 @@ export function LeadTabs({
       </span>
     );
   return (
-    <nav aria-label="Leads" className="scrollbar-none mb-6 flex gap-6 overflow-x-auto border-b border-border">
+    <nav aria-label="Leads" className="scrollbar-none mb-6 flex gap-6 relative overflow-x-auto border-b border-border">
       <Link href="/dashboard/leads" className={tab(active === "all")} aria-current={active === "all" ? "page" : undefined}>
         All leads
       </Link>

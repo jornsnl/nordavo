@@ -26,7 +26,11 @@ export function PriorityChips({ basePath }: { basePath: string }) {
   const hrefWith = useHref(basePath);
   const current = params.get("priority");
   return (
-    <nav aria-label="Priority" className="flex flex-wrap items-center gap-1.5">
+    <nav
+      aria-label="Priority"
+      // Phones: one row that scrolls sideways, next to the view toggle. Wider: chips wrap.
+      className="-my-1 flex min-w-0 snap-strip scrollbar-none items-center gap-1.5 py-1 *:shrink-0 sm:flex-wrap sm:overflow-visible"
+    >
       <Link
         href={hrefWith("priority", null)}
         scroll={false}
@@ -77,12 +81,13 @@ export function ViewToggle({ basePath, view }: { basePath: string; view: "list" 
             href={option.href}
             scroll={false}
             aria-current={active ? "page" : undefined}
-            className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium whitespace-nowrap transition pointer-coarse:min-h-9 focus-visible:outline-2 focus-visible:outline-brand-500 ${
+            className={`relative inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium whitespace-nowrap transition pointer-coarse:min-h-9 focus-visible:outline-2 focus-visible:outline-brand-500 ${
               active ? "bg-brand-700 text-white" : "text-muted hover:bg-brand-50 hover:text-brand-900"
             }`}
           >
             <Icon className="size-4" aria-hidden="true" />
-            {option.label}
+            {/* Icon only on phones, so the toggle fits on the toolbar row. */}
+            <span className="max-sm:sr-only">{option.label}</span>
           </Link>
         );
       })}

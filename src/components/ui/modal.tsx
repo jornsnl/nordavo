@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useRef, type ReactNode } from "react";
 import { X } from "lucide-react";
+import { useScrollLock } from "./use-drawer";
 
 /**
  * Accessible modal built on the native <dialog> element.
@@ -24,6 +25,7 @@ export function Modal({
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   const titleId = useId();
+  useScrollLock(open);
 
   useEffect(() => {
     const dialog = ref.current;
@@ -41,12 +43,19 @@ export function Modal({
       }}
       aria-labelledby={titleId}
       className={`sheet-up m-auto w-[calc(100%-2rem)] rounded-2xl border border-border bg-card p-0 text-ink shadow-2xl backdrop:bg-brand-950/50 max-sm:mb-0 max-sm:w-full max-sm:max-w-none max-sm:rounded-b-none max-sm:border-x-0 max-sm:border-b-0 ${
-        size === "lg" ? "sm:max-w-2xl" : "sm:max-w-lg"
+        size === "lg"
+          ? // Large panels (details, editors) fill the screen below md, like a native page.
+            "sm:max-w-2xl max-md:m-0 max-md:h-dvh max-md:max-h-none max-md:w-full max-md:max-w-none max-md:rounded-none max-md:border-0"
+          : "sm:max-w-lg"
       }`}
     >
       {open && (
-        <div className="max-h-[85dvh] overflow-y-auto overscroll-contain max-sm:max-h-[92dvh] max-sm:pb-safe">
-          <div aria-hidden="true" className="flex justify-center pt-2.5 sm:hidden">
+        <div
+          className={`max-h-[85dvh] overflow-y-auto overscroll-contain max-sm:max-h-[92dvh] max-sm:pb-safe ${
+            size === "lg" ? "max-md:h-full max-md:max-h-none max-md:pt-safe max-md:pb-safe" : ""
+          }`}
+        >
+          <div aria-hidden="true" className={`flex justify-center pt-2.5 sm:hidden ${size === "lg" ? "hidden" : ""}`}>
             <span className="h-1 w-10 rounded-full bg-border" />
           </div>
           <header className="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-border bg-card px-5 py-4 sm:px-6">

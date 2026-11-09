@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, use, useEffect, useState, type ReactNode } from "react";
+import { Suspense, use, useCallback, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { Briefcase, KanbanSquare, LayoutDashboard, Menu, Radar, X } from "lucide-react";
 import { Logo } from "@/components/brand/logo";
@@ -10,6 +10,7 @@ import {
   SidebarSearchButton,
 } from "@/components/search/command-palette";
 import { TabBar, TabButton, type TabItem } from "@/components/ui/tab-bar";
+import { useDrawer } from "@/components/ui/use-drawer";
 import type { PortalModule } from "@/lib/database.types";
 import { canSeePath } from "@/lib/modules";
 import { SidebarNav } from "./sidebar-nav";
@@ -40,14 +41,8 @@ export function AppShell({
   const [open, setOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
 
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setOpen(false);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [open]);
+  const close = useCallback(() => setOpen(false), []);
+  useDrawer(open, close, "mobile-sidebar");
 
   const moreButton = (
     <TabButton

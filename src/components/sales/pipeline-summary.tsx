@@ -12,7 +12,7 @@ export async function PipelineSummary() {
     if (row.pipeline_stage) counts.set(row.pipeline_stage, (counts.get(row.pipeline_stage) ?? 0) + 1);
   }
   return (
-    <ol className="scrollbar-none mb-6 flex gap-2 overflow-x-auto" aria-label="Companies per stage">
+    <ol className="scrollbar-none mb-6 flex gap-2 relative overflow-x-auto" aria-label="Companies per stage">
       {pipelineStages.map((stage, i) => (
         <li key={stage.value} className="min-w-28 flex-1 rounded-xl border border-border bg-card px-3 py-2">
           <Link href="/dashboard/pipeline?mode=board" className="block">

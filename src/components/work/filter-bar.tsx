@@ -36,7 +36,8 @@ export function FilterBar({ filters, basePath }: { filters: FilterDef[]; basePat
   }
 
   return (
-    <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">
+    // On phones the filters share one row (each an equal part) instead of wrapping or running off screen.
+    <div className="flex min-w-0 items-center gap-2 *:min-w-0 *:flex-1 sm:flex-wrap sm:*:flex-none">
       {filters.map((filter) =>
         filter.searchable || filter.options.length > SEARCH_FROM ? (
           <div key={filter.name} className="min-w-0 sm:w-56">
