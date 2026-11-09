@@ -417,6 +417,10 @@ test("no list, board, search, talent pool or MCP code reads profile data", () =>
   const allowed = [/src\/lib\/wsp\//, /src\/components\/wsp\//, /working-style/, /src\/jobs\/wsp\.ts$/, /src\/lib\/database\.types\.ts$/];
   const offenders = filesUnder(join(process.cwd(), "src"))
     .filter((file) => !allowed.some((re) => re.test(file.replace(/\\/g, "/"))))
-    .filter((file) => /wsp_(results|answers|flags|report|client_reports)|lib\/wsp\/(data|report)/.test(readFileSync(file, "utf8")));
+    .filter((file) =>
+      /wsp_(results|answers|flags|report|client_reports)\b|\b(loadReport|listClientReports|getStaffAssessment|listMyAssessments|WspReportView)\b/.test(
+        readFileSync(file, "utf8"),
+      ),
+    );
   assert.deepEqual(offenders, []);
 });

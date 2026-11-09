@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { ListSkeleton, Skeleton } from "@/components/ui/skeleton";
 import { ContactCard } from "@/components/portal/contact-card";
+import { WspPortalSection } from "@/components/wsp/portal-section";
 import { VacancyCard } from "@/components/portal/vacancy-card";
 import { portalStageLabels } from "@/components/portal/labels";
 import { requireClient } from "@/lib/auth";
@@ -43,6 +44,10 @@ export default function PortalOverviewPage() {
         <aside className="min-w-0 space-y-6">
           <Suspense fallback={<ListSkeleton rows={3} />}>
             <PlacementsSummary />
+          </Suspense>
+          {/* Working Style Profiles shared with this client (only when there are any). */}
+          <Suspense fallback={null}>
+            <WspPortalSection />
           </Suspense>
           <ContactCard />
         </aside>
