@@ -138,6 +138,8 @@ export function VideoEditor({ block, content, onChange, disabled }: BlockEditorP
   }
 
   const showTranscript = videoShowsTranscript(content);
+  // Raw while typing; trimmed on save (videoBlockContent).
+  const recordingNote = typeof content.recording_note === "string" ? content.recording_note : "";
   const current = data?.versions.find((v) => v.id === data.video.current_version_id) ?? null;
   const older = data?.versions.filter((v) => v.id !== data.video.current_version_id) ?? [];
   const locked = disabled || busy;
@@ -153,6 +155,26 @@ export function VideoEditor({ block, content, onChange, disabled }: BlockEditorP
   if (!data) {
     return (
       <div className="space-y-4">
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm">
+          <p className="flex items-center gap-2 font-medium text-brand-900">
+            <FileVideo className="size-4" aria-hidden="true" />
+            Waiting for a recording
+            <Badge tone="warning">No video yet</Badge>
+          </p>
+          <p className="mt-1 text-muted">
+            Learners see &ldquo;the video follows soon&rdquo;. Until a file is uploaded this block counts as done, so it never blocks the lesson.
+          </p>
+          <Field label="What to record (only for Nordavo)" htmlFor={`recording-note-${block.id}`} className="mt-3">
+            <Textarea
+              id={`recording-note-${block.id}`}
+              rows={3}
+              value={recordingNote}
+              disabled={disabled}
+              onChange={(e) => onChange({ ...content, recording_note: e.target.value })}
+              placeholder="What the video should cover, who records it."
+            />
+          </Field>
+        </div>
         <div className="rounded-xl border border-dashed border-border bg-surface px-4 py-5">
           <p className="mb-3 text-sm text-muted">
             Upload your own recording (MP4, WebM or MOV, up to 5 GB). Large files are uploaded in parts and resume after a hiccup. Keep this page open

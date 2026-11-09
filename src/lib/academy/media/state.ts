@@ -76,3 +76,20 @@ export function readWorksheetState(state: Json | null): WorksheetState {
 export function videoShowsTranscript(content: Json | null | undefined): boolean {
   return !(content && typeof content === "object" && !Array.isArray(content) && (content as Record<string, unknown>).transcript === false);
 }
+
+/**
+ * Video block content: the recording brief while there is no video yet (what
+ * Nordavo still has to record, e.g. in the start curriculum). The editor shows
+ * it as "waiting for a recording"; learners see "the video follows soon".
+ */
+export function videoRecordingNote(content: Json | null | undefined): string {
+  const note = content && typeof content === "object" && !Array.isArray(content) ? (content as Record<string, unknown>).recording_note : null;
+  return typeof note === "string" ? note.trim().slice(0, 2000) : "";
+}
+
+/** The stored video block content: the transcript switch and, when set, the recording brief. */
+export function videoBlockContent(content: Json | null | undefined): { transcript: boolean; recording_note?: string } {
+  const transcript = videoShowsTranscript(content);
+  const note = videoRecordingNote(content);
+  return note ? { transcript, recording_note: note } : { transcript };
+}
