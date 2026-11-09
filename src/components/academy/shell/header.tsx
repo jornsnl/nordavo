@@ -69,7 +69,8 @@ export function AcademyBrand() {
     <Link href="/academy" className="flex items-center gap-2.5 rounded-lg focus-visible:outline-2 focus-visible:outline-academy-orange-600">
       <LogoMark className="size-8" />
       <span className="font-display text-base font-bold tracking-tight text-academy-blue-900">
-        Nordavo <span className="text-academy-orange-600">Academy</span>
+        <span className="max-sm:hidden">Nordavo </span>
+        <span className="text-academy-orange-600">Academy</span>
       </span>
     </Link>
   );
