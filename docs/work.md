@@ -53,6 +53,8 @@ Eén persoon kan in meerdere workspaces zitten met verschillende rollen, bijvoor
 
 Iedereen die je in Work uitnodigt, als admin, member of guest, krijgt in het portaal de rol `external`. Daarmee zie je alleen `/work`: niet het dashboard, niet de klanten, kandidaten, leads of vacatures, en geen andere workspaces. Dat staat niet alleen in de interface, maar wordt afgedwongen in de database (RLS), dus ook via een directe link of de API kom je er niet bij.
 
+Developers en kandidaten van de Academy (portaalrol `developer` of `candidate`) hebben geen Work. Wordt een Work gast developer of kandidaat, dan worden zijn lidmaatschappen gedeactiveerd (in het toegangslog als `deactivated`) en zijn API-tokens ingetrokken; een nieuwe uitnodiging accepteren lukt niet. De database controleert de portaalrol in `work_private.role_in()` (zie `docs/academy.md`, sectie 17).
+
 - Freelancer op één project: nodig uit als **Guest** bij dat project.
 - Freelancer op de hele workspace: nodig uit als **Member**. Die ziet alle open projecten van die workspace, en verder niets.
 

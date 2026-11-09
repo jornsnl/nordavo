@@ -6,8 +6,8 @@ Dit document is het contract voor iedereen die de Academy uitbreidt. Het beschri
 
 | Onderdeel | Waar |
 | --- | --- |
-| Migraties | `supabase/migrations/20261112000000_academy_foundation.sql` (rollen, mensen, content, toegang), `20261112010000_academy_placements.sql` (plaatsing, ritme, verlof, meldingen), `20261112020000_academy_learning.sql` (leerdata, afrond-engine, RPC's), `20261112030000_academy_curriculum.sql` (startcurriculum), `20261112040000_academy_editor.sql` (editorhulpen), `20261113000000_academy_media.sql` (video, documenten, werkbladen, certificaten, zie 12) |
-| SQL tests | `supabase/tests/academy_rls.test.sql` (rollen en zichtbaarheid), `supabase/tests/academy_engine.test.sql` (afrondregels, ontgrendelen, dupliceren), `supabase/tests/academy_media.test.sql` (media, werkbladen, certificaat) |
+| Migraties | `supabase/migrations/20261112000000_academy_foundation.sql` (rollen, mensen, content, toegang), `20261112010000_academy_placements.sql` (plaatsing, ritme, verlof, meldingen), `20261112020000_academy_learning.sql` (leerdata, afrond-engine, RPC's), `20261112030000_academy_curriculum.sql` (startcurriculum), `20261112040000_academy_editor.sql` (editorhulpen), `20261113000000_academy_media.sql` (video, documenten, werkbladen, certificaten, zie 12), `20261115000000_academy_security.sql` (beveiliging, zie 17) |
+| SQL tests | `supabase/tests/academy_rls.test.sql` (rollen en zichtbaarheid), `supabase/tests/academy_engine.test.sql` (afrondregels, ontgrendelen, dupliceren), `supabase/tests/academy_media.test.sql` (media, werkbladen, certificaat), `supabase/tests/academy_security.test.sql` (beveiliging, zie 17) |
 | Types | `src/lib/academy/database.ts` (samengevoegd in `src/lib/database.types.ts`) |
 | Puur (getest) | `src/lib/academy/i18n.ts`, `time.ts`, `sanitize.ts`, `progress.ts`, `people.ts`, `routing.ts`, `mail.ts`, `blocks/types.ts` |
 | Server | `src/lib/academy/auth.ts`, `data.ts` (deelnemer), `admin.ts` (beheer), `blocks/server.ts` |
@@ -17,21 +17,23 @@ Dit document is het contract voor iedereen die de Academy uitbreidt. Het beschri
 
 ## 1. Rollen en zichtbaarheid
 
-| Rol | Hoe herkend | Ziet |
-| --- | --- | --- |
-| Nordavo beheer | `profiles.role = 'admin'`, of `member` met module `academy` in `profiles.modules` | Alles: content, mensen, antwoorden, opdrachten, pulse. Beheert in `/dashboard/academy`, ziet `/academy` als voorbeeld (er wordt dan geen voortgang opgeslagen) |
-| Klantbeheerder | `profiles.role = 'client'`, `academy_members.academy_role = 'client_admin'` | Klantcourse, eigen plaatsingen, voortgang en scores van collega's (zelfde `client_id`) en van de developer in zijn plaatsingen |
-| Klant lid | `client`, `client_member` | Klantcourse en de plaatsing; alleen eigen voortgang |
-| Meelezer | `client`, `client_reader` | Alleen voortgang en scores van collega's en de developer, nooit antwoorden of notities. Volgt zelf geen course |
-| Developer | `profiles.role = 'developer'`, `academy_role = 'developer'` | Developercourse en eigen plaatsing |
-| Kandidaat | `profiles.role = 'candidate'`, `academy_role = 'candidate'` | Alleen de open modules van de developercourse; niets van klanten of plaatsingen |
+| Rol | Hoe herkend | Ziet | Klantportaal |
+| --- | --- | --- | --- |
+| Nordavo beheer | `profiles.role = 'admin'`, of `member` met module `academy` in `profiles.modules` | Alles: content, mensen, antwoorden, opdrachten, pulse. Beheert in `/dashboard/academy`, ziet `/academy` als voorbeeld (er wordt dan geen voortgang opgeslagen) | Nee (dashboard) |
+| Klantbeheerder | `profiles.role = 'client'`, `academy_members.academy_role = 'client_admin'` | Klantcourse, eigen plaatsingen, voortgang en scores van collega's (zelfde `client_id`) en van de developer in zijn plaatsingen | Ja |
+| Klant lid | `client`, `client_member` | Klantcourse en de plaatsing; alleen eigen voortgang | **Nee**, alleen de Academy |
+| Meelezer | `client`, `client_reader` | Alleen voortgang en scores van collega's en de developer, nooit antwoorden of notities. Volgt zelf geen course | **Nee**, alleen de Academy |
+| Developer | `profiles.role = 'developer'`, `academy_role = 'developer'` | Developercourse en eigen plaatsing | Nee, ook geen Work |
+| Kandidaat | `profiles.role = 'candidate'`, `academy_role = 'candidate'` | Alleen de open modules van de developercourse; niets van klanten of plaatsingen | Nee, ook geen Work |
+
+Het klantportaal (`/portal`, alle `portal_*` functies, de klant-RLS op vacatures, kandidaten, sollicitaties, plaatsingen en cv's) is er alleen voor klantgebruikers **zonder** Academy-rol of met Academy-rol `client_admin`. Een klant lid of meelezer ziet daar niets: geen tarieven (`portal_placements().monthly_rate`), geen kandidaten, geen cv's. De database regelt dat in `current_client_id()` (null voor `client_member` en `client_reader`); Academy-functies gebruiken die niet en blijven werken. Zie sectie 17.
 
 Regels:
 
 * Alleen Nordavo voegt mensen toe (`academy_add_person()` controleert `academy_is_manager()`); niemand kan zichzelf of een ander uitnodigen.
 * De klant ziet nooit salaris of kosten van de developer. Klanten en developers lezen de tabel `placements` niet; plaatsingsgegevens komen alleen via `academy_my_placements()` en `academy_placement_people()`, zonder geldkolommen (getest).
 * Module `academy` is nieuw in Settings, Users. Net als bij de andere modules kregen bestaande teamleden hem erbij; een admin kan hem per lid uitzetten.
-* De rol staat in het sessietoken (`app_metadata.portal_role`, door de database bijgehouden). De proxy (`src/lib/supabase/proxy.ts` met `src/lib/academy/routing.ts`) stuurt developers en kandidaten altijd naar `/academy` (plus `/auth` en `/login`; een API geeft 403) en klanten naar `/portal` of `/academy` (plus Work, `/auth`, `/login`, `/api`). Na het inloggen landen developers en kandidaten op `/academy`.
+* De rol staat in het sessietoken (`app_metadata.portal_role` en `app_metadata.academy_role`, door de database bijgehouden). De proxy (`src/lib/supabase/proxy.ts` met `src/lib/academy/routing.ts`) stuurt developers en kandidaten altijd naar `/academy` (plus `/auth`, `/login` en `/api/academy`; elke andere API geeft 403, ook `/api/work`, `/api/mcp` en `/api/jobs`), klant leden en meelezers naar `/academy` (plus Work, `/auth`, `/login`, `/api/academy`, `/api/work`; `/portal` stuurt door naar `/academy`, een andere API geeft 403) en de overige klanten naar `/portal` of `/academy` (plus Work, `/auth`, `/login`, `/api`). Na het inloggen landen developers, kandidaten, klant leden en meelezers op `/academy`. De knop terug naar het klantportaal staat alleen bij wie het portaal heeft (`CurrentUser.clientPortal`).
 * Pagina's controleren opnieuw: `requireAcademyUser()` (deelnemers en beheer) en `requireAcademyManager()` (`requireModule('academy')`) in `src/lib/academy/auth.ts`.
 
 ### Helpers in SQL
@@ -39,7 +41,7 @@ Regels:
 | Functie | Wat |
 | --- | --- |
 | `academy_is_manager()` | Admin of member met module `academy` |
-| `academy_member_role(profile?)` | Academy rol, null als geen deelnemer |
+| `academy_member_role(profile?)` | Academy rol, null als geen deelnemer. Met een ander profiel dan het eigen alleen voor beheer (zie 17) |
 | `academy_course_scope(course, profile)` | `all`, `default` of null; alleen intern |
 | `academy_has_course(course, profile?)` | Heeft toegang (eigen of via groep) |
 | `academy_course_visible(course)`, `academy_module_visible(module)`, `academy_lesson_visible(lesson)` | Titels die de ingelogde gebruiker mag zien (ook als ze op slot zitten) |
@@ -195,7 +197,8 @@ Scopes: `all` is de hele course (een geplaatste developer, klanten), `default` z
 | `academy_my_placements()` | Klant, developer | Eigen plaatsingen zonder geld: rol, status, data, uren, overlapvenster, proeftijd, klant, developer, vacature, Nordavo contact (naam, mail, boekingslink) |
 | `academy_placement_people(placement)` | Leden, beheer | Namen, mail en rol in de plaatsing |
 | `academy_people_progress()` | Iedereen | Voortgang en scores (lessen, kennischeck gemiddelde, goedgekeurde opdrachten, laatst actief, certificaat) van wie je mag volgen |
-| `academy_add_person(profile, role, locale, start_date, client, candidate, course, scope, open_module_ids, time_zone)` | Beheer | Persoon toevoegen of bijwerken: profielrol (klanten blijven `client`, het team houdt zijn rol, een developer wordt nooit terug kandidaat, een beller of klant kan geen developer worden), Academy rij, toegang (scope wordt nooit kleiner) en open modules |
+| `academy_add_person(profile, role, locale, start_date, client, candidate, course, scope, open_module_ids, time_zone)` | Beheer | Persoon toevoegen of bijwerken: profielrol (klanten blijven `client` bij hun eigen klant, een klantgebruiker van een andere klant wordt geweigerd, het team houdt zijn rol, een developer wordt nooit terug kandidaat, een beller of klant kan geen developer worden), Academy rij, toegang (scope wordt nooit kleiner) en open modules |
+| `academy_add_person_check(profile?, role, client, course, scope, open_module_ids)` | Beheer | Alle controles van `academy_add_person`, zonder iets te wijzigen (profiel null voor een nieuw adres) |
 | `academy_duplicate_lesson(lesson, module?)` | Beheer | Kopie als concept met blokken, taken en kennischeckvragen; video's en documenten worden gedeeld |
 | `academy_duplicate_module(module)` | Beheer | Kopie aan het eind van de course, met kopieën van de lessen |
 | `academy_client_options()`, `academy_candidate_options(search)` | Beheer | Keuzelijsten |
@@ -259,6 +262,7 @@ Gebouwd: **Uitleg** (rijke tekst met koppen, lijsten, vet, cursief, citaat, link
 
 `/dashboard/academy/people`: per stuk (naam, mail) of in bulk (geplakte lijst `Naam, mail[, startdatum]` per regel, ook `Naam <mail>`, of een CSV met kopregel `name, email, start_date`; hooguit 200 tegelijk, `parseBulkPeople` in `src/lib/academy/people.ts`). Je kiest rol, klant (voor klantrollen) of ATS kandidaat, course, scope, extra open modules, startdatum en taal.
 
+* Eerst `academy_add_person_check()`: dezelfde controles als `academy_add_person()` (rol, klant, course, modules, het bestaande account), zonder iets te wijzigen. Pas daarna wordt een account gemaakt; mislukt het toevoegen toch, dan wordt het net gemaakte account weer verwijderd (ook in de ATS-automatisering, `process.ts`).
 * Nieuw adres: account met `auth.admin.generateLink({ type: 'invite' })` (vereist `SUPABASE_SECRET_KEY`); de mail bevat de link om een wachtwoord in te stellen.
 * Bestaand account: wordt ingeschreven, ook zonder secret key; de mail bevat een inloglink naar `/login?next=/academy`. Een Work gast (rol `external`, logt in met een maillink) krijgt een link om een wachtwoord in te stellen, want Academy-rollen loggen in met wachtwoord of passkey.
 * Daarna `academy_add_person()` en de rol in `app_metadata`. De mail (`academyInviteMail` in `src/lib/academy/mail.ts`, NL of EN, categorie `academy_invite` in het maillog) gaat via `sendMail`; zonder `RESEND_API_KEY` wordt hij gelogd in plaats van verstuurd.
@@ -337,8 +341,8 @@ Vier bloktypes: opdracht (`assignment`), taken (`tasks`), kennischeck (`knowledg
 ### Kennischeck
 
 * Drie meerkeuzevragen per check (de editor waarschuwt bij een ander aantal): vraag, 2 tot 6 opties, het goede antwoord, uitleg. Per stuk opgeslagen in `academy_check_questions` (alleen beheer leest die, met antwoord).
-* `academy_check_questions_for(block)` geeft vragen en opties zonder antwoord aan wie de les mag openen. `academy_submit_check(block, answers)` scoort in de database (alle vragen beantwoord), slaat de poging op en geeft per vraag goed/fout, het goede antwoord en de uitleg terug. `academy_check_results(block)` geeft de laatste eigen poging met uitleg, het aantal pogingen en de beste score. Opnieuw proberen mag; elke poging blijft. De regel `min_percent` telt per poging. Een beheerder in voorbeeld krijgt een score, maar er wordt niets opgeslagen.
-* Scores: Nordavo op de mensenpagina (beste, laatste, pogingen); klantbeheerders en meelezers alleen het gemiddelde via `academy_people_progress()`, nooit antwoorden.
+* `academy_check_questions_for(block)` geeft vragen en opties zonder antwoord aan wie de les mag openen. `academy_submit_check(block, answers)` scoort in de database (alle vragen beantwoord), slaat de poging op en geeft per vraag goed/fout, het goede antwoord en de uitleg terug. `academy_check_results(block)` geeft de laatste eigen poging met uitleg, het aantal pogingen en de beste score. Opnieuw proberen mag (onbeperkt); elke poging blijft. Omdat de goede antwoorden en de uitleg na elke poging zichtbaar zijn, telt in het ATS alleen de **eerste poging** per check (rangschikken, filteren, gemiddelden); beste en laatste staan ernaast op de kandidaatkaart. De regel `min_percent` telt per poging. Een beheerder in voorbeeld krijgt een score, maar er wordt niets opgeslagen.
+* Scores: Nordavo op de mensenpagina (beste, laatste, pogingen) en in het ATS (eerste poging, zie hieronder); klantbeheerders en meelezers alleen het gemiddelde via `academy_people_progress()`, nooit antwoorden.
 
 ### Vragenlijst (persoonlijkheidstest)
 
@@ -356,10 +360,10 @@ Functies voor Academy beheerders en teamleden met module `recruitment`; per ATS-
 
 | Functie | Per rij |
 | --- | --- |
-| `academy_candidate_check_scores(candidate?)` | Kandidaat, kennischeck (blok, titel, les), pogingen, `best_percent`, `last_percent`, `last_attempt_at` |
+| `academy_candidate_check_scores(candidate?)` | Kandidaat, kennischeck (blok, titel, les), pogingen, `best_percent`, `last_percent`, `last_attempt_at`, `first_percent` (de score die telt) |
 | `academy_candidate_assignments(candidate?)` | Kandidaat, opdracht: laatste poging, status, `ai_total` (voorstel), `final_score` (Nordavo), `review_path` (link naar de beoordeling) |
 | `academy_candidate_questionnaire_results(candidate?)` | Kandidaat, vragenlijst: `consented_at`, `submitted_at`, `result` (dimensiescores); alleen met geldige toestemming |
-| `academy_candidate_learn_summary(candidates[]?)` | Eén rij per kandidaat voor kolommen in de talentpool: `checks_done`, `check_average_percent` (gemiddelde van de beste scores), `assignments_submitted`, `assignments_approved`, `assignment_average_score`, `questionnaire_done` |
+| `academy_candidate_learn_summary(candidates[]?)` | Eén rij per kandidaat voor kolommen in de talentpool: `checks_done`, `check_average_percent` (gemiddelde van de eerste pogingen), `assignments_submitted`, `assignments_approved`, `assignment_average_score`, `questionnaire_done` |
 
 ## 13. Media, werkbladen, certificaten en meldingen
 
@@ -472,7 +476,7 @@ Op `/dashboard/academy` staat bovenaan een rood vak zodra er pulse-signalen open
 * Nederland wordt berekend (`academy_easter()` in SQL en `easterSunday()` in TypeScript, zelfde regels): Nieuwjaar, Goede Vrijdag, Pasen, Koningsdag (26 april als 27 april een zondag is), Bevrijdingsdag, Hemelvaart, Pinksteren, Kerst. India (Karnataka) op vaste datum: Republic Day, Goede Vrijdag, Ambedkar Jayanti, May Day, Independence Day, Gandhi Jayanti, Kannada Rajyotsava, Kerst. `academy_seed_holidays(jaar)` vult een jaar aan (gedaan voor 2026 tot en met 2030; knop op de feestdagenpagina).
 * De Karnataka-feestdagen die de maan volgen (Sankranti, Shivaratri, Ugadi, Ramzan, Bakrid, Muharram, Eid-e-Milad, Ganesh Chaturthi, Dasara, Deepavali, Valmiki en Kanakadasa Jayanti) staan voor 2026 tot en met 2028 als **verwachte** datum met `confirmed = false`; deelnemers zien "datum kan nog wijzigen". **Nordavo controleert ze tegen de officiële lijst van de deelstaat Karnataka** (verschijnt eind van het jaar ervoor) en zet ze op "Date is right" of past de datum aan. Voor 2029 en later voegt Nordavo ze toe.
 * Leesbaar voor Academy-deelnemers en het team; Work-gasten zien ze niet (policy "Academy people read holidays" vervangt "Everyone reads holidays").
-* Agenda-abonnement: `academy_placement_calendars` (één token van 64 tekens per plaatsing), `academy_calendar_token()` voor leden en beheer, `academy_rotate_calendar_token()` voor beheer, `academy_calendar_feed(token)` (ook voor `anon`) geeft alleen feestdagen, tijdlijn en goedgekeurd verlof, zonder toelichting. ICS met `buildIcs` (hele dagen, regels gevouwen op 75 bytes).
+* Agenda-abonnement: `academy_placement_calendars` (één token van 64 tekens per plaatsing), `academy_calendar_token()` voor leden en beheer, `academy_rotate_calendar_token()` voor beheer, `academy_calendar_feed(token)` (ook voor `anon`) geeft alleen feestdagen, tijdlijn en goedgekeurd verlof, zonder toelichting, en niets voor een beëindigde plaatsing. De token wordt vernieuwd als iemand uit de plaatsing wordt gehaald en als de plaatsing eindigt (`status = 'ended'`); oude links werken dan niet meer en de overgebleven leden zien de nieuwe link op de plaatsingspagina. ICS met `buildIcs` (hele dagen, regels gevouwen op 75 bytes).
 
 ### Documenten
 
@@ -554,13 +558,13 @@ Eén rij `academy_ats_settings`, te wijzigen op `/dashboard/academy/automation` 
 
 | Functie | Wat |
 | --- | --- |
-| `academy_ats_progress(candidate_ids?)` (intern) | Per kandidaat in de developercourse: ingeschreven, lessen gedaan en totaal, voortgang %, modules, gestart, afgerond (certificaat of alle modules), doorlooptijd in dagen, laatste activiteit, 14 dagen inactief, kennischecks (beste poging per check, gemiddeld), opdrachten (laatste poging: ingeleverd, wachtend op reactie, gemiddelde AI-score en eindscore), kijkpercentage (gemiddeld over alle video's van de course, niet bekeken telt als 0), certificaat |
+| `academy_ats_progress(candidate_ids?)` (intern) | Per kandidaat in de developercourse: ingeschreven, lessen gedaan en totaal, voortgang %, modules, gestart, afgerond (certificaat of alle modules), doorlooptijd in dagen, laatste activiteit, 14 dagen inactief, kennischecks (eerste poging per check, gemiddeld), opdrachten (laatste poging: ingeleverd, wachtend op reactie, gemiddelde AI-score en eindscore), kijkpercentage (gemiddeld over alle video's van de course, niet bekeken telt als 0), certificaat |
 | `academy_ats_pool(...)` | De talentpool: filters, sorteren (`name`, `progress`, `lessons`, `check`, `ai`, `final`, `watch`, `last_activity`, `lead_time`, `started`, `certificate`), pagina's, `total_count` |
 | `academy_ats_columns(candidate_ids)` | Kolommen voor de kandidatenlijst |
 | `academy_ats_candidate_detail(candidate)` | De kaart: samenvatting, `academy_person_detail` en de laatste gebeurtenissen |
 | `academy_person_detail(profile)` | Courses met scope, modules met toestand en afronddatum, lessen met data, video's met kijkpercentage, certificaten, groepen (beheer; recruitment alleen voor kandidaten) |
 
-Lezen mogen Academy-beheerders en teamleden met module `recruitment` (`academy_ats_can_read()`). De kaart haalt kennischecks, opdrachten (met link naar de beoordeling) en de uitslag van de vragenlijst uit de functies van sectie 12 (`academy_candidate_check_scores`, `academy_candidate_assignments`, `academy_candidate_questionnaire_results`). De talentpool rekent in één SQL-query met dezelfde regels (beste poging, laatste poging), maar alleen binnen de developercourse; `academy_candidate_learn_summary` telt over alle courses. Snelheid: 5000 kandidaten, 3000 in de Academy, een pagina van de talentpool in ongeveer 0,15 seconde (lokaal gemeten); extra indexen staan in de read-migratie.
+Lezen mogen Academy-beheerders en teamleden met module `recruitment` (`academy_ats_can_read()`). De kaart haalt kennischecks, opdrachten (met link naar de beoordeling) en de uitslag van de vragenlijst uit de functies van sectie 12 (`academy_candidate_check_scores`, `academy_candidate_assignments`, `academy_candidate_questionnaire_results`). De talentpool rekent in één SQL-query met dezelfde regels (eerste poging per kennischeck, laatste poging per opdracht), maar alleen binnen de developercourse; `academy_candidate_learn_summary` telt over alle courses. Snelheid: 5000 kandidaten, 3000 in de Academy, een pagina van de talentpool in ongeveer 0,15 seconde (lokaal gemeten); extra indexen staan in de read-migratie.
 
 ### Automatisering op ATS-statussen
 
@@ -728,3 +732,21 @@ from academy_lesson_blocks b join academy_lessons l on l.id = b.lesson_id
 where b.content::text ~ '\[Nordavo (vult in|to fill in):';
 ```
 
+## 17. Beveiliging
+
+Migratie `20261115000000_academy_security.sql`, SQL test `supabase/tests/academy_security.test.sql`, unit tests in `tests/academy-routing.test.ts` en `tests/work.test.ts`. Uitkomst van een beveiligingsreview van de Academy.
+
+| Onderwerp | Regel | Waar |
+| --- | --- | --- |
+| Klantportaal | Alleen klantgebruikers zonder Academy-rol of met `client_admin`. `client_member` en `client_reader` krijgen niets uit `portal_*`, geen cv's (`client_can_open_file`) en geen klant-RLS: `current_client_id()` is voor hen null. De proxy houdt ze uit `/portal` (rol in `app_metadata.academy_role`, trigger `academy_members_sync_app_role`); `requireClient()` stuurt ze naar `/academy` | `current_client_id()`, `src/lib/academy/routing.ts`, `src/lib/auth.ts` |
+| Klant wisselen | `academy_add_person()` verhuist een klantgebruiker nooit naar een andere klant (fout "This account is a client user of another client"). Verandert `profiles.client_id` of de rol toch (bijvoorbeeld via Settings, Users), dan verdwijnen de klantlidmaatschappen van plaatsingen van een andere klant (trigger `academy_profiles_after_role_change`) | idem |
+| Work | Wie developer of kandidaat wordt, verliest Work: lidmaatschappen gedeactiveerd zoals `work_deactivate_member()` (open taken en projectlidmaatschappen weg, in het toegangslog als `deactivated`), Work API-tokens ingetrokken. `work_private.role_in()` vraagt een portaalrol `admin`, `member`, `external` of `client`; een trigger (`work_members_portal_role_guard`) weigert een actief lidmaatschap voor developers en kandidaten (ook via een uitnodiging). `requireWorkUser()` en `authenticateWorkToken()` weigeren ze ook. Klant leden en meelezers houden Work als ze daar zijn uitgenodigd | migratie, `src/lib/work/data.ts`, `src/lib/work/tokens.ts` |
+| API in de proxy | De Academy-beperking geldt ook voor de publieke API-paden (`/api/work`, `/api/mcp`, `/api/jobs`, `/api/webhooks`) zodra er een sessie is: developers en kandidaten mogen alleen `/api/academy`, klant leden en meelezers `/api/academy` en `/api/work`. Zonder sessie (tokens, webhooks, cron) verandert niets | `src/lib/supabase/proxy.ts` |
+| Agenda-link | Nieuwe token als een lid uit de plaatsing gaat en als de plaatsing eindigt; de feed is leeg voor een beëindigde plaatsing | `academy_calendar_feed`, triggers op `academy_placement_members` en `placements` |
+| Helpers met een profiel | `academy_member_role`, `academy_has_course`, `academy_placement_role` en `academy_person_client` antwoorden voor een ingelogde gebruiker alleen over zichzelf (null of false voor een ander), behalve voor Academy-beheer. Ze zijn security invoker en lezen via `academy_private.*` (niet via de API bereikbaar). Vanuit andere security definer functies en voor de service role antwoorden ze voor iedereen, dus de motor, jobs en meldingen werken zoals voorheen. Andere functies met een profielparameter voor `authenticated` controleren zelf al (beheer, recruitment, of eigen id): `academy_can_view_progress` (bedoeld voor een ander profiel), `academy_task_can_tick`, `academy_person_tasks`, `academy_person_detail`, `academy_ats_enrol`, `academy_add_person(_check)` | migratie, sectie 5 |
+| Groepen per vacature | `academy_ats_on_application()` zet `v_event` per groep op null (in PL/pgSQL maakt `returning ... into` zonder rij hem al null; nu ook expliciet) | migratie |
+| Werkbladen | De deelnemer leest, maakt en wijzigt eigen antwoorden en mag alleen niet-ingeleverde antwoorden verwijderen: ingeleverd blijft vast, ook niet via verwijderen en opnieuw maken | policies op `academy_worksheet_answers` |
+| Kennischecks in het ATS | Antwoorden en uitleg komen na elke poging terug (zo bedoeld) en opnieuw proberen is onbeperkt. Daarom rekenen de talentpool (`academy_ats_progress`, `academy_ats_pool`, filters en sorteren op `check`), het groepsrapport, `academy_candidate_learn_summary` en de kaart met de **eerste poging** per check; `academy_candidate_check_scores` en `academy_person_detail` geven `first_percent` naast beste en laatste. `academy_check_attempts.created_at` is `clock_timestamp()`, zodat "eerste" ook binnen één transactie vastligt. De klantkant (`academy_people_progress`) is niet veranderd | migratie, `src/components/academy/ats/candidate-card.tsx` |
+| Accounts bij toevoegen | Eerst controleren (`academy_add_person_check`), dan pas een account maken; mislukt het toevoegen toch, dan wordt het net gemaakte account verwijderd. De ATS-automatisering verwijdert een net gemaakt account als het databasedeel faalt | `src/app/dashboard/academy/people/actions.ts`, `src/lib/academy/ats/process.ts` |
+
+Let op: de rol in het sessietoken wordt pas bij het verversen van de sessie bijgewerkt (hooguit een uur). De pagina's en de database controleren daarom zelf ook; een klant lid met een oud token komt via de proxy nog op `/portal`, maar `requireClient()` stuurt hem door en de portaalfuncties geven niets.
