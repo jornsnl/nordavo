@@ -283,11 +283,16 @@ stable
 security definer
 set search_path = ''
 as $$
-  with cohort as (
+  with cohort as materialized (
     select am.profile_id, am.created_at, am.last_active_at
     from public.academy_members am
     where public.academy_is_manager()
-      and public.academy_course_scope(p_course_id, am.profile_id) is not null
+      and exists (
+        select 1 from public.academy_course_access a
+        where a.course_id = p_course_id
+          and (a.profile_id = am.profile_id
+            or a.group_id in (select gm.group_id from public.academy_group_members gm where gm.profile_id = am.profile_id))
+      )
       and am.academy_role <> 'client_reader'
       and (p_group_id is null or exists (
         select 1 from public.academy_group_members gm where gm.group_id = p_group_id and gm.profile_id = am.profile_id))
@@ -305,7 +310,7 @@ as $$
   firsts as (
     select distinct on (lesson_id) * from steps order by lesson_id, step
   ),
-  progress as (
+  progress as materialized (
     select c.profile_id, f.step, lp.completed_at,
       greatest(c.last_active_at, lp.last_viewed_at, lp.updated_at) as seen
     from cohort c
@@ -318,21 +323,37 @@ as $$
     from progress p
     order by p.profile_id, p.step desc
   ),
+  -- Course done: every published module with lessons completed (as academy_course_done).
+  mods as materialized (
+    select m.id from public.academy_modules m
+    where m.course_id = p_course_id and m.status = 'published' and public.academy_module_has_lessons(m.id)
+  ),
+  done_people as (
+    select mc.profile_id from public.academy_module_completions mc
+    where mc.module_id in (select id from mods) and mc.profile_id in (select profile_id from cohort)
+    group by mc.profile_id
+    having count(*) >= (select count(*) from mods) and (select count(*) from mods) > 0
+  ),
   stopped as (
     select f.step, count(*)::integer as n
     from furthest f
     join cohort c on c.profile_id = f.profile_id
     where f.completed_at is null
       and coalesce(f.last_seen, c.created_at) < now() - interval '14 days'
-      and not public.academy_course_done(p_course_id, f.profile_id)
+      and f.profile_id not in (select profile_id from done_people)
     group by f.step
-  )
+  ),
+  counts as (
+    select p.step, count(*)::integer as reached, count(*) filter (where p.completed_at is not null)::integer as completed
+    from progress p group by p.step
+  ),
+  size as (select count(*)::integer as n from cohort)
   select f.step, f.module_id, f.module_title, f.lesson_id, f.lesson_title,
-    (select count(*) from cohort)::integer,
-    (select count(*) from progress p where p.step = f.step)::integer,
-    (select count(*) from progress p where p.step = f.step and p.completed_at is not null)::integer,
-    coalesce((select s.n from stopped s where s.step = f.step), 0)
+    size.n, coalesce(ct.reached, 0), coalesce(ct.completed, 0), coalesce(st.n, 0)
   from firsts f
+  cross join size
+  left join counts ct on ct.step = f.step
+  left join stopped st on st.step = f.step
   order by f.step;
 $$;
 
