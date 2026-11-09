@@ -133,7 +133,7 @@ De Cal.com taak hierboven is de hoofdroute voor salesafspraken. De webhook `/api
 
 ## Fallback jobs
 
-Deze portaaljobs zijn vervangen door een taak van Claude. Ze staan op geen schema meer (niet in `.github/workflows/gtm-jobs.yml`, en `POST /api/jobs/<naam>` met `CRON_SECRET` geeft 409), maar ze draaien nog met de hand: **Run now** of **Run chain** op **Beheer, Jobs**, *Run workflow* in GitHub Actions, of `npm run job -- <naam>`. Op de Jobs pagina staan ze met het label *Fallback* en de taak die ze vervangt (`fallbackJobs` in `src/jobs/registry.ts`).
+Deze portaaljobs zijn vervangen door een taak van Claude. Ze staan op geen schema meer (niet in `.github/workflows/gtm-jobs.yml`, en `POST /api/jobs/<naam>` met `CRON_SECRET` geeft 409), maar ze draaien nog met de hand: **Run now** of **Run chain** op **Beheer, Jobs**, *Run workflow* in GitHub Actions, of `npm run job -- <naam>`. Op de Jobs pagina staan ze ingeklapt onder *Fallbacks, done by Claude*, met de taak die ze vervangt (`fallbackJobs` in `src/jobs/registry.ts`). Omdat Claude dit werk met zijn eigen connectors doet, verwacht het portaal hun API keys niet: een ontbrekende key is daar geen fout, alleen een notitie voor wie de fallback met de hand wil draaien.
 
 | Fallback job | Reeks | Vervangen door | Nodig om met de hand te draaien |
 | --- | --- | --- | --- |

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import Form from "next/form";
-import { History, KeyRound, TriangleAlert, Workflow } from "lucide-react";
+import { Bot, ChevronDown, History, KeyRound, TriangleAlert, Workflow } from "lucide-react";
 import { EmptyState } from "@/components/dashboard/empty-state";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { FilterSheet } from "@/components/leads/filter-sheet";
@@ -102,11 +102,15 @@ async function JobsOverview() {
     const mod = jobModule(name);
     return mod === null || user.modules.includes(mod);
   };
-  const names = Object.keys(jobs).filter(visible);
+  const allNames = Object.keys(jobs).filter(visible);
+  const names = allNames.filter((n) => !fallbackJobs[n]);
+  const fallbackNames = allNames.filter((n) => fallbackJobs[n]);
   const visibleChains = Object.entries(chains).filter(([, chain]) => chain.jobs.every(visible));
+  const scheduledChains = visibleChains.filter(([, chain]) => chain.scheduled);
+  const fallbackChains = visibleChains.filter(([, chain]) => !chain.scheduled);
   const needsVacancy = names.some((n) => JOB_REQUIRED_PARAMS[n]?.name === "vacancy");
   const [lastRuns, vacancies] = await Promise.all([
-    getLastRuns(names),
+    getLastRuns(allNames),
     needsVacancy ? listVacancyOptions() : Promise.resolve([]),
   ]);
   const dbReady = hasJobDb();
@@ -138,10 +142,10 @@ async function JobsOverview() {
       <Card>
         <CardHeader
           title="Chains"
-          description="A chain runs its jobs one after the other. Scheduled chains run through GitHub Actions; fallback chains only run when you press the button."
+          description="A chain runs its jobs one after the other, on its schedule through GitHub Actions."
         />
         <ul className="divide-y divide-border">
-          {visibleChains.map(([name, chain]) => (
+          {scheduledChains.map(([name, chain]) => (
             <li key={name} className="flex flex-col gap-3 px-5 py-4 lg:flex-row lg:items-start lg:justify-between">
               <div className="min-w-0 space-y-1">
                 <p className="flex flex-wrap items-center gap-2 font-medium text-ink">
@@ -169,7 +173,7 @@ async function JobsOverview() {
       <Card>
         <CardHeader
           title="Single jobs"
-          description="Last run per job, and missing keys. A fallback job was replaced by a scheduled task of Claude (below) and runs only by hand, when that task cannot run."
+          description="Last run per job, and missing keys."
         />
         <ul className="divide-y divide-border">
           {names.map((name) => {
@@ -183,16 +187,8 @@ async function JobsOverview() {
                   <div className="flex flex-wrap items-center gap-2">
                     <p className="font-mono text-sm font-semibold text-ink">{name}</p>
                     <StatusBadge run={run} />
-                    {fallbackJobs[name] && <Badge tone="warning">Fallback</Badge>}
                   </div>
                   <p className="text-sm text-muted">{job.description}</p>
-                  {fallbackJobs[name] && (
-                    <p className="text-sm text-amber-800">
-                      Fallback, replaced by Claude task{" "}
-                      <code className="rounded bg-amber-50 px-1.5 py-0.5 font-mono text-xs">{fallbackJobs[name].claudeTask}</code>{" "}
-                      ({fallbackJobs[name].task}). Not on a schedule: run it by hand only when that task cannot run.
-                    </p>
-                  )}
                   {run && (
                     <p className="text-xs text-muted">
                       Last run {formatRelativeDays(run.startedAt)} at {formatDateTime(run.startedAt)}, {run.recordsIn} in,{" "}
@@ -238,7 +234,125 @@ async function JobsOverview() {
           })}
         </ul>
       </Card>
+
+      {(fallbackNames.length > 0 || fallbackChains.length > 0) && (
+        <FallbackJobs
+          names={fallbackNames}
+          chains={fallbackChains}
+          lastRuns={lastRuns}
+          noDbReason={noDbReason}
+        />
+      )}
     </div>
+  );
+}
+
+/**
+ * Portal jobs that Claude's scheduled tasks replaced (docs/claude-jobs.md).
+ * Claude does this work through the MCP with its own connectors, so the
+ * provider keys these jobs read are not expected: they only matter when
+ * someone runs a fallback by hand. Folded away, and a missing key is shown
+ * as a note, not as an error.
+ */
+function FallbackJobs({
+  names,
+  chains: fallbackChainList,
+  lastRuns,
+  noDbReason,
+}: {
+  names: string[];
+  chains: [string, (typeof chains)[string]][];
+  lastRuns: Record<string, JobRunItem | undefined>;
+  noDbReason: string | null;
+}) {
+  return (
+    <Card>
+      <details className="group">
+        <summary className="flex cursor-pointer list-none items-start gap-3 px-5 py-4 focus-visible:outline-2 focus-visible:outline-brand-500">
+          <Bot className="mt-0.5 size-5 shrink-0 text-brand-600" aria-hidden="true" />
+          <div className="min-w-0 flex-1 space-y-1">
+            <p className="flex flex-wrap items-center gap-2 font-medium text-ink">
+              Fallbacks, done by Claude
+              <Badge tone="neutral">
+                {names.length} {names.length === 1 ? "job" : "jobs"}
+              </Badge>
+            </p>
+            <p className="text-sm text-muted">
+              Claude does this work through the MCP with its own connectors (Apify, Prospeo, Instantly, Seleqt, Cal.com), so
+              the portal needs no API keys for it. These old jobs stay as a fallback, by hand only, for when a Claude task
+              cannot run; only then do they need the keys listed.
+            </p>
+          </div>
+          <ChevronDown
+            className="mt-0.5 size-5 shrink-0 text-muted transition-transform group-open:rotate-180"
+            aria-hidden="true"
+          />
+        </summary>
+        <ul className="divide-y divide-border border-t border-border">
+          {fallbackChainList.map(([name, chain]) => (
+            <li key={name} className="flex flex-col gap-3 px-5 py-4 lg:flex-row lg:items-start lg:justify-between">
+              <div className="min-w-0 space-y-1">
+                <p className="flex flex-wrap items-center gap-2 font-medium text-ink">
+                  <span className="capitalize">{name}</span>
+                  <Badge tone="neutral">Chain</Badge>
+                </p>
+                <p className="text-sm text-muted">{chain.description}</p>
+                <p className="text-xs text-muted">{chain.jobs.join(", ")}</p>
+              </div>
+              <div className="shrink-0">
+                <RunJobForm label="Run chain" action={runJobAction.bind(null, name)} disabledReason={noDbReason} />
+              </div>
+            </li>
+          ))}
+          {names.map((name) => {
+            const job = jobs[name];
+            const run = lastRuns[name];
+            const fallback = fallbackJobs[name];
+            const missing = missingEnvFor(name);
+            return (
+              <li key={name} className="grid gap-3 px-5 py-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
+                <div className="min-w-0 space-y-1.5">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="font-mono text-sm font-semibold text-ink">{name}</p>
+                    {run && <StatusBadge run={run} />}
+                  </div>
+                  <p className="text-sm text-muted">{job.description}</p>
+                  <p className="text-sm text-muted">
+                    Done by Claude task{" "}
+                    <code className="rounded bg-surface px-1.5 py-0.5 font-mono text-xs">{fallback.claudeTask}</code> (
+                    {fallback.task}).
+                  </p>
+                  {run && (
+                    <p className="text-xs text-muted">
+                      Last run by hand {formatRelativeDays(run.startedAt)} at {formatDateTime(run.startedAt)}
+                      {run.status === "failed" && run.errorFirstLine ? `. Error: ${run.errorFirstLine}` : ""}
+                    </p>
+                  )}
+                  {missing.required.length > 0 && (
+                    <p className="flex flex-wrap items-center gap-1.5 text-xs text-muted">
+                      <span className="font-medium">Only to run it by hand:</span>
+                      {missing.required.map((n) => (
+                        <code key={n} className="rounded bg-surface px-1.5 py-0.5">
+                          {n}
+                        </code>
+                      ))}
+                    </p>
+                  )}
+                </div>
+                <div className="shrink-0">
+                  <RunJobForm
+                    label="Run by hand"
+                    action={runJobAction.bind(null, name)}
+                    showLimit
+                    disabledReason={noDbReason ?? (missing.required.length > 0 ? "Not set up to run by hand" : null)}
+                  />
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      </details>
+    </Card>
   );
 }
 
