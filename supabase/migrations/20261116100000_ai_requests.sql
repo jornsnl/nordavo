@@ -9,7 +9,8 @@
 -- anonymous_profile, cv_score_compare, cv_fields, cv_read,
 -- academy_assessment, lesson_draft.
 
-create table public.ai_requests (
+-- Safe to run again: everything below skips or replaces what already exists.
+create table if not exists public.ai_requests (
   id uuid primary key default gen_random_uuid(),
   kind text not null check (kind ~ '^[a-z_]{3,40}$'),
   -- The module whose team may see the request and whose MCP owner may answer it.
@@ -32,17 +33,20 @@ create table public.ai_requests (
   completed_at timestamptz
 );
 
-create index on public.ai_requests (status, created_at) where status = 'pending';
-create index on public.ai_requests (kind, entity_id, created_at desc);
+create index if not exists ai_requests_status_created_at_idx on public.ai_requests (status, created_at) where status = 'pending';
+create index if not exists ai_requests_kind_entity_id_created_at_idx on public.ai_requests (kind, entity_id, created_at desc);
 -- One open request per record and kind: asking again refreshes it.
-create unique index ai_requests_one_pending on public.ai_requests (kind, entity_id) where status = 'pending' and entity_id is not null;
+create unique index if not exists ai_requests_one_pending on public.ai_requests (kind, entity_id) where status = 'pending' and entity_id is not null;
 
 alter table public.ai_requests enable row level security;
 
+drop policy if exists "Team reads the AI requests of its modules" on public.ai_requests;
 create policy "Team reads the AI requests of its modules" on public.ai_requests
   for select to authenticated using (public.is_staff() and public.has_module(module));
+drop policy if exists "Team asks for AI requests in its modules" on public.ai_requests;
 create policy "Team asks for AI requests in its modules" on public.ai_requests
   for insert to authenticated with check (public.is_staff() and public.has_module(module) and status = 'pending');
+drop policy if exists "Team refreshes or marks its AI requests" on public.ai_requests;
 create policy "Team refreshes or marks its AI requests" on public.ai_requests
   for update to authenticated using (public.is_staff() and public.has_module(module))
   with check (public.is_staff() and public.has_module(module));
