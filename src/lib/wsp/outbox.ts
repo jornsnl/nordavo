@@ -85,8 +85,12 @@ async function handle(db: JobDb, row: WspOutboxRow): Promise<Outcome> {
   return send(completedMail({ name: person.full_name, flags, url, siteUrl }), to, "wsp_completed");
 }
 
+/** Candidates and developers get mail from the recruitment sender (MAIL_FROM_RECRUITMENT, else MAIL_FROM). */
+const PERSON_CATEGORIES: MailCategory[] = ["wsp_invite", "wsp_reminder", "wsp_permission"];
+
 async function send(mail: Mail, to: string | undefined, category: MailCategory): Promise<Outcome> {
-  const result = await deliverMail({ ...mail, to, category });
+  const from = PERSON_CATEGORIES.includes(category) ? process.env.MAIL_FROM_RECRUITMENT || undefined : undefined;
+  const result = await deliverMail({ ...mail, to, category, from });
   if (result.ok) return { status: "sent" };
   if (result.reason === "not_configured") return { status: "waiting", error: result.detail };
   return { status: "failed", error: result.detail };

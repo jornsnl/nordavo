@@ -424,3 +424,33 @@ test("no list, board, search, talent pool or MCP code reads profile data", () =>
     );
   assert.deepEqual(offenders, []);
 });
+
+// ---------------------------------------------------------------------------
+// Mail
+// ---------------------------------------------------------------------------
+
+test("mail: the withdrawal mail to the client is the exact text", async () => {
+  const { withdrawnMail } = await import("@/lib/wsp/mail");
+  const mail = withdrawnMail({ fullName: "Ravi Kumar" });
+  const exact = "Ravi has withdrawn permission to share their Working Style Profile with you. Please delete any downloaded copies.";
+  assert.equal(mail.text, exact);
+  assert.ok(mail.html.includes(exact));
+});
+
+test("mail: invitation with the personal link, developers read it is optional", async () => {
+  const { inviteMail, reminderMail, permissionMail, completedMail } = await import("@/lib/wsp/mail");
+  const url = "https://portal.nordavo.nl/working-style/" + "a".repeat(64);
+  const dev = inviteMail({ name: "Ravi Kumar", url, expiresAt: "2026-11-23T10:00:00Z", developer: true });
+  assert.ok(dev.text.includes(url) && dev.html.includes(url));
+  assert.ok(dev.text.includes(DEVELOPER_INTRO_SENTENCE));
+  assert.ok(dev.text.includes("23 November 2026"));
+  const candidate = inviteMail({ name: "Asha", url, expiresAt: "2026-11-23T10:00:00Z", developer: false });
+  assert.ok(!candidate.text.includes(DEVELOPER_INTRO_SENTENCE));
+  assert.ok(reminderMail({ name: "Asha", url, expiresAt: "2026-11-23T10:00:00Z" }).subject.startsWith("Reminder"));
+  const ask = permissionMail({ name: "Asha", clientName: "KG <b>", url });
+  assert.ok(ask.text.includes("Nothing is shared unless you tick the box for KG <b> yourself"));
+  assert.ok(!ask.html.includes("KG <b>"), "names are escaped in html");
+  const done = completedMail({ name: "Asha", flags: ["too_fast"], url });
+  assert.match(done.subject, /interpret with caution/);
+  assert.match(completedMail({ name: "Asha", flags: [], url }).text, /No quality flags/);
+});

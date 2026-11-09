@@ -1,6 +1,6 @@
 # Mail via Resend
 
-Alle mail die het portaal zelf verstuurt gaat via [Resend](https://resend.com): uitnodigingen en herinneringen voor gesprekken, het sollicitatieform en de herinnering daarvan, meldingen en uitnodigingen in Work, het weekrapport en foutmeldingen van jobs. De code staat in `src/lib/notify/mail.ts`.
+Alle mail die het portaal zelf verstuurt gaat via [Resend](https://resend.com): de mails van het Working Style Profile (uitnodiging, herinnering, toestemming vragen, intrekken, klaar; [working-style-profile.md](working-style-profile.md)), uitnodigingen en herinneringen voor gesprekken, het sollicitatieform en de herinnering daarvan, meldingen en uitnodigingen in Work, het weekrapport en foutmeldingen van jobs. De code staat in `src/lib/notify/mail.ts`.
 
 ## Huisstijl
 

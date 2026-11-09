@@ -31,6 +31,10 @@ De Academy gebruikt dezelfde kandidaat als het ATS. Op de kandidaat staat een ka
 
 Een plaatsing vastleggen start de Academy: de developer krijgt de hele developercourse, de contactpersoon van de klant een account met de klantcourse, en de plaatsingspagina een tijdlijn. De kaart Academy op de plaatsing laat zien wat er gebeurde. Alles staat in [academy.md](academy.md), sectie 15.
 
+## Working Style Profile
+
+Kandidaten kunnen automatisch (bij de trigger fase, standaard het shortlist-vinkje) of met de hand een korte Big Five vragenlijst krijgen. Instellingen op systeem, vacature en kandidaat; de vaste zin komt onder de vacaturetekst van het sollicitatieform als het aan staat. Scores staan alleen in het rapport en de staffweergave, nooit op het bord, in lijsten of de talentpool. Een klant ziet een rapport alleen als de kandidaat het zelf deelt. Alles in [working-style-profile.md](working-style-profile.md).
+
 ## Wat de klant ziet
 
 Klanten lezen niets meer rechtstreeks uit de tabellen. Het klantportaal haalt alles op via vaste databasefuncties (`portal_*`). Die geven alleen terug wat het portaal toont: naam, titel, locatie, ervaring, skills, samenvatting, video, scores en het eigen oordeel.
@@ -56,6 +60,7 @@ Bestaande teamleden houden alles tot een beheerder het aanpast.
    * `20261108050000_custom_fields_and_extras.sql`
    * `20261108090000_recruitment_integration.sql`
    * De Academy-migraties (zie [academy.md](academy.md)), voor de koppeling `20261113300000_academy_ats_core.sql`, `20261113310000_academy_ats_read.sql` en `20261113320000_academy_ats_manage.sql`
+   * Working Style Profile: `20261116000000_wsp_core.sql` en `20261116010000_wsp_flow.sql` (daarna in Settings, Working style aanzetten)
 
    Draai eerst de oudere `20261107000000_bootstrap_nordavo_admin.sql` als dat nog niet gebeurd is.
 2. **Omgevingsvariabelen** (zie `.env.example`):
