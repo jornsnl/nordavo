@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { installableMetadata } from "@/lib/pwa/manifest";
 import { Suspense } from "react";
 import Link from "next/link";
 import { LayoutDashboard, LogOut } from "lucide-react";
@@ -9,6 +10,7 @@ import { WorkShell } from "@/components/work/work-shell";
 import { WorkspaceNav, WorkspaceNavSkeleton } from "@/components/work/workspace-nav";
 
 export const metadata: Metadata = {
+  ...installableMetadata,
   title: { default: "Work", template: "%s · Work" },
 };
 

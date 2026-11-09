@@ -24,7 +24,7 @@ Het interne portaal van [Nordavo](https://nordavo.nl): de brug tussen Nederlands
 | Work | `/work` | De enige takentool (Tasks is erin opgegaan): workspaces (Nordavo, KG), projecten, taken met review, koppeling aan klant, lead, vacature, kandidaat of plaatsing, indeling op datum en bord, gasten (freelancers), meldingen per mail, API. Engels. Zie [docs/work.md](docs/work.md) |
 | Academy | `/academy`, `/dashboard/academy` | Nordavo Academy: klantcourse (NL) en developercourse (EN) met modules, herbruikbare lessen en lesblokken, afrondregels en modules die op volgorde, na vereiste modules of na de startdatum opengaan. Beheer-editor met slepen, publiceren en dupliceren; mensen per stuk of in bulk toevoegen met een uitnodiging. Rollen klantbeheerder, klant lid, meelezer, developer en kandidaat. Zie [docs/academy.md](docs/academy.md) |
 | Working Style Profile | `/working-style/<token>`, `/academy/working-style`, `/portal/working-style` | Big Five vragenlijst voor kandidaten en developers (52 stellingen, ongeveer 10 minuten), regelgebaseerd rapport en PDF, delen per opdrachtgever alleen door de persoon zelf, instellingen op systeem, vacature en persoon, bewaartermijnen. Geen selectietool en geen AI. Zie [docs/working-style-profile.md](docs/working-style-profile.md) |
-| App op beginscherm | iPhone, iPad, Android | Zet het portaal op het beginscherm: opent schermvullend met eigen icoon en startscherm. Op iOS: Safari, Deel, Zet op beginscherm (het portaal legt dit zelf eenmalig uit). Zonder verbinding verschijnt een offline pagina; er wordt geen portaaldata op het toestel bewaard. Startschermen opnieuw maken: `python3 scripts/generate-splash.py` |
+| App op beginscherm | iPhone, iPad, Android | Zet het portaal op het beginscherm: opent schermvullend met eigen icoon, startscherm en snelkoppelingen (Overzicht, Mijn taken, Quick log, Leads, Vacatures). Op iOS: Safari, Deel, Zet op beginscherm (het portaal legt dit zelf eenmalig uit). Alleen het ingelogde deel linkt het manifest (`installableMetadata` in `src/lib/pwa/manifest.ts`); publieke pagina's zoals het sollicitatieformulier bieden geen installatie aan. Zonder verbinding verschijnt een offline pagina. Startschermen opnieuw maken: `python3 scripts/generate-splash.py` |
 | MCP server | `/api/mcp` | Claude Code leest (en met schrijfrechten wijzigt) portaaldata met een persoonlijke token |
 | Zoeken | Ctrl+K / Cmd+K | Klanten, vacatures, kandidaten en plaatsingen |
 
@@ -77,6 +77,8 @@ Op elke detailpagina staan taken, notities, bijlagen en een activiteitenlog. Het
 | `npm run lint` | ESLint |
 | `npm run typecheck` | Route types genereren en TypeScript controleren |
 | `npm test` | Unit tests (Node test runner) |
+| `npm run e2e:build` | Productiebuild tegen de nep Supabase uit `tests/e2e/support` (voor de browsertests) |
+| `npm run e2e` | Browsertests (Playwright) op die build: PWA en offline. Tegen een echte omgeving: `E2E_BASE_URL`, `E2E_EMAIL`, `E2E_PASSWORD` |
 | `npm run job -- <naam>` | Een GTM job of reeks draaien, `--help` toont ze allemaal |
 
 ## Structuur

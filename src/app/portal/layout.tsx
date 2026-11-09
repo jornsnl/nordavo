@@ -7,6 +7,11 @@ import { PortalNav, PortalNavFallback } from "@/components/portal/portal-nav";
 import { PortalTabBar } from "@/components/portal/portal-tab-bar";
 import { PortalUserMenu, PortalUserMenuSkeleton } from "@/components/portal/portal-user-menu";
 import { requireClient } from "@/lib/auth";
+import type { Metadata } from "next";
+import { installableMetadata } from "@/lib/pwa/manifest";
+
+/** The installable part: the manifest and the iOS home screen tags. */
+export const metadata: Metadata = installableMetadata;
 
 export default function PortalLayout({ children }: LayoutProps<"/portal">) {
   return (

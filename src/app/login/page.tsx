@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { installableMetadata } from "@/lib/pwa/manifest";
 import { Suspense } from "react";
 import { Clock, Handshake, Users } from "lucide-react";
 import { Logo } from "@/components/brand/logo";
@@ -8,6 +9,7 @@ import { PasskeySignIn } from "./passkey-sign-in";
 import { GuestLinkSignIn } from "./guest-link";
 
 export const metadata: Metadata = {
+  ...installableMetadata,
   title: "Sign in",
 };
 

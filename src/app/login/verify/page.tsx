@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { installableMetadata } from "@/lib/pwa/manifest";
 import { Suspense } from "react";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
@@ -11,6 +12,7 @@ import { pathAfterSignIn } from "./redirect";
 import { VerifyForm } from "./verify-form";
 
 export const metadata: Metadata = {
+  ...installableMetadata,
   title: "Verification",
 };
 
