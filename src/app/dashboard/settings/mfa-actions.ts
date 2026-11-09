@@ -25,6 +25,7 @@ export type MfaEnrollState = ActionState & {
 function revalidateSecurityPages() {
   revalidatePath("/dashboard/settings");
   revalidatePath("/portal/security");
+  revalidatePath("/academy/security");
   revalidatePath("/caller", "layout");
 }
 

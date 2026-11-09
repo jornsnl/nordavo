@@ -27,7 +27,9 @@ export function LoginForm() {
           ? "Sign-in links are for Work guests. Sign in with your password or passkey."
           : linkError === "caller_inactive"
             ? "Your calling access is paused or has ended, so you cannot sign in to the call screen. Contact Nordavo if you think this is a mistake."
-            : undefined);
+            : linkError === "academy"
+              ? "Your Academy access is not set up yet. Contact Nordavo."
+              : undefined);
 
   return (
     <form action={formAction} className="space-y-5" noValidate>
