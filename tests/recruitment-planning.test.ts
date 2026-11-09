@@ -31,7 +31,8 @@ test("routes and menu items follow modules", () => {
   assert.equal(moduleForPath("/dashboard/leads/123"), "sales");
   assert.equal(moduleForPath("/dashboard/vacancies/1/pipeline"), "recruitment");
   assert.equal(moduleForPath("/dashboard/tasks"), null);
-  assert.equal(canSeePath("/dashboard/campaigns", ["recruitment"]), false);
+  assert.equal(canSeePath("/dashboard/sequences", ["recruitment"]), false);
+  assert.equal(canSeePath("/dashboard/partners/1", ["recruitment"]), false);
   assert.equal(canSeePath("/dashboard/candidates", ["recruitment"]), true);
   assert.equal(canSeePath("/dashboard/settings", []), true);
   assert.equal(canSeePath("/dashboard/leads", null), true);
@@ -43,6 +44,7 @@ test("jobs and record types per module mirror the database", () => {
   assert.equal(jobModule("t2-match"), "recruitment");
   assert.equal(jobModule("interview-reminders"), "recruitment");
   assert.equal(jobModule("work-notify"), null);
+  assert.equal(jobModule("claude-replies"), "sales");
   assert.deepEqual(entityTypesFor(["recruitment"]), ["vacancy", "candidate", "application", "placement"]);
 });
 

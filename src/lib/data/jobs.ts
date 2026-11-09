@@ -13,8 +13,6 @@ const JOB_ENV: Record<string, { required: string[]; optional?: string[] }> = {
   "s2-qualify": { required: ["ANTHROPIC_API_KEY"] },
   "s3-decision-makers": { required: ["APIFY_TOKEN", "APIFY_PEOPLE_ACTOR"] },
   "s4-email-enrich": { required: ["PROSPEO_API_KEY"] },
-  "s6-call-list": { required: ["GOOGLE_SERVICE_ACCOUNT_JSON"], optional: ["WEBPARTNERS_SHARE_WITH"] },
-  "s7-mail-campaign": { required: ["INSTANTLY_API_KEY", "ANTHROPIC_API_KEY"] },
   "s8-instantly-sync": { required: ["INSTANTLY_API_KEY"] },
   "s8-webpartners-import": { required: ["GOOGLE_SERVICE_ACCOUNT_JSON", "WEBPARTNERS_APPOINTMENTS_SHEET_ID"] },
   "s10-weekly-report": { required: ["RESEND_API_KEY", "REPORT_EMAIL_TO"] },
@@ -59,6 +57,8 @@ export function isJobStatus(value: unknown): value is JobStatus {
 export type JobRunItem = {
   id: string;
   jobName: string;
+  /** Short "key: value" pairs from meta, without the log and who ran it. */
+  metaSummary: string[];
   status: JobStatus;
   startedAt: string;
   finishedAt: string | null;
@@ -70,6 +70,26 @@ export type JobRunItem = {
   triggeredBy: string;
   log: string[];
 };
+
+const HIDDEN_META = new Set(["log", "actor_id", "actor", "token"]);
+
+/** Up to six short "key: value" pairs of a run's meta. Pure. */
+export function metaSummary(meta: unknown): string[] {
+  if (!meta || typeof meta !== "object" || Array.isArray(meta)) return [];
+  const out: string[] = [];
+  for (const [key, value] of Object.entries(meta as Record<string, unknown>)) {
+    if (HIDDEN_META.has(key) || value === null || value === undefined || value === "") continue;
+    const text =
+      typeof value === "string" || typeof value === "number" || typeof value === "boolean"
+        ? String(value)
+        : Array.isArray(value)
+          ? `${value.length} ${value.length === 1 ? "item" : "items"}`
+          : JSON.stringify(value);
+    out.push(`${key.replace(/_/g, " ")}: ${text.length > 80 ? `${text.slice(0, 80)}…` : text}`);
+    if (out.length >= 6) break;
+  }
+  return out;
+}
 
 function logFrom(meta: unknown): string[] {
   if (!meta || typeof meta !== "object" || Array.isArray(meta)) return [];
@@ -105,6 +125,7 @@ function toRun(r: {
     error: r.error,
     triggeredBy: r.triggered_by,
     log: logFrom(r.meta),
+    metaSummary: metaSummary(r.meta),
   };
 }
 
@@ -112,10 +133,15 @@ export async function listJobRuns({
   jobName,
   status,
   limit = 50,
+  triggeredBy,
+  excludeTriggeredBy,
 }: {
   jobName?: string;
   status?: JobStatus;
   limit?: number;
+  /** Only runs started this way, e.g. "claude" for Claude's scheduled tasks. */
+  triggeredBy?: string;
+  excludeTriggeredBy?: string;
 }): Promise<JobRunItem[]> {
   await requireStaff();
   const supabase = await createClient();
@@ -126,6 +152,8 @@ export async function listJobRuns({
     .limit(limit);
   if (jobName) query = query.eq("job_name", jobName);
   if (status) query = query.eq("status", status);
+  if (triggeredBy) query = query.eq("triggered_by", triggeredBy);
+  if (excludeTriggeredBy) query = query.neq("triggered_by", excludeTriggeredBy);
 
   const { data, error } = await query;
   if (error) throw new Error(`Could not load job history: ${error.message}`);
@@ -154,6 +182,18 @@ export async function getLastRuns(jobNames: string[]): Promise<Record<string, Jo
     out[name] = r ? toRun(r) : undefined;
   }
   return out;
+}
+
+/**
+ * Claude's scheduled tasks (docs/claude-jobs.md): runs logged through the MCP
+ * tool log_job_run, with triggered_by "claude". The latest run per task and
+ * the recent runs, newest first.
+ */
+export async function listClaudeRuns(limit = 50): Promise<{ latest: JobRunItem[]; runs: JobRunItem[] }> {
+  const runs = await listJobRuns({ triggeredBy: "claude", limit });
+  const latest = new Map<string, JobRunItem>();
+  for (const run of runs) if (!latest.has(run.jobName)) latest.set(run.jobName, run);
+  return { latest: [...latest.values()].sort((a, b) => a.jobName.localeCompare(b.jobName)), runs };
 }
 
 /** Open vacancies as options for t2-match. */

@@ -1,13 +1,23 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { ActivityChannel, ActivityOutcome, Database, Segment, TalentStage } from "@/lib/database.types";
+import type { ActivityChannel, Database, Segment, TalentStage } from "@/lib/database.types";
 import { activityChannels, optionFor, segments, signalTypes, talentStages } from "@/lib/labels";
+import {
+  loadSalesFigures,
+  type ActivityFigures,
+  type CallerFigures,
+  type MeetingFigures,
+  type PipelineFigures,
+} from "@/lib/sales/stats";
 import { countsInMetrics } from "@/lib/talent/talent-pool";
 import { mailButton, renderMailLayout } from "@/lib/notify/layout";
 
 /**
  * Weekly report (S10): the numbers Julius gets every Friday and sees under
- * Rapport in the portal. buildWeeklyReport does the queries; everything else
- * here is pure aggregation, unit tested with fixtures.
+ * Report in the portal. The sales figures come from the sales CRM
+ * (src/lib/sales/stats.ts): calls, reach, mails and replies from Activities,
+ * the pipeline from the companies and meetings from the Meetings register.
+ * buildWeeklyReport does the queries; everything else here is pure
+ * aggregation, unit tested with fixtures.
  */
 
 type Db = SupabaseClient<Database>;
@@ -19,20 +29,6 @@ export const LEAD_TIME_WARN_DAYS = 14;
 export type CountRow = { key: string; label: string; count: number };
 
 export type SegmentGoRow = { segment: string; label: string; total: number; go: number; review: number; noGo: number; goPct: number | null };
-
-export type ActivitySummary = {
-  /** Distinct contacts approached by phone, mail or LinkedIn. */
-  approached: number;
-  called: number;
-  reached: number;
-  /** Distinct contacts reached by phone or that replied. */
-  reachedContacts: number;
-  mailed: number;
-  replies: number;
-  positiveReplies: number;
-  meetingsApproved: number;
-  meetingsRejected: number;
-};
 
 export type LeadTimeLevel = "ok" | "bijna" | "over";
 
@@ -56,8 +52,11 @@ export type WeeklyReport = {
   period: { from: string; to: string };
   newCompanies: number;
   goPerSegment: SegmentGoRow[];
-  activity: ActivitySummary;
-  meetings: number;
+  activity: ActivityFigures;
+  meetings: MeetingFigures;
+  pipeline: PipelineFigures;
+  perCaller: CallerFigures[];
+  repliesToReview: number;
   funnel: CountRow[];
   attribution: { bySignal: CountRow[]; bySegment: CountRow[]; byChannel: CountRow[] };
   leadTimes: LeadTimeRow[];
@@ -67,60 +66,6 @@ export type WeeklyReport = {
 // ---------------------------------------------------------------------------
 // Pure helpers
 // ---------------------------------------------------------------------------
-
-const reachedOnPhone: ActivityOutcome[] = [
-  "bereikt",
-  "terugbellen",
-  "afspraak",
-  "afspraak_goedgekeurd",
-  "afspraak_afgekeurd",
-  "niet_geinteresseerd",
-];
-const replyOutcomes: ActivityOutcome[] = ["reply_positief", "reply_neutraal", "reply_negatief"];
-const outboundChannels: ActivityChannel[] = ["bellen", "mail", "linkedin"];
-
-export type ActivityFact = { contact_id: string | null; channel: ActivityChannel; outcome: ActivityOutcome | null };
-
-export function summarizeActivities(rows: ActivityFact[]): ActivitySummary {
-  const approached = new Set<string>();
-  const reachedContacts = new Set<string>();
-  const summary: ActivitySummary = {
-    approached: 0,
-    called: 0,
-    reached: 0,
-    reachedContacts: 0,
-    mailed: 0,
-    replies: 0,
-    positiveReplies: 0,
-    meetingsApproved: 0,
-    meetingsRejected: 0,
-  };
-  for (const row of rows) {
-    if (row.outcome === "notitie") continue;
-    const isOutbound = outboundChannels.includes(row.channel) && row.outcome !== "bounce" && row.outcome !== "afgemeld";
-    if (isOutbound && row.contact_id) approached.add(row.contact_id);
-    // "verstuurd" on the phone channel means "put on a Web Partners call
-    // list" (it starts the 30-day rule); only real call outcomes count as called.
-    if (row.channel === "bellen" && row.outcome !== "verstuurd") {
-      summary.called += 1;
-      if (row.outcome && reachedOnPhone.includes(row.outcome)) {
-        summary.reached += 1;
-        if (row.contact_id) reachedContacts.add(row.contact_id);
-      }
-    }
-    if (row.channel === "mail" && row.outcome === "verstuurd") summary.mailed += 1;
-    if (row.outcome && replyOutcomes.includes(row.outcome)) {
-      summary.replies += 1;
-      if (row.contact_id) reachedContacts.add(row.contact_id);
-    }
-    if (row.outcome === "reply_positief") summary.positiveReplies += 1;
-    if (row.outcome === "afspraak_goedgekeurd") summary.meetingsApproved += 1;
-    if (row.outcome === "afspraak_afgekeurd") summary.meetingsRejected += 1;
-  }
-  summary.approached = approached.size;
-  summary.reachedContacts = reachedContacts.size;
-  return summary;
-}
 
 export function goPerSegment(rows: { segment: Segment | null; icp_decision: string | null }[]): SegmentGoRow[] {
   const bySegment = new Map<string, SegmentGoRow>();
@@ -176,12 +121,14 @@ export function attributionBreakdown(rows: AttributionFact[]) {
   };
 }
 
-export function buildFunnel(activity: ActivitySummary, meetings: number): CountRow[] {
+export function buildFunnel(activity: ActivityFigures, meetings: MeetingFigures, pipeline: PipelineFigures): CountRow[] {
   return [
     { key: "benaderd", label: "Contacted", count: activity.approached },
     { key: "bereikt", label: "Reached", count: activity.reachedContacts },
     { key: "replies", label: "Replies", count: activity.replies },
-    { key: "afspraken", label: "Meetings", count: meetings },
+    { key: "pipeline", label: "Into pipeline", count: pipeline.enteredInPeriod },
+    { key: "afspraken", label: "Meetings", count: meetings.planned },
+    { key: "won", label: "Won", count: pipeline.wonInPeriod },
   ];
 }
 
@@ -323,7 +270,7 @@ async function fetchAll<T>(page: (from: number, to: number) => PromiseLike<{ dat
 }
 
 export async function buildWeeklyReport(db: Db, { from, to }: { from: string; to: string }, now = new Date()): Promise<WeeklyReport> {
-  const [newCompanies, qualified, activities, attribution, vacancies] = await Promise.all([
+  const [newCompanies, qualified, figures, attribution, vacancies] = await Promise.all([
     db
       .from("companies")
       .select("id", { count: "exact", head: true })
@@ -344,15 +291,7 @@ export async function buildWeeklyReport(db: Db, { from, to }: { from: string; to
         .order("id")
         .range(a, b),
     ),
-    fetchAll((a, b) =>
-      db
-        .from("activities")
-        .select("contact_id, channel, outcome")
-        .gte("date", from)
-        .lt("date", to)
-        .order("id")
-        .range(a, b),
-    ),
+    loadSalesFigures(db, { from, to }, { perCaller: true, now }),
     fetchAll((a, b) =>
       db
         .from("appointment_attribution")
@@ -376,8 +315,6 @@ export async function buildWeeklyReport(db: Db, { from, to }: { from: string; to
     ),
   ]);
 
-  const activity = summarizeActivities(activities);
-  const meetings = attribution.length;
   const leadTimes = leadTimeRows(
     vacancies.map((v) => ({
       id: v.id,
@@ -398,9 +335,12 @@ export async function buildWeeklyReport(db: Db, { from, to }: { from: string; to
     period: { from, to },
     newCompanies,
     goPerSegment: goPerSegment(qualified),
-    activity,
-    meetings,
-    funnel: buildFunnel(activity, meetings),
+    activity: figures.activity,
+    meetings: figures.meetings,
+    pipeline: figures.pipeline,
+    perCaller: figures.perCaller,
+    repliesToReview: figures.repliesToReview,
+    funnel: buildFunnel(figures.activity, figures.meetings, figures.pipeline),
     attribution: attributionBreakdown(attribution),
     leadTimes,
     warnings: leadTimeWarnings(leadTimes),
@@ -446,20 +386,21 @@ function heading(text: string) {
 }
 
 export function reportSubject(report: WeeklyReport) {
-  return `Nordavo weekly report ${formatDay(report.period.from)} to ${formatDay(report.period.to)}: ${report.meetings} meetings`;
+  return `Nordavo weekly report ${formatDay(report.period.from)} to ${formatDay(report.period.to)}: ${report.meetings.planned} meetings`;
 }
 
 /** The weekly report as a mail with inline styles. Warnings first. */
 export function renderReportHtml(report: WeeklyReport, portalUrl?: string): string {
   const a = report.activity;
+  const m = report.meetings;
   const stats: [string, number][] = [
     ["New companies", report.newCompanies],
-    ["Called", a.called],
+    ["Calls", a.calls],
     ["Reached", a.reached],
-    ["Mailed", a.mailed],
+    ["Mails", a.mails],
     ["Replies", a.replies],
-    ["Positive replies", a.positiveReplies],
-    ["Meetings", report.meetings],
+    ["Meetings planned", m.planned],
+    ["Approved", m.approved],
   ];
   const statCells = stats
     .map(
@@ -476,7 +417,20 @@ export function renderReportHtml(report: WeeklyReport, portalUrl?: string): stri
 
   const body = `${warnings}
 <table role="presentation" cellspacing="6" cellpadding="0" style="width:100%;margin:0 0 8px"><tr>${statCells}</tr></table>
-${a.meetingsApproved || a.meetingsRejected ? `<p style="margin:0 0 8px;font-size:13px;color:${muted}">After the call: ${a.meetingsApproved} approved, ${a.meetingsRejected} rejected.</p>` : ""}
+<p style="margin:0 0 8px;font-size:13px;color:${muted}">Meetings: ${m.held} held, ${m.approved} approved, ${m.rejected} rejected, ${m.noShow} no show. Fees approved: EUR ${m.fees.toFixed(2)}.${report.repliesToReview ? ` ${report.repliesToReview} replies wait for review.` : ""}</p>
+${heading("Pipeline")}
+${table(
+  ["Stage", "Companies"],
+  report.pipeline.perStage.map((s) => [s.label, s.count]),
+  "No companies in the pipeline.",
+)}
+<p style="margin:0 0 8px;font-size:13px;color:${muted}">This period: ${report.pipeline.enteredInPeriod} into the pipeline, ${report.pipeline.wonInPeriod} won, ${report.pipeline.lostInPeriod} lost.</p>
+${heading("Per caller")}
+${table(
+  ["Caller", "Calls", "Reached", "Meetings", "Approved"],
+  report.perCaller.map((c) => [c.name, c.calls, c.reached, c.meetingsPlanned, c.meetingsApproved]),
+  "No calls this period.",
+)}
 ${heading("GO percentage per segment")}
 ${table(
   ["Segment", "Assessed", "GO", "Review", "No go", "GO %"],
@@ -509,7 +463,7 @@ ${portalUrl ? mailButton(portalUrl, "View the report in the portal", { tone: "ac
     body,
     eyebrow: "Weekly report",
     title: `${formatDay(report.period.from)} to ${formatDay(report.period.to)}`,
-    preheader: `${report.meetings} meetings${report.warnings.length ? `, ${report.warnings.length} warnings` : ""}`,
+    preheader: `${report.meetings.planned} meetings${report.warnings.length ? `, ${report.warnings.length} warnings` : ""}`,
     footerNote: "You get this mail because your address is set as REPORT_EMAIL_TO.",
     width: 680,
   });

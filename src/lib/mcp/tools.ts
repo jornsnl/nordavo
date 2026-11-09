@@ -674,55 +674,7 @@ function registerReadTools(server: McpServer, ctx: McpToolContext) {
     },
   );
 
-  // -------------------------------------------------------------------------
-  server.registerTool(
-    "get_company",
-    {
-      title: "Company (GTM)",
-      description:
-        "One GTM company (sales prospect) with ICP qualification, its contacts and latest hiring signals. Use search with type company to find ids.",
-      inputSchema: { id: idSchema },
-      annotations: READ_ONLY,
-    },
-    async ({ id }) => {
-      const company = check(
-        await db
-          .from("companies")
-          .select(
-            "id, name, domain, website, city, sector, segment, employees, linkedin_url, status, icp_decision, icp_score, icp_reason, red_flags, opening_line, client_id, qualified_at, created_at",
-          )
-          .eq("id", id)
-          .maybeSingle(),
-        "company",
-      );
-      if (!company || Array.isArray(company)) return fail("Company not found.");
-
-      const [contacts, signals, notes] = await Promise.all([
-        db
-          .from("contacts")
-          .select("id, first_name, last_name, title, tier, email, email_status, phone, linkedin_url, status, last_contacted_at")
-          .eq("company_id", id)
-          .order("tier", { ascending: true, nullsFirst: false })
-          .limit(50),
-        db
-          .from("signals")
-          .select("id, type, title, source, source_url, first_seen_at, last_seen_at")
-          .eq("company_id", id)
-          .order("last_seen_at", { ascending: false })
-          .limit(20),
-        latestNotes(ctx, "company", id),
-      ]);
-
-      return ok({
-        ...company,
-        icp_reason: clip(company.icp_reason, 1000),
-        url: url("company", company.id),
-        contacts: check(contacts, "contacts"),
-        signals: check(signals, "signals"),
-        recent_notes: notes,
-      });
-    },
-  );
+  // get_company (sales) lives in src/lib/mcp/sales-tools.ts.
 
   // -------------------------------------------------------------------------
   server.registerTool(

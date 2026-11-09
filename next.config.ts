@@ -4,7 +4,7 @@ import type { NextConfig } from "next";
 // Supabase auth e-mail templates) keep working through these redirects.
 const dutchPaths: [string, string][] = [
   ["/auth/wachtwoord", "/auth/password"],
-  ["/dashboard/campagnes", "/dashboard/campaigns"],
+  ["/dashboard/campagnes", "/dashboard/sequences"],
   ["/dashboard/kandidaten", "/dashboard/candidates"],
   ["/dashboard/kandidaten/:id", "/dashboard/candidates/:id"],
   ["/dashboard/kandidaten/:id/cv", "/dashboard/candidates/:id/cv"],
@@ -16,7 +16,7 @@ const dutchPaths: [string, string][] = [
   ["/dashboard/klanten/nieuw", "/dashboard/clients/new"],
   ["/dashboard/contacten", "/dashboard/contacts"],
   ["/dashboard/leads/nieuw", "/dashboard/leads/new"],
-  ["/dashboard/lijsten", "/dashboard/lists"],
+  ["/dashboard/lijsten", "/dashboard/call-lists"],
   ["/dashboard/plaatsingen", "/dashboard/placements"],
   ["/dashboard/plaatsingen/:id", "/dashboard/placements/:id"],
   ["/dashboard/plaatsingen/:id/bewerken", "/dashboard/placements/:id/edit"],
@@ -39,10 +39,16 @@ const dutchPaths: [string, string][] = [
   ["/portaal/vacatures/:id", "/portal/vacancies/:id"],
 ];
 
+// Lists and Campaigns were replaced by saved call lists and sequences (docs/sales.md).
+const removedPaths: [string, string][] = [
+  ["/dashboard/campaigns", "/dashboard/sequences"],
+  ["/dashboard/lists", "/dashboard/call-lists"],
+];
+
 const nextConfig: NextConfig = {
   cacheComponents: true,
   async redirects() {
-    return dutchPaths.map(([source, destination]) => ({ source, destination, permanent: true }));
+    return [...dutchPaths, ...removedPaths].map(([source, destination]) => ({ source, destination, permanent: true }));
   },
   async headers() {
     return [

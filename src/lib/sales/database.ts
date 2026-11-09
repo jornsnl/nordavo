@@ -314,4 +314,14 @@ export type SalesFunctions = {
     { p_sequence: string; p_company: string; p_contact?: string | null; p_start?: string | null; p_source?: string } & Actor,
     string
   >;
+  /** Pause, resume or stop one enrollment (20261110040000_sales_sequences_claude.sql). */
+  sales_set_enrollment: Fn<
+    { p_enrollment: string; p_status: "active" | "paused" | "stopped"; p_reason?: string | null; p_source?: string } & Actor,
+    EnrollmentStatus
+  >;
+  /** Pause a company after a reply: enrollments paused, open call steps cancelled. */
+  sales_pause: Fn<
+    { p_company: string; p_reason?: string | null; p_source?: string } & Actor,
+    { enrollments_paused: number; call_steps_cancelled: number }
+  >;
 };

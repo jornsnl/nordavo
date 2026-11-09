@@ -2,12 +2,12 @@
 
 import { useActionState } from "react";
 import { Upload } from "lucide-react";
-import { importMaxAction, type MaxImportState } from "@/app/dashboard/lists/actions";
+import { importEnrichAction, type MaxImportState } from "@/app/dashboard/contacts/enrich/actions";
 import { Field, FormMessage, Input } from "@/components/ui/field";
 import { SubmitButton } from "@/components/ui/submit-button";
 
 export function MaxImportForm() {
-  const [state, formAction] = useActionState(importMaxAction, {} as MaxImportState);
+  const [state, formAction] = useActionState(importEnrichAction, {} as MaxImportState);
   const result = state.result;
   return (
     <form action={formAction} className="space-y-4">
@@ -16,7 +16,7 @@ export function MaxImportForm() {
         htmlFor="max-file"
         required
         error={state.fieldErrors?.file}
-        hint="We match on the LinkedIn URL of the person. A column with the number type (mobile or landline) is used when present."
+        hint="We match on the LinkedIn URL of the person. A column with the number type (mobile or landline) is used when present. Contacts that get a number go to Enriched."
       >
         <Input
           id="max-file"

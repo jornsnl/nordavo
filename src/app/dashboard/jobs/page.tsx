@@ -5,6 +5,7 @@ import { History, KeyRound, TriangleAlert, Workflow } from "lucide-react";
 import { EmptyState } from "@/components/dashboard/empty-state";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { FilterSheet } from "@/components/leads/filter-sheet";
+import { ClaudeRuns } from "@/components/jobs/claude-runs";
 import { RunJobForm } from "@/components/jobs/run-job-form";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -27,7 +28,7 @@ import {
 import { formatDateTime, formatRelativeDays } from "@/lib/format";
 import { jobStatuses, optionFor } from "@/lib/labels";
 import { chains, jobs } from "@/jobs/registry";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentUser, hasModule } from "@/lib/auth";
 import { jobModule } from "@/lib/modules";
 import { runJobAction } from "./actions";
 
@@ -79,10 +80,13 @@ export default function Page({ searchParams }: PageProps<"/dashboard/jobs">) {
       <PageHeader
         eyebrow="Admin"
         title="Jobs"
-        description="The scheduled scripts of the sales flow. Every run is logged in the history; Julius gets an email when one fails."
+        description="The scheduled scripts of the portal and the scheduled tasks Claude runs through the MCP. Every run is logged; Julius gets an email when a portal job fails."
       />
       <Suspense fallback={<ListSkeleton rows={8} />}>
         <JobsOverview />
+      </Suspense>
+      <Suspense fallback={<ListSkeleton rows={4} />}>
+        <ClaudeSection />
       </Suspense>
       <Suspense fallback={<ListSkeleton rows={6} />}>
         <RunHistory searchParams={searchParams} />
@@ -221,11 +225,19 @@ async function JobsOverview() {
   );
 }
 
+/** Claude's tasks are sales work (claude-* jobs). */
+async function ClaudeSection() {
+  const user = await getCurrentUser();
+  if (!hasModule(user, "sales")) return null;
+  return <ClaudeRuns />;
+}
+
 async function RunHistory({ searchParams }: { searchParams: SearchParams }) {
   const params = await searchParams;
   const jobName = typeof params.job === "string" && jobs[params.job] ? params.job : undefined;
   const status = isJobStatus(params.status) ? params.status : undefined;
-  const runs = await listJobRuns({ jobName, status, limit: 100 });
+  // Claude's runs have their own section above.
+  const runs = await listJobRuns({ jobName, status, limit: 100, excludeTriggeredBy: "claude" });
 
   return (
     <section aria-labelledby="history-title" className="space-y-4">
@@ -234,7 +246,7 @@ async function RunHistory({ searchParams }: { searchParams: SearchParams }) {
           <h2 id="history-title" className="font-display text-lg font-semibold text-brand-900">
             History
           </h2>
-          <p className="text-sm text-muted">The last 100 runs, newest first.</p>
+          <p className="text-sm text-muted">The last 100 runs of the portal jobs, newest first.</p>
         </div>
         <Form action="/dashboard/jobs" className="flex items-center gap-2 max-md:justify-between">
           <p className="text-sm text-muted md:hidden">
