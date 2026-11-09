@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { initials } from "@/lib/format";
 import { RecordChip } from "@/components/work/task-record";
 import { groupByDue } from "@/lib/work/grouping";
+import { TaskMenuButton, TaskRowItem } from "@/components/work/task-row-item";
 
 export function StatusBadge({ status }: { status: WorkStatus }) {
   const option = workOption(workStatuses, status);
@@ -86,8 +87,17 @@ export function TaskRow({
   showContext?: boolean;
 }) {
   const done = task.status === "done" || task.status === "cancelled";
+  const menuTask = {
+    id: task.id,
+    title: task.title,
+    status: task.status,
+    priority: task.priority,
+    reviewerId: task.reviewerId,
+    subtitle: `${task.workspace.name} › ${task.project.name}`,
+  };
   return (
-    <li
+    <TaskRowItem
+      task={menuTask}
       className={`group relative flex flex-col gap-2 px-4 py-3 transition hover:bg-brand-50/50 sm:flex-row sm:items-center sm:gap-4 sm:px-5 ${priorityBorder(task.priority)}`}
     >
       <div className="min-w-0 flex-1">
@@ -128,8 +138,9 @@ export function TaskRow({
         )}
         <DueLabel dueAt={task.dueAt} timeZone={timeZone} done={done} />
         <People people={task.assignees} />
+        <TaskMenuButton task={menuTask} className="-my-1 ml-auto sm:ml-0" />
       </div>
-    </li>
+    </TaskRowItem>
   );
 }
 

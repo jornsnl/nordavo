@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Inter, Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 import { PwaSupport } from "@/components/pwa/pwa-support";
+import { Toaster } from "@/components/ui/toaster";
 import { appleStartupImages } from "@/lib/pwa/splash";
 
 const inter = Inter({
@@ -55,6 +56,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <body className="min-h-full font-sans">
         {children}
         <PwaSupport />
+        <Toaster />
       </body>
     </html>
   );

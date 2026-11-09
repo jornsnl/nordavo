@@ -5,17 +5,12 @@ import Link from "next/link";
 import {
   DndContext,
   DragOverlay,
-  KeyboardSensor,
-  MouseSensor,
-  TouchSensor,
-  closestCorners,
   useDraggable,
   useDroppable,
-  useSensor,
-  useSensors,
   type DragEndEvent,
 } from "@dnd-kit/core";
 import { CalendarClock, Clock, Phone, User } from "lucide-react";
+import { columnUnderPointer, swallowClickAfterTouchDrag, useDragSensors } from "@/components/ui/dnd";
 import { Button } from "@/components/ui/button";
 import type { CompanyRow, ContactRow } from "@/lib/sales/rows";
 import { kinds, type AnyRow, type GridKind } from "./grid-kinds";
@@ -198,11 +193,7 @@ export function SalesBoard({
   onMove: (row: AnyRow, value: string, extra?: string) => void;
 }) {
   const k = kinds[kind];
-  const sensors = useSensors(
-    useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
-    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 6 } }),
-    useSensor(KeyboardSensor),
-  );
+  const sensors = useDragSensors();
   const [activeId, setActiveId] = useState<string | null>(null);
   const [lost, setLost] = useState<AnyRow | null>(null);
 
@@ -218,6 +209,7 @@ export function SalesBoard({
 
   const onDragEnd = (event: DragEndEvent) => {
     setActiveId(null);
+    swallowClickAfterTouchDrag(event.activatorEvent);
     const row = byId.get(String(event.active.id));
     const over = event.over ? String(event.over.id) : null;
     if (!row || !over?.startsWith("col:")) return;
@@ -237,7 +229,7 @@ export function SalesBoard({
       <p className="sr-only">Drag a card to another column to change its {kind === "pipeline" ? "stage" : "status"}. With the keyboard: space to pick up, arrows to move, space to drop.</p>
       <DndContext
         sensors={sensors}
-        collisionDetection={closestCorners}
+        collisionDetection={columnUnderPointer({ isColumn: (c) => String(c.id).startsWith("col:") })}
         onDragStart={(e) => setActiveId(String(e.active.id))}
         onDragCancel={() => setActiveId(null)}
         onDragEnd={onDragEnd}

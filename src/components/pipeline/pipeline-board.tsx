@@ -4,12 +4,6 @@ import { useMemo, useRef, useState, useTransition } from "react";
 import {
   DndContext,
   DragOverlay,
-  KeyboardSensor,
-  MouseSensor,
-  TouchSensor,
-  closestCorners,
-  useSensor,
-  useSensors,
   type Announcements,
   type DragEndEvent,
   type DragOverEvent,
@@ -17,6 +11,7 @@ import {
   type UniqueIdentifier,
 } from "@dnd-kit/core";
 import { arrayMove, sortableKeyboardCoordinates } from "@dnd-kit/sortable";
+import { columnUnderPointer, swallowClickAfterTouchDrag, useDragSensors } from "@/components/ui/dnd";
 import { Handshake, Plus, X } from "lucide-react";
 import { moveApplication, reorderStage } from "@/app/dashboard/vacancies/[id]/pipeline/actions";
 import { bulkMoveApplications } from "@/app/dashboard/vacancies/[id]/pipeline/recruitment-actions";
@@ -111,11 +106,7 @@ export function PipelineBoard({
     setColumns(groupByStage(applications));
   }
 
-  const sensors = useSensors(
-    useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
-    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 6 } }),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
-  );
+  const sensors = useDragSensors(sortableKeyboardCoordinates);
 
   const allCards = useMemo(() => STAGES.flatMap((s) => columns[s]), [columns]);
   const cardById = (id: UniqueIdentifier | null | undefined) =>
@@ -316,7 +307,8 @@ export function PipelineBoard({
     });
   }
 
-  function onDragEnd({ active, over }: DragEndEvent) {
+  function onDragEnd({ active, over, activatorEvent }: DragEndEvent) {
+    swallowClickAfterTouchDrag(activatorEvent);
     const start = dragStart.current;
     dragStart.current = null;
     setActiveId(null);
@@ -468,7 +460,7 @@ export function PipelineBoard({
       <DndContext
         id={`pipeline-${vacancyId}`}
         sensors={sensors}
-        collisionDetection={closestCorners}
+        collisionDetection={columnUnderPointer({ isColumn: (c) => isStage(c.id), columnOf: (id) => findStage(id) ?? null })}
         onDragStart={onDragStart}
         onDragOver={onDragOver}
         onDragEnd={onDragEnd}
