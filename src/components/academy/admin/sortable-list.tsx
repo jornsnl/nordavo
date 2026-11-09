@@ -3,14 +3,11 @@
 import { type ReactNode, useOptimistic, useTransition } from "react";
 import {
   DndContext,
-  KeyboardSensor,
-  PointerSensor,
   closestCenter,
   type DragEndEvent,
-  useSensor,
-  useSensors,
 } from "@dnd-kit/core";
 import { SortableContext, arrayMove, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
+import { useDragSensors } from "@/components/ui/dnd";
 import { CSS } from "@dnd-kit/utilities";
 import { GripVertical } from "lucide-react";
 
@@ -38,10 +35,7 @@ export function SortableList<T extends { id: string }>({
   const [order, setOrder] = useOptimistic(items);
   const [, startTransition] = useTransition();
 
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
-  );
+  const sensors = useDragSensors(sortableKeyboardCoordinates);
 
   function onDragEnd(event: DragEndEvent) {
     const { active, over } = event;

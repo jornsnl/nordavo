@@ -1,24 +1,19 @@
 "use client";
 
-import { useId, useState, useTransition, type ReactNode, type TouchEventHandler } from "react";
+import { useEffect, useId, useRef, useState, useTransition, type MouseEvent, type ReactNode, type TouchEventHandler } from "react";
 import Link from "next/link";
 import {
   DndContext,
   DragOverlay,
-  KeyboardSensor,
-  MouseSensor,
-  TouchSensor,
-  closestCorners,
   useDraggable,
   useDroppable,
-  useSensor,
-  useSensors,
   type Announcements,
   type DragEndEvent,
   type DragStartEvent,
   type UniqueIdentifier,
 } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
+import { columnUnderPointer, swallowClickAfterTouchDrag, useDragSensors } from "@/components/ui/dnd";
 import { GripVertical } from "lucide-react";
 import type { TaskListItem } from "@/lib/work/data";
 import type { WorkStatus } from "@/lib/work/database";
@@ -27,6 +22,12 @@ import { FormMessage } from "@/components/ui/field";
 import { quickStatusAction } from "@/app/work/actions";
 import { DueLabel, People, PriorityBadge, priorityBorder } from "@/components/work/task-row";
 import { RecordChip } from "@/components/work/task-record";
+import { TASK_CHANGE_EVENT, TaskMenuButton, useTaskMenu, type TaskChangeDetail } from "@/components/work/task-menu";
+import { applyChange } from "@/lib/work/task-menu";
+
+/** A press this short of a move is a long press, not a drag: it opens the actions. */
+const STILL_PX = 8;
+
 
 const baseColumns: WorkStatus[] = ["todo", "in_progress", "review", "done"];
 
@@ -67,25 +68,40 @@ export function TaskBoard({
 
   const columns: WorkStatus[] = items.some((t) => t.status === "cancelled") ? [...baseColumns, "cancelled"] : baseColumns;
 
-  const sensors = useSensors(
-    useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
-    // Touch drags start after a short press, so a swipe still scrolls.
-    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 8 } }),
-    useSensor(KeyboardSensor),
-  );
+  const sensors = useDragSensors();
+
+  const openMenu = useTaskMenu();
+  const touchDrag = useRef(false);
+
+  // Changes from the action menu move the card at once (and back if refused).
+  useEffect(() => {
+    const onChange = (event: Event) => {
+      const { id, change } = (event as CustomEvent<TaskChangeDetail>).detail;
+      setItems((list) => list.map((t) => (t.id === id ? applyChange(t, change) : t)));
+    };
+    window.addEventListener(TASK_CHANGE_EVENT, onChange);
+    return () => window.removeEventListener(TASK_CHANGE_EVENT, onChange);
+  }, []);
 
   const findTask = (id: UniqueIdentifier) => items.find((t) => t.id === id) ?? null;
   const columnOf = (id: UniqueIdentifier): WorkStatus | null => (isStatus(id) ? id : (findTask(id)?.status ?? null));
 
-  function handleDragStart({ active }: DragStartEvent) {
+  function handleDragStart({ active, activatorEvent }: DragStartEvent) {
+    touchDrag.current = typeof TouchEvent !== "undefined" && activatorEvent instanceof TouchEvent;
     setActiveId(String(active.id));
     setError(undefined);
     navigator.vibrate?.(10);
   }
 
-  function handleDragEnd({ active, over }: DragEndEvent) {
+  function handleDragEnd({ active, over, delta, activatorEvent }: DragEndEvent) {
     setActiveId(null);
+    swallowClickAfterTouchDrag(activatorEvent);
     const task = findTask(active.id);
+    // Held and let go without moving: the finger wanted the actions, not a drag.
+    if (task && touchDrag.current && Math.abs(delta.x) < STILL_PX && Math.abs(delta.y) < STILL_PX) {
+      openMenu?.(menuTaskOf(task));
+      return;
+    }
     const to = over ? columnOf(over.id) : null;
     if (!task || !to || to === task.status) return;
 
@@ -126,7 +142,7 @@ export function TaskBoard({
       <DndContext
         id={dndId}
         sensors={sensors}
-        collisionDetection={closestCorners}
+        collisionDetection={columnUnderPointer({ isColumn: (c) => isStatus(c.id) })}
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
         onDragCancel={() => setActiveId(null)}
@@ -138,7 +154,7 @@ export function TaskBoard({
           },
         }}
       >
-        <p className="mb-3 text-xs text-muted lg:hidden">Swipe sideways for the other columns. Press and hold a task to move it.</p>
+        <p className="mb-3 text-xs text-muted lg:hidden">Swipe sideways for the other columns. Press and hold a task to move it, or hold and let go for its actions.</p>
         <div
           className={`-mx-4 flex snap-strip scrollbar-none gap-3 px-4 sm:-mx-6 sm:px-6 lg:mx-0 lg:grid lg:gap-4 lg:overflow-visible lg:px-0 ${
             columns.length === 5 ? "lg:grid-cols-5" : "lg:grid-cols-4"
@@ -191,13 +207,31 @@ function BoardColumn({
   );
 }
 
+function menuTaskOf(task: TaskListItem) {
+  return {
+    id: task.id,
+    title: task.title,
+    status: task.status,
+    priority: task.priority,
+    reviewerId: task.reviewerId,
+    subtitle: `${task.workspace.name} › ${task.project.name}`,
+  };
+}
+
 function DraggableCard({ task, timeZone, showContext }: { task: TaskListItem; timeZone: string; showContext: boolean }) {
+  const openMenu = useTaskMenu();
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, isDragging } = useDraggable({ id: task.id });
   return (
     <li
       ref={setNodeRef}
       style={{ transform: CSS.Translate.toString(transform) }}
       onTouchStart={listeners?.onTouchStart as TouchEventHandler<HTMLLIElement> | undefined}
+      onContextMenu={(event: MouseEvent<HTMLLIElement>) => {
+        event.preventDefault();
+        // A held finger is handled by the drag (it opens the menu when it does not move).
+        if ((event.nativeEvent as PointerEvent).pointerType === "touch") return;
+        openMenu?.(menuTaskOf(task), { x: event.clientX, y: event.clientY });
+      }}
       className={`select-none [-webkit-touch-callout:none] lg:select-auto ${isDragging ? "opacity-40" : ""}`}
     >
       <TaskCard
@@ -267,6 +301,7 @@ function TaskCard({
             <PriorityBadge priority={task.priority} />
             <DueLabel dueAt={task.dueAt} timeZone={timeZone} done={done} />
             <People people={task.assignees} />
+            {!overlay && <TaskMenuButton task={menuTaskOf(task)} className="-my-1 ml-auto" />}
           </div>
           {task.record && (
             <div className="mt-2">

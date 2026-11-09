@@ -4,13 +4,10 @@ import { useEffect, useMemo, useState, useTransition, type ReactNode } from "rea
 import {
   closestCenter,
   DndContext,
-  KeyboardSensor,
-  PointerSensor,
-  useSensor,
-  useSensors,
   type DragEndEvent,
 } from "@dnd-kit/core";
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
+import { useDragSensors } from "@/components/ui/dnd";
 import { CSS } from "@dnd-kit/utilities";
 import {
   ArrowDown,
@@ -91,10 +88,7 @@ export function FormBuilder({
     return () => window.removeEventListener("beforeunload", warn);
   }, [dirty]);
 
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
-  );
+  const sensors = useDragSensors(sortableKeyboardCoordinates);
 
   function change(next: Block[]) {
     setBlocks(next);

@@ -7,6 +7,7 @@ import { CheckCheck, ClipboardList, Inbox, Menu, NotebookPen, Search, Settings, 
 import { LogoMark } from "@/components/brand/logo";
 import { TabBar, TabButton, type TabItem } from "@/components/ui/tab-bar";
 import { useDrawer } from "@/components/ui/use-drawer";
+import { TaskMenuProvider } from "@/components/work/task-menu";
 
 const tabs: TabItem[] = [
   { label: "My tasks", href: "/work", icon: ClipboardList, match: (path) => path === "/work" },
@@ -115,7 +116,7 @@ export function WorkShell({
 
       <div className="lg:pl-64">
         <main className="mx-auto w-full max-w-6xl pt-6 pb-tabbar pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] sm:pt-8 sm:pl-[max(1.5rem,env(safe-area-inset-left))] sm:pr-[max(1.5rem,env(safe-area-inset-right))] lg:px-10 lg:py-10">
-          {children}
+          <TaskMenuProvider>{children}</TaskMenuProvider>
         </main>
       </div>
     </div>
