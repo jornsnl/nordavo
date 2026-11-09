@@ -1,19 +1,7 @@
 import "server-only";
+import { escapeMailHtml, isFullDocument, renderMailLayout } from "./layout";
 
-/**
- * Transactional mail (job failures, weekly report) through the Resend API.
- * Without RESEND_API_KEY the message is logged instead, so jobs never fail
- * because mail is not configured.
- */
-export async function sendMail({
-  to = process.env.REPORT_EMAIL_TO,
-  subject,
-  html,
-  text,
-  cc,
-  replyTo,
-  from = process.env.MAIL_FROM,
-}: {
+type MailInput = {
   to?: string;
   subject: string;
   html: string;
@@ -23,31 +11,69 @@ export async function sendMail({
   replyTo?: string;
   /** Defaults to MAIL_FROM. */
   from?: string;
-}): Promise<boolean> {
+};
+
+export type MailResult = { ok: true; id?: string } | { ok: false; reason: "not_configured" | "rejected" | "network"; detail: string };
+
+/**
+ * Transactional mail (job failures, weekly report, candidates, Work) through
+ * the Resend API. Every HTML fragment is wrapped in the Nordavo template
+ * (src/lib/notify/layout.ts); a complete document is sent as is.
+ * Without RESEND_API_KEY the message is logged instead, so jobs never fail
+ * because mail is not configured.
+ */
+export async function sendMail(input: MailInput): Promise<boolean> {
+  return (await deliverMail(input)).ok;
+}
+
+/** Like sendMail, but says why a mail was not sent (for the test mail in Settings). */
+export async function deliverMail({
+  to = process.env.REPORT_EMAIL_TO,
+  subject,
+  html,
+  text,
+  cc,
+  replyTo,
+  from = process.env.MAIL_FROM,
+}: MailInput): Promise<MailResult> {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey || !from || !to) {
-    console.warn(`[mail] not sent (RESEND_API_KEY, MAIL_FROM or REPORT_EMAIL_TO missing): ${subject}`);
-    return false;
+    const missing = [!apiKey && "RESEND_API_KEY", !from && "MAIL_FROM", !to && "a recipient (REPORT_EMAIL_TO)"].filter(Boolean).join(", ");
+    console.warn(`[mail] not sent (${missing} missing): ${subject}`);
+    return { ok: false, reason: "not_configured", detail: `Missing: ${missing}.` };
   }
 
-  const response = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      from,
-      to: splitAddresses(to),
-      subject,
-      html,
-      text,
-      ...(cc && splitAddresses(cc).length > 0 ? { cc: splitAddresses(cc) } : {}),
-      ...(replyTo ? { reply_to: replyTo } : {}),
-    }),
-  });
-  if (!response.ok) {
-    console.error(`[mail] sending failed (${response.status}): ${await response.text()}`);
-    return false;
+  let response: Response;
+  try {
+    response = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        from,
+        to: splitAddresses(to),
+        subject,
+        html: isFullDocument(html) ? html : renderMailLayout({ body: html }),
+        text,
+        ...(cc && splitAddresses(cc).length > 0 ? { cc: splitAddresses(cc) } : {}),
+        ...(replyTo ? { reply_to: replyTo } : {}),
+      }),
+    });
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : String(error);
+    console.error(`[mail] sending failed (network): ${detail}`);
+    return { ok: false, reason: "network", detail };
   }
-  return true;
+  if (!response.ok) {
+    const raw = await response.text();
+    console.error(`[mail] sending failed (${response.status}): ${raw}`);
+    let detail = raw;
+    try {
+      detail = (JSON.parse(raw) as { message?: string }).message ?? raw;
+    } catch {}
+    return { ok: false, reason: "rejected", detail: `Resend answered ${response.status}: ${detail}` };
+  }
+  const data = (await response.json().catch(() => ({}))) as { id?: string };
+  return { ok: true, id: data.id };
 }
 
 function splitAddresses(value: string) {
@@ -67,6 +93,4 @@ export function hasRecruitmentMail() {
   return Boolean(process.env.RESEND_API_KEY && recruitmentFrom());
 }
 
-export function escapeHtml(value: string) {
-  return value.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
-}
+export const escapeHtml = escapeMailHtml;

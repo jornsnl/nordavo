@@ -1,3 +1,5 @@
+import { mailButton, mailLinkFallback } from "@/lib/notify/layout";
+
 /**
  * The mails candidates get: the form link and the reminder. One mail per
  * candidate, never BCC. Pure, so the content is tested without sending.
@@ -35,12 +37,11 @@ function firstName(name: string) {
 
 function layout(paragraphs: string[], link: string, button: string) {
   const body = paragraphs.map((p) => `<p style="margin:0 0 16px">${p}</p>`).join("");
-  return `<div style="font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.5;color:#0f172a;max-width:560px">
-${body}
-<p style="margin:24px 0"><a href="${escape(link)}" style="background:#1d4ed8;color:#ffffff;padding:12px 20px;border-radius:10px;text-decoration:none;font-weight:bold">${escape(button)}</a></p>
-<p style="margin:0 0 16px;color:#64748b;font-size:13px">Or open this link: <a href="${escape(link)}">${escape(link)}</a></p>
-<p style="margin:0">Kind regards,<br>The Nordavo recruitment team</p>
-</div>`;
+  // The Nordavo template around it is added by sendMail.
+  return `${body}
+${mailButton(link, button)}
+${mailLinkFallback(link)}
+<p style="margin:0">Kind regards,<br>The Nordavo recruitment team</p>`;
 }
 
 export function inviteMail({ candidateName, vacancyTitle, link, deadline }: FormMailInput): MailContent {
