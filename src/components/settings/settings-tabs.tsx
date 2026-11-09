@@ -2,10 +2,11 @@ import Link from "next/link";
 
 const tabs = [
   { key: "general", label: "General", href: "/dashboard/settings" },
+  { key: "callers", label: "Callers", href: "/dashboard/settings/callers" },
   { key: "mail-log", label: "Mail log", href: "/dashboard/settings/mail-log" },
 ] as const;
 
-/** Tabs at the top of Settings. Mail log is for admins only. */
+/** Tabs at the top of Settings. Callers and Mail log are for admins only. */
 export function SettingsTabs({ active, isAdmin }: { active: (typeof tabs)[number]["key"]; isAdmin: boolean }) {
   if (!isAdmin) return null;
   return (
