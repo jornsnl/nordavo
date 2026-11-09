@@ -104,6 +104,8 @@ export type CandidateCheckScoreRow = {
   best_percent: number;
   last_percent: number;
   last_attempt_at: string;
+  /** The score of the first attempt: what the ATS ranks on (answers are shown after each attempt). */
+  first_percent: number;
 };
 
 export type CandidateAssignmentRow = {

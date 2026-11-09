@@ -1,6 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
-import { ACADEMY_HOME, isAcademyOnlyRole, routeForRole } from "@/lib/academy/routing";
+import { ACADEMY_HOME, isAcademyOnlyClient, isAcademyOnlyRole, routeForRole } from "@/lib/academy/routing";
 import { env } from "@/lib/env";
 import {
   MFA_CHECK_COOKIE,
@@ -29,11 +29,20 @@ const PUBLIC_PATHS = ["/login", "/auth", "/api/jobs", WORK_SIGN_IN, "/work/invit
 // token is older than a role change.
 const CALLER_PATHS = ["/caller", "/auth", "/login", "/api/webhooks"];
 
-function portalRoleOf(claims: Record<string, unknown> | undefined): string | null {
+function appMetaOf(claims: Record<string, unknown> | undefined, key: "portal_role" | "academy_role"): string | null {
   const meta = claims?.app_metadata;
   if (!meta || typeof meta !== "object") return null;
-  const role = (meta as Record<string, unknown>).portal_role;
-  return typeof role === "string" ? role : null;
+  const value = (meta as Record<string, unknown>)[key];
+  return typeof value === "string" ? value : null;
+}
+
+function portalRoleOf(claims: Record<string, unknown> | undefined): string | null {
+  return appMetaOf(claims, "portal_role");
+}
+
+/** academy_members.academy_role, mirrored by the database (migration 20261115000000). */
+function academyRoleOf(claims: Record<string, unknown> | undefined): string | null {
+  return appMetaOf(claims, "academy_role");
 }
 
 function isCallerSession(claims: Record<string, unknown> | undefined) {
@@ -118,10 +127,13 @@ export async function updateSession(request: NextRequest) {
   }
 
   // Developers and candidates only reach /academy; clients /portal and
-  // /academy (src/lib/academy/routing.ts). Same app_metadata role as callers;
-  // the pages check the role again (requireAcademyUser, requireClient).
-  if (claims && !isPublicPath(pathname)) {
-    const decision = routeForRole(portalRoleOf(claims), pathname);
+  // /academy, Academy-only clients (client_member, client_reader) /academy
+  // (src/lib/academy/routing.ts). Same app_metadata role as callers; the
+  // pages check the role again (requireAcademyUser, requireClient). Also for
+  // the public API paths (/api/work, /api/mcp, /api/jobs): a session of an
+  // Academy-only role gets 403 there, whatever token it carries.
+  if (claims && (!isPublicPath(pathname) || pathname.startsWith("/api/"))) {
+    const decision = routeForRole(portalRoleOf(claims), pathname, academyRoleOf(claims));
     if (decision.kind === "forbidden") {
       return NextResponse.json({ error: "Not allowed" }, { status: 403 });
     }
@@ -136,7 +148,12 @@ export async function updateSession(request: NextRequest) {
     pathname === "/login" && request.nextUrl.searchParams.has("error");
   if (isSignedIn && !showsLoginError && (pathname === "/login" || pathname === "/")) {
     const role = portalRoleOf(claims);
-    const home = role === "caller" ? "/caller" : isAcademyOnlyRole(role) ? ACADEMY_HOME : "/dashboard";
+    const home =
+      role === "caller"
+        ? "/caller"
+        : isAcademyOnlyRole(role) || isAcademyOnlyClient(role, academyRoleOf(claims))
+          ? ACADEMY_HOME
+          : "/dashboard";
     return redirectWithCookies(request, response, home);
   }
   if (isSignedIn && pathname === WORK_SIGN_IN && !request.nextUrl.searchParams.has("error")) {

@@ -41,7 +41,15 @@ function confirmUrl(hashedToken: string, type: "invite" | "recovery") {
   return `${env.siteUrl().replace(/\/$/, "")}/auth/confirm?token_hash=${encodeURIComponent(hashedToken)}&type=${type}&next=/auth/password`;
 }
 
-/** One person: account (or existing), Academy row, access, mail. */
+const KNOWN_ADD_ERRORS =
+  /client user|developer or candidate|external caller|linked to a client|not part of this course|Client not found|Course not found/;
+
+function addError(email: string, step: string, error: { code?: string; message: string }): AddResult {
+  console.error(`academy addOne ${step}`, error.code, error.message);
+  return { ok: false, email, error: KNOWN_ADD_ERRORS.test(error.message) ? error.message : GENERIC_ERROR };
+}
+
+/** One person: checks, account (or existing), Academy row, access, mail. */
 async function addOne(person: BulkPerson, enrolment: Enrolment, invitedBy: string, courseTitle: string | null): Promise<AddResult> {
   const supabase = await createClient();
   const admin = createAdminClient();
@@ -51,6 +59,19 @@ async function addOne(person: BulkPerson, enrolment: Enrolment, invitedBy: strin
   let profileId = existing?.id ?? null;
   let url: string | null = null;
   let linkKind: "new" | "reset" | "login" = "login";
+  const clientId = isClientRole(enrolment.role) ? enrolment.clientId : null;
+
+  // The database checks first (role, client, course, modules, the existing
+  // account), so a refused add never leaves a new auth account behind.
+  const { error: checkError } = await supabase.rpc("academy_add_person_check", {
+    p_profile_id: profileId,
+    p_academy_role: enrolment.role,
+    p_client_id: clientId,
+    p_course_id: enrolment.courseId,
+    p_scope: enrolment.scope,
+    p_open_module_ids: enrolment.openModuleIds,
+  });
+  if (checkError) return addError(email, "check", checkError);
 
   if (!profileId) {
     if (!admin) return { ok: false, email, error: NO_SECRET_KEY };
@@ -81,7 +102,7 @@ async function addOne(person: BulkPerson, enrolment: Enrolment, invitedBy: strin
     p_academy_role: enrolment.role,
     p_locale: enrolment.locale ?? defaultLocaleFor(enrolment.role),
     p_start_date: person.startDate ?? enrolment.startDate,
-    p_client_id: isClientRole(enrolment.role) ? enrolment.clientId : null,
+    p_client_id: clientId,
     p_candidate_id: enrolment.candidateId,
     p_course_id: enrolment.courseId,
     p_scope: enrolment.scope,
@@ -89,9 +110,12 @@ async function addOne(person: BulkPerson, enrolment: Enrolment, invitedBy: strin
     p_time_zone: existing ? null : defaultTimeZoneFor(enrolment.role),
   });
   if (error) {
-    console.error("academy addOne add_person", error.code, error.message);
-    const known = /client user|developer or candidate|external caller|linked to a client|not part of this course/.test(error.message);
-    return { ok: false, email, error: known ? error.message : GENERIC_ERROR };
+    // The account was made a moment ago for this add: remove it again.
+    if (linkKind === "new" && admin) {
+      const { error: deleteError } = await admin.auth.admin.deleteUser(profileId);
+      if (deleteError) console.error("academy addOne cleanup", deleteError.code, deleteError.message);
+    }
+    return addError(email, "add_person", error);
   }
 
   // The role in the session token (the proxy routes on it); the database

@@ -77,7 +77,7 @@ export async function AcademyCandidateCard({ candidateId, hasEmail }: { candidat
                     "Never"
                   ),
                 },
-                { label: "Knowledge checks", value: summary.checks_done > 0 ? `${formatPercent(summary.check_avg_percent)} average · ${summary.checks_done} done` : "None yet" },
+                { label: "Knowledge checks", value: summary.checks_done > 0 ? `${formatPercent(summary.check_avg_percent)} average of first attempts · ${summary.checks_done} done` : "None yet" },
                 {
                   label: "Assignments",
                   value:
@@ -141,7 +141,11 @@ export async function AcademyCandidateCard({ candidateId, hasEmail }: { candidat
                         {c.lesson_title} <span className="text-muted">· {c.check_title}</span>
                       </span>
                       <span className="shrink-0 text-xs text-muted">
-                        best {c.best_percent}%, last {c.last_percent}% · {c.attempts} {c.attempts === 1 ? "attempt" : "attempts"}
+                        <span className="font-medium text-ink" title="The first attempt counts: answers are shown after each attempt">
+                          first {c.first_percent}%
+                        </span>
+                        {c.attempts > 1 && <> · best {c.best_percent}%, last {c.last_percent}%</>} · {c.attempts}{" "}
+                        {c.attempts === 1 ? "attempt" : "attempts"}
                       </span>
                     </li>
                   ))}

@@ -45,7 +45,7 @@ export type WorkApiActor = {
 
 export type WorkAuthResult =
   | { ok: true; actor: WorkApiActor }
-  | { ok: false; reason: "missing" | "invalid" | "revoked" | "expired" };
+  | { ok: false; reason: "missing" | "invalid" | "revoked" | "expired" | "no_access" };
 
 export async function authenticateWorkToken(
   header: string | null | undefined,
@@ -65,7 +65,10 @@ export async function authenticateWorkToken(
   if (row.revoked_at) return { ok: false, reason: "revoked" };
   if (row.expires_at && new Date(row.expires_at).getTime() <= now.getTime()) return { ok: false, reason: "expired" };
 
-  const { data: profile } = await db.from("profiles").select("full_name, email").eq("id", row.user_id).maybeSingle();
+  const { data: profile } = await db.from("profiles").select("full_name, email, role").eq("id", row.user_id).maybeSingle();
+  // Developers and candidates only have the Academy (the database revokes
+  // their tokens when they get that role; this covers older rows).
+  if (profile?.role === "developer" || profile?.role === "candidate") return { ok: false, reason: "no_access" };
   if (shouldTouchLastUsed(row.last_used_at, now)) {
     await db.from("work_api_tokens").update({ last_used_at: now.toISOString() }).eq("id", row.id);
   }
@@ -91,5 +94,7 @@ export function workAuthMessage(reason: Exclude<WorkAuthResult, { ok: true }>["r
       return "This token was revoked.";
     case "expired":
       return "This token has expired.";
+    case "no_access":
+      return "This account has no access to Work.";
   }
 }
