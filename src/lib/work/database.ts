@@ -473,6 +473,30 @@ export type WorkFunctions = {
     { p_task: string; p_entity_type: WorkTaskLinkRow["entity_type"] | null; p_entity_id: string | null } & Actor,
     undefined
   >;
+  work_close_record_tasks: Fn<
+    {
+      p_entity_type: WorkTaskLinkRow["entity_type"];
+      p_entity_id: string;
+      p_titles: string[];
+      p_due_before?: string | null;
+    } & Actor,
+    number
+  >;
+  work_api_record_tasks: Fn<
+    {
+      p_user: string;
+      p_assignee?: string | null;
+      p_statuses?: WorkStatus[] | null;
+      p_due_from?: string | null;
+      p_due_to?: string | null;
+      p_no_due?: boolean;
+      p_entity_type?: WorkTaskLinkRow["entity_type"] | null;
+      p_entity_id?: string | null;
+      p_limit?: number;
+      p_offset?: number;
+    },
+    WorkTaskRow[]
+  >;
   work_update_task: Fn<{ p_task: string; p_fields: Json } & Actor, undefined>;
   work_set_assignees: Fn<{ p_task: string; p_users: string[] } & Actor, undefined>;
   work_set_status: Fn<{ p_task: string; p_status: WorkStatus; p_comment?: string | null } & Actor, undefined>;

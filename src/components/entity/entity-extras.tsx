@@ -3,18 +3,22 @@ import { requireStaff } from "@/lib/auth";
 import { listEntityActivity } from "@/lib/data/activity";
 import { listAttachments } from "@/lib/data/attachments";
 import { listNotes } from "@/lib/data/notes";
-import { listStaff, listTasksForEntity } from "@/lib/data/tasks";
+import { listStaff } from "@/lib/data/staff";
+import { recordKey } from "@/lib/data/search";
 import { MAX_UPLOAD_BYTES } from "@/lib/storage";
-import { formatDateTime, todayIso } from "@/lib/format";
+import { formatDateTime } from "@/lib/format";
+import { listRecordTasks } from "@/lib/work/data";
+import { openStatuses } from "@/lib/work/labels";
+import { loadPrimaryContacts } from "@/lib/work/records";
+import { safeTimeZone } from "@/lib/work/time";
 import { Card } from "@/components/ui/card";
-import { TaskCheckbox } from "@/components/tasks/task-checkbox";
-import { AssigneeLabel, DueLabel, PriorityBadge } from "@/components/tasks/task-meta";
 import { ActivityTimeline } from "./activity-timeline";
 import { AttachmentRow, AttachmentUploader } from "./attachment-items";
 import { ExtrasTabs } from "./extras-tabs";
 import { formatBytes, timeAgo } from "./format";
 import { NoteComposer, NoteItem } from "./note-items";
 import { QuickTaskForm } from "./quick-task-form";
+import { RecordTaskRows } from "./record-tasks";
 
 export type EntityRef = { entityType: EntityType; entityId: string };
 
@@ -22,7 +26,8 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
  * Tasks, notes, attachments and activity for one record, shown on every
- * detail page (client, vacancy, candidate, placement).
+ * detail page (client, lead, vacancy, candidate, placement). The tasks are
+ * Work tasks linked to the record (project "Portal records" by default).
  *
  * Contract: an async Server Component. Render it inside a <Suspense>
  * boundary; it calls requireStaff() itself.
@@ -31,17 +36,17 @@ export async function EntityExtras({ entityType, entityId }: EntityRef) {
   const user = await requireStaff();
   if (!UUID.test(entityId)) return null;
 
-  const [tasks, notes, attachments, activity, staff] = await Promise.all([
-    listTasksForEntity(entityType, entityId),
+  const [tasks, notes, attachments, activity, staff, contacts] = await Promise.all([
+    listRecordTasks(entityType, entityId),
     listNotes(entityType, entityId),
     listAttachments(entityType, entityId),
     listEntityActivity(entityType, entityId),
     listStaff(),
+    loadPrimaryContacts(user, [{ type: entityType, id: entityId }]),
   ]);
   const now = new Date();
-  const today = todayIso();
-  const openTasks = tasks.filter((t) => t.status !== "done");
-  const doneTasks = tasks.filter((t) => t.status === "done");
+  const timeZone = safeTimeZone(user.timeZone);
+  const openTasks = tasks.filter((t) => openStatuses.includes(t.status));
 
   return (
     <Card className="overflow-hidden">
@@ -55,36 +60,11 @@ export async function EntityExtras({ entityType, entityId }: EntityRef) {
             count: openTasks.length,
             content: (
               <div className="space-y-4">
-                {tasks.length === 0 ? (
-                  <p className="text-sm text-muted">No tasks for this record yet.</p>
-                ) : (
-                  <ul className="divide-y divide-border">
-                    {[...openTasks, ...doneTasks].map((task) => {
-                      const done = task.status === "done";
-                      return (
-                        <li key={task.id} className="flex items-start gap-2.5 py-2.5 first:pt-0">
-                          <TaskCheckbox taskId={task.id} title={task.title} done={done} />
-                          <div className="min-w-0 flex-1">
-                            <p
-                              className={`text-sm break-words ${
-                                done ? "text-muted line-through" : "font-medium text-ink"
-                              }`}
-                            >
-                              {task.title}
-                            </p>
-                            {!done && (
-                              <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
-                                <DueLabel dueDate={task.dueDate} today={today} />
-                                <PriorityBadge priority={task.priority} />
-                                <AssigneeLabel name={task.assigneeName} />
-                              </div>
-                            )}
-                          </div>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                )}
+                <RecordTaskRows
+                  tasks={tasks}
+                  timeZone={timeZone}
+                  contact={contacts.get(recordKey(entityType, entityId)) ?? null}
+                />
                 <QuickTaskForm
                   entityType={entityType}
                   entityId={entityId}

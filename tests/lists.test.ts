@@ -245,7 +245,7 @@ test("exportCallList re-checks, guards the legal form and records everything", a
   assert.equal(exportInsert.created_by, "u1");
 
   const statusUpdate = calls.find((c) => c.table === "contacts")?.ops.find((o) => o.op === "update")?.args[0];
-  assert.deepEqual(statusUpdate, { status: "op_bellijst" });
+  assert.deepEqual(statusUpdate, { status: "in_outreach" });
 
   const upsert = calls.find((c) => c.table === "activities")?.ops.find((o) => o.op === "upsert");
   const rows = upsert?.args[0] as Record<string, unknown>[];

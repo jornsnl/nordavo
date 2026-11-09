@@ -66,16 +66,16 @@ Lijsten geven standaard 25 en maximaal 100 rijen, met `offset` om te bladeren. R
 | `list_candidates` / `get_candidate` | Kandidaten (zoeken op naam, functie en skills); detail met skills, sollicitaties, plaatsingen en notities |
 | `list_placements` | Plaatsingen (standaard actief en opgezegd) met tarief, garantie en volgende check-in |
 | `get_company` | GTM bedrijf met ICP kwalificatie, contacten en signalen |
-| `list_tasks` | Taken; filters `mine`, `status` (`open`, `todo`, `in_progress`, `done`, `all`), `due` (`overdue`, `today`, `week`, `none`) en een gekoppeld record |
-| `get_activity` | Activiteitenlog van één record (inclusief pipeline en gekoppelde taken) of van het hele portaal |
+| `list_tasks` | Work taken die de eigenaar van het token mag openen, op deadline, met eigenaren, reviewer, project, het gekoppelde record (`linked`: type, id, naam, link) en een link naar de taak in Work. Filters `mine` (eigenaar), `status` (`open` is `todo`, `in_progress` of `review`; verder `todo`, `in_progress`, `review`, `done`, `cancelled`, `all`), `due` (`overdue`, `today`, `week`, `none`) en een gekoppeld record (`entity_type` met `entity_id`). `due_at` is UTC, `due_date` de dag in Europe/Amsterdam. `has_more` zegt of er een volgende pagina is |
+| `get_activity` | Activiteitenlog van één record (inclusief pipeline en het log van de gekoppelde Work taken) of van het hele portaal; met `entity_type` `task` het log van één Work taak |
 | `talent_pool_top` | De beste kandidaten uit de talentpool voor een profiel in vrije tekst of een vacature, met reden, skills, projectervaring en woonplaats (zie [recruitment-screening.md](./recruitment-screening.md)) |
 
 ### Schrijven (alleen tokens met *Lezen en schrijven*)
 
 | Tool | Wat het doet |
 | --- | --- |
-| `create_task` | Taak aanmaken, optioneel gekoppeld aan een record; standaard toegewezen aan de eigenaar van het token |
-| `update_task_status` | Status van een taak zetten: `todo`, `in_progress` of `done` |
+| `create_task` | Work taak aanmaken in het afgeschermde project *Portal records*, optioneel gekoppeld aan een record (`entity_type`: `client`, `company` (lead), `vacancy`, `candidate`, `application` of `placement`, met `entity_id`). Prioriteit `low`, `normal`, `high` of `urgent`; `due_date` wordt 17:00 Amsterdamse tijd. De eigenaar van het token wordt reviewer en, zonder `assignee_id`, ook eigenaar |
+| `update_task_status` | Status van een Work taak zetten: `todo`, `in_progress`, `review` of `done`. De reviewregels van Work gelden: Done alleen door de reviewer of een admin, Review alleen met een reviewer, terug van Review of Done alleen met `comment` |
 | `add_note` | Notitie toevoegen aan een klant, vacature, kandidaat, sollicitatie, plaatsing of GTM bedrijf |
 
 Schrijftools worden voor een leestoken niet eens aangeboden (ze staan niet in `tools/list`), en elke schrijftool controleert de rechten nog een keer. Er is bewust niets om te verwijderen.
@@ -85,7 +85,7 @@ Schrijftools worden voor een leestoken niet eens aangeboden (ze staan niet in `t
 - `src/app/api/mcp/route.ts` maakt per request een nieuwe `McpServer` en een stateless `WebStandardStreamableHTTPServerTransport`. De route roept `connection()` aan, dus hij draait altijd op request-tijd (Cache Components).
 - `src/lib/mcp/tokens.ts` maakt tokens (`nrd_` plus 32 willekeurige bytes, base64url), slaat alleen de SHA-256 hash op en controleert tokens met de secret key: ingetrokken, verlopen en niet-teamleden worden geweigerd. `last_used_at` wordt hooguit eens per vijf minuten bijgewerkt.
 - `src/lib/mcp/tools.ts` en `write-tools.ts` bevatten de tools. Ze lezen met de admin client, maar selecteren alleen portaaldata die een teamlid onder RLS ook ziet. Tokens, hashes, passkeys en WebAuthn data zijn nooit bereikbaar via een tool.
-- **Wie deed wat:** schrijfacties zetten `created_by`, `assignee_id` (standaard) en `author_id` op de eigenaar van het token. Omdat de secret key geen `auth.uid()` heeft, schrijft de activiteitentrigger eerst geen actor; de MCP server zet daarna `actor_id` op de eigenaar voor de regels die net door die actie zijn ontstaan.
+- **Wie deed wat:** schrijfacties zetten `author_id` (notities) op de eigenaar van het token. Taken gaan via de Work functies (`work_create_record_task`, `work_set_status`) met `p_actor` = de eigenaar van het token, dus dezelfde rechten, reviewregels en hetzelfde takenlog als in de app. Lezen gaat via `work_api_record_tasks` met de rechten van de eigenaar; gekoppelde records worden beperkt tot zijn modules.
 - Tokens beheren gebeurt met de eigen sessie van de gebruiker (RLS): aanmaken mag alleen voor jezelf, intrekken zet `revoked_at`. Maximaal 20 actieve tokens per gebruiker.
 
 ## Inrichten (voor beheerders)

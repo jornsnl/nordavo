@@ -12,32 +12,7 @@ import {
   type McpToolContext,
 } from "@/lib/mcp/shared";
 import { MAX_BULK_MOVE, moveTargets } from "@/lib/recruitment/pipeline";
-
-/**
- * Database writes with the secret key run without auth.uid(), so the
- * activity log trigger records them without an actor. Attribute the rows
- * this request just caused to the token owner. Only rows without an actor
- * since the write started are touched, so changes by others stay as they are.
- */
-async function attributeActivity(db: McpDb, entityType: string, entityId: string, actorId: string, since: string) {
-  const { error } = await db
-    .from("activity_log")
-    .update({ actor_id: actorId })
-    .eq("entity_type", entityType)
-    .eq("entity_id", entityId)
-    .is("actor_id", null)
-    .gte("created_at", since);
-  if (error) console.error("[mcp] activity attribution failed:", error.message);
-}
-
-/**
- * Start of the attribution window. A minute of margin absorbs clock skew
- * between the app server and the database; only rows of this one record
- * without an actor are touched, so the margin is harmless.
- */
-function attributionStart() {
-  return new Date(Date.now() - 60_000).toISOString();
-}
+import { amsterdamDueAt, shapeWorkTasks } from "@/lib/mcp/work-tasks";
 
 /** Staff only: tasks are never assigned to client portal users. */
 async function isStaffMember(db: McpDb, userId: string) {
@@ -135,12 +110,12 @@ export function registerWriteTools(server: McpServer, ctx: McpToolContext) {
     {
       title: "Create task",
       description:
-        "Create a task in Nordavo, optionally linked to a record. Assigned to the token owner unless assignee_id is given. Only call after the user asked for it.",
+        "Create a Work task, optionally linked to a record (client, lead/company, vacancy, candidate, application or placement). It lands in the private Work project Portal records of the Nordavo team. The token owner becomes the reviewer and, unless assignee_id is given, the owner. Only call after the user asked for it.",
       inputSchema: {
-        title: z.string().trim().min(1).max(200),
+        title: z.string().trim().min(1).max(300),
         description: z.string().max(5000).optional(),
-        priority: z.enum(["low", "normal", "high"]).default("normal"),
-        due_date: z.iso.date().optional().describe("YYYY-MM-DD."),
+        priority: z.enum(["low", "normal", "high", "urgent"]).default("normal"),
+        due_date: z.iso.date().optional().describe("YYYY-MM-DD; the deadline becomes 17:00 Europe/Amsterdam that day."),
         assignee_id: idSchema.optional().describe("Team member (profile id). Default: the token owner."),
         entity_type: z.enum(linkableTypes).optional().describe("Type of the linked record (requires entity_id)."),
         entity_id: idSchema.optional(),
@@ -158,27 +133,22 @@ export function registerWriteTools(server: McpServer, ctx: McpToolContext) {
         return fail("assignee_id is not a Nordavo team member.");
       }
 
-      const since = attributionStart();
-      const { data, error } = await db
-        .from("tasks")
-        .insert({
-          title,
-          description: description?.trim() || null,
-          priority,
-          status: "todo",
-          due_date: due_date ?? null,
-          assignee_id: assignee,
-          created_by: ctx.userId,
-          entity_type: entity_type ?? null,
-          entity_id: entity_id ?? null,
-          position: Date.now(),
-        })
-        .select("id, title, status, priority, due_date, assignee_id, entity_type, entity_id")
-        .single();
-      if (error) return fail(`Could not create task: ${error.message}`);
+      // work_create_record_task checks the module of the record and acts as the token owner.
+      const { data: taskId, error } = await db.rpc("work_create_record_task", {
+        p_entity_type: entity_type ?? null,
+        p_entity_id: entity_id ?? null,
+        p_title: title,
+        p_description: description?.trim() || null,
+        p_priority: priority,
+        p_due_at: due_date ? amsterdamDueAt(due_date) : null,
+        p_assignees: [assignee],
+        p_actor: ctx.userId,
+      });
+      if (error || !taskId) return fail(`Could not create task: ${error?.message ?? "no id returned"}`);
 
-      await attributeActivity(db, "task", data.id, ctx.userId, since);
-      return ok({ created: data, url: recordUrl(ctx.siteUrl, "task", data.id) });
+      const { data: row } = await db.from("work_tasks").select("*").eq("id", taskId).single();
+      const [created] = row ? await shapeWorkTasks(db, [row], ctx.siteUrl) : [];
+      return ok({ created: created ?? { id: taskId }, url: recordUrl(ctx.siteUrl, "task", taskId) });
     },
   );
 
@@ -187,27 +157,30 @@ export function registerWriteTools(server: McpServer, ctx: McpToolContext) {
     "update_task_status",
     {
       title: "Change task status",
-      description: "Set the status of a task: todo, in_progress or done. Only call after the user asked for it.",
+      description:
+        "Set the status of a Work task: todo, in_progress, review or done. The review rules of Work apply: only the reviewer (or a workspace admin) can mark a task as done, review needs a reviewer, and moving a task back from review or done needs a comment that says what still needs to happen. Only call after the user asked for it.",
       inputSchema: {
         id: idSchema.describe("Task id."),
-        status: z.enum(["todo", "in_progress", "done"]),
+        status: z.enum(["todo", "in_progress", "review", "done"]),
+        comment: z.string().trim().max(5000).optional().describe("Required when moving back from review or done."),
       },
       annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
     },
-    async ({ id, status }) => {
+    async ({ id, status, comment }) => {
       if (ctx.access !== "write") return denied();
-      const since = attributionStart();
-      const { data, error } = await db
-        .from("tasks")
-        .update({ status })
-        .eq("id", id)
-        .select("id, title, status, completed_at")
-        .maybeSingle();
+      const { data: visible } = await db.rpc("work_api_can_view_task", { p_task: id, p_user: ctx.userId });
+      if (!visible) return fail("Task not found.");
+      const { error } = await db.rpc("work_set_status", {
+        p_task: id,
+        p_status: status,
+        p_comment: comment || null,
+        p_actor: ctx.userId,
+      });
       if (error) return fail(`Could not update task: ${error.message}`);
-      if (!data) return fail("Task not found.");
 
-      await attributeActivity(db, "task", data.id, ctx.userId, since);
-      return ok({ updated: data });
+      const { data: row } = await db.from("work_tasks").select("*").eq("id", id).single();
+      const [updated] = row ? await shapeWorkTasks(db, [row], ctx.siteUrl) : [];
+      return ok({ updated: updated ?? { id, status } });
     },
   );
 

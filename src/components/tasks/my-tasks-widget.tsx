@@ -1,19 +1,23 @@
 import Link from "next/link";
 import { ArrowRight, CheckCircle2 } from "lucide-react";
-import { listMyOpenTasks } from "@/lib/data/tasks";
-import { todayIso } from "@/lib/format";
+import { listOverview, requireWorkUser } from "@/lib/work/data";
+import { dueState } from "@/lib/work/time";
 import { Card, CardHeader } from "@/components/ui/card";
-import { TaskCheckbox } from "./task-checkbox";
-import { DueLabel, PriorityBadge, RecordChip } from "./task-meta";
+import { DoneCheckbox } from "@/components/work/done-checkbox";
+import { DueLabel, PriorityBadge, StatusBadge, priorityBorder } from "@/components/work/task-row";
+import { RecordChip } from "@/components/work/task-record";
 
 /**
- * Open tasks assigned to the current user, for the dashboard overview.
+ * My open Work tasks (assigned to me, any workspace), for the dashboard
+ * overview. Tasks on a record show which one, with a link to it.
  * Contract: async Server Component, render inside <Suspense>.
  */
 export async function MyTasksWidget({ limit = 6 }: { limit?: number }) {
-  const { tasks, total } = await listMyOpenTasks(limit);
-  const today = todayIso();
-  const overdue = tasks.filter((t) => t.dueDate && t.dueDate < today).length;
+  const user = await requireWorkUser();
+  const all = await listOverview("mine", {});
+  const tasks = all.slice(0, limit);
+  const total = all.length;
+  const overdue = all.filter((t) => dueState(t.dueAt, user.timeZone) === "overdue").length;
 
   return (
     <Card>
@@ -28,10 +32,10 @@ export async function MyTasksWidget({ limit = 6 }: { limit?: number }) {
         }
         actions={
           <Link
-            href="/dashboard/tasks"
+            href="/work"
             className="inline-flex items-center gap-1 rounded-lg text-sm font-semibold text-brand-600 hover:text-brand-800 pointer-coarse:-my-3 pointer-coarse:min-h-11 focus-visible:outline-2 focus-visible:outline-brand-500"
           >
-            All tasks
+            Open Work
             <ArrowRight className="size-4" aria-hidden="true" />
           </Link>
         }
@@ -44,14 +48,24 @@ export async function MyTasksWidget({ limit = 6 }: { limit?: number }) {
       ) : (
         <ul className="divide-y divide-border">
           {tasks.map((task) => (
-            <li key={task.id} className="flex items-start gap-3 px-5 py-3">
-              <TaskCheckbox taskId={task.id} title={task.title} done={false} />
+            <li key={task.id} className={`flex items-start gap-3 px-5 py-3 ${priorityBorder(task.priority)}`}>
+              <DoneCheckbox taskId={task.id} title={task.title} done={false} />
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium break-words text-ink">{task.title}</p>
+                <Link
+                  href={`/work/tasks/${task.id}`}
+                  className="text-sm font-medium break-words text-ink hover:text-brand-700 hover:underline focus-visible:outline-2 focus-visible:outline-brand-500"
+                >
+                  {task.title}
+                </Link>
                 <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1.5">
-                  <DueLabel dueDate={task.dueDate} today={today} />
-                  <PriorityBadge priority={task.priority} />
-                  <RecordChip task={task} />
+                  {task.status !== "todo" && <StatusBadge status={task.status} />}
+                  <DueLabel dueAt={task.dueAt} timeZone={user.timeZone} />
+                  <PriorityBadge priority={task.priority} quiet />
+                  {task.record ? (
+                    <RecordChip record={task.record} />
+                  ) : (
+                    <span className="truncate text-xs text-muted">{task.project.name}</span>
+                  )}
                 </div>
               </div>
             </li>
@@ -61,8 +75,8 @@ export async function MyTasksWidget({ limit = 6 }: { limit?: number }) {
       {total > tasks.length && (
         <p className="border-t border-border px-5 py-3 text-xs text-muted">
           And {total - tasks.length} more.{" "}
-          <Link href="/dashboard/tasks" className="font-medium text-brand-600 hover:underline">
-            View them all
+          <Link href="/work" className="font-medium text-brand-600 hover:underline">
+            View them all in Work
           </Link>
         </p>
       )}

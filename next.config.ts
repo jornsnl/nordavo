@@ -24,7 +24,9 @@ const dutchPaths: [string, string][] = [
   ["/dashboard/rapport", "/dashboard/report"],
   ["/dashboard/instellingen", "/dashboard/settings"],
   ["/dashboard/uitsluitingen", "/dashboard/suppressions"],
-  ["/dashboard/taken", "/dashboard/tasks"],
+  // Tasks moved into Work (November 2026).
+  ["/dashboard/taken", "/work"],
+  ["/dashboard/tasks", "/work"],
   ["/dashboard/vacatures", "/dashboard/vacancies"],
   ["/dashboard/vacatures/:id", "/dashboard/vacancies/:id"],
   ["/dashboard/vacatures/:id/bewerken", "/dashboard/vacancies/:id/edit"],

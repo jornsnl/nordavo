@@ -5,7 +5,7 @@ import { Plus, Trash2 } from "lucide-react";
 import { saveAssessment, saveBackgroundCheck } from "@/app/dashboard/vacancies/[id]/pipeline/recruitment-actions";
 import { initialActionState, type ActionState } from "@/lib/action-state";
 import type { KindAttachment } from "@/lib/data/recruitment";
-import type { StaffMember } from "@/lib/data/tasks";
+import type { StaffMember } from "@/lib/data/staff";
 import { formatDate } from "@/lib/format";
 import { backgroundCheckStatuses } from "@/lib/labels";
 import { Field, FormMessage, Input, Select, Textarea } from "@/components/ui/field";

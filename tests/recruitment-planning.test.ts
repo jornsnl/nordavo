@@ -31,7 +31,7 @@ test("routes and menu items follow modules", () => {
   assert.equal(moduleForPath("/dashboard/leads/123"), "sales");
   assert.equal(moduleForPath("/dashboard/vacancies/1/pipeline"), "recruitment");
   assert.equal(moduleForPath("/dashboard/tasks"), null);
-  assert.equal(canSeePath("/dashboard/campaigns", ["recruitment"]), false);
+  assert.equal(canSeePath("/dashboard/contacts", ["recruitment"]), false);
   assert.equal(canSeePath("/dashboard/candidates", ["recruitment"]), true);
   assert.equal(canSeePath("/dashboard/settings", []), true);
   assert.equal(canSeePath("/dashboard/leads", null), true);
@@ -111,7 +111,7 @@ test("scopeDbToModules filters notes and tasks to visible record types", async (
 
   // All modules: no extra filter at all.
   const all = fakeDb();
-  (scopeDbToModules(all.db, ["sales", "recruitment", "clients", "report"]).from("tasks") as unknown as { select: (s: string) => unknown }).select("id");
+  (scopeDbToModules(all.db, ["sales", "recruitment", "clients", "report"]).from("work_task_links") as unknown as { select: (s: string) => unknown }).select("id");
   assert.deepEqual(all.calls[0].ops, [["select", ["id"]]]);
 });
 

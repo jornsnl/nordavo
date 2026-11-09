@@ -8,14 +8,15 @@ export const searchableTypes = ["company", "client", "vacancy", "candidate", "pl
 export type SearchableType = (typeof searchableTypes)[number];
 
 export type RecordHit = {
-  type: SearchableType;
+  /** "task" is a Work task, found by the command palette only. */
+  type: SearchableType | "task";
   id: string;
   label: string;
   sublabel: string | null;
   href: string;
 };
 
-export type SearchGroups = Record<SearchableType, RecordHit[]>;
+export type SearchGroups = Record<SearchableType | "task", RecordHit[]>;
 
 /** A resolved link to any record that tasks, notes or the activity log point at. */
 export type RecordLink = { label: string; sublabel: string | null; href: string | null };
@@ -133,17 +134,32 @@ async function searchType(type: SearchableType, pattern: string, limit: number):
   }));
 }
 
-/** Global search for the command palette: a few hits per record type. */
+/** Work tasks the user can open, by title, description or comment (work_search). */
+async function searchWorkTasks(query: string, limit: number): Promise<RecordHit[]> {
+  const supabase = await createClient();
+  const { data } = await supabase.rpc("work_search", { p_query: query.trim().slice(0, 80), p_limit: limit });
+  return (data ?? []).map((t) => ({
+    type: "task" as const,
+    id: t.id,
+    label: t.title,
+    sublabel: t.due_at ? `Due ${t.due_at.slice(0, 10)}` : null,
+    href: `/work/tasks/${t.id}`,
+  }));
+}
+
+export const emptySearchGroups: SearchGroups = { company: [], client: [], vacancy: [], candidate: [], placement: [], task: [] };
+
+/** Global search for the command palette: a few hits per record type, and Work tasks. */
 export async function searchEverything(query: string, perGroup = 5): Promise<SearchGroups> {
   await requireStaff();
-  const empty: SearchGroups = { company: [], client: [], vacancy: [], candidate: [], placement: [] };
   const pattern = searchPattern(query);
-  if (!pattern) return empty;
+  if (!pattern) return emptySearchGroups;
 
-  const [company, client, vacancy, candidate, placement] = await Promise.all(
-    searchableTypes.map((type) => searchType(type, pattern, perGroup)),
-  );
-  return { company, client, vacancy, candidate, placement };
+  const [[company, client, vacancy, candidate, placement], task] = await Promise.all([
+    Promise.all(searchableTypes.map((type) => searchType(type, pattern, perGroup))),
+    searchWorkTasks(query, perGroup),
+  ]);
+  return { company, client, vacancy, candidate, placement, task };
 }
 
 /** Search one record type, for the record picker on tasks. */
@@ -159,7 +175,9 @@ export const recordKey = (type: string, id: string) => `${type}:${id}`;
 /**
  * Resolve labels and links for a mixed list of records in a few queries.
  * Unknown or deleted records are simply missing from the map.
- * Also understands "task", which is used by the activity log.
+ * Also understands "task" (a Work task), which the activity log uses. Old
+ * log rows point at the portal task before it moved to Work; those are found
+ * through work_tasks.external_id.
  */
 export async function resolveRecords(
   refs: { type: string; id: string }[],
@@ -264,12 +282,24 @@ export async function resolveRecords(
         }),
     taskIds.length > 0 &&
       supabase
-        .from("tasks")
+        .from("work_tasks")
         .select("id, title")
         .in("id", taskIds)
         .then(({ data }) => {
           for (const t of data ?? []) {
-            result.set(recordKey("task", t.id), { label: t.title, sublabel: null, href: "/dashboard/tasks" });
+            result.set(recordKey("task", t.id), { label: t.title, sublabel: null, href: `/work/tasks/${t.id}` });
+          }
+        }),
+    taskIds.length > 0 &&
+      supabase
+        .from("work_tasks")
+        .select("id, title, external_id")
+        .eq("external_source", "portal_tasks")
+        .in("external_id", taskIds)
+        .then(({ data }) => {
+          for (const t of data ?? []) {
+            if (!t.external_id) continue;
+            result.set(recordKey("task", t.external_id), { label: t.title, sublabel: null, href: `/work/tasks/${t.id}` });
           }
         }),
   ]);
