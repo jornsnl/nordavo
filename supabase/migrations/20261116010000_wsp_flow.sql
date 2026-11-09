@@ -888,33 +888,33 @@ declare
   v_closed timestamptz;
   v_has_links boolean;
   v_count integer;
+  v_dev timestamptz;
 begin
   select * into v_a from public.wsp_assessments where id = p_assessment;
   if v_a.id is null or v_a.status = 'deleted' then
     return null;
   end if;
 
-  -- Developers: 28 days after the end of the (last) placement.
-  if exists (select 1 from public.placements where candidate_id = v_a.person_id) then
-    if exists (select 1 from public.placements where candidate_id = v_a.person_id and status <> 'ended') then
-      return null;
-    end if;
-    select max(coalesce(end_date::timestamptz, updated_at)) into v_closed from public.placements where candidate_id = v_a.person_id;
-    return v_closed + make_interval(days => v_s.developer_retention_days);
+  -- Developers: 28 days after the end of the (last) placement; kept while one runs.
+  if exists (select 1 from public.placements where candidate_id = v_a.person_id and status <> 'ended') then
+    return null;
   end if;
+  select max(coalesce(end_date::timestamptz, updated_at)) + make_interval(days => v_s.developer_retention_days)
+  into v_dev from public.placements where candidate_id = v_a.person_id;
 
   -- Candidates with talent pool consent: 365 days after the questionnaire.
   select talent_pool_consent_at into v_consent from public.candidates where id = v_a.person_id;
   if v_consent is not null then
-    return coalesce(v_a.completed_at, v_a.invited_at) + make_interval(days => v_s.talent_pool_retention_days);
+    return greatest(v_dev, coalesce(v_a.completed_at, v_a.invited_at) + make_interval(days => v_s.talent_pool_retention_days));
   end if;
 
   -- Other candidates: 28 days after the last linked application process
   -- closed (rejected, parked, or the vacancy closed or filled). Without a
-  -- linked vacancy, all applications of the candidate count.
+  -- linked vacancy, all applications of the candidate count. A placed
+  -- application follows the placement (above).
   v_has_links := exists (select 1 from public.wsp_assessment_links where assessment_id = v_a.id and vacancy_id is not null);
   select count(*),
-         bool_or(not (ap.stage in ('rejected', 'parked') or v.status in ('closed', 'filled'))),
+         coalesce(bool_or(not (ap.stage in ('rejected', 'parked') or v.status in ('closed', 'filled'))), false),
          max(case
                when ap.stage = 'rejected' then coalesce(ap.rejected_at, ap.updated_at)
                when ap.stage = 'parked' then coalesce(ap.parked_at, ap.updated_at)
@@ -924,15 +924,16 @@ begin
   from public.applications ap
   join public.vacancies v on v.id = ap.vacancy_id
   where ap.candidate_id = v_a.person_id
+    and (v_dev is null or ap.stage <> 'placed')
     and (not v_has_links or ap.vacancy_id in (select vacancy_id from public.wsp_assessment_links where assessment_id = v_a.id));
 
-  if v_count = 0 then
-    return coalesce(v_a.completed_at, v_a.expires_at) + make_interval(days => v_s.candidate_retention_days);
-  end if;
   if v_open then
     return null;
   end if;
-  return greatest(v_closed, coalesce(v_a.completed_at, v_a.invited_at)) + make_interval(days => v_s.candidate_retention_days);
+  if v_count = 0 then
+    return coalesce(v_dev, coalesce(v_a.completed_at, v_a.expires_at) + make_interval(days => v_s.candidate_retention_days));
+  end if;
+  return greatest(v_dev, greatest(v_closed, coalesce(v_a.completed_at, v_a.invited_at)) + make_interval(days => v_s.candidate_retention_days));
 end;
 $$;
 

@@ -680,6 +680,13 @@ select pg_temp.check((select delete_after is null from public.wsp_assessments wh
 update public.placements set status = 'ended', end_date = current_date - 30 where id = '00000000-0000-0000-0000-0000000e5002';
 select public.wsp_run_daily();
 select pg_temp.check(pg_temp.count_for('00000000-0000-0000-0000-0000000e3009') = 0, 'developer: deleted 28 days after the placement ended');
+-- A former developer applying again: kept while the new application runs.
+update public.placements set status = 'ended', end_date = current_date - 60 where id = '00000000-0000-0000-0000-0000000e5003';
+insert into public.applications (vacancy_id, candidate_id, stage) values
+  ('00000000-0000-0000-0000-0000000e2001', '00000000-0000-0000-0000-0000000e3006', 'interview');
+select public.wsp_run_daily();
+select pg_temp.check((select count(*) from public.wsp_assessments where person_id = '00000000-0000-0000-0000-0000000e3006' and status = 'completed') = 1,
+  'former developer with a running application: kept');
 -- Only a kept profile can be reused: the deleted one is not linked to a new vacancy.
 select pg_temp.check(wsp_private.reusable_assessment('00000000-0000-0000-0000-0000000e3001') is null, 'a deleted profile is never reused');
 

@@ -144,7 +144,7 @@ Server side met pdf-lib uit de opgeslagen resultaten en de vaste teksten (`src/l
 | --- | --- |
 | Kandidaat zonder talentpool toestemming | 28 dagen nadat het laatste gekoppelde sollicitatieproces is afgesloten: afgewezen, geparkeerd, of de vacature gesloten of vervuld. Zonder gekoppelde vacature tellen alle sollicitaties van de kandidaat; zonder sollicitaties 28 dagen na afname (of na het verlopen van de link) |
 | Kandidaat met talentpool toestemming | 365 dagen na afname |
-| Developer (heeft een plaatsing) | 28 dagen na het einde van de laatste plaatsing; zolang er een plaatsing loopt niet |
+| Developer (heeft een plaatsing) | 28 dagen na het einde van de laatste plaatsing; zolang er een plaatsing loopt niet. Solliciteert een oud-developer opnieuw, dan geldt ook de regel voor kandidaten (de latere datum wint) |
 
 De dagelijkse job `wsp-daily` rekent `delete_after` opnieuw uit en verwijdert wat aan de beurt is. Alleen een bewaarde afname wordt hergebruikt. "Delete my profile" (en verwijderen door staff) doet hetzelfde meteen: actieve shares worden ingetrokken met de mail aan de opdrachtgever, daarna gaan antwoorden, resultaten, vlaggen, koppelingen, shares, verzoeken en het auditlog van die afname weg. Er blijft één auditregel `deleted` zonder inhoud (alleen wie: person, staff of retention) en een lege afnamerij met status `deleted`.
 
@@ -162,7 +162,7 @@ Beide via `/api/jobs/<naam>` met `CRON_SECRET` en de service role (`SUPABASE_SEC
 | Variabele | Waarvoor | Zonder |
 | --- | --- | --- |
 | `NEXT_PUBLIC_PRIVACY_URL` (nieuw) | De link naar de privacyverklaring in het introscherm | De zin zonder link |
-| `RESEND_API_KEY`, `MAIL_FROM`, `MAIL_FROM_RECRUITMENT` | Uitnodiging, herinnering, toestemming vragen (afzender recruitment), intrekken, klaar-mail aan staff | De mail blijft in de wachtrij tot mail is ingesteld |
+| `RESEND_API_KEY`, `MAIL_FROM`, `MAIL_FROM_RECRUITMENT` | Uitnodiging, herinnering, toestemming vragen (afzender recruitment), intrekken, klaar-mail aan staff | De mail blijft in de wachtrij (`wsp_outbox`) tot mail is ingesteld; er wordt dan niets geprobeerd en niets in het maillog gezet |
 | `SUPABASE_SECRET_KEY` | Mail versturen na een actie en in de jobs | Geen mail; de rest werkt |
 | `CRON_SECRET`, `NEXT_PUBLIC_SITE_URL` | De jobs en de links in de mails | Jobs alleen met de hand |
 | `REPORT_EMAIL_TO` | De klaar-mail als er geen staff user bekend is (systeemuitnodiging, kandidaat zonder eigenaar) | Die mail gaat niet |

@@ -90,6 +90,7 @@ const PERSON_CATEGORIES: MailCategory[] = ["wsp_invite", "wsp_reminder", "wsp_pe
 
 async function send(mail: Mail, to: string | undefined, category: MailCategory): Promise<Outcome> {
   const from = PERSON_CATEGORIES.includes(category) ? process.env.MAIL_FROM_RECRUITMENT || undefined : undefined;
+  if (!to && !process.env.REPORT_EMAIL_TO) return { status: "skipped", error: "no recipient (and no REPORT_EMAIL_TO)" };
   const result = await deliverMail({ ...mail, to, category, from });
   if (result.ok) return { status: "sent" };
   if (result.reason === "not_configured") return { status: "waiting", error: result.detail };
@@ -99,6 +100,12 @@ async function send(mail: Mail, to: string | undefined, category: MailCategory):
 /** Handle pending outbox rows (all, or those of the given assessments). Never throws. */
 export async function processWspOutbox(db: JobDb, { assessmentIds, limit = 200, log }: { assessmentIds?: string[]; limit?: number; log?: (m: string) => void } = {}): Promise<OutboxSummary> {
   const summary: OutboxSummary = { sent: 0, skipped: 0, failed: 0, waiting: 0 };
+  // Without mail settings nothing is tried (and nothing fills the mail log); it all waits.
+  if (!process.env.RESEND_API_KEY || !(process.env.MAIL_FROM || process.env.MAIL_FROM_RECRUITMENT)) {
+    const { count } = await db.from("wsp_outbox").select("id", { count: "exact", head: true }).in("status", ["pending", "failed"]);
+    summary.waiting = count ?? 0;
+    return summary;
+  }
   let query = db.from("wsp_outbox").select("*").in("status", ["pending", "failed"]).lt("attempts", MAX_ATTEMPTS).order("created_at").limit(limit);
   if (assessmentIds?.length) query = query.in("assessment_id", assessmentIds);
   const { data: rows, error } = await query;
