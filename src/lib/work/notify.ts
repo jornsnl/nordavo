@@ -103,6 +103,7 @@ async function sendBatch(db: Db, rows: WorkNotificationRow[], delivery: WorkDeli
           ? lines[0].subject
           : `${items.length} updates in Work`;
     const ok = await sendMail({
+      category: "work_notification",
       to: recipient.email,
       subject,
       html: renderMail(recipient.name, lines, delivery),
@@ -201,6 +202,7 @@ export async function sendInviteMail({
   const where = project ? `the project "${project}" in ${workspace}` : `the workspace ${workspace}`;
   if (signInUrl) {
     return sendMail({
+      category: "work_invite",
       to,
       subject: `${inviter} invited you to ${project ?? workspace}`,
       text: `${inviter} invited you to ${where} in Work, Nordavo's task tool.\n\nSign in and accept the invite (no password needed): ${signInUrl}\n\nThis sign-in link works once and expires after a while. After that, open ${url} and choose "Email me a sign-in link". The invite works for 14 days.`,
@@ -212,6 +214,7 @@ export async function sendInviteMail({
     });
   }
   return sendMail({
+    category: "work_invite",
     to,
     subject: `${inviter} invited you to ${project ?? workspace}`,
     text: `${inviter} invited you to ${where} in Work, Nordavo's task tool.\n\nAccept the invite: ${url}\n\nThe link works for 14 days.`,
@@ -226,6 +229,7 @@ export async function sendInviteMail({
 /** Mail a one-time sign-in link we made with the admin API. */
 export async function sendSignInMail(to: string, url: string) {
   return sendMail({
+    category: "work_sign_in",
     to,
     subject: "Your sign-in link for Work",
     text: `Sign in to Work: ${url}\n\nThe link works once and expires within an hour. Did not ask for it? Ignore this mail.`,

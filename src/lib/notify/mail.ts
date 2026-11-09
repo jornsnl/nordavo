@@ -1,5 +1,7 @@
 import "server-only";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { escapeMailHtml, isFullDocument, renderMailLayout } from "./layout";
+import type { MailCategory } from "./categories";
 
 type MailInput = {
   to?: string;
@@ -11,6 +13,8 @@ type MailInput = {
   replyTo?: string;
   /** Defaults to MAIL_FROM. */
   from?: string;
+  /** What kind of mail this is, for the mail log in Settings (see mailCategories). */
+  category?: MailCategory;
 };
 
 export type MailResult = { ok: true; id?: string } | { ok: false; reason: "not_configured" | "rejected" | "network"; detail: string };
@@ -27,15 +31,16 @@ export async function sendMail(input: MailInput): Promise<boolean> {
 }
 
 /** Like sendMail, but says why a mail was not sent (for the test mail in Settings). */
-export async function deliverMail({
-  to = process.env.REPORT_EMAIL_TO,
-  subject,
-  html,
-  text,
-  cc,
-  replyTo,
-  from = process.env.MAIL_FROM,
-}: MailInput): Promise<MailResult> {
+export async function deliverMail(input: MailInput): Promise<MailResult> {
+  const from = input.from ?? process.env.MAIL_FROM;
+  const to = input.to ?? process.env.REPORT_EMAIL_TO;
+  const html = isFullDocument(input.html) ? input.html : renderMailLayout({ body: input.html });
+  const result = await send({ ...input, from, to, html });
+  await logMail({ ...input, from, to, html }, result);
+  return result;
+}
+
+async function send({ to, subject, html, text, cc, replyTo, from }: MailInput): Promise<MailResult> {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey || !from || !to) {
     const missing = [!apiKey && "RESEND_API_KEY", !from && "MAIL_FROM", !to && "a recipient (REPORT_EMAIL_TO)"].filter(Boolean).join(", ");
@@ -52,7 +57,7 @@ export async function deliverMail({
         from,
         to: splitAddresses(to),
         subject,
-        html: isFullDocument(html) ? html : renderMailLayout({ body: html }),
+        html,
         text,
         ...(cc && splitAddresses(cc).length > 0 ? { cc: splitAddresses(cc) } : {}),
         ...(replyTo ? { reply_to: replyTo } : {}),
@@ -74,6 +79,38 @@ export async function deliverMail({
   }
   const data = (await response.json().catch(() => ({}))) as { id?: string };
   return { ok: true, id: data.id };
+}
+
+/** How long the mail log keeps a row. */
+const MAIL_LOG_DAYS = 180;
+
+/**
+ * Write the attempt to public.mail_log (Settings > Mail log). Needs
+ * SUPABASE_SECRET_KEY; never throws, so a logging problem never stops a mail.
+ */
+async function logMail(input: MailInput, result: MailResult) {
+  const db = createAdminClient();
+  if (!db) return;
+  try {
+    const { error } = await db.from("mail_log").insert({
+      category: input.category ?? "other",
+      status: result.ok ? "sent" : result.reason === "not_configured" ? "not_configured" : "failed",
+      from_address: input.from ?? null,
+      to_addresses: input.to ? splitAddresses(input.to).map((a) => a.toLowerCase()) : [],
+      cc_addresses: input.cc ? splitAddresses(input.cc).map((a) => a.toLowerCase()) : [],
+      reply_to: input.replyTo ?? null,
+      subject: input.subject.slice(0, 500),
+      html: input.html,
+      text_body: input.text ?? null,
+      resend_id: result.ok ? (result.id ?? null) : null,
+      error: result.ok ? null : result.detail.slice(0, 2000),
+    });
+    if (error) console.error("[mail] log failed", error.code, error.message);
+    const cutoff = new Date(Date.now() - MAIL_LOG_DAYS * 24 * 60 * 60 * 1000).toISOString();
+    await db.from("mail_log").delete().lt("created_at", cutoff);
+  } catch (error) {
+    console.error("[mail] log failed", error instanceof Error ? error.message : error);
+  }
 }
 
 function splitAddresses(value: string) {

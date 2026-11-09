@@ -20,6 +20,7 @@ Voeg een partij toe **voordat** je een nieuwe integratie in productie zet, en ho
 | Geen bijzondere gegevens | Cv's, video's en beoordelingen gaan niet mee in de mail; alleen een link naar het portaal |
 | Bewaartermijn bij Resend | Verstuurde mails en logs volgens de retentie van het Resend abonnement; zet de retentie zo kort als het abonnement toestaat |
 | Beveiliging | Versleuteld transport (TLS), API key met alleen verzendrechten per domein, sleutel alleen als geheime omgevingsvariabele op de server |
+| Kopie bij Nordavo | Elke verstuurde mail (ontvangers, onderwerp, inhoud) staat 180 dagen in het mail log in Supabase, alleen leesbaar voor beheerders |
 | Waar in de code | `src/lib/notify/mail.ts`, ontwerp in `src/lib/notify/layout.ts`, inrichting in [mail.md](mail.md) |
 | Ook voor Supabase Auth | Als custom SMTP in Supabase op Resend staat (zie [mail.md](mail.md)), lopen ook de uitnodigingen en inloglinks van Supabase via Resend |
 

@@ -21,7 +21,7 @@ export async function sendTestMail(_prev: ActionState, formData: FormData): Prom
 
   const from = parsed.data.sender === "recruitment" ? recruitmentFrom() : process.env.MAIL_FROM;
   const mail = testMail({ sentBy: user.name || user.email, sentAt: new Date() });
-  const result = await deliverMail({ to: parsed.data.to, from, replyTo: user.email || undefined, ...mail });
+  const result = await deliverMail({ category: "test", to: parsed.data.to, from, replyTo: user.email || undefined, ...mail });
 
   if (!result.ok) {
     if (result.reason === "not_configured") {

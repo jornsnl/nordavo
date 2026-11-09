@@ -56,7 +56,7 @@ export const interviewReminders = defineJob({
       let sent = 0;
       if (candidate?.email) {
         const mail = reminderMail(escapeHtml, { ...base, to: "candidate", timeZone: "Asia/Kolkata" });
-        if (await sendMail({ to: candidate.email, ...mail })) sent += 1;
+        if (await sendMail({ category: "interview_reminder", to: candidate.email, ...mail })) sent += 1;
       }
       if (interview.interviewer?.email) {
         const mail = reminderMail(escapeHtml, {
@@ -65,7 +65,7 @@ export const interviewReminders = defineJob({
           timeZone: interview.interviewer.time_zone || "Europe/Amsterdam",
           portalUrl: site && candidate ? `${site}/dashboard/candidates/${candidate.id}` : undefined,
         });
-        if (await sendMail({ to: interview.interviewer.email, ...mail })) sent += 1;
+        if (await sendMail({ category: "interview_reminder", to: interview.interviewer.email, ...mail })) sent += 1;
       }
       if (sent === 0) throw new Error("no reminder could be sent");
 

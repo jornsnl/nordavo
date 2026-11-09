@@ -148,6 +148,7 @@ export type SuppressionReason = "afgemeld" | "bezwaar" | "klant" | "lopend_gespr
 export type SuppressionScope = "alle_kanalen" | "alleen_bellen" | "alleen_mail";
 export type ListExportType = "bellijst" | "mailcampagne" | "max_verrijking";
 export type JobStatus = "running" | "success" | "failed";
+export type MailLogStatus = "sent" | "failed" | "not_configured";
 export type VacancySource = "klant_eigen" | "samen_opgesteld" | "gescrapet";
 export type TalentStage = "intake" | "zoeken" | "profielen_verstuurd" | "gesprekken" | "geplaatst" | "gesloten";
 export type MatchSource = "eigen_pool" | "linkedin" | "naukri";
@@ -1753,6 +1754,54 @@ export type Database = {
         };
         Relationships: [
         ];
+      };
+      mail_log: {
+        Row: {
+          id: string;
+          created_at: string;
+          category: string;
+          status: MailLogStatus;
+          from_address: string | null;
+          to_addresses: string[];
+          cc_addresses: string[];
+          reply_to: string | null;
+          subject: string;
+          html: string | null;
+          text_body: string | null;
+          resend_id: string | null;
+          error: string | null;
+        };
+        Insert: {
+          id?: string;
+          created_at?: string;
+          category?: string;
+          status: MailLogStatus;
+          from_address?: string | null;
+          to_addresses?: string[];
+          cc_addresses?: string[];
+          reply_to?: string | null;
+          subject: string;
+          html?: string | null;
+          text_body?: string | null;
+          resend_id?: string | null;
+          error?: string | null;
+        };
+        Update: {
+          id?: string;
+          created_at?: string;
+          category?: string;
+          status?: MailLogStatus;
+          from_address?: string | null;
+          to_addresses?: string[];
+          cc_addresses?: string[];
+          reply_to?: string | null;
+          subject?: string;
+          html?: string | null;
+          text_body?: string | null;
+          resend_id?: string | null;
+          error?: string | null;
+        };
+        Relationships: [];
       };
       matches: {
         Row: {
