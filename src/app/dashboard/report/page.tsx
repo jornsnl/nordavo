@@ -8,6 +8,8 @@ import {
   FunnelCard,
   GoPerSegmentCard,
   LeadTimeTable,
+  PerCallerTable,
+  PipelineCard,
   ReportSkeleton,
   ReportStatCards,
   WarningsBanner,
@@ -38,7 +40,7 @@ export default function Page({ searchParams }: { searchParams: SearchParams }) {
       <PageHeader
         eyebrow="Report"
         title="Report"
-        description="Sales: what the outreach delivers and which signal, segment and channel produced it, plus the lead time of open vacancies. Recruitment: the hiring report per vacancy, source and origin."
+        description="Sales: calls, replies, meetings and the pipeline, and which signal, segment and channel produced the meetings, plus the lead time of open vacancies. Recruitment: the hiring report per vacancy, source and origin."
         actions={
           <Suspense fallback={<PeriodSelectorSkeleton />}>
             <IfModule module="sales">
@@ -72,7 +74,7 @@ async function ReportContent({ searchParams }: { searchParams: SearchParams }) {
   const supabase = await createClient();
   const report = await buildWeeklyReport(supabase, range);
   const label = reportPeriods.find((p) => p.value === key)?.label ?? "";
-  const hasActivity = report.activity.approached + report.meetings + report.newCompanies > 0;
+  const hasActivity = report.activity.approached + report.activity.calls + report.meetings.planned + report.newCompanies + report.pipeline.enteredInPeriod > 0;
 
   return (
     <>
@@ -86,6 +88,8 @@ async function ReportContent({ searchParams }: { searchParams: SearchParams }) {
         <GoPerSegmentCard report={report} />
         <FunnelCard funnel={report.funnel} />
       </div>
+      <PipelineCard report={report} />
+      <PerCallerTable rows={report.perCaller} />
       <AttributionTables report={report} />
       <LeadTimeTable rows={report.leadTimes} />
     </>

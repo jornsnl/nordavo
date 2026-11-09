@@ -1,12 +1,13 @@
 import Link from "next/link";
-import { AlertTriangle, BarChart3, Building2, CalendarCheck, Mail, MessageSquare, Phone, PhoneCall, ThumbsUp } from "lucide-react";
+import { AlertTriangle, BadgeCheck, BarChart3, Building2, CalendarCheck, Mail, MessageSquare, Phone, PhoneCall } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardHeader } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { MobileList, MobileListItem } from "@/components/ui/mobile-list";
 import { Table, TBody, TD, TH, THead, TR } from "@/components/ui/table";
-import { formatDate } from "@/lib/format";
+import { formatCurrency, formatDate } from "@/lib/format";
 import type { CountRow, LeadTimeRow, WeeklyReport } from "@/lib/gtm/report";
+import type { CallerFigures } from "@/lib/sales/stats";
 
 export function WarningsBanner({ warnings }: { warnings: string[] }) {
   if (warnings.length === 0) return null;
@@ -30,14 +31,15 @@ export function WarningsBanner({ warnings }: { warnings: string[] }) {
 
 export function ReportStatCards({ report }: { report: WeeklyReport }) {
   const a = report.activity;
+  const m = report.meetings;
   const cards = [
     { label: "New companies", value: report.newCompanies, icon: Building2 },
-    { label: "Called", value: a.called, icon: Phone },
+    { label: "Calls", value: a.calls, icon: Phone },
     { label: "Reached", value: a.reached, icon: PhoneCall },
-    { label: "Mailed", value: a.mailed, icon: Mail },
+    { label: "Mails", value: a.mails, icon: Mail },
     { label: "Replies", value: a.replies, icon: MessageSquare },
-    { label: "Positive replies", value: a.positiveReplies, icon: ThumbsUp },
-    { label: "Meetings", value: report.meetings, icon: CalendarCheck },
+    { label: "Meetings planned", value: m.planned, icon: CalendarCheck },
+    { label: "Meetings approved", value: m.approved, icon: BadgeCheck },
   ];
   return (
     <section aria-labelledby="report-stats" className="mb-8">
@@ -58,10 +60,104 @@ export function ReportStatCards({ report }: { report: WeeklyReport }) {
           </li>
         ))}
       </ul>
-      {(a.meetingsApproved > 0 || a.meetingsRejected > 0) && (
-        <p className="mt-3 text-sm text-muted">
-          Meetings reviewed after the call: {a.meetingsApproved} approved, {a.meetingsRejected} rejected.
+      <p className="mt-3 text-sm text-muted">
+        {a.positiveReplies} positive {a.positiveReplies === 1 ? "reply" : "replies"}
+        {a.pendingReplies > 0 ? `, ${a.pendingReplies} still to review` : ""}. LinkedIn messages: {a.linkedin}. Meetings:{" "}
+        {m.held} held, {m.rejected} rejected, {m.noShow} no show, {m.cancelled} cancelled. Fees of approved meetings:{" "}
+        {formatCurrency(m.fees)}.
+      </p>
+    </section>
+  );
+}
+
+/** Companies per pipeline stage right now, and what moved in the period. */
+export function PipelineCard({ report }: { report: WeeklyReport }) {
+  const p = report.pipeline;
+  const max = Math.max(1, ...p.perStage.map((s) => s.count));
+  return (
+    <section aria-labelledby="report-pipeline" className="mb-8">
+      <Card>
+        <CardHeader
+          title={<span id="report-pipeline">Pipeline</span>}
+          description={`Companies per stage right now. This period: ${p.enteredInPeriod} into the pipeline, ${p.wonInPeriod} won, ${p.lostInPeriod} lost.`}
+          actions={
+            <Link href="/dashboard/pipeline" className="text-sm font-semibold text-brand-600 hover:text-brand-800 pointer-coarse:min-h-11 pointer-coarse:inline-flex pointer-coarse:items-center">
+              Open the pipeline
+            </Link>
+          }
+        />
+        <dl className="grid gap-2.5 px-5 py-4 sm:grid-cols-2">
+          {p.perStage.map((s) => (
+            <div key={s.stage} className="grid grid-cols-[minmax(0,9rem)_1fr_2.5rem] items-center gap-3">
+              <dt className="truncate text-sm text-muted">{s.label}</dt>
+              <dd className="h-2.5 overflow-hidden rounded-full bg-brand-50" aria-hidden="true">
+                <div
+                  className={`h-full rounded-full ${s.stage === "won" ? "bg-emerald-500" : s.stage === "lost" ? "bg-slate-400" : "bg-brand-600"}`}
+                  style={{ width: `${(s.count / max) * 100}%` }}
+                />
+              </dd>
+              <dd className="text-right text-sm font-semibold text-ink tabular-nums">{s.count}</dd>
+            </div>
+          ))}
+        </dl>
+      </Card>
+    </section>
+  );
+}
+
+/** Calls, reach and meetings per caller and team member in the period. */
+export function PerCallerTable({ rows }: { rows: CallerFigures[] }) {
+  return (
+    <section aria-labelledby="report-callers" className="mb-8">
+      <h2 id="report-callers" className="mb-1 font-display text-lg font-semibold text-brand-900">
+        Per caller
+      </h2>
+      <p className="mb-4 text-sm text-muted">External callers and team members who called or booked meetings in this period.</p>
+      {rows.length === 0 ? (
+        <p className="rounded-2xl border border-dashed border-brand-200 bg-card px-5 py-8 text-center text-sm text-muted">
+          Nobody called in this period.
         </p>
+      ) : (
+        <>
+          <MobileList label="Per caller" className="md:hidden">
+            {rows.map((r) => (
+              <MobileListItem
+                key={r.key}
+                title={r.name}
+                subtitle={`${r.calls} calls, ${r.reached} reached`}
+                meta={`${r.meetingsPlanned} meetings, ${r.meetingsApproved} approved, ${formatCurrency(r.fees)}`}
+                trailing={<Badge tone={r.kind === "caller" ? "accent" : "brand"}>{r.kind === "caller" ? "Caller" : "Team"}</Badge>}
+              />
+            ))}
+          </MobileList>
+          <Table className="hidden md:block">
+            <THead>
+              <tr>
+                <TH>Name</TH>
+                <TH className="text-right">Calls</TH>
+                <TH className="text-right">Reached</TH>
+                <TH className="text-right">Meetings</TH>
+                <TH className="text-right">Approved</TH>
+                <TH className="text-right">Fees</TH>
+              </tr>
+            </THead>
+            <TBody>
+              {rows.map((r) => (
+                <TR key={r.key}>
+                  <TD>
+                    <span className="font-medium">{r.name}</span>{" "}
+                    <Badge tone={r.kind === "caller" ? "accent" : "brand"}>{r.kind === "caller" ? "Caller" : "Team"}</Badge>
+                  </TD>
+                  <TD className="text-right tabular-nums">{r.calls}</TD>
+                  <TD className="text-right tabular-nums">{r.reached}</TD>
+                  <TD className="text-right tabular-nums">{r.meetingsPlanned}</TD>
+                  <TD className="text-right tabular-nums">{r.meetingsApproved}</TD>
+                  <TD className="text-right tabular-nums">{formatCurrency(r.fees)}</TD>
+                </TR>
+              ))}
+            </TBody>
+          </Table>
+        </>
       )}
     </section>
   );

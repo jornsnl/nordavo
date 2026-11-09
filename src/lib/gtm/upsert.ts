@@ -187,6 +187,10 @@ export type SignalInput = {
   source_url?: string | null;
   raw_json?: unknown;
   seen_at?: string;
+  /** Role group of the vacancy (for example "Backend", "Data & BI"). */
+  role_group?: string | null;
+  /** Date the vacancy went online (YYYY-MM-DD). */
+  posted_at?: string | null;
 };
 
 /** Same vacancy seen again only updates last_seen_at. */
@@ -199,9 +203,20 @@ export async function upsertSignal(db: Db, input: SignalInput) {
   });
   const seenAt = input.seen_at ?? new Date().toISOString();
 
-  const { data: existing } = await db.from("signals").select("id").eq("dedupe_key", dedupeKey).maybeSingle();
+  const { data: existing } = await db
+    .from("signals")
+    .select("id, role_group, posted_at")
+    .eq("dedupe_key", dedupeKey)
+    .maybeSingle();
   if (existing) {
-    const { error } = await db.from("signals").update({ last_seen_at: seenAt }).eq("id", existing.id);
+    const { error } = await db
+      .from("signals")
+      .update({
+        last_seen_at: seenAt,
+        ...(input.role_group && !existing.role_group ? { role_group: input.role_group } : {}),
+        ...(input.posted_at && !existing.posted_at ? { posted_at: input.posted_at } : {}),
+      })
+      .eq("id", existing.id);
     if (error) throw error;
     return { id: existing.id, created: false };
   }
@@ -217,6 +232,8 @@ export async function upsertSignal(db: Db, input: SignalInput) {
       dedupe_key: dedupeKey,
       first_seen_at: seenAt,
       last_seen_at: seenAt,
+      role_group: input.role_group ?? null,
+      posted_at: input.posted_at ?? null,
       raw_json: (input.raw_json ?? null) as Database["public"]["Tables"]["signals"]["Insert"]["raw_json"],
     })
     .select("id")

@@ -4,8 +4,6 @@ import { s1Signals } from "./s1-signals";
 import { s2Qualify } from "./s2-qualify";
 import { s3DecisionMakers } from "./s3-decision-makers";
 import { s4EmailEnrich } from "./s4-email-enrich";
-import { s6CallList } from "./s6-call-list";
-import { s7MailCampaign } from "./s7-mail-campaign";
 import { s8InstantlySync } from "./s8-instantly-sync";
 import { s8WebpartnersImport } from "./s8-webpartners-import";
 import { s10WeeklyReport } from "./s10-weekly-report";
@@ -15,15 +13,19 @@ import { interviewReminders } from "./interview-reminders";
 import { clickupImport, workDaily, workNotify } from "./work";
 import { formsReminders } from "./forms-reminders";
 
-/** Every job, by name. Run with `npm run job -- <name>` or POST /api/jobs/<name>. */
+/**
+ * Every job, by name. Run with `npm run job -- <name>` or POST /api/jobs/<name>.
+ * S6 (call list to a Web Partners sheet) and S7 (mail campaigns in Instantly)
+ * are gone: call lists are saved views worked on the call screen, sequences
+ * replace the campaigns, and Claude prepares the mail and LinkedIn steps in
+ * Instantly and Seleqt (docs/claude-jobs.md).
+ */
 export const jobs: Record<string, Job> = Object.fromEntries(
   [
   s1Signals,
   s2Qualify,
   s3DecisionMakers,
   s4EmailEnrich,
-  s6CallList,
-  s7MailCampaign,
   s8InstantlySync,
   s8WebpartnersImport,
   s10WeeklyReport,

@@ -3,7 +3,7 @@ import { EmptyState } from "@/components/dashboard/empty-state";
 import { Badge } from "@/components/ui/badge";
 import { MobileList, MobileListItem } from "@/components/ui/mobile-list";
 import { Table, TBody, TD, TH, THead, TR } from "@/components/ui/table";
-import { listExportHistory } from "@/lib/data/lists";
+import { listExportHistory } from "@/lib/data/enrich";
 import { formatDateTime } from "@/lib/format";
 import { filterSummary, listDefinitions } from "@/lib/gtm/lists";
 
@@ -27,7 +27,7 @@ export async function ExportHistory() {
       <EmptyState
         icon={History}
         title="No exports yet"
-        description="Every call list, mail campaign and CSV for Max shows up here, with the filter you used."
+        description="Every CSV for Max shows up here, next to the call lists and mail campaigns exported before the sales CRM."
       />
     );
   }
