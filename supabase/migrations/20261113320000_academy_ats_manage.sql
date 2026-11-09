@@ -299,7 +299,7 @@ as $$
     from public.academy_modules m
     join public.academy_module_lessons ml on ml.module_id = m.id
     join public.academy_lessons l on l.id = ml.lesson_id and l.status = 'published'
-    where m.course_id = p_course_id and m.status = 'published'
+    where m.course_id = p_course_id and m.status = 'published' and public.academy_is_manager()
   ),
   -- A lesson in two modules counts at its first place.
   firsts as (
