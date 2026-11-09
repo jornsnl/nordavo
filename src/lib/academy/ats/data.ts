@@ -90,11 +90,15 @@ export async function getCandidateAcademy(candidateId: string) {
   const user = await requireStaff();
   const supabase = await createClient();
   const canManage = hasModule(user, "academy");
-  const [{ data, error }, groups, settings, courseId] = await Promise.all([
+  const [{ data, error }, groups, settings, courseId, checks, assignments, questionnaires] = await Promise.all([
     supabase.rpc("academy_ats_candidate_detail", { p_candidate_id: candidateId }),
     canManage ? supabase.from("academy_groups").select("id, name, kind").order("name") : Promise.resolve({ data: [] as { id: string; name: string; kind: string }[] }),
     supabase.from("academy_ats_settings").select("top_candidate_module_ids").maybeSingle(),
     supabase.rpc("academy_ats_developer_course"),
+    // From the learn area (docs/academy.md, section 12 "Voor het ATS").
+    supabase.rpc("academy_candidate_check_scores", { p_candidate_id: candidateId }),
+    supabase.rpc("academy_candidate_assignments", { p_candidate_id: candidateId }),
+    supabase.rpc("academy_candidate_questionnaire_results", { p_candidate_id: candidateId }),
   ]);
   if (error) fail("the Academy results", error);
   const developerCourseId = (courseId.data as string | null) ?? null;
@@ -110,6 +114,9 @@ export async function getCandidateAcademy(candidateId: string) {
     topModuleIds: settings.data?.top_candidate_module_ids ?? [],
     developerCourseId,
     modules: modules ?? [],
+    checks: checks.data ?? [],
+    assignments: assignments.data ?? [],
+    questionnaires: questionnaires.data ?? [],
   };
 }
 

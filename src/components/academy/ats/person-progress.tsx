@@ -3,13 +3,11 @@ import { getPersonProgress } from "@/lib/academy/ats/data";
 import { formatDate, formatDateTime } from "@/lib/format";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
-import { submissionStatusText } from "./labels";
 
-/** Overview per user: progress per lesson, watch % per video, checks and assignments (docs/academy.md, Beheeroverzichten). */
+/** Overview per user: courses, progress per lesson and watch % per video (checks and assignments: the learn cards below). */
 export async function PersonProgressCard({ profileId }: { profileId: string }) {
   const detail = await getPersonProgress(profileId);
   if (!detail) return null;
-  const waiting = detail.assignments.filter((a) => a.status === "submitted" && !a.feedback_at);
   return (
     <Card>
       <CardHeader
@@ -62,40 +60,6 @@ export async function PersonProgressCard({ profileId }: { profileId: string }) {
                 <li key={v.video_id} className="flex justify-between gap-3">
                   <span className="truncate">{v.title}</span>
                   <span className="tabular-nums text-muted">{v.percent}%</span>
-                </li>
-              ))}
-            </ul>
-          </section>
-        )}
-        {detail.checks.length > 0 && (
-          <section>
-            <h3 className="text-xs font-medium tracking-wide text-muted uppercase">Knowledge checks</h3>
-            <ul className="mt-2 space-y-1 text-sm">
-              {detail.checks.map((c) => (
-                <li key={c.block_id} className="flex justify-between gap-3">
-                  <span className="truncate">{c.lesson_title}</span>
-                  <span className="text-xs text-muted">
-                    best {c.best_percent}%, last {c.last_percent}% · {c.attempts}×
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </section>
-        )}
-        {detail.assignments.length > 0 && (
-          <section>
-            <h3 className="text-xs font-medium tracking-wide text-muted uppercase">
-              Assignments{waiting.length > 0 ? ` · ${waiting.length} waiting for a reply` : ""}
-            </h3>
-            <ul className="mt-2 space-y-1 text-sm">
-              {detail.assignments.map((a) => (
-                <li key={a.submission_id} className="flex flex-wrap justify-between gap-3">
-                  <span className="truncate">
-                    {a.lesson_title} <span className="text-xs text-muted">· {submissionStatusText(a.status)}</span>
-                  </span>
-                  <span className="text-xs text-muted">
-                    AI {a.ai_total ?? "–"} · final {a.final_score ?? "–"} · {formatDate(a.submitted_at)}
-                  </span>
                 </li>
               ))}
             </ul>

@@ -17,6 +17,7 @@ import { placementWelcomeMail, stuckReminderMail, topCandidateMail } from "@/lib
 import { DRAFT_TITLES, draftInput, draftSystemPrompt, lessonDraftSchema, normalizeDraft, transcriptDraft } from "@/lib/academy/ats/draft";
 import { jobModule } from "@/lib/modules";
 import { isMailCategory } from "@/lib/notify/categories";
+import { questionnaireDimensions } from "@/components/academy/ats/labels";
 
 const BASE = "/dashboard/candidates/academy";
 
@@ -217,4 +218,13 @@ test("draft prompt follows the lesson language and caps the transcript", () => {
   const input = draftInput({ lessonTitle: "Escalating", transcript: "x".repeat(70_000) });
   assert.match(input, /^Lesson: Escalating/);
   assert.ok(input.length < 61_000);
+});
+
+test("questionnaire dimensions for the ATS card", () => {
+  assert.deepEqual(questionnaireDimensions({ dimensions: [{ key: "openness", label: "Openness", score: 3.666 }, { key: "x", score: null }, "bad"] }), [
+    { key: "openness", label: "Openness", score: 3.7 },
+    { key: "x", label: "x", score: null },
+  ]);
+  assert.deepEqual(questionnaireDimensions(null), []);
+  assert.deepEqual(questionnaireDimensions({ dimensions: "no" }), []);
 });

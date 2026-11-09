@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
 import { Card, CardBody, CardHeader, DetailList } from "@/components/ui/card";
 import { CandidateOpenModules, EnrolCandidateForm, RetryAcademyButton, TopCandidateToggle } from "./candidate-forms";
-import { atsEventLabel, atsEventTone, moduleStateText, submissionStatusText } from "./labels";
+import { atsEventLabel, atsEventTone, moduleStateText, questionnaireDimensions, submissionStatusText } from "./labels";
 
 /**
  * Academy to ATS on the candidate page (docs/academy.md, ATS-koppeling):
@@ -15,7 +15,7 @@ import { atsEventLabel, atsEventTone, moduleStateText, submissionStatusText } fr
  * rejects anyone. ATS to Academy: enrol, open modules, top candidate.
  */
 export async function AcademyCandidateCard({ candidateId, hasEmail }: { candidateId: string; hasEmail: boolean }) {
-  const { detail, canManage, groups, developerCourseId, modules } = await getCandidateAcademy(candidateId);
+  const { detail, canManage, groups, developerCourseId, modules, checks, assignments, questionnaires } = await getCandidateAcademy(candidateId);
   const summary = detail?.summary ?? null;
   const person = detail?.person ?? null;
   const events = detail?.events ?? [];
@@ -131,17 +131,17 @@ export async function AcademyCandidateCard({ candidateId, hasEmail }: { candidat
               )}
             </section>
 
-            {person.checks.length > 0 && (
+            {checks.length > 0 && (
               <section>
                 <h3 className="text-xs font-medium tracking-wide text-muted uppercase">Knowledge checks</h3>
                 <ul className="mt-2 space-y-1 text-sm">
-                  {person.checks.map((c) => (
+                  {checks.map((c) => (
                     <li key={c.block_id} className="flex justify-between gap-3">
                       <span className="min-w-0 truncate">
-                        {c.lesson_title} <span className="text-muted">· {c.title}</span>
+                        {c.lesson_title} <span className="text-muted">· {c.check_title}</span>
                       </span>
                       <span className="shrink-0 text-xs text-muted">
-                        best {c.best_percent}% · {c.attempts} {c.attempts === 1 ? "attempt" : "attempts"}
+                        best {c.best_percent}%, last {c.last_percent}% · {c.attempts} {c.attempts === 1 ? "attempt" : "attempts"}
                       </span>
                     </li>
                   ))}
@@ -149,11 +149,11 @@ export async function AcademyCandidateCard({ candidateId, hasEmail }: { candidat
               </section>
             )}
 
-            {person.assignments.length > 0 && (
+            {assignments.length > 0 && (
               <section>
                 <h3 className="text-xs font-medium tracking-wide text-muted uppercase">Assignments</h3>
                 <ul className="mt-2 divide-y divide-border rounded-xl border border-border">
-                  {person.assignments.map((a) => (
+                  {assignments.map((a) => (
                     <li key={a.submission_id} className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 text-sm">
                       <span className="min-w-0">
                         <span className="block truncate font-medium text-ink">{a.lesson_title}</span>
@@ -166,17 +166,35 @@ export async function AcademyCandidateCard({ candidateId, hasEmail }: { candidat
                         <span title="Final score" className="font-semibold">
                           Final {a.final_score ?? "–"}
                         </span>
-                        {a.link_url && (
-                          <a href={a.link_url} target="_blank" rel="noopener noreferrer" className="text-brand-700 hover:underline">
-                            Link
-                          </a>
-                        )}
                         {canManage && (
-                          <Link href={`/dashboard/academy/people/${person.member.profile_id}`} className="text-brand-700 hover:underline">
-                            Review
+                          <Link href={a.review_path} className="text-brand-700 hover:underline">
+                            Open
                           </Link>
                         )}
                       </span>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )}
+
+            {questionnaires.length > 0 && (
+              <section>
+                <h3 className="text-xs font-medium tracking-wide text-muted uppercase">Questionnaire results</h3>
+                <ul className="mt-2 space-y-2 text-sm">
+                  {questionnaires.map((q) => (
+                    <li key={q.block_id}>
+                      <span className="font-medium text-ink">{q.title}</span>
+                      <span className="ml-2 text-xs text-muted">{formatDate(q.submitted_at)}</span>
+                      <ul className="mt-1 flex flex-wrap gap-2">
+                        {questionnaireDimensions(q.result).map((d) => (
+                          <li key={d.key}>
+                            <Badge>
+                              {d.label}: {d.score ?? "–"}
+                            </Badge>
+                          </li>
+                        ))}
+                      </ul>
                     </li>
                   ))}
                 </ul>

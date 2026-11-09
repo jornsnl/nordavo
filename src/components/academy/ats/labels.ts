@@ -42,3 +42,12 @@ export function moduleStateText(state: AcademyModuleState | null): string {
 export function submissionStatusText(status: string): string {
   return status === "approved" ? "Approved" : status === "changes_requested" ? "Changes requested" : "Waiting for a reply";
 }
+
+/** Dimension scores of a questionnaire result ({ dimensions: [{ key, label, score }] }). */
+export function questionnaireDimensions(result: unknown): { key: string; label: string; score: number | null }[] {
+  const dims = result && typeof result === "object" && "dimensions" in result ? (result as { dimensions: unknown }).dimensions : null;
+  if (!Array.isArray(dims)) return [];
+  return dims
+    .filter((d): d is { key: string; label?: string; score?: number | null } => Boolean(d) && typeof d === "object" && typeof (d as { key?: unknown }).key === "string")
+    .map((d) => ({ key: d.key, label: typeof d.label === "string" && d.label ? d.label : d.key, score: typeof d.score === "number" ? Math.round(d.score * 10) / 10 : null }));
+}
