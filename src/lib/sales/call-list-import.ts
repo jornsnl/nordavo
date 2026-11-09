@@ -6,6 +6,7 @@
 
 import type { ContactStatus } from "@/lib/database.types";
 import type { CompanyCategory, ContactRole } from "@/lib/sales/database";
+import { parseRoute, type ContactRoute } from "@/lib/sales/labels";
 
 export type Cell = string | number | boolean | Date | null | undefined;
 export type Sheet = { sheet: string; data: Cell[][] };
@@ -35,7 +36,7 @@ export type ImportContact = {
   last_name: string | null;
   title: string | null;
   tier: 1 | 2 | 3 | null;
-  route: string | null;
+  route: ContactRoute | null;
   phone: string | null;
   email: string | null;
   linkedin_url: string | null;
@@ -46,6 +47,34 @@ export type ImportContact = {
   caller_note: string | null;
   role: ContactRole;
   tab: "bellen" | "overig" | "verrijken";
+  /**
+   * The last call from the Excel, for the timeline: the outcome the old
+   * status stands for (null when the status says nothing about a call) and
+   * the status text itself. Null when the row has no call history.
+   */
+  history: { outcome: HistoryOutcome | null; statusText: string | null } | null;
+};
+
+/** Outcomes an old Excel status can stand for (activities_outcome_check). */
+export type HistoryOutcome =
+  | "no_answer"
+  | "call_back"
+  | "reached_interested"
+  | "meeting_planned"
+  | "reached_not_interested"
+  | "referred"
+  | "wrong_person"
+  | "wrong_number"
+  | "bereikt";
+
+/** How the columns of one sheet were read, for the preview before importing. */
+export type ColumnMapping = {
+  /** Columns that are imported, with the field they go to. */
+  recognized: { column: string; field: string; label: string }[];
+  /** Columns that are not imported. */
+  ignored: string[];
+  /** Fields of this tab that no column was found for. */
+  missing: string[];
 };
 
 export type ImportSignal = {
@@ -65,6 +94,8 @@ export type ParsedCallList = {
   tabs: { tab: string; sheet: string | null; rows: number; skipped: { row: number; reason: string }[] }[];
   /** Columns that were not recognised, per sheet. */
   unknownColumns: Record<string, string[]>;
+  /** Per sheet: which column went where, which were ignored and what was not found. */
+  columns: Record<string, ColumnMapping>;
 };
 
 export function normalizeHeader(header: unknown): string {
@@ -85,7 +116,19 @@ const companyFields: Record<string, string[]> = {
   employees: ["medewerkers", "aantal medewerkers", "werknemers", "fte", "employees", "grootte"],
   city: ["plaats", "stad", "locatie", "vestigingsplaats", "city", "location"],
   website: ["website", "url", "domein", "domain", "site", "webadres"],
-  linkedin_url: ["linkedin bedrijf", "bedrijf linkedin", "company linkedin", "linkedin company", "linkedin pagina", "linkedin bedrijfspagina"],
+  linkedin_url: [
+    "linkedin bedrijf",
+    "bedrijf linkedin",
+    "company linkedin",
+    "linkedin company",
+    "linkedin pagina",
+    "linkedin bedrijfspagina",
+    "linkedin bedrijf url",
+    "linkedin url bedrijf",
+    "company linkedin url",
+    "linkedin company url",
+    "bedrijfspagina",
+  ],
   general_phone: ["algemeen nummer", "algemeen telefoonnummer", "telefoon bedrijf", "bedrijfsnummer", "algemeen", "general number", "hoofdnummer"],
   red_flags: ["rode vlaggen", "rode vlag", "red flags", "red flag", "risico s", "risicos"],
   opening_line: ["openingszin", "opening", "opening line", "openingsregel", "pitch"],
@@ -101,7 +144,18 @@ const contactFields: Record<string, string[]> = {
   route: ["route"],
   phone: ["mobiel", "mobiel nummer", "mobiele nummer", "06", "telefoon", "telefoonnummer", "mobile", "phone", "nummer"],
   email: ["mailadres", "e mail", "email", "e mailadres", "mail"],
-  person_linkedin: ["linkedin persoon", "linkedin contact", "persoon linkedin", "linkedin profiel", "linkedin"],
+  person_linkedin: [
+    "linkedin persoon",
+    "linkedin contact",
+    "linkedin contactpersoon",
+    "persoon linkedin",
+    "linkedin profiel",
+    "linkedin profile",
+    "linkedin url",
+    "linkedin link",
+    "linkedin",
+    "li",
+  ],
   status: ["status", "belstatus", "status contact"],
   attempts: ["pogingen", "aantal pogingen", "attempts", "belpogingen"],
   last_attempt_at: ["laatste poging", "laatst gebeld", "datum laatste poging", "last attempt"],
@@ -121,18 +175,103 @@ const signalFields: Record<string, string[]> = {
   link: ["link", "url", "vacature link", "url vacature", "job link"],
 };
 
+/** Readable names of the fields, for the mapping preview. */
+export const fieldLabels: Record<string, string> = {
+  name: "Company name",
+  prio: "Prio",
+  category: "Category",
+  description: "What the company does",
+  sector: "Sector",
+  employees: "Employees",
+  city: "City",
+  website: "Website",
+  linkedin_url: "LinkedIn (company page, or a person when the link is /in/)",
+  general_phone: "General number",
+  red_flags: "Red flags",
+  opening_line: "Opening line",
+  source_note: "Source note",
+  full_name: "Contact person",
+  first_name: "First name",
+  last_name: "Last name",
+  title: "Job title",
+  tier: "Tier",
+  route: "Route",
+  phone: "Mobile",
+  email: "Mail",
+  person_linkedin: "LinkedIn (person, or the company when the link is /company/)",
+  status: "Status (becomes contact status and a call on the timeline)",
+  attempts: "Attempts",
+  last_attempt_at: "Last attempt",
+  referred_to: "Referred to",
+  caller_note: "Caller note",
+  role: "Role (Main, Extra, Reserve)",
+  company: "Company name",
+  role_group: "Role group",
+  posted_at: "Date online",
+  days_open: "Days open",
+  source: "Source",
+  link: "Link",
+};
+
+/**
+ * The field a header stands for. Exact aliases first; then tolerant: a
+ * header that starts or ends with an alias ("Status (oud)", "Telefoon
+ * mobiel", "Datum laatste poging") or equals it without spaces ("E-mail",
+ * "Linked In"). The longest alias wins, so "LinkedIn bedrijf" is the company.
+ */
+export function matchHeader(
+  header: unknown,
+  fields: Record<string, string[]>,
+  taken: Set<string> = new Set(),
+  exactOnly = false,
+): string | null {
+  const h = normalizeHeader(header);
+  if (!h) return null;
+  const compact = h.replace(/ /g, "");
+  let best: { field: string; length: number; exact: boolean } | null = null;
+  for (const [field, aliases] of Object.entries(fields)) {
+    if (taken.has(field)) continue;
+    for (const alias of aliases) {
+      const exact = alias === h || alias.replace(/ /g, "") === compact;
+      // Very short aliases ("li", "06") only count when exact.
+      const loose = !exact && !exactOnly && alias.length >= 4 && (h.startsWith(`${alias} `) || h.endsWith(` ${alias}`));
+      if (!exact && !loose) continue;
+      const better =
+        !best || (exact && !best.exact) || (exact === best.exact && alias.length > best.length);
+      if (better) best = { field, length: alias.length, exact };
+    }
+  }
+  return best?.field ?? null;
+}
+
 /** Which column index holds which field, by the header row. */
-function mapHeaders(headers: Cell[], fields: Record<string, string[]>): { map: Record<string, number>; unknown: string[] } {
+function mapHeaders(headers: Cell[], fields: Record<string, string[]>): { map: Record<string, number>; unknown: string[]; mapping: ColumnMapping } {
   const map: Record<string, number> = {};
+  const taken = new Set<string>();
+  const assigned = new Map<number, string>();
+  // Exact matches first, so a loose match never takes a field from an exact one.
+  for (const pass of ["exact", "loose"] as const) {
+    headers.forEach((raw, index) => {
+      if (assigned.has(index) || !normalizeHeader(raw)) return;
+      const field = matchHeader(raw, fields, taken, pass === "exact");
+      if (!field) return;
+      map[field] = index;
+      taken.add(field);
+      assigned.set(index, field);
+    });
+  }
   const unknown: string[] = [];
+  const recognized: ColumnMapping["recognized"] = [];
   headers.forEach((raw, index) => {
-    const h = normalizeHeader(raw);
-    if (!h) return;
-    const hit = Object.entries(fields).find(([field, aliases]) => map[field] === undefined && aliases.includes(h));
-    if (hit) map[hit[0]] = index;
-    else unknown.push(String(raw));
+    if (!normalizeHeader(raw)) return;
+    const field = assigned.get(index);
+    if (field) recognized.push({ column: String(raw).trim(), field, label: fieldLabels[field] ?? field });
+    else unknown.push(String(raw).trim());
   });
-  return { map, unknown };
+  const missing = Object.keys(fields)
+    .filter((f) => !taken.has(f))
+    .map((f) => fieldLabels[f] ?? f);
+  return { map, unknown, mapping: { recognized, ignored: unknown, missing } };
 }
 
 function text(value: Cell): string | null {
@@ -215,13 +354,55 @@ export function parseContactStatus(value: Cell, fallback: ContactStatus): Contac
   if (/niet benader|do not contact|niet bellen|afgemeld|uitgesloten/.test(s)) return "do_not_contact";
   if (/niet bereikt|3 pogingen|not reached/.test(s)) return "not_reached";
   if (/niet geinteresseerd|geen interesse|not interested|afgewezen|verloren|lost/.test(s)) return "not_interested";
-  if (/verrijk|enrich|geen nummer/.test(s)) return "enrich";
+  if (/verrijk|enrich|geen nummer|verkeerd nummer|wrong number|nummer klopt niet|onjuist nummer/.test(s)) return "enrich";
   if (/bereikt|reached|afspraak|meeting|interesse|interested|klant|doorverwezen|referred/.test(s)) return "reached";
   if (/gebeld|geen gehoor|no answer|terugbellen|call back|voicemail|in outreach|benaderd|gemaild/.test(s)) return "in_outreach";
   if (/gekwalificeerd|qualified/.test(s)) return "qualified";
   if (/verrijkt|enriched/.test(s)) return "enriched";
   if (/nieuw|new/.test(s)) return "new";
   return fallback;
+}
+
+/**
+ * The call an old Excel status stands for, for the timeline (section 2.9
+ * buttons). Null when the status says nothing about a call ("Nieuw",
+ * "Enrich", "Niet benaderen").
+ */
+export function parseCallOutcome(value: Cell): HistoryOutcome | null {
+  const s = normalizeHeader(value);
+  if (!s) return null;
+  if (/verkeerd nummer|wrong number|nummer klopt niet|onjuist nummer|nummer onjuist|niet in gebruik|nummer bestaat niet/.test(s)) return "wrong_number";
+  if (/verkeerde persoon|wrong person|verkeerd contact|niet de juiste persoon/.test(s)) return "wrong_person";
+  if (/doorverwezen|referred|verwezen naar/.test(s)) return "referred";
+  if (/afspraak|meeting/.test(s)) return "meeting_planned";
+  if (/niet geinteresseerd|geen interesse|not interested|afgewezen|geen behoefte/.test(s)) return "reached_not_interested";
+  if (/interesse|interested|geinteresseerd/.test(s)) return "reached_interested";
+  if (/terugbellen|terug bellen|call back|callback|bel terug|later bellen/.test(s)) return "call_back";
+  if (/geen gehoor|no answer|voicemail|niet opgenomen|niet bereikt|not reached|bezet|in gesprek/.test(s)) return "no_answer";
+  if (/bereikt|reached|gesproken/.test(s)) return "bereikt";
+  return null;
+}
+
+/**
+ * The external id of the call from the Excel (activities.external_id). A
+ * second import of the same file is a no-op; a later file with a newer
+ * status or date adds the newer call.
+ */
+export function historyExternalId(
+  contactId: string,
+  history: ImportContact["history"],
+  lastAttemptAt: string | null,
+): string {
+  const what = history?.outcome ?? (normalizeHeader(history?.statusText ?? "").replace(/ /g, "-") || "call");
+  return `import:call:${contactId}:${what}:${lastAttemptAt ?? "undated"}`;
+}
+
+/** Where a LinkedIn link belongs: a company page or a person's profile. */
+export function linkedinKind(url: string | null): "company" | "person" | null {
+  if (!url) return null;
+  if (/\/(company|school|showcase)\//i.test(url)) return "company";
+  if (/\/(in|pub)\//i.test(url)) return "person";
+  return null;
 }
 
 function parseRole(value: Cell, fallback: ContactRole): ContactRole {
@@ -262,15 +443,22 @@ const TAB_NAMES = {
   verrijken: ["nog verrijken", "verrijken", "enrich", "zonder nummer"],
 } as const;
 
+/** A tab by its name; tolerant of extra words or numbers ("Bellen (340)", "Vacatures nov"). */
 function findSheet(sheets: Sheet[], names: readonly string[]): Sheet | null {
-  return sheets.find((s) => names.includes(normalizeHeader(s.sheet))) ?? null;
+  const exact = sheets.find((s) => names.includes(normalizeHeader(s.sheet)));
+  if (exact) return exact;
+  return (
+    sheets.find((s) => {
+      const n = normalizeHeader(s.sheet);
+      return names.some((name) => n.startsWith(`${name} `) || n.endsWith(` ${name}`));
+    }) ?? null
+  );
 }
 
 /** The first row with at least two known headers is the header row (sheets may start with a title). */
 function headerRow(data: Cell[][], fields: Record<string, string[]>): number {
-  const known = new Set(Object.values(fields).flat());
   for (let i = 0; i < Math.min(10, data.length); i += 1) {
-    const hits = data[i].filter((c) => known.has(normalizeHeader(c))).length;
+    const hits = (data[i] ?? []).filter((c) => typeof c === "string" && matchHeader(c, fields) !== null).length;
     if (hits >= 2) return i;
   }
   return 0;
@@ -283,13 +471,13 @@ export function parseCallList(sheets: Sheet[]): ParsedCallList {
   const signals: ImportSignal[] = [];
   const tabs: ParsedCallList["tabs"] = [];
   const unknownColumns: Record<string, string[]> = {};
+  const columns: Record<string, ColumnMapping> = {};
 
-  const readCompany = (row: Cell[], map: Record<string, number>): ImportCompany | null => {
+  const readCompany = (row: Cell[], map: Record<string, number>, linkedin: string | null): ImportCompany | null => {
     const get = (f: string) => (map[f] === undefined ? undefined : row[map[f]]);
     const name = text(get("name"));
     const website = text(get("website"));
     const domain = domainFrom(website);
-    const linkedin = text(get("linkedin_url"));
     const key = companyKey({ domain, linkedin, name });
     if (!key) return null;
     const incoming: ImportCompany = {
@@ -334,13 +522,27 @@ export function parseCallList(sheets: Sheet[]): ParsedCallList {
       return;
     }
     const start = headerRow(sheet.data, fields);
-    const { map, unknown } = mapHeaders(sheet.data[start] ?? [], fields);
+    const { map, unknown, mapping } = mapHeaders(sheet.data[start] ?? [], fields);
     if (unknown.length > 0) unknownColumns[sheet.sheet] = unknown;
+    columns[sheet.sheet] = mapping;
     for (let i = start + 1; i < sheet.data.length; i += 1) {
       const row = sheet.data[i];
       if (!row || row.every((c) => text(c) === null)) continue;
       result.rows += 1;
-      const company = readCompany(row, map);
+      const pick = (f: string) => (map[f] === undefined ? null : text(row[map[f]]));
+      // A LinkedIn link goes where it points: /company/ to the company, /in/
+      // to the person, whichever column it is in. A link of neither kind
+      // stays with the company column, or is dropped from the person column.
+      const links = [
+        { url: pick("linkedin_url"), column: "company" as const },
+        { url: pick("person_linkedin"), column: "person" as const },
+      ].filter((l): l is { url: string; column: "company" | "person" } => Boolean(l.url));
+      const companyLinkedin =
+        links.find((l) => linkedinKind(l.url) === "company")?.url ??
+        links.find((l) => l.column === "company" && linkedinKind(l.url) === null)?.url ??
+        null;
+      const linkedin = links.find((l) => linkedinKind(l.url) === "person")?.url ?? null;
+      const company = readCompany(row, map, companyLinkedin);
       if (!company) {
         result.skipped.push({ row: i + 1, reason: "No company name, website or LinkedIn page" });
         continue;
@@ -352,31 +554,39 @@ export function parseCallList(sheets: Sheet[]): ParsedCallList {
       const last = text(get("last_name")) ?? split.last;
       const phone = text(get("phone"));
       const email = text(get("email"));
-      const linkedin = text(get("person_linkedin"));
       if (!first && !last && !email && !phone && !linkedin) {
         // A company row without a person still counts for the company.
         continue;
       }
-      const personLinkedin = linkedin && /\/in\//i.test(linkedin) ? linkedin : null;
       const parsedStatus = parseContactStatus(get("status"), status);
+      const statusText = text(get("status"));
+      const attempts = int(get("attempts")) ?? 0;
+      const lastAttempt = isoDate(get("last_attempt_at"));
+      const outcome = parseCallOutcome(get("status"));
+      // A route the pick list does not know is kept in the caller note.
+      const routeText = text(get("route"));
+      const route = parseRoute(routeText, phone);
+      const note = text(get("caller_note"));
+      const callerNote = routeText && !route ? [note, `Route: ${routeText}`].filter(Boolean).join("\n") : note;
       contacts.push({
         companyKey: company.key,
         first_name: first,
         last_name: last,
         title: text(get("title")),
         tier: parseTier(get("tier")),
-        route: text(get("route")),
+        route,
         phone,
         email,
-        linkedin_url: personLinkedin,
+        linkedin_url: linkedin,
         // A contact without a number cannot be called: Enrich (tab Nog verrijken).
         status: tab === "verrijken" && parsedStatus === "new" ? "enrich" : !phone && parsedStatus === "new" && tab === "bellen" ? "enrich" : parsedStatus,
-        attempts: int(get("attempts")) ?? 0,
-        last_attempt_at: isoDate(get("last_attempt_at")),
+        attempts,
+        last_attempt_at: lastAttempt,
         referred_to: text(get("referred_to")),
-        caller_note: text(get("caller_note")),
+        caller_note: callerNote,
         role: parseRole(get("role"), role),
         tab,
+        history: outcome || attempts > 0 || lastAttempt ? { outcome, statusText } : null,
       });
     }
     tabs.push(result);
@@ -390,8 +600,9 @@ export function parseCallList(sheets: Sheet[]): ParsedCallList {
   const vacancyResult = { tab: "vacatures", sheet: vacancies?.sheet ?? null, rows: 0, skipped: [] as { row: number; reason: string }[] };
   if (vacancies) {
     const start = headerRow(vacancies.data, signalFields);
-    const { map, unknown } = mapHeaders(vacancies.data[start] ?? [], signalFields);
+    const { map, unknown, mapping } = mapHeaders(vacancies.data[start] ?? [], signalFields);
     if (unknown.length > 0) unknownColumns[vacancies.sheet] = unknown;
+    columns[vacancies.sheet] = mapping;
     for (let i = start + 1; i < vacancies.data.length; i += 1) {
       const row = vacancies.data[i];
       if (!row || row.every((c) => text(c) === null)) continue;
@@ -444,7 +655,7 @@ export function parseCallList(sheets: Sheet[]): ParsedCallList {
   }
   tabs.push(vacancyResult);
 
-  return { companies: [...companies.values()], contacts, signals, tabs, unknownColumns };
+  return { companies: [...companies.values()], contacts, signals, tabs, unknownColumns, columns };
 }
 
 /** Every key a contact can be recognised by: LinkedIn, mail and name at the company. */
