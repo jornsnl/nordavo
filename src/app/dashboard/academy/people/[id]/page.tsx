@@ -7,6 +7,7 @@ import { ACADEMY_ROLES } from "@/lib/academy/people";
 import { formatDateTime } from "@/lib/format";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { PersonAccess, PersonGroups, PersonSettingsForm } from "@/components/academy/admin/person-forms";
+import { PersonProgressCard } from "@/components/academy/ats/person-progress";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { ListSkeleton } from "@/components/ui/skeleton";
@@ -55,6 +56,9 @@ async function Person({ params }: Pick<PageProps<"/dashboard/academy/people/[id]
               <PersonAccess detail={detail} />
             </CardBody>
           </Card>
+          <Suspense fallback={<ListSkeleton rows={4} />}>
+            <PersonProgressCard profileId={person.profile_id} />
+          </Suspense>
         </div>
         <div className="space-y-6">
           <Card>

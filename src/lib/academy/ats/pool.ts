@@ -166,3 +166,18 @@ export function formatPercent(value: number | null | undefined): string {
 export function pageCount(total: number, pageSize = POOL_PAGE_SIZE): number {
   return Math.max(1, Math.ceil(total / pageSize));
 }
+
+/** A count as a share of the cohort, 0 to 100, for funnel bars. */
+export function funnelShare(count: number, cohort: number): number {
+  if (cohort <= 0 || count <= 0) return 0;
+  return Math.min(100, Math.round((count * 100) / cohort));
+}
+
+export const SCORE_BUCKETS = ["0-49", "50-69", "70-89", "90-100"] as const;
+
+/** The score distribution of a group report in bucket order, with each share of the scored people. */
+export function scoreBuckets(distribution: Record<string, number> | null | undefined): { bucket: string; count: number; share: number }[] {
+  const counts = SCORE_BUCKETS.map((bucket) => ({ bucket, count: Math.max(0, Number(distribution?.[bucket] ?? 0) || 0) }));
+  const scored = counts.reduce((sum, c) => sum + c.count, 0);
+  return counts.map((c) => ({ ...c, share: scored > 0 ? Math.round((c.count * 100) / scored) : 0 }));
+}
