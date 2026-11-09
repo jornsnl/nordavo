@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Ban, Building2, Pencil, Plus, Send } from "lucide-react";
+import { Ban, Building2, Pencil, Plus } from "lucide-react";
 import { Field, Input, Select, Textarea } from "@/components/ui/field";
 import type { CompanyStatus, Segment } from "@/lib/database.types";
 import { todayIso } from "@/lib/format";

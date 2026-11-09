@@ -1,6 +1,7 @@
 import "server-only";
 import { requireStaff } from "@/lib/auth";
-import type { ActivityChannel, ActivityOutcome, ActivitySource } from "@/lib/database.types";
+import type { ActivityChannel, ActivityOutcome, ActivitySource, Json } from "@/lib/database.types";
+import type { ActivityType } from "@/lib/sales/database";
 import { createClient } from "@/lib/supabase/server";
 import { contactName } from "@/lib/data/gtm-contacts";
 
@@ -16,13 +17,17 @@ export type GtmActivityItem = {
   contactName: string | null;
   campaignName: string | null;
   createdByName: string | null;
+  type: ActivityType;
+  field: string | null;
+  oldValue: Json | null;
+  newValue: Json | null;
 };
 
 /** Outreach for a company: activities on the company itself or on any of its contacts. */
 export async function getCompanyActivities(
   companyId: string,
   contactIds: string[],
-  limit = 100,
+  limit = 200,
 ): Promise<GtmActivityItem[]> {
   await requireStaff();
   const supabase = await createClient();
@@ -34,7 +39,7 @@ export async function getCompanyActivities(
   const { data, error } = await supabase
     .from("activities")
     .select(
-      "id, date, channel, outcome, source, notes, next_action, next_action_date, contact:contacts(first_name, last_name), campaign:campaigns(name), author:profiles!activities_created_by_fkey(full_name, email)",
+      "id, date, channel, outcome, source, notes, next_action, next_action_date, type, field, old_value, new_value, contact:contacts(first_name, last_name), campaign:campaigns(name), author:profiles!activities_created_by_fkey(full_name, email)",
     )
     .or(filter)
     .order("date", { ascending: false })
@@ -53,5 +58,9 @@ export async function getCompanyActivities(
     contactName: a.contact ? contactName(a.contact) : null,
     campaignName: a.campaign?.name ?? null,
     createdByName: a.author ? a.author.full_name || a.author.email || null : null,
+    type: a.type,
+    field: a.field,
+    oldValue: a.old_value,
+    newValue: a.new_value,
   }));
 }

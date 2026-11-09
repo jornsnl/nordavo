@@ -6,13 +6,13 @@ import { notFound } from "next/navigation";
 import { ArrowLeft, Briefcase, ExternalLink, ShieldAlert, TriangleAlert } from "lucide-react";
 import { PageHeader } from "@/components/dashboard/page-header";
 import {
-  CompanyStatusBadge,
   IcpBadge,
   OutcomeBadge,
   SegmentBadge,
   SignalTypeBadge,
 } from "@/components/leads/badges";
 import { AddContactButton } from "@/components/leads/add-contact-button";
+import { LeadSalesPanel } from "@/components/sales/lead-sales-panel";
 import { ContactsPanel } from "@/components/leads/contacts-panel";
 import {
   EditCompanyButton,
@@ -37,6 +37,9 @@ import {
   updateCompanyAction,
 } from "../actions";
 import { createContactAction } from "../manual-actions";
+import { createClient } from "@/lib/supabase/server";
+import { leadStatuses, pipelineStages } from "@/lib/sales/labels";
+import { describeChange } from "@/lib/sales/timeline";
 
 export const metadata: Metadata = {
   title: "Lead",
@@ -66,10 +69,13 @@ async function LeadDetail({ params }: { params: Params }) {
   const company = await getCompany(id);
   if (!company) notFound();
 
-  const [{ contacts, suppressions }, signals, clients] = await Promise.all([
+  const supabase = await createClient();
+  const [{ contacts, suppressions }, signals, clients, owners, partners] = await Promise.all([
     getCompanyContacts(company.id),
     getCompanySignals(company.id),
     company.client_id ? Promise.resolve([]) : listClientOptions(),
+    supabase.from("profiles").select("id, full_name, email").in("role", ["admin", "member"]).order("full_name"),
+    supabase.from("partners").select("id, name, company_name").order("name"),
   ]);
   const activities = await getCompanyActivities(
     company.id,
@@ -88,7 +94,12 @@ async function LeadDetail({ params }: { params: Params }) {
           <span className="flex flex-wrap items-center gap-3">
             {company.name}
             <IcpBadge decision={company.icp_decision} score={company.icp_score} />
-            <CompanyStatusBadge status={company.status} />
+            <Badge tone={optionFor(leadStatuses, company.lead_status).tone}>{optionFor(leadStatuses, company.lead_status).label}</Badge>
+            {company.pipeline_stage && (
+              <Badge tone={optionFor(pipelineStages, company.pipeline_stage).tone}>
+                Pipeline: {optionFor(pipelineStages, company.pipeline_stage).label}
+              </Badge>
+            )}
           </span>
         }
         description={
@@ -133,6 +144,29 @@ async function LeadDetail({ params }: { params: Params }) {
       {/* Below lg both columns dissolve into one list, so the contacts (to call or mail) come right after the verdict. */}
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_400px]">
         <div className="min-w-0 space-y-6 max-lg:contents max-lg:space-y-0">
+          <LeadSalesPanel
+            company={{
+              id: company.id,
+              lead_status: company.lead_status,
+              pipeline_stage: company.pipeline_stage,
+              lost_reason: company.lost_reason,
+              prio: company.prio,
+              category: company.category,
+              owner_id: company.owner_id,
+              partner_id: company.partner_id,
+              next_action: company.next_action,
+              next_action_date: company.next_action_date,
+              description: company.description,
+              general_phone: company.general_phone,
+              opening_line: company.opening_line,
+              red_flags: company.red_flags,
+              source_note: company.source_note,
+            }}
+            contacts={contacts.map((c) => ({ id: c.id, name: c.title ? `${c.name}, ${c.title}` : c.name }))}
+            owners={(owners.data ?? []).map((p) => ({ id: p.id, name: p.full_name || p.email || "Unnamed" }))}
+            partners={(partners.data ?? []).map((p) => ({ id: p.id, name: p.company_name ? `${p.name} (${p.company_name})` : p.name }))}
+            primaryContactId={contacts.find((c) => c.isPrimary)?.id ?? null}
+          />
           <Card>
             <CardHeader
               title="ICP verdict"
@@ -330,7 +364,7 @@ function SignalsCard({ signals }: { signals: SignalItem[] }) {
 function ActivitiesCard({ activities, actions }: { activities: GtmActivityItem[]; actions: ReactNode }) {
   return (
     <Card>
-      <CardHeader title="Activities" description="All touchpoints, across all channels." actions={actions} />
+      <CardHeader title="Timeline" description="Every contact moment and every change, newest first." actions={actions} />
       {activities.length === 0 ? (
         <CardBody>
           <p className="text-sm text-muted">Nobody at this company has been approached yet.</p>
@@ -339,6 +373,21 @@ function ActivitiesCard({ activities, actions }: { activities: GtmActivityItem[]
         <ol className="divide-y divide-border">
           {activities.map((a) => {
             const channel = optionFor(activityChannels, a.channel);
+            if (a.type === "change" || a.type === "view") {
+              return (
+                <li key={a.id} className="flex flex-wrap items-baseline gap-x-2 px-5 py-2 text-xs text-muted">
+                  <span className="text-ink">
+                    {a.type === "view" ? "Opened on the call screen" : describeChange(a.field, a.oldValue, a.newValue)}
+                  </span>
+                  {a.contactName && <span>{a.contactName}</span>}
+                  <span>
+                    {formatDateTime(a.date)}
+                    {a.createdByName ? `, ${a.createdByName}` : ""}
+                    {a.source !== "handmatig" ? `, via ${a.source}` : ""}
+                  </span>
+                </li>
+              );
+            }
             return (
               <li key={a.id} className="space-y-1.5 px-5 py-3">
                 <div className="flex flex-wrap items-center gap-2 text-sm">

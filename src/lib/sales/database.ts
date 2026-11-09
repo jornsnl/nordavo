@@ -296,6 +296,10 @@ export type SalesFunctions = {
     } & Actor,
     string
   >;
+  sales_set_positions: Fn<
+    { p_entity: "company" | "contact"; p_ids: string[]; p_positions: number[] } & Actor,
+    number
+  >;
   sales_claim_contact: Fn<{ p_contact: string } & Actor, boolean>;
   sales_release_contact: Fn<{ p_contact: string } & Actor, undefined>;
   sales_log_call: Fn<
