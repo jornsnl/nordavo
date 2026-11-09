@@ -150,7 +150,7 @@ export function RitualsPanel({ page, locale, isManager }: Ctx) {
           <p className="mb-3 text-sm text-muted">{t(locale, "rituals.text")}</p>
           <ul className="divide-y divide-academy-blue-100">
             {items.map((item) => (
-              <li key={item.ritual.id} className="flex flex-wrap items-center justify-between gap-3 py-3 first:pt-0 last:pb-0">
+              <li key={`${item.ritual.id}-${item.periodDate}`} className="flex flex-wrap items-center justify-between gap-3 py-3 first:pt-0 last:pb-0">
                 <div className="min-w-0">
                   <p className="font-medium text-academy-blue-900">{item.ritual.title}</p>
                   <p className="text-xs text-muted">

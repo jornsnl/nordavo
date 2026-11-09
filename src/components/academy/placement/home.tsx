@@ -35,7 +35,7 @@ export async function HomeRituals({ user }: { user: AcademyUser }) {
           {overviews.length > 1 && <p className="mb-2 text-xs font-semibold tracking-wide text-academy-blue-700 uppercase">{o.title}</p>}
           <ul className="divide-y divide-academy-blue-100">
             {ritualsNow(o.rituals as RitualLike[], o.logs, today).map((item) => (
-              <li key={item.ritual.id} className="flex items-center justify-between gap-3 py-2.5 first:pt-0 last:pb-0">
+              <li key={`${item.ritual.id}-${item.periodDate}`} className="flex items-center justify-between gap-3 py-2.5 first:pt-0 last:pb-0">
                 <div className="min-w-0">
                   <p className="font-medium text-academy-blue-900">{item.ritual.title}</p>
                   <p className="text-xs text-muted">
