@@ -1,0 +1,53 @@
+name: Academy jobs
+
+# Academy placements (docs/academy.md, Plaatsingspagina, rituelen en pulse).
+# Calls the running app, which runs the jobs with its own environment
+# (SUPABASE_SECRET_KEY); nothing is installed here.
+#   academy-rituals     every hour: reminders follow each person's own time
+#                       zone (from 16:00 local time), so the job runs hourly
+#   academy-placements  daily 08:00 Europe/Amsterdam: pulse rounds, pulse
+#                       reminders, review forms of the timeline
+on:
+  schedule:
+    - cron: "41 * * * *" # academy-rituals
+    - cron: "5 6,7 * * *" # academy-placements, 08:00 Amsterdam
+  workflow_dispatch:
+    inputs:
+      job:
+        description: "academy-rituals or academy-placements"
+        required: true
+      params:
+        description: 'Optional JSON params, e.g. {"today":"2026-12-01"}'
+        required: false
+
+concurrency:
+  group: academy-${{ github.event.schedule || github.event.inputs.job }}
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Pick the job
+        id: pick
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "job=${{ github.event.inputs.job }}" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          HOUR=$(TZ=Europe/Amsterdam date +%H)
+          case "${{ github.event.schedule }}" in
+            "41 * * * *") echo "job=academy-rituals" >> "$GITHUB_OUTPUT" ;;
+            "5 6,7 * * *") [ "$HOUR" = "08" ] && echo "job=academy-placements" >> "$GITHUB_OUTPUT" ;;
+          esac
+          true
+      - name: Call the app for ${{ steps.pick.outputs.job }}
+        if: steps.pick.outputs.job != ''
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          SITE_URL: ${{ secrets.NEXT_PUBLIC_SITE_URL }}
+          PARAMS: ${{ github.event.inputs.params || '{}' }}
+        run: |
+          curl -fsS -X POST -H "Authorization: Bearer $CRON_SECRET" -H "Content-Type: application/json" \
+            -d "{\"params\": $PARAMS}" "$SITE_URL/api/jobs/${{ steps.pick.outputs.job }}"
