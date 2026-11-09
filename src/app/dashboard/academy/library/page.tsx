@@ -66,13 +66,20 @@ async function Documents() {
       <CardHeader title="Documents" description="Downloads and worksheets, usable in lessons of both courses and as module workbook." />
       <CardBody>
         {documents.length === 0 ? (
-          <p className="text-sm text-muted">No documents yet. Uploading documents and worksheets comes with the document block.</p>
+          <p className="text-sm text-muted">
+            No documents yet.{" "}
+            <Link href="/dashboard/academy/documents" className="font-medium text-brand-700 hover:underline">
+              Add one
+            </Link>
+          </p>
         ) : (
           <ul className="space-y-2 text-sm">
             {documents.map((d) => (
               <li key={d.id} className="flex items-center gap-2">
                 <FileText className="size-4 shrink-0 text-brand-600" aria-hidden="true" />
-                <span className="min-w-0 flex-1 truncate">{d.title}</span>
+                <Link href={`/dashboard/academy/documents/${d.id}`} className="min-w-0 flex-1 truncate text-brand-800 hover:underline">
+                  {d.title}
+                </Link>
                 <Badge tone="neutral">{d.kind === "worksheet" ? "Worksheet" : `v${d.current_version}`}</Badge>
               </li>
             ))}

@@ -3,6 +3,9 @@ import type { AcademyBlockType, AcademyLessonBlockRow } from "@/lib/academy/data
 import type { Json } from "@/lib/database.types";
 import { type BlockContent, blockContent, explanationHtml, notesPrompt, notesScope } from "@/lib/academy/blocks/types";
 import { sanitizeHtml } from "@/lib/academy/sanitize";
+// Area: media (video, document, worksheet).
+import { documentStateLoader, videoStateLoader, worksheetStateLoader } from "@/lib/academy/media/server";
+import { videoShowsTranscript } from "@/lib/academy/media/state";
 import type { createClient } from "@/lib/supabase/server";
 
 // The server half of the block registry (docs/academy.md):
@@ -36,6 +39,10 @@ const MAX_CONTENT_BYTES = 200_000;
 export const contentSanitizers: Partial<Record<AcademyBlockType, (content: BlockContent) => BlockContent>> = {
   explanation: (content) => ({ html: sanitizeHtml(explanationHtml(content)) }),
   notes: (content) => ({ scope: notesScope(content), prompt: notesPrompt(content).slice(0, 1000) }),
+  // Area: media. The file, versions, fields and answers are rows of their own.
+  video: (content) => ({ transcript: videoShowsTranscript(content) }),
+  document: () => ({}),
+  worksheet: () => ({}),
 };
 
 /** The content to store for a block, cleaned for its type. Throws when too large. */
@@ -76,6 +83,10 @@ export const blockStateLoaders: Partial<Record<AcademyBlockType, BlockStateLoade
     }
     return states;
   },
+  // Area: media (src/lib/academy/media/server.ts).
+  video: videoStateLoader,
+  document: documentStateLoader,
+  worksheet: worksheetStateLoader,
 };
 
 /** State per block id for the viewers of one lesson. */

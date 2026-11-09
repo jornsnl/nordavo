@@ -8,6 +8,7 @@ const tabs = [
   { label: "People", href: "/dashboard/academy/people" },
   { label: "Groups", href: "/dashboard/academy/groups" },
   { label: "Library", href: "/dashboard/academy/library" },
+  { label: "Documents", href: "/dashboard/academy/documents" },
 ];
 
 function isActive(pathname: string, href: string) {

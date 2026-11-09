@@ -62,7 +62,8 @@ export const blockTypes: Record<AcademyBlockType, BlockTypeMeta> = {
     adminLabel: "Video",
     adminDescription: "Own recording with subtitles, transcript and watch progress.",
     media: "video",
-    defaultContent: {},
+    // transcript: show the transcript under the player (media area).
+    defaultContent: { transcript: true },
     defaultRequired: true,
     completionFields: [{ key: "min_percent", label: "Watched at least (%)", kind: "percent", defaultValue: 90, min: 1, max: 100 }],
     requirement: (c, locale) => t(locale, "req.video", { percent: numberOr(c.min_percent, 90) }),
