@@ -5,6 +5,7 @@
 import type { WorkFunctions, WorkTables } from "@/lib/work/database";
 import type { FormsFunctions, FormsTables } from "@/lib/forms/database";
 import type { AcademyFunctions, AcademyTables } from "@/lib/academy/database";
+import type { AcademyPlacementFunctions, AcademyPlacementTables } from "@/lib/academy/placement/database";
 import type { LearnFunctions } from "@/lib/academy/learn/database";
 import type { AcademyMediaFunctions, AcademyMediaTables } from "@/lib/academy/media/database";
 import type {
@@ -786,6 +787,7 @@ export type Database = {
           overlap_time_zone: string;
           probation_end_date: string | null;
           nordavo_contact_id: string | null;
+          nordavo_response_hours: number;
           status: PlacementStatus;
           notice_given_at: string | null;
           guarantee_until: string | null;
@@ -809,6 +811,7 @@ export type Database = {
           overlap_time_zone?: string;
           probation_end_date?: string | null;
           nordavo_contact_id?: string | null;
+          nordavo_response_hours?: number;
           status?: PlacementStatus;
           notice_given_at?: string | null;
           next_checkin_at?: string | null;
@@ -831,6 +834,7 @@ export type Database = {
           overlap_time_zone?: string;
           probation_end_date?: string | null;
           nordavo_contact_id?: string | null;
+          nordavo_response_hours?: number;
           status?: PlacementStatus;
           notice_given_at?: string | null;
           next_checkin_at?: string | null;
@@ -2523,7 +2527,7 @@ export type Database = {
         };
         Relationships: [];
       };
-    } & WorkTables & FormsTables & SalesTables & AcademyTables & AcademyMediaTables;
+    } & WorkTables & FormsTables & SalesTables & AcademyTables & AcademyMediaTables & AcademyPlacementTables;
     Views: {
       call_list_candidates: { Row: ListCandidateBase & { phone: string; linkedin_url: string | null }; Relationships: [] };
       mail_list_candidates: { Row: ListCandidateBase & { email: string }; Relationships: [] };
@@ -2694,7 +2698,7 @@ export type Database = {
         Args: { p_entity: CustomFieldEntity; p_new: Json; p_old?: Json };
         Returns: CustomFieldValues;
       };
-    } & WorkFunctions & FormsFunctions & SalesFunctions & AcademyFunctions & LearnFunctions & AcademyMediaFunctions;
+    } & WorkFunctions & FormsFunctions & SalesFunctions & AcademyFunctions & LearnFunctions & AcademyMediaFunctions & AcademyPlacementFunctions;
     Enums: { [_ in never]: never };
     CompositeTypes: { [_ in never]: never };
   };

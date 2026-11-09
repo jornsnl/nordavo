@@ -6,6 +6,7 @@ import { listCoursesForAdmin } from "@/lib/academy/admin";
 import { EmptyState } from "@/components/dashboard/empty-state";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { CourseForm } from "@/components/academy/admin/course-form";
+import { PulseSignals } from "@/components/academy/admin/placement/signals";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { ListSkeleton } from "@/components/ui/skeleton";
@@ -20,6 +21,10 @@ export default function Page() {
         title="Courses"
         description="Courses, modules and lessons of the Nordavo Academy. A lesson can be used in more than one course; an edit applies everywhere."
       />
+      {/* Pulse signals of placements (area placement): only when there are some. */}
+      <Suspense fallback={null}>
+        <PulseSignals compact />
+      </Suspense>
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2">
           <Suspense fallback={<ListSkeleton rows={3} />}>

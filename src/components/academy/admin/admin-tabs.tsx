@@ -8,6 +8,10 @@ const tabs = [
   { label: "People", href: "/dashboard/academy/people" },
   { label: "Groups", href: "/dashboard/academy/groups" },
   { label: "Library", href: "/dashboard/academy/library" },
+  // Area placement
+  { label: "Placements", href: "/dashboard/academy/placements" },
+  { label: "Rituals", href: "/dashboard/academy/rituals" },
+  { label: "Holidays", href: "/dashboard/academy/holidays" },
   // Area learn: assignment reviews and overdue tasks.
   { label: "Reviews", href: "/dashboard/academy/reviews" },
   { label: "Tasks", href: "/dashboard/academy/tasks" },

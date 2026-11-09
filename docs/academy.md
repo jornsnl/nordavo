@@ -118,7 +118,7 @@ Deelnemers lezen gepubliceerde courses waar ze toegang toe hebben, de titels van
 | `academy_pulses`, `academy_pulse_answers` | Tweewekelijkse check: `score` 1 tot 10, `going_well`, `friction`, `flagged` | De ontvanger leest en beantwoordt de eigen pulse; scores en trend alleen Nordavo |
 | `academy_leave_requests` | `kind`, `start_date`, `end_date`, `days`, `status` (requested, client_agreed, approved, rejected, cancelled) | Alle drie de kanten lezen; de developer vraagt aan; besluiten via Nordavo |
 | `academy_leave_balances` | Per persoon per plaatsing per jaar: `entitled_days`, `carried_over_days`, `adjustment_days` | Leden van de plaatsing lezen |
-| `academy_holidays` | `country` (NL, IN), `region` (bijv. KA), `year`, `date`, `name_nl`, `name_en` | Iedereen ingelogd leest |
+| `academy_holidays` | `country` (NL, IN), `region` (bijv. KA), `year`, `date`, `name_nl`, `name_en`, `day_off`, `confirmed` (sectie 14) | Academy-deelnemers en het team lezen |
 | `academy_milestones` | `kind` (day_1, week_1, day_30, day_90, custom), `due_date`, `completed_at` | Leden van de plaatsing lezen |
 | `academy_reviews` | Reviewformulier (`answers`) en verslag (`report`), `draft`/`submitted` | Auteur eigen concept; ingediend voor klantbeheerder, klant lid en developer |
 | `academy_notifications` | `kind`, `title`, `body`, `link`, `payload`, `read_at`, `digested_at` | Eigen lezen en alleen `read_at` zetten; aanmaken via `academy_notify(profile, kind, title, body, link, payload)` (service role en security definer functies) of beheer |
@@ -277,7 +277,7 @@ Beide courses staan als **concept**: niemand buiten Nordavo ziet ze tot een behe
 
 | Taak | Aanknopingspunten |
 | --- | --- |
-| Plaatsingspagina, verlof, feestdagen, rituelen, pulse, reviews | Tabellen in `20261112010000_academy_placements.sql`, `academy_my_placements()`, de vakken `RitualsSection` en `UpcomingSection`, de kaart `PlacementSection`. Plaatsingsleden toevoegen (`academy_placement_members`) heeft nog geen scherm. Openstaande coursetaken van de plaatsing: `<PlacementTasksPanel>` of `getPlacementTasks()` (sectie 12) |
+| ~~Plaatsingspagina, verlof, feestdagen, rituelen, pulse, reviews~~ | Gebouwd, zie sectie 14. De openstaande coursetaken van een plaatsing komen uit `<PlacementTasksPanel>` (sectie 12) |
 | Beheeroverzichten, afhaakanalyse, AI-concept uit transcript | `academy_people_progress()`, `academy_lesson_progress`, `academy_members.last_active_at`. De mensenlijst toont de 300 laatst toegevoegden |
 | Kandidatenbeheer en ATS-koppeling | `candidates.top_candidate`, `academy_members.candidate_id`, `academy_groups` (met `vacancy_id`), `academy_add_person()` met scope en open modules. Bij "geplaatst": rol naar developer en scope `all` (opnieuw `academy_add_person` met rol developer); voortgang blijft. Scores voor de kandidaatkaart en de talentpool: `academy_candidate_check_scores()`, `academy_candidate_assignments()`, `academy_candidate_questionnaire_results()`, `academy_candidate_learn_summary()` (sectie 12) |
 
@@ -417,3 +417,96 @@ Knop "Upload an image" in de uitlegeditor: PNG, JPG, GIF of WebP tot 10 MB naar 
   Tekst als string of `{ nl, en }` (de taal van de ontvanger kiest), `link` een pad in het portaal, ook een lijst in één keer. Schrijft met de service role als `SUPABASE_SECRET_KEY` er is, anders met de meegegeven client (beheer mag via RLS). Gooit nooit een fout. In SQL (security definer functies, triggers): `perform public.academy_notify(profile, kind, title, body, link, payload)`.
 * **Mailsamenvatting:** job `academy-digest`, elk uur (`.github/workflows/academy-jobs.yml`, of `npm run job -- academy-digest`, `--dry-run=1` telt alleen). Per persoon met `digest_frequency` `daily` of `weekly`: vanaf 08:00 in de eigen tijdzone (`profiles.time_zone`), dagelijks één keer per lokale dag, wekelijks op maandag. Inhoud: ongelezen meldingen van de laatste 30 dagen die nog niet in een samenvatting zaten (hooguit 25 in de mail), in de eigen taal, met links. Verstuurd via `sendMail` (categorie `academy_digest`); daarna `digested_at` op de meldingen en `digest_sent_at` op de persoon. Zonder `RESEND_API_KEY` wordt de mail gelogd en niets gemarkeerd, zodat hij later alsnog gaat. Geen nieuwe meldingen: geen mail.
 * Jobs `academy-*` horen bij module `academy` (`job_module`).
+
+## 14. Plaatsingspagina, rituelen en pulse
+
+Eén pagina per plaatsing voor de klantcontactpersonen, de developer en Nordavo. Klant en developer zien hem in `/academy/placements/[id]` (link op de plaatsingskaart van de startpagina), Nordavo in de tab **Academy** van `/dashboard/placements/[id]` (alleen met module `academy`; de plaatsingspagina zelf vraagt ook module `recruitment`). Nooit geld: deelnemers lezen alles via `academy_placement_view()` en RLS, de tabel `placements` niet (getest).
+
+| Onderdeel | Waar |
+| --- | --- |
+| Migraties | `20261113200000_academy_placement_page.sql` (leden, `academy_placement_view()`, tijdlijn, reviews, verlof, documenten, agenda-link), `20261113210000_academy_holidays.sql` (feestdagen), `20261113220000_academy_rituals_pulse.sql` (rituelen, herinneringen, pulse) |
+| SQL test | `supabase/tests/academy_placement.test.sql` |
+| Puur (getest in `tests/academy-placement.test.ts`) | `src/lib/academy/placement/holidays.ts`, `ics.ts`, `timeline.ts`, `rituals.ts`, `leave.ts`, `pulse.ts` |
+| Server | `src/lib/academy/placement/data.ts`, types in `src/lib/academy/placement/database.ts` |
+| Acties | `src/app/academy/placements/actions.ts` (deelnemer), `src/app/dashboard/academy/placements/actions.ts` (Nordavo) |
+| UI | `src/components/academy/placement/*` (deelnemer, ook de startpaginavakken in `home.tsx`), `src/components/academy/admin/placement/*` (Nordavo) |
+| Teksten | `src/lib/academy/i18n/placement.ts`, samengevoegd in `i18n.ts` |
+| Jobs | `src/jobs/academy-placements.ts`, `.github/workflows/academy-placement-jobs.yml` |
+
+### Routes
+
+| Route | Wie | Wat |
+| --- | --- | --- |
+| `/academy/placements/[id]` | Leden van de plaatsing, beheer (voorbeeld) | Pulse (als er een open staat), driehoek, rituelen met consistentie, tijdlijn met reviewformulier en verslag, verlof, openstaande coursetaken (`PlacementTasksPanel`), afspraken, feestdagen met agenda-link, documenten |
+| `/academy/placements/[id]/documents/[documentId]` | Wie het document mag zien | Download via een ondertekende link van 60 seconden |
+| `/api/academy/calendar/<token>.ics` (`?lang=nl`) | Iedereen met de link, zonder inloggen | ICS-abonnement: feestdagen NL en India, tijdlijn, goedgekeurd verlof. In de proxy bij `TOKEN_API_PATHS` |
+| `/dashboard/placements/[id]?tab=academy` | Beheer | Leden toevoegen en verwijderen (met rol), afspraken (uren, overlapvenster, proeftijd, Nordavo contact, reactietijd), pulse-trend en signalen, rituelen per plaatsing, tijdlijn met formulieren en verslag, verlof besluiten en saldo, documenten uploaden met versies, agenda-link vernieuwen |
+| `/dashboard/academy/placements` | Beheer | Lopende plaatsingen met signalen, open verlof en laatste pulse |
+| `/dashboard/academy/rituals` | Beheer | Rituelen per course (sjablonen) |
+| `/dashboard/academy/holidays` | Beheer | Feestdagen per jaar: controleren, aanpassen, toevoegen, jaar aanvullen |
+
+Op `/dashboard/academy` staat bovenaan een rood vak zodra er pulse-signalen open staan.
+
+### Driehoek en leden
+
+* `academy_placement_members`: alleen Nordavo voegt toe. Een trigger (`academy_placement_members_check`) laat als klantcontact alleen klantgebruikers van de klant van de plaatsing toe en als developer alleen een Academy developer, één per plaatsing. Staat de ATS-kandidaat van de plaatsing nog als kandidaat in de Academy, dan maakt de knop "Make … the developer" hem developer met de hele developercourse (voortgang blijft) en voegt hem toe.
+* Nordavo contact (`placements.nordavo_contact_id`) en reactietijd (`placements.nordavo_response_hours`, standaard 4 werkuren) staan in de driehoek. Signalen gaan naar het Nordavo contact, of naar elke Academy beheerder als er geen is (`academy_notify_nordavo()`).
+* Overlapvenster: ingesteld in één tijdzone (`overlap_time_zone`), elke kijker ziet het in de eigen tijdzone en in die van de andere kant.
+
+### Tijdlijn en reviews
+
+* `academy_ensure_milestones()` maakt dag 1 (startdatum), week 1 (dag 7), 30 dagen (dag 30) en review na 90 dagen (dag 90) bij een nieuwe plaatsing (trigger op `placements`; bestaande plaatsingen zijn bijgewerkt). Schuift de startdatum, dan schuiven open momenten mee. Nordavo kan de datum per moment aanpassen.
+* `academy_reviews.kind`: `form` (klantbeheerder, klant lid en developer; één per persoon per moment; concept tot ingediend, daarna vast; het formulier gaat een week voor het moment open) en `report` (alleen Nordavo, één per moment). Een gepubliceerd verslag zet het moment op klaar en meldt het aan de leden; terug naar concept opent het moment weer. Meelezers zien geen reviews.
+* De job `academy-placements` meldt een moment aan de leden op de dag zelf (tot een week erna, `academy_milestones.notified_at`).
+
+### Verlof (vervangt Wisemonk)
+
+* De developer vraagt aan; werkdagen worden berekend zonder weekend en zonder Indiase vrije dagen (`workingDays`), hooguit 90 dagen per aanvraag. Statussen: aangevraagd, afgestemd met klant (`client_agreed`), goedgekeurd, afgewezen; de developer kan intrekken zolang het open is (`academy_cancel_leave()`). Alleen Nordavo besluit; `decided_by` en `decided_at` zet een trigger.
+* Meldingen bij elke stap (`academy_leave_notify`): de aanvraag naar Nordavo en de klantbeheerder, besluiten naar de developer en beide klantcontacten.
+* Saldo per jaar zet Nordavo (`academy_leave_balances`: recht, meegenomen, elders opgenomen). Opgenomen is goedgekeurde vakantie die in dat jaar begint plus "elders opgenomen" (`leaveSummary`).
+
+### Feestdagen
+
+* Nieuw op `academy_holidays`: `day_off` (Goede Vrijdag en Bevrijdingsdag zijn in Nederland meestal geen vrije dag; Bevrijdingsdag wel in 2025 en 2030) en `confirmed`. Twee feestdagen op één dag kan (Goede Vrijdag en Ambedkar Jayanti in 2028).
+* Nederland wordt berekend (`academy_easter()` in SQL en `easterSunday()` in TypeScript, zelfde regels): Nieuwjaar, Goede Vrijdag, Pasen, Koningsdag (26 april als 27 april een zondag is), Bevrijdingsdag, Hemelvaart, Pinksteren, Kerst. India (Karnataka) op vaste datum: Republic Day, Goede Vrijdag, Ambedkar Jayanti, May Day, Independence Day, Gandhi Jayanti, Kannada Rajyotsava, Kerst. `academy_seed_holidays(jaar)` vult een jaar aan (gedaan voor 2026 tot en met 2030; knop op de feestdagenpagina).
+* De Karnataka-feestdagen die de maan volgen (Sankranti, Shivaratri, Ugadi, Ramzan, Bakrid, Muharram, Eid-e-Milad, Ganesh Chaturthi, Dasara, Deepavali, Valmiki en Kanakadasa Jayanti) staan voor 2026 tot en met 2028 als **verwachte** datum met `confirmed = false`; deelnemers zien "datum kan nog wijzigen". **Nordavo controleert ze tegen de officiële lijst van de deelstaat Karnataka** (verschijnt eind van het jaar ervoor) en zet ze op "Date is right" of past de datum aan. Voor 2029 en later voegt Nordavo ze toe.
+* Leesbaar voor Academy-deelnemers en het team; Work-gasten zien ze niet (policy "Academy people read holidays" vervangt "Everyone reads holidays").
+* Agenda-abonnement: `academy_placement_calendars` (één token van 64 tekens per plaatsing), `academy_calendar_token()` voor leden en beheer, `academy_rotate_calendar_token()` voor beheer, `academy_calendar_feed(token)` (ook voor `anon`) geeft alleen feestdagen, tijdlijn en goedgekeurd verlof, zonder toelichting. ICS met `buildIcs` (hele dagen, regels gevouwen op 75 bytes).
+
+### Documenten
+
+* Hergebruikt `academy_documents` en `academy_document_versions` (geen tweede systeem). Nordavo uploadt in de Academy-tab: titel, soort (contractsamenvatting, AVG, policy, escalatiematrix, beslissingsmatrix, blokkadeafspraak), voor deze plaatsing (`scope = placement`) of voor elke plaatsing (`scope = global`), bestand tot 20 MB in `academy/document/<id>/`. Een nieuwe versie verhoogt `current_version` en zet `new_until` op twee weken: label "nieuw".
+* Een globaal document in een van die zes soorten zien alle leden van een plaatsing (`academy_can_see_placement_document()`, eigen policies op beide tabellen en op `storage.objects`); `academy_can_see_document()` is niet aangepast.
+* Zelfde tabellen, padindeling (`academy/document/<id>/v<versie>-<naam>`) en label "nieuw" als `/dashboard/academy/documents` (sectie 13): een globaal document in een van de zes soorten dat daar gemaakt wordt, staat vanzelf op elke plaatsingspagina. De upload in de Academy-tab (`uploadPlacementDocument()`) is er voor documenten van één plaatsing (en kan ook globale maken).
+
+### Rituelen
+
+* Rituelen van een course zijn sjablonen (`placement_id` null). Elke plaatsing krijgt een kopie (`template_id`) van de actieve sjablonen van elke course die een lid volgt: bij een nieuw lid, een nieuw sjabloon, en elk uur door de job. Een kopie volgt wijzigingen van het sjabloon tot Nordavo hem voor die plaatsing aanpast (`customized`; "Follow course" zet hem terug). Een verwijderd sjabloon zet de niet-aangepaste kopieën uit; de geschiedenis blijft.
+* Standaard in de klantcourse: weekplan (maandag), dagelijkse check-in (werkdagen), review (vrijdag), maandgesprek met Nordavo. Wie afvinkt: `audience` (klant, developer, beide, Nordavo).
+* Afvinken met één klik: `academy_tick_ritual(ritual, periode, done)`. Eén vinkje per ritueel per periode voor de hele plaatsing (dag, maandag van de week, eerste van de maand), alleen voor de huidige of vorige periode in de eigen tijdzone. Meelezers vinken niet af; beide kanten zien elkaars vinkjes.
+* Consistentie (`ritualConsistency`): per week gedaan van verwacht (dagelijks op werkdagen vanaf de startdatum, wekelijks zodra de dag geweest is), maandelijkse rituelen per maand. Op de plaatsingspagina en in de Academy-tab.
+* Herinnering (`academy_send_ritual_reminders()`, job `academy-rituals` elk uur): vanaf 16:00 in de tijdzone van de persoon (dagelijks op werkdagen; wekelijks op de dag zelf of later die werkweek; maandelijks vanaf de 20e), één keer per persoon per periode (`academy_ritual_reminders`), niet op een vrije dag in het eigen land en niet tijdens goedgekeurd verlof. Via `academy_notify()` in de taal van de persoon.
+
+### Pulse
+
+* Elke twee weken vanaf dag 14 een pulse voor de klantbeheerder, klantleden en de developer (niet de meelezer), met een herinnering na drie dagen (`academy_open_pulse_rounds()`, job `academy-placements`). Een pulse is vier weken te beantwoorden.
+* Antwoord: score 1 tot 10, wat loopt goed, wat schuurt. Een trigger zet `answered_at` en de vlag: laag (5 of lager) of dalend (2 of meer lager dan het vorige antwoord van dezelfde persoon), met `flag_reason` en `previous_score` (`pulseFlag` in TypeScript). Bij een vlag een melding aan Nordavo; Nordavo zet "Followed up" (`handled_at`, `handled_note`).
+* Scores en trend alleen voor Nordavo (RLS, getest): de ontvanger ziet alleen zijn eigen pulse en antwoord, de andere kant en meelezers niets.
+
+### Startpagina
+
+`RitualsSection` en `UpcomingSection` in `src/components/academy/home/sections.tsx` roepen `HomeRituals` en `HomeUpcoming` aan (`src/components/academy/placement/home.tsx`): rituelen van deze week met afvinken, en de komende zes weken reviews, feestdagen (NL en India) en verlof. De plaatsingskaart linkt naar de plaatsingspagina.
+
+### Jobs
+
+| Job | Wanneer | Wat |
+| --- | --- | --- |
+| `academy-rituals` | Elk uur (`41 * * * *`) | Kopieën van rituelen bijwerken, herinneringen |
+| `academy-placements` | Dagelijks 08:00 Amsterdam | Pulse-rondes, pulse-herinneringen, reviewmomenten. Parameter `today` simuleert een dag |
+
+Beide roepen de app aan met `CRON_SECRET` (`.github/workflows/academy-placement-jobs.yml`) en draaien met de service role (`SUPABASE_SECRET_KEY`). Zonder secret key falen ze met een duidelijke melding in `job_runs`; de rest van de Academy werkt gewoon. `job_module()` rekent `academy-*` tot module `recruitment` (niet aangepast).
+
+### Nog open
+
+* Openstaande coursetaken: de plaatsingspagina en de Academy-tab tonen `<PlacementTasksPanel>` (gebied learn, sectie 12).
+* Meldingen komen in `academy_notifications`; de mailsamenvatting (andere bouwer) stuurt ze door.

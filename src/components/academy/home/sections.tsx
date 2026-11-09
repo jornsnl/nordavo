@@ -4,6 +4,7 @@ import type { AcademyUser } from "@/lib/academy/auth";
 import { t } from "@/lib/academy/i18n";
 import { convertWallTime, formatAcademyDate, formatAcademyDateTime, localDateIso } from "@/lib/academy/time";
 import { ActionLink, Panel, ProgressBar } from "@/components/academy/ui";
+import { HomeRituals, HomeUpcoming, PlacementPageLink } from "@/components/academy/placement/home";
 import { listMyOpenTasks, myTaskItem } from "@/lib/academy/learn/data";
 import { TaskCheckList } from "@/components/academy/learn/task-list";
 
@@ -38,20 +39,20 @@ export async function OpenTasksSection({ user }: HomeSectionProps) {
 
 const OPEN_TASKS_SHOWN = 8;
 
-/** Rituals of this week in the user's placements. Slot: rituals builder. */
+/** Rituals of this week in the user's placements, one click to tick (src/components/academy/placement/home.tsx). */
 export async function RitualsSection({ user }: HomeSectionProps) {
   return (
     <Panel title={<span className="flex items-center gap-2"><CalendarDays className="size-4 text-academy-blue-600" aria-hidden="true" />{t(user.locale, "home.ritualsThisWeek")}</span>}>
-      <Empty text={t(user.locale, "home.nothingYet")} />
+      <HomeRituals user={user} />
     </Panel>
   );
 }
 
-/** Reviews, holidays and leave coming up. Slot: placement page builder. */
+/** Reviews, holidays and leave coming up (src/components/academy/placement/home.tsx). */
 export async function UpcomingSection({ user }: HomeSectionProps) {
   return (
     <Panel title={<span className="flex items-center gap-2"><CalendarClock className="size-4 text-academy-blue-600" aria-hidden="true" />{t(user.locale, "home.upcoming")}</span>}>
-      <Empty text={t(user.locale, "home.nothingYet")} />
+      <HomeUpcoming user={user} />
     </Panel>
   );
 }
@@ -73,6 +74,7 @@ export function PlacementSection({ user, placements }: HomeSectionProps & { plac
             <li key={p.id} className="space-y-1.5">
               <p className="font-semibold text-academy-blue-900">{other ?? "—"}</p>
               {p.vacancy_title && <p className="text-sm text-muted">{p.vacancy_title}</p>}
+              <PlacementPageLink placementId={p.id} locale={user.locale} />
               <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
                 <dt className="text-muted">{t(user.locale, "placement.start")}</dt>
                 <dd>{formatAcademyDate(p.start_date, user.locale, user.timeZone)}</dd>

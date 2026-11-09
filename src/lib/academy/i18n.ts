@@ -6,6 +6,7 @@
 // Placeholders: {name} is replaced by vars.name.
 
 import type { AcademyLocale } from "@/lib/academy/database";
+import { placementEn, placementNl } from "@/lib/academy/i18n/placement";
 import { learnEn, learnNl } from "@/lib/academy/i18n/learn";
 // Area: media (video, documents, worksheets, certificates, notifications).
 import { mediaEn, mediaNl } from "@/lib/academy/i18n-media";
@@ -136,6 +137,8 @@ const en = {
   "error.generic": "Something went wrong. Please try again.",
   "error.notOpen": "This lesson is not open for you.",
 
+  // Area placement (src/lib/academy/i18n/placement.ts)
+  ...placementEn,
   // Area learn: assignment, tasks, knowledge check, questionnaire (i18n/learn.ts)
   ...learnEn,
   // Area: media (src/lib/academy/i18n-media.ts)
@@ -261,6 +264,8 @@ const nl: Record<AcademyMessageKey, string> = {
   "error.generic": "Er ging iets mis. Probeer het opnieuw.",
   "error.notOpen": "Deze les staat niet voor je open.",
 
+  // Area placement (src/lib/academy/i18n/placement.ts)
+  ...placementNl,
   // Area learn (i18n/learn.ts)
   ...learnNl,
   // Area: media (src/lib/academy/i18n-media.ts)
