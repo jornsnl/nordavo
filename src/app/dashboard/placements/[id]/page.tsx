@@ -3,6 +3,7 @@ import { Suspense } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { z } from "zod";
+import { getCurrentUser, hasModule } from "@/lib/auth";
 import { getPlacement, listCheckins } from "@/lib/data/placements";
 import { formatCurrency, formatDate, todayIso } from "@/lib/format";
 import { EntityExtras } from "@/components/entity/entity-extras";
@@ -10,6 +11,8 @@ import { PageHeader } from "@/components/dashboard/page-header";
 import { Card, CardBody, CardHeader, DetailList } from "@/components/ui/card";
 import { FormMessage } from "@/components/ui/field";
 import { ListSkeleton, Skeleton } from "@/components/ui/skeleton";
+import { PlacementAcademyTab } from "@/components/academy/admin/placement/tab";
+import { PlacementTabs } from "@/components/academy/admin/placement/placement-tabs";
 import { AddCheckin } from "@/components/placements/checkin-form";
 import { CheckinList } from "@/components/placements/checkin-list";
 import { addMonths, monthsBetween } from "@/components/placements/dates";
@@ -58,8 +61,11 @@ async function PlacementDetail({
   const [{ id }, query] = await Promise.all([params, searchParams]);
   if (!z.guid().safeParse(id).success) notFound();
 
-  const placement = await getPlacement(id);
+  const [placement, user] = await Promise.all([getPlacement(id), getCurrentUser()]);
   if (!placement) notFound();
+  // The Academy tab (docs/academy.md, Plaatsingspagina) for team members with module academy.
+  const academy = hasModule(user, "academy");
+  const tab = academy && query.tab === "academy" ? "academy" : "overview";
 
   const today = todayIso();
   const candidateName = placement.candidate?.full_name ?? "Unknown candidate";
@@ -101,6 +107,13 @@ async function PlacementDetail({
         </div>
       )}
 
+      {academy && <PlacementTabs placementId={placement.id} active={tab} />}
+
+      {tab === "academy" ? (
+        <Suspense fallback={<ListSkeleton rows={6} />}>
+          <PlacementAcademyTab placementId={placement.id} />
+        </Suspense>
+      ) : (
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
         <div className="min-w-0 space-y-6">
           <Card>
@@ -226,6 +239,7 @@ async function PlacementDetail({
           </Suspense>
         </aside>
       </div>
+      )}
     </>
   );
 }
