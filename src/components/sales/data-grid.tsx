@@ -32,6 +32,7 @@ import { CellEditor, CellView, displayText, editText } from "./cell";
 import { ColumnChooser, Chips, FilterEditor } from "./grid-toolbar";
 import { kinds, type AnyRow, type GridKind } from "./grid-kinds";
 import { SalesBoard } from "./sales-board";
+import { AssignCallersDialog, type CallerOption } from "@/components/calls/assign-callers-dialog";
 
 const ROW_H = 36;
 const LEAD_W = 76; // checkbox, pin and drag handle
@@ -76,8 +77,11 @@ export function SalesWorkspace({
   initialMode = "table",
   bulkActions,
   emptyText,
+  callers,
 }: {
   kind: GridKind;
+  /** Active callers, only for admins: opens selected rows for callers (2.10). */
+  callers?: CallerOption[];
   rows: AnyRow[];
   views: GridView[];
   initialViewId: string | null;
@@ -456,7 +460,24 @@ export function SalesWorkspace({
             const now = new Date().toISOString();
             commit(selectedRows.map((row) => ({ row, column, value: pin ? now : null, old: row.pinned_at })));
           }}
-          extra={bulkActions?.(selectedRows, () => setSelected(new Set()))}
+          extra={
+            <>
+              {callers && callers.length > 0 && kind !== "pipeline" && (
+                <AssignCallersDialog
+                  callers={callers}
+                  contactIds={kind === "contacts" ? selectedRows.map((r) => r.id) : undefined}
+                  companyIds={kind === "companies" ? selectedRows.map((r) => r.id) : undefined}
+                  onDone={(result) => {
+                    if (result.ok) {
+                      setSelected(new Set());
+                      router.refresh();
+                    }
+                  }}
+                />
+              )}
+              {bulkActions?.(selectedRows, () => setSelected(new Set()))}
+            </>
+          }
         />
       )}
 

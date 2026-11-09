@@ -1,4 +1,5 @@
 import "server-only";
+import { getCurrentUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { loadCompanyRows, loadContactRows, loadViews } from "@/lib/sales/data";
 import type { SalesViewEntity } from "@/lib/sales/database";
@@ -23,11 +24,15 @@ export async function SalesTable({
 }) {
   const supabase = await createClient();
   const entity: SalesViewEntity = kind;
-  const [rows, views] = await Promise.all([
+  const user = await getCurrentUser();
+  const [rows, views, callers] = await Promise.all([
     kind === "contacts"
       ? loadContactRows(supabase)
       : loadCompanyRows(supabase, { pipelineOnly: kind === "pipeline" }),
     loadViews(supabase, entity),
+    user.role === "admin" && kind !== "pipeline"
+      ? supabase.from("callers").select("id, name, party").eq("status", "active").order("name")
+      : Promise.resolve({ data: null }),
   ]);
   const requested = first(params.view);
   const initialViewId = requested && views.some((v) => v.id === requested) ? requested : null;
@@ -39,6 +44,7 @@ export async function SalesTable({
         initialViewId={initialViewId}
         initialMode={first(params.mode) === "board" ? "board" : "table"}
         emptyText={emptyText}
+        callers={callers.data ?? undefined}
       />
   );
 }
