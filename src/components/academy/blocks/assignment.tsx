@@ -60,8 +60,8 @@ export function AssignmentEditor({ block, content, onChange, disabled }: BlockEd
           ))}
         </div>
         <p className="text-xs text-muted">
-          Nordavo reviews every submission in Reviews. With ANTHROPIC_API_KEY set, an AI proposal on the rubric (clarity, proactivity, dares to say
-          no, English) is made for you; you always set the final score.
+          Nordavo reviews every submission in Reviews. Claude makes an AI proposal on the rubric (clarity, proactivity, dares to say no,
+          English) for you; you always set the final score.
         </p>
       </fieldset>
     </div>

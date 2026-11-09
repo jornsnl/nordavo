@@ -85,6 +85,7 @@ export type ScreeningModel = "claude-haiku-5-5" | "claude-sonnet-5-5" | "claude-
 export type CvTextStatus = "pending" | "read" | "failed";
 export type RequirementKind = "must_have" | "alternative" | "nice_to_have";
 export type TechstackResult = "pass" | "fail" | "unclear";
+export type AiRequestStatus = "pending" | "done" | "failed" | "applied";
 export type CvScorePurpose = "score" | "compare";
 export type AttachmentKind = "cv" | "payslip" | "background_check" | "video" | "test_result" | "other";
 export type ClientDecision = "pending" | "approved" | "rejected";
@@ -2172,6 +2173,63 @@ export type Database = {
             referencedColumns: ["id"];
           },
         ];
+      };
+      ai_requests: {
+        Row: {
+          id: string;
+          kind: string;
+          module: PortalModule;
+          entity_type: string | null;
+          entity_id: string | null;
+          context: Json;
+          system: string;
+          input: Json;
+          status: AiRequestStatus;
+          result: Json | null;
+          error: string | null;
+          model: string | null;
+          requested_by: string | null;
+          completed_by: string | null;
+          created_at: string;
+          completed_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          kind: string;
+          module: PortalModule;
+          entity_type?: string | null;
+          entity_id?: string | null;
+          context?: Json;
+          system: string;
+          input: Json;
+          status?: AiRequestStatus;
+          result?: Json | null;
+          error?: string | null;
+          model?: string | null;
+          requested_by?: string | null;
+          completed_by?: string | null;
+          created_at?: string;
+          completed_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          kind?: string;
+          module?: PortalModule;
+          entity_type?: string | null;
+          entity_id?: string | null;
+          context?: Json;
+          system?: string;
+          input?: Json;
+          status?: AiRequestStatus;
+          result?: Json | null;
+          error?: string | null;
+          model?: string | null;
+          requested_by?: string | null;
+          completed_by?: string | null;
+          created_at?: string;
+          completed_at?: string | null;
+        };
+        Relationships: [];
       };
       techstack_checks: {
         Row: {

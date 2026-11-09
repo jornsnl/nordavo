@@ -1,9 +1,11 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { askJsonWithUsage, ClaudeRefusalError, hasClaude } from "@/lib/ai/claude";
+import { requestAi } from "@/lib/ai/queue";
 import {
   cvInput,
   cvScoreSchema,
+  type CvScoreOutput,
   jobInput,
   SCREENING_DEFAULT_INSTRUCTIONS,
   screeningSystem,
@@ -80,6 +82,8 @@ export type ScoreRunSummary = {
   /** Applications left over when the limit was reached. */
   remaining: number;
   errors: string[];
+  /** Sent to Claude through the MCP (claude-requests) instead of scored now. */
+  queued?: number;
 };
 
 export const OUT_OF_FLOW = ["rejected", "placed"];
@@ -296,6 +300,7 @@ export async function compareSample(
     .limit(Math.max(1, Math.min(sampleSize, 50)));
   if (error) throw new Error(`Could not load the applications: ${error.message}`);
   if (!apps || apps.length === 0) throw new Error("Nothing to compare yet: score some CVs of this vacancy first.");
+  if (!hasClaude()) return queueComparison(db, vacancyId, promptId, apps.map((a) => a.id));
   return scoreApplications(db, {
     applicationIds: apps.map((a) => a.id),
     onlyUnscored: false,
@@ -304,6 +309,69 @@ export async function compareSample(
     model,
     limit: apps.length,
   });
+}
+
+/**
+ * Without the API key a comparison goes to Claude through the MCP
+ * (claude-requests): one request per CV, with this prompt version's
+ * instructions. The answer is stored as purpose compare.
+ */
+async function queueComparison(db: Db, vacancyId: string, promptId: string | null, applicationIds: string[]): Promise<ScoreRunSummary> {
+  const prompt = await getPrompt(db, promptId);
+  const { vacancy, requirements } = await loadScoringVacancy(db, vacancyId);
+  const job = jobInput({ ...vacancy, description: vacancy.description ?? vacancy.raw_text }, requirements);
+  const { data: apps } = await db.from("applications").select("id, candidate_id").in("id", applicationIds);
+  const { data: candidates } = await db.from("candidates").select(CANDIDATE_SCORING_COLUMNS).in("id", [...new Set((apps ?? []).map((a) => a.candidate_id))]);
+  const byId = new Map((candidates ?? []).map((c) => [c.id, c as CandidateRow]));
+  const summary: ScoreRunSummary = { considered: applicationIds.length, scored: 0, skipped: 0, failed: 0, costUsd: 0, inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, remaining: 0, errors: [], queued: 0 };
+  for (const app of apps ?? []) {
+    const candidate = byId.get(app.candidate_id);
+    const text = candidate ? scoringText(candidate) : null;
+    if (!candidate || !text) {
+      summary.skipped += 1;
+      continue;
+    }
+    await requestAi(db, {
+      kind: "cv_score_compare",
+      module: "recruitment",
+      entityType: "application",
+      entityId: app.id,
+      context: { vacancy_id: vacancyId, candidate_id: candidate.id, prompt_id: prompt.id, prompt_version: prompt.version },
+      system: screeningSystem(prompt.instructions),
+      input: [
+        { type: "text", text: job },
+        { type: "text", text: cvInput(text) },
+      ],
+    });
+    summary.queued = (summary.queued ?? 0) + 1;
+  }
+  return summary;
+}
+
+/** Store Claude's answer to a compare request. Shared by the queue. */
+export async function saveComparisonScore(
+  db: Db,
+  { applicationId, vacancyId, candidateId, promptId, promptVersion, model, actorId }: { applicationId: string; vacancyId: string; candidateId: string; promptId: string | null; promptVersion: number; model: string; actorId: string | null },
+  raw: CvScoreOutput,
+) {
+  const { requirements } = await loadScoringVacancy(db, vacancyId);
+  const result = normalizeScore(raw, requirements);
+  await insertCvScore(db, {
+    application_id: applicationId,
+    vacancy_id: vacancyId,
+    candidate_id: candidateId,
+    purpose: "compare",
+    score: result.score,
+    verdict: result.verdict,
+    summary: result.summary,
+    breakdown: result.breakdown as unknown as Json,
+    must_have_missing: result.mustHaveMissing,
+    model,
+    prompt_id: promptId,
+    prompt_version: promptVersion,
+    created_by: actorId,
+  });
+  return result;
 }
 
 export type { ScoringRequirement };

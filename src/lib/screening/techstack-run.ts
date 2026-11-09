@@ -6,6 +6,7 @@ import type { Database, TablesInsert } from "@/lib/database.types";
 import { redactIdentifiers } from "@/lib/talent/anonymize";
 import { evaluateTechstack, type TechstackOutcome, type TechstackRules } from "@/lib/screening/techstack";
 import { mapLimit } from "@/lib/screening/limit";
+import { requestAi } from "@/lib/ai/queue";
 
 /**
  * Runs the techstack check (2.7) on the applications of one vacancy that
@@ -20,7 +21,47 @@ type Db = SupabaseClient<Database>;
 export const TECHSTACK_STAGES = ["sourced", "techstack_check"] as const;
 export const TECHSTACK_MODEL = "claude-haiku-5-5";
 
-export type TechstackRunSummary = { checked: number; pass: number; fail: number; unclear: number; byClaude: number };
+export type TechstackRunSummary = { checked: number; pass: number; fail: number; unclear: number; byClaude: number; queued: number };
+
+type TechstackCandidate = { full_name: string; email: string | null; phone: string | null; skills: string[]; current_title: string | null; summary: string | null; cv_text: string | null };
+
+function rolePayload(vacancy: { title: string; stack: string[]; must_haves: string[]; excluded_profiles: string[] }) {
+  return { title: vacancy.title, stack: vacancy.stack, must_haves: vacancy.must_haves, profiles_that_do_not_fit: vacancy.excluded_profiles };
+}
+
+/** What Claude sees of a candidate: no name or contact details. */
+function candidatePayload(c: TechstackCandidate) {
+  const ids = { nameParts: c.full_name.split(/\s+/).filter((p) => p.length >= 2), email: c.email, phone: c.phone, employers: [] };
+  return {
+    title: c.current_title,
+    skills: c.skills,
+    summary: c.summary ? redactIdentifiers(c.summary, ids).slice(0, 1000) : null,
+    cv_excerpt: c.cv_text ? redactIdentifiers(c.cv_text, ids).slice(0, 4000) : null,
+  };
+}
+
+/** Claude's answer for one unclear application, stored as the AI result. Shared with the request queue. */
+export async function saveTechstackJudgement(
+  db: Db,
+  applicationId: string,
+  data: { result: "pass" | "fail" | "unclear"; reason: string },
+  model: string,
+) {
+  const { data: current, error } = await db.from("techstack_checks").select("vacancy_id, reason, hits").eq("application_id", applicationId).maybeSingle();
+  if (error) throw new Error(`Could not load the check: ${error.message}`);
+  if (!current) throw new Error("This application has no techstack check any more.");
+  const { error: saveError } = await db
+    .from("techstack_checks")
+    .update({
+      result: data.result,
+      reason: (data.reason.trim().slice(0, 900) || current.reason).slice(0, 1000),
+      method: "ai",
+      model,
+      checked_at: new Date().toISOString(),
+    })
+    .eq("application_id", applicationId);
+  if (saveError) throw new Error(`Could not save the result: ${saveError.message}`);
+}
 
 export async function loadTechstackRules(db: Db, vacancyId: string) {
   const { data, error } = await db
@@ -60,23 +101,11 @@ export async function runTechstackCheck(
   }
 
   let byClaude = 0;
+  const unclear = (apps ?? []).filter((a) => a.candidate && results.get(a.id)?.result === "unclear");
+  const role = rolePayload(vacancy);
   if (useClaude && hasClaude()) {
-    const unclear = (apps ?? []).filter((a) => a.candidate && results.get(a.id)?.result === "unclear");
-    const role = {
-      title: vacancy.title,
-      stack: vacancy.stack,
-      must_haves: vacancy.must_haves,
-      profiles_that_do_not_fit: vacancy.excluded_profiles,
-    };
     await mapLimit(unclear, 4, async (app) => {
-      const c = app.candidate!;
-      const ids = { nameParts: c.full_name.split(/\s+/).filter((p) => p.length >= 2), email: c.email, phone: c.phone, employers: [] };
-      const candidate = {
-        title: c.current_title,
-        skills: c.skills,
-        summary: c.summary ? redactIdentifiers(c.summary, ids).slice(0, 1000) : null,
-        cv_excerpt: c.cv_text ? redactIdentifiers(c.cv_text, ids).slice(0, 4000) : null,
-      };
+      const candidate = candidatePayload(app.candidate!);
       try {
         const { data } = await askJsonWithUsage({
           system: TECHSTACK_SYSTEM,
@@ -113,8 +142,29 @@ export async function runTechstackCheck(
     if (saveError) throw new Error(`Could not save the results: ${saveError.message}`);
   }
 
+  // Without the API key Claude judges the unclear ones through the MCP (claude-requests).
+  let queued = 0;
+  if (useClaude && !hasClaude()) {
+    for (const app of unclear) {
+      await requestAi(db, {
+        kind: "techstack_check",
+        module: "recruitment",
+        entityType: "application",
+        entityId: app.id,
+        context: { vacancy_id: vacancyId },
+        system: TECHSTACK_SYSTEM,
+        input: [
+          { type: "text", text: `Role:\n${JSON.stringify(role, null, 2)}` },
+          { type: "text", text: `Candidate:\n${JSON.stringify(candidatePayload(app.candidate!), null, 2)}` },
+        ],
+      });
+      queued += 1;
+    }
+  }
+
   const all = [...results.values()];
   return {
+    queued,
     checked: all.length,
     pass: all.filter((r) => r.result === "pass").length,
     fail: all.filter((r) => r.result === "fail").length,

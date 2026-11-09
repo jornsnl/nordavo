@@ -34,12 +34,18 @@ export function IntakePanel({
   current,
   defaultText,
   hasClaude,
+  proposal,
+  proposalPending = false,
 }: {
   extractAction: (prev: IntakeState, formData: FormData) => Promise<IntakeState>;
   saveAction: (prev: TalentActionState, formData: FormData) => Promise<TalentActionState>;
   current: RequirementValues;
   defaultText: string;
   hasClaude: boolean;
+  /** Claude's reading through the MCP, waiting to be checked and saved. */
+  proposal?: { values: RequirementValues; rawText: string } | null;
+  /** The vacancy text was sent to Claude and is not read yet. */
+  proposalPending?: boolean;
 }) {
   const [mode, setMode] = useState<Mode>("closed");
   const [draft, setDraft] = useState<{ values: RequirementValues; rawText?: string; key: number } | null>(null);
@@ -49,26 +55,50 @@ export function IntakePanel({
       setDraft({ values: result.extraction, rawText: result.rawText, key: Date.now() });
       setMode("edit");
     }
+    if (result.queued) setMode("closed");
     return result;
   }, {} as IntakeState);
 
   if (mode === "closed") {
     return (
-      <div className="flex flex-wrap gap-2">
-        <Button onClick={() => setMode("paste")} size="sm">
-          <Sparkles aria-hidden="true" />
-          Read vacancy
-        </Button>
-        <Button
-          variant="secondary"
-          size="sm"
-          onClick={() => {
-            setDraft({ values: current, key: Date.now() });
-            setMode("edit");
-          }}
-        >
-          Edit fixed requirements
-        </Button>
+      <div className="space-y-3">
+        {proposal && (
+          <div className="flex flex-col gap-2 rounded-xl border border-brand-200 bg-brand-50 px-3 py-2 text-sm text-brand-900 sm:flex-row sm:items-center sm:justify-between">
+            <p>Claude has read the vacancy. Check its reading and save it.</p>
+            <Button
+              size="sm"
+              onClick={() => {
+                setDraft({ values: proposal.values, rawText: proposal.rawText, key: Date.now() });
+                setMode("edit");
+              }}
+            >
+              <Sparkles aria-hidden="true" />
+              Check Claude&apos;s reading
+            </Button>
+          </div>
+        )}
+        {!proposal && proposalPending && (
+          <p className="rounded-xl border border-brand-200 bg-brand-50 px-3 py-2 text-sm text-brand-900" role="status">
+            Waiting for Claude to read the vacancy (its next run of claude-requests).
+          </p>
+        )}
+        <FormMessage success={extractState.queued ? extractState.message : undefined} />
+        <div className="flex flex-wrap gap-2">
+          <Button onClick={() => setMode("paste")} size="sm">
+            <Sparkles aria-hidden="true" />
+            Read vacancy
+          </Button>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => {
+              setDraft({ values: current, key: Date.now() });
+              setMode("edit");
+            }}
+          >
+            Edit fixed requirements
+          </Button>
+        </div>
       </div>
     );
   }
@@ -92,8 +122,8 @@ export function IntakePanel({
           <Textarea id="raw_text" name="raw_text" rows={10} defaultValue={extractState.rawText ?? defaultText} />
         </Field>
         {!hasClaude && (
-          <p className="text-sm text-amber-800">
-            Claude is not connected. You can still fill in the fixed requirements yourself.
+          <p className="text-sm text-muted">
+            Claude reads the text through the MCP in its next run of claude-requests; you check its reading before it is saved.
           </p>
         )}
         <FormMessage error={extractState.error} />
@@ -101,9 +131,9 @@ export function IntakePanel({
           <Button variant="secondary" size="sm" onClick={() => setMode("closed")}>
             Cancel
           </Button>
-          <Button type="submit" size="sm" disabled={extracting || !hasClaude} aria-busy={extracting}>
+          <Button type="submit" size="sm" disabled={extracting} aria-busy={extracting}>
             {extracting ? <LoaderCircle className="animate-spin" aria-hidden="true" /> : <FileText aria-hidden="true" />}
-            {extracting ? "Claude is reading the vacancy" : "Read with Claude"}
+            {extracting ? (hasClaude ? "Claude is reading the vacancy" : "Sending") : hasClaude ? "Read with Claude" : "Send to Claude"}
           </Button>
         </div>
       </form>

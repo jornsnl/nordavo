@@ -44,7 +44,6 @@ function revalidateVacancy(vacancyId: string) {
   revalidatePath("/dashboard/candidates");
 }
 
-const NO_CLAUDE = "Claude is not connected (ANTHROPIC_API_KEY is missing).";
 
 // ---------------------------------------------------------------------------
 // 2.6.1 CSV import
@@ -189,8 +188,7 @@ export async function runTechstackAction(vacancyId: string, _prev: TalentActionS
     if (s.checked === 0) return { ok: true, warning: "Nobody to check: there are no candidates in Sourced or Techstack check." };
     return {
       ok: true,
-      message: `${s.checked} checked: ${s.pass} pass, ${s.fail} fail, ${s.unclear} unclear${s.byClaude ? ` (${s.byClaude} judged by Claude)` : ""}. Nothing has moved yet.`,
-      warning: useClaude && !hasClaude() ? `${NO_CLAUDE} Only the keyword pass ran.` : undefined,
+      message: `${s.checked} checked: ${s.pass} pass, ${s.fail} fail, ${s.unclear} unclear${s.byClaude ? ` (${s.byClaude} judged by Claude)` : ""}${s.queued ? `, ${s.queued} unclear ones sent to Claude, who judges them in its next run of claude-requests` : ""}. Nothing has moved yet.`,
     };
   } catch (error) {
     return failure(error);
@@ -443,7 +441,6 @@ export async function activatePromptAction(promptId: string | null, _prev: Talen
 export async function comparePromptAction(promptId: string | null, _prev: TalentActionState, formData: FormData): Promise<TalentActionState> {
   await requireStaff();
   if (promptId !== null && !idSchema.safeParse(promptId).success) return { error: GENERIC_ERROR };
-  if (!hasClaude()) return { error: NO_CLAUDE };
   const vacancyId = formData.get("vacancy_id");
   if (typeof vacancyId !== "string" || !idSchema.safeParse(vacancyId).success) return { error: "Choose a vacancy with scored CVs." };
   const size = Number(formData.get("sample") ?? 10);
@@ -457,6 +454,11 @@ export async function comparePromptAction(promptId: string | null, _prev: Talent
       model: typeof modelRaw === "string" && isScreeningModel(modelRaw) ? modelRaw : undefined,
     });
     revalidatePath("/dashboard/settings/screening-prompts");
+    if (s.queued !== undefined) {
+      return s.queued > 0
+        ? { ok: true, message: `${s.queued} CVs sent to Claude for comparison. The scores appear here after its next run of claude-requests.` }
+        : { error: "None of these CVs has text or skills to score." };
+    }
     return { ok: s.scored > 0, message: `${s.scored} CVs re-scored for comparison. Cost about $${s.costUsd.toFixed(4)}.`, error: s.scored === 0 ? (s.errors[0] ?? "Nothing was re-scored.") : undefined };
   } catch (error) {
     return failure(error);
@@ -477,13 +479,16 @@ export async function talentPoolSearchAction(_prev: TalentPoolState, formData: F
   if (!vacancyId && query.length < 3) return { error: "Describe the profile, or pick a vacancy.", query };
   try {
     const supabase = await createClient();
-    const answer = await talentPoolTop(supabase, { query: vacancyId ? undefined : query, vacancyId, limit: 5 });
+    const answer = await talentPoolTop(supabase, { query: vacancyId ? undefined : query, vacancyId, limit: 5, queue: true });
+    if (answer.queued) revalidatePath("/dashboard/candidates/talent-pool");
     return {
       ok: true,
       answer,
       query,
       vacancyId,
-      warning: answer.rankedBy === "keywords" && answer.hits.length > 0 ? `${NO_CLAUDE} Ranked by keyword overlap only.` : undefined,
+      warning: answer.queued
+        ? "This is the keyword ranking. Claude ranks the shortlist through the MCP in its next run of claude-requests; its answer appears under Claude's answers."
+        : undefined,
       message: answer.hits.length === 0 ? "Nobody in the pool matches this profile yet." : undefined,
     };
   } catch (error) {
@@ -506,7 +511,6 @@ export async function createPoolProfileAction(
   const vacancyId = String(formData.get("vacancy_id") ?? "");
   if (!idSchema.safeParse(candidateId).success) return { error: GENERIC_ERROR };
   if (!idSchema.safeParse(vacancyId).success) return { error: "Choose the vacancy the profile is for." };
-  if (!hasClaude()) return { error: `${NO_CLAUDE} The anonymous profile is written by Claude.` };
   const supabase = await createClient();
   const { data: existing } = await supabase.from("matches").select("id, status").eq("vacancy_id", vacancyId).eq("candidate_id", candidateId).maybeSingle();
   let matchId = existing?.id ?? null;
@@ -534,12 +538,15 @@ export async function createPoolProfileAction(
     if (error) return { error: GENERIC_ERROR };
   }
   try {
-    const { profileId, code } = await generateAnonymousProfile(supabase, matchId!);
+    const made = await generateAnonymousProfile(supabase, matchId!);
     revalidatePath(`/dashboard/vacancies/${vacancyId}`);
+    if (!made) {
+      return { ok: true, message: "Sent to Claude. The profile appears on the vacancy after its next run of claude-requests, once it passed the anonymity check." };
+    }
     return {
       ok: true,
-      message: `Profile ${code} created and it passed the anonymity check. Approve it on the vacancy before sending.`,
-      link: { href: `/dashboard/vacancies/${vacancyId}/profiles/${profileId}`, label: "Open the PDF" },
+      message: `Profile ${made.code} created and it passed the anonymity check. Approve it on the vacancy before sending.`,
+      link: { href: `/dashboard/vacancies/${vacancyId}/profiles/${made.profileId}`, label: "Open the PDF" },
     };
   } catch (error) {
     return failure(error);

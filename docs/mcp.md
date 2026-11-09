@@ -127,6 +127,13 @@ Het portaal roept hiervoor geen Claude API aan (geen `ANTHROPIC_API_KEY` nodig):
 | `save_cv_text` | De gelezen CV tekst opslaan en lege velden van de kandidaat aanvullen |
 | `save_cv_score` | Een CV score opslaan per eis (met bewijs), met de must have grens en het verdict van het portaal |
 
+### Verzoeken om een oordeel (eigenaar met Recruitment of Academy)
+
+| Tool | Wat het doet |
+| --- | --- |
+| `list_ai_requests` | Open verzoeken van het portaal ([claude-jobs.md](./claude-jobs.md), taak 8): per verzoek wat er moet gebeuren, de instructies, de invoer, bijgevoegde PDF's en het JSON schema van het antwoord (lezen) |
+| `complete_ai_request` | Een verzoek beantwoorden. Het portaal controleert het antwoord en past het toe; weigert het, dan blijft het verzoek open met de reden. Met `give_up_reason` sluit Claude een verzoek dat niet kan |
+
 Schrijftools worden voor een leestoken niet eens aangeboden (ze staan niet in `tools/list`), en elke schrijftool controleert de rechten nog een keer. Er is bewust niets om te verwijderen; `close_list_for_callers` haalt alleen de toegang van bellers tot een lijst weg.
 
 **Sales en Activities.** De sales tools schrijven met de secret key en `p_actor` = de eigenaar van het token, via de functies van de database (`sales_update`, `sales_log_activity`, `sales_save_meeting`, `sales_start_sequence`, `sales_pause`). Die controleren dat de eigenaar de module Sales heeft, en elke wijziging komt in Activities op naam van de eigenaar met bron `claude` (of de bron van de data, zoals `instantly` bij een reply). Bedrijven en contacten worden alleen via `sales_update` gewijzigd. Een eigenaar zonder de module Sales krijgt de sales tools niet.

@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { fieldErrorsFrom, formValues, GENERIC_ERROR, parseList } from "@/lib/action-state";
 import { askJson, ClaudeRefusalError, hasClaude } from "@/lib/ai/claude";
+import { markAiRequestsApplied, requestAi } from "@/lib/ai/queue";
 import { VACANCY_SYSTEM, vacancyExtractionSchema, vacancyInput } from "@/lib/ai/prompts/vacancy";
 import { requireStaff } from "@/lib/auth";
 import type { MatchStatus, TablesUpdate } from "@/lib/database.types";
@@ -26,6 +27,8 @@ function revalidateVacancy(vacancyId: string) {
 
 const MATCH_ERROR = "Something went wrong. Please try again.";
 
+const PROFILE_QUEUED = "Sent to Claude. The profile appears here after its next run of claude-requests, once it passed the anonymity check.";
+
 function failure(error: unknown, fallback = GENERIC_ERROR): TalentActionState {
   if (error instanceof ClaudeRefusalError) return { error: "Claude could not process this request. Change the text or fill in the fields yourself." };
   if (error instanceof Error && error.message) return { error: error.message };
@@ -44,11 +47,28 @@ export async function extractVacancyAction(vacancyId: string, _prev: IntakeState
     return { error: "Paste the full vacancy text. This is too short to extract requirements from.", rawText, fieldErrors: { raw_text: "Too short" } };
   }
   if (rawText.length > 30000) return { error: "This text is too long. Paste only the vacancy itself.", rawText };
-  if (!hasClaude()) return { error: "Claude is not connected (ANTHROPIC_API_KEY is missing). Fill in the requirements yourself.", rawText };
-
   const supabase = await createClient();
   const { data: vacancy } = await supabase.from("vacancies").select("title").eq("id", vacancyId).maybeSingle();
   if (!vacancy) return { error: "This vacancy no longer exists." };
+
+  if (!hasClaude()) {
+    // Claude reads the vacancy through the MCP (claude-requests); its reading comes back here to check.
+    try {
+      await supabase.from("vacancies").update({ raw_text: rawText }).eq("id", vacancyId);
+      await requestAi(supabase, {
+        kind: "vacancy_extract",
+        module: "recruitment",
+        entityType: "vacancy",
+        entityId: vacancyId,
+        system: VACANCY_SYSTEM,
+        input: vacancyInput({ title: vacancy.title, text: rawText }),
+      });
+      revalidateVacancy(vacancyId);
+      return { ok: true, queued: true, rawText, message: "Sent to Claude. Its reading appears here after its next run of claude-requests; then you check and save it." };
+    } catch (error) {
+      return { ...failure(error), rawText };
+    }
+  }
 
   try {
     const extraction = await askJson({
@@ -123,6 +143,8 @@ export async function saveRequirementsAction(vacancyId: string, _prev: TalentAct
   };
   const { error } = await supabase.from("vacancies").update(update).eq("id", vacancyId);
   if (error) return { error: GENERIC_ERROR };
+  // Claude's reading, if there was one, has been checked and taken over.
+  await markAiRequestsApplied(supabase, "vacancy_extract", vacancyId);
 
   revalidateVacancy(vacancyId);
   return {
@@ -291,9 +313,10 @@ export async function generateProfileAction(vacancyId: string, matchId: string, 
   if (!idSchema.safeParse(matchId).success || !idSchema.safeParse(vacancyId).success) return { error: MATCH_ERROR };
   const supabase = await createClient();
   try {
-    const { code } = await generateAnonymousProfile(supabase, matchId);
+    const made = await generateAnonymousProfile(supabase, matchId);
     revalidateVacancy(vacancyId);
-    return { ok: true, message: `Profile ${code} created and it passed the anonymity check. Review it and approve it.` };
+    if (!made) return { ok: true, message: PROFILE_QUEUED };
+    return { ok: true, message: `Profile ${made.code} created and it passed the anonymity check. Review it and approve it.` };
   } catch (error) {
     return failure(error, MATCH_ERROR);
   }

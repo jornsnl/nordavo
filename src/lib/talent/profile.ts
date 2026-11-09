@@ -1,6 +1,7 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { askJson, hasClaude } from "@/lib/ai/claude";
+import { requestAi } from "@/lib/ai/queue";
 import { PROFILE_SYSTEM, profileContentSchema, profileInput, type ProfileContent } from "@/lib/ai/prompts/profile";
 import type { Database, Json, MatchStatus } from "@/lib/database.types";
 import { collectText, findIdentifierLeaks, leakMessage, profileCode, redactIdentifiers, type CandidateIdentifiers } from "@/lib/talent/anonymize";
@@ -95,36 +96,38 @@ async function loadCandidate(db: Db, candidateId: string) {
   return candidate;
 }
 
-export async function generateAnonymousProfile(db: Db, matchId: string): Promise<{ profileId: string; code: string }> {
-  if (!hasClaude()) throw new Error("ANTHROPIC_API_KEY is missing: a profile cannot be made without Claude.");
+/** The input Claude writes an anonymous profile from (only redacted fields). */
+export async function prepareAnonymousProfile(db: Db, matchId: string) {
   const match = await loadMatch(db, matchId);
   if (!APPROVED_MATCH.includes(match.status)) {
     throw new Error("Approve the match first. Then make the anonymous profile.");
   }
   const candidate = await loadCandidate(db, match.candidate_id);
-  const ids = identifiersOf(candidate);
   const vacancy = requirementsPayload(match.vacancy);
   const payload = profilePayload(candidate);
   const matchInfo = { reason: match.reason, risks: match.risks, missing: match.missing };
+  return {
+    match,
+    candidate,
+    system: PROFILE_SYSTEM,
+    input: (retryNote?: string) => profileInput(vacancy, payload, matchInfo, retryNote),
+  };
+}
 
-  let content: ProfileContent | null = null;
-  let leakKinds: string[] = [];
-  for (let attempt = 0; attempt < 2 && !content; attempt += 1) {
-    const retryNote =
-      attempt > 0
-        ? `de vorige versie bevatte nog ${leakKinds.join(", ")}. Laat elke naam, elk contactgegeven en elke werkgever weg en beschrijf werkgevers generiek.`
-        : undefined;
-    const draft = await askJson({
-      system: PROFILE_SYSTEM,
-      input: profileInput(vacancy, payload, matchInfo, retryNote),
-      schema: profileContentSchema,
-    });
-    const leaks = findIdentifierLeaks(collectText(draft), ids);
-    if (leaks.length === 0) content = draft;
-    else leakKinds = [...new Set(leaks.map((l) => l.kind))];
-    if (attempt === 1 && !content) throw new Error(leakMessage(leaks));
-  }
-  if (!content) throw new Error("The profile could not be made.");
+/** A note for Claude when a draft still names the candidate, a contact detail or an employer. */
+export function profileLeakNote(kinds: string[]) {
+  return `de vorige versie bevatte nog ${kinds.join(", ")}. Laat elke naam, elk contactgegeven en elke werkgever weg en beschrijf werkgevers generiek.`;
+}
+
+/**
+ * Check a draft for leaks and store it as the PDF and the profile row.
+ * Throws with the leak message when the draft still contains identifiers.
+ */
+export async function saveAnonymousProfile(db: Db, matchId: string, content: ProfileContent): Promise<{ profileId: string; code: string }> {
+  const match = await loadMatch(db, matchId);
+  const candidate = await loadCandidate(db, match.candidate_id);
+  const leaks = findIdentifierLeaks(collectText(content), identifiersOf(candidate));
+  if (leaks.length > 0) throw new Error(`${leakMessage(leaks)} (${profileLeakNote([...new Set(leaks.map((l) => l.kind))])})`);
 
   const profileId = crypto.randomUUID();
   const code = profileCode(profileId);
@@ -156,6 +159,42 @@ export async function generateAnonymousProfile(db: Db, matchId: string): Promise
     throw new Error(`Could not save the profile: ${error.message}`);
   }
   return { profileId, code };
+}
+
+/**
+ * T4: the anonymous profile. With ANTHROPIC_API_KEY Claude writes it now;
+ * without it the request goes to Claude through the MCP (claude-requests)
+ * and null comes back.
+ */
+export async function generateAnonymousProfile(db: Db, matchId: string): Promise<{ profileId: string; code: string } | null> {
+  const prepared = await prepareAnonymousProfile(db, matchId);
+  if (!hasClaude()) {
+    await requestAi(db, {
+      kind: "anonymous_profile",
+      module: "recruitment",
+      entityType: "match",
+      entityId: matchId,
+      system: prepared.system,
+      input: prepared.input(),
+    });
+    return null;
+  }
+  const ids = identifiersOf(prepared.candidate);
+  let content: ProfileContent | null = null;
+  let leakKinds: string[] = [];
+  for (let attempt = 0; attempt < 2 && !content; attempt += 1) {
+    const draft = await askJson({
+      system: prepared.system,
+      input: prepared.input(attempt > 0 ? profileLeakNote(leakKinds) : undefined),
+      schema: profileContentSchema,
+    });
+    const leaks = findIdentifierLeaks(collectText(draft), ids);
+    if (leaks.length === 0) content = draft;
+    else leakKinds = [...new Set(leaks.map((l) => l.kind))];
+    if (attempt === 1 && !content) throw new Error(leakMessage(leaks));
+  }
+  if (!content) throw new Error("The profile could not be made.");
+  return saveAnonymousProfile(db, matchId, content);
 }
 
 async function loadProfile(db: Db, profileId: string) {

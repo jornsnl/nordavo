@@ -163,17 +163,13 @@ async function Review({ params }: Pick<PageProps<"/dashboard/academy/reviews/[id
                   {ai.createdAt && <p className="text-xs text-muted">Made {formatDateTime(ai.createdAt)}</p>}
                 </>
               ) : ai.status === "pending" ? (
-                <p className="text-sm text-muted">The AI is working on it. Refresh the page in a moment.</p>
+                <p className="text-sm text-muted">Claude is working on it (directly, or in its next run of claude-requests). Refresh the page later.</p>
               ) : ai.status === "failed" ? (
                 <p className="text-sm text-danger">{ai.summary ?? "The AI proposal failed."}</p>
               ) : (
                 <p className="text-sm text-muted">No proposal yet.</p>
               )}
-              {review.aiAvailable ? (
-                <AiProposalButton submissionId={submission.id} again={ai.status === "ready" || ai.status === "failed"} />
-              ) : (
-                <p className="text-xs text-muted">The AI proposal is off: ANTHROPIC_API_KEY is not set.</p>
-              )}
+              {review.aiAvailable && <AiProposalButton submissionId={submission.id} again={ai.status === "ready" || ai.status === "failed"} />}
             </CardBody>
           </Card>
         </div>

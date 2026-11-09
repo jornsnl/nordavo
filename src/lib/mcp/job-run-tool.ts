@@ -9,7 +9,8 @@ import { effectiveModules, jobModule } from "@/lib/modules";
 /**
  * log_job_run: Claude's scheduled tasks (docs/claude-jobs.md) log every run
  * here, shown on the Jobs page. Sales tasks (claude-replies and the others)
- * need the Sales module, claude-match and claude-screening Recruitment.
+ * need the Sales module, claude-match and claude-screening Recruitment,
+ * claude-requests any module.
  */
 export const JOB_RUN_TOOLS = ["log_job_run"] as const;
 
@@ -21,7 +22,7 @@ function rpcError(error: { message: string } | null, what: string) {
 
 export function registerJobRunTool(server: McpServer, ctx: McpToolContext) {
   const modules = effectiveModules(ctx.role, ctx.modules);
-  if (ctx.access !== "write" || !(modules.includes("sales") || modules.includes("recruitment"))) return;
+  if (ctx.access !== "write" || !["sales", "recruitment", "academy"].some((m) => modules.includes(m as (typeof modules)[number]))) return;
   const { db } = ctx;
   const actor = ctx.userId;
 
