@@ -10,6 +10,7 @@ export const mailCategories = [
   { value: "work_sign_in", label: "Work sign-in link" },
   { value: "caller_invite", label: "Caller invitation" },
   { value: "academy_invite", label: "Academy invitation" },
+  { value: "academy_digest", label: "Academy summary" },
   { value: "weekly_report", label: "Weekly report" },
   { value: "job_failure", label: "Job failure" },
   { value: "other", label: "Other" },
