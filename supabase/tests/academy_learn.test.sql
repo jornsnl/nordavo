@@ -189,7 +189,8 @@ set role authenticated;
 select pg_temp.check((select best_percent from public.academy_candidate_check_scores('00000000-0000-0000-0000-00000000cd01')) = 67, 'ATS best score');
 select pg_temp.check((select last_percent from public.academy_candidate_check_scores('00000000-0000-0000-0000-00000000cd01')) = 67, 'ATS last score');
 select pg_temp.check((select attempts from public.academy_candidate_check_scores('00000000-0000-0000-0000-00000000cd01')) = 2, 'ATS attempts');
-select pg_temp.check((select check_average_percent from public.academy_candidate_learn_summary(array['00000000-0000-0000-0000-00000000cd01'::uuid])) = 67, 'ATS summary');
+select pg_temp.check((select check_average_percent from public.academy_candidate_learn_summary(array['00000000-0000-0000-0000-00000000cd01'::uuid])) = 33, 'ATS summary: first attempt');
+select pg_temp.check((select first_percent from public.academy_candidate_check_scores('00000000-0000-0000-0000-00000000cd01')) = 33, 'ATS first score');
 select pg_temp.check((select count(*) from public.academy_check_attempts) = 0, 'recruiter without academy reads no attempts');
 reset role;
 
