@@ -4,14 +4,17 @@
  *   npm run job -- t2-match --vacancy=<uuid>
  * Exits with code 1 when a job failed, so the scheduler shows red.
  */
-import { chains, jobs } from "@/jobs/registry";
+import { chains, fallbackJobs, jobs } from "@/jobs/registry";
 import { runByName } from "@/jobs/run";
 
 const [name, ...rest] = process.argv.slice(2);
 
 if (!name || name === "--help") {
   console.log("Gebruik: npm run job -- <naam> [--param=waarde]\n\nJobs:");
-  for (const job of Object.values(jobs)) console.log(`  ${job.name.padEnd(24)} ${job.description}`);
+  for (const job of Object.values(jobs)) {
+    const fallback = fallbackJobs[job.name];
+    console.log(`  ${job.name.padEnd(24)} ${job.description}${fallback ? ` (fallback, replaced by Claude task ${fallback.claudeTask})` : ""}`);
+  }
   console.log("\nReeksen:");
   for (const [chainName, chain] of Object.entries(chains)) console.log(`  ${chainName.padEnd(24)} ${chain.description}`);
   process.exit(name ? 0 : 1);

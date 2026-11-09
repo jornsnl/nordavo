@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { chains, jobs } from "@/jobs/registry";
+import { chains, isFallback, jobs } from "@/jobs/registry";
 import { runByName } from "@/jobs/run";
 
 /**
@@ -8,6 +8,8 @@ import { runByName } from "@/jobs/run";
  *   Authorization: Bearer <CRON_SECRET>   (scheduler), or
  *   a signed-in staff session              (button in Beheer, Jobs).
  * Body (optional JSON): { "params": { "vacancy": "<uuid>" } }
+ * Fallback jobs (replaced by Claude's scheduled tasks, docs/claude-jobs.md)
+ * only run by hand: a scheduler gets 409.
  */
 export async function POST(request: NextRequest, { params }: { params: Promise<{ name: string }> }) {
   const { name } = await params;
@@ -18,6 +20,12 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const triggeredBy = await authorize(request, chains[name]?.jobs ?? [name]);
   if (!triggeredBy) {
     return NextResponse.json({ error: "Not allowed" }, { status: 401 });
+  }
+  if (triggeredBy === "cron" && isFallback(name)) {
+    return NextResponse.json(
+      { error: "This job is a fallback for a Claude task and only runs by hand (docs/claude-jobs.md)." },
+      { status: 409 },
+    );
   }
 
   const body = (await request.json().catch(() => ({}))) as { params?: Record<string, string> };

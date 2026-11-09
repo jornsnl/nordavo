@@ -162,7 +162,7 @@ async function VacancyDetail({ params }: { params: Params }) {
                       ? { label: "Client", value: vacancy.client?.name }
                       : { label: "Prospect", value: vacancy.company.name },
                   { label: "Source", value: sourceLabel(vacancy.source) },
-                  { label: "Deal in OnePageCRM", value: vacancy.onepage_deal_id },
+                  ...(vacancy.onepage_deal_id ? [{ label: "Old OnePageCRM deal", value: vacancy.onepage_deal_id }] : []),
                   { label: "Seniority", value: seniority.label },
                   { label: "Monthly budget", value: formatCurrency(vacancy.monthly_budget, "Not filled in") },
                   {

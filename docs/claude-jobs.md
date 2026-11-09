@@ -1,6 +1,8 @@
 # Geplande taken van Claude
 
-Het portaal heeft voor deze taken geen eigen koppeling met Instantly, Seleqt, Cal.com, Apify of Prospeo. Claude doet het werk: het haalt de data op met zijn eigen connectors en schrijft het via de MCP server van het portaal ([mcp.md](./mcp.md)) in het portaal. Elke taak logt zijn run, zodat Julius op **Beheer, Jobs** onder *Claude's scheduled tasks* ziet wat er gebeurd is. De werking van het CRM staat in [sales.md](./sales.md).
+Het portaal heeft voor deze taken geen eigen koppeling met Instantly, Seleqt, Cal.com, Apify of Prospeo (spec 2.14: Claude is de motor). Claude doet het werk: het haalt de data op met zijn eigen connectors en schrijft het via de MCP server van het portaal ([mcp.md](./mcp.md)) in het portaal. Elke taak logt zijn run, zodat Julius op **Beheer, Jobs** onder *Claude's scheduled tasks* ziet wat er gebeurd is. De werking van het CRM staat in [sales.md](./sales.md).
+
+De oude portaaljobs die hetzelfde deden (S1 tot S4 en S8) staan op geen schema meer. Ze blijven bestaan als **fallback**, voor als een taak van Claude een tijd niet kan draaien; zie [Fallback jobs](#fallback-jobs) onderaan.
 
 ## Inrichten
 
@@ -28,7 +30,7 @@ Je bent de Cal.com taak van Nordavo. Werk met de Nordavo MCP en de Cal.com conne
 2. Haal in Cal.com de boekingen op die in de laatste 48 uur zijn gemaakt of gewijzigd.
 3. Zoek per boeking het bedrijf en het contact in Nordavo: list_contacts met text = het mailadres van de deelnemer; geen treffer, dan list_companies met text = het domein van dat mailadres. Persoonlijke mailadressen (gmail, outlook en dergelijke) zonder bekend contact sla je over.
 4. Nieuwe of verplaatste boeking: create_meeting met company_id (en contact_id als bekend), scheduled_at = de starttijd met tijdzone, reason = de titel en de vragen uit de boeking, external_id = de booking uid, source "calcom". Een boeking die al bekend is, is geen probleem: de tool geeft already_known terug.
-5. Geannuleerde boeking: log_activity met company_id, contact_id, channel "meeting", type "note", notes "Meeting cancelled in Cal.com" plus de reden, source "calcom", external_id "calcom:<uid>:cancelled".
+5. Geannuleerde boeking: log_activity met company_id, contact_id, channel "meeting", type "note", notes "Meeting cancelled in Cal.com" plus de reden, source "calcom", external_id "calcom:<uid>:BOOKING_CANCELLED".
 6. Roep log_job_run aan met action "finish", status "success", records_in = het aantal boekingen, records_out = het aantal nieuwe meetings, meta = {"new": n, "known": n, "cancelled": n, "skipped": n}. Bij een fout: status "failed" met de fout in error.
 ```
 
@@ -119,3 +121,27 @@ Je bent de ICP taak van Nordavo. Werk met de Nordavo MCP. Nordavo plaatst Indias
 | ICP-oordeel | `claude-icp` | `set_icp_verdict` |
 
 Elke taak logt met `log_job_run`. Een job name begint altijd met `claude-`; daardoor hoort de run bij de module Sales en staat hij op de Jobs pagina.
+
+## Cal.com: taak en webhook
+
+De Cal.com taak hierboven is de hoofdroute voor salesafspraken. De webhook `/api/webhooks/calcom` blijft bestaan: hij is inkomend (het portaal haalt niets op), is nodig voor de sollicitatiegesprekken ([recruitment-planning.md](./recruitment-planning.md)) en vangt een salesboeking meteen op. Samen geven ze geen dubbelen:
+
+| Wat | Sleutel | Gevolg |
+| --- | --- | --- |
+| Afspraak in Meetings | `meetings.external_id` = de booking uid (uniek), via `sales_save_meeting` | Webhook en taak schrijven dezelfde afspraak; de tweede is een no-op (`already_known`) |
+| Notitie over een boeking in de tijdlijn | `activities.external_id` = `calcom:<uid>:<trigger>` | De annulering van de taak gebruikt dezelfde sleutel (`calcom:<uid>:BOOKING_CANCELLED`) als de webhook |
+
+## Fallback jobs
+
+Deze portaaljobs zijn vervangen door een taak van Claude. Ze staan op geen schema meer (niet in `.github/workflows/gtm-jobs.yml`, en `POST /api/jobs/<naam>` met `CRON_SECRET` geeft 409), maar ze draaien nog met de hand: **Run now** of **Run chain** op **Beheer, Jobs**, *Run workflow* in GitHub Actions, of `npm run job -- <naam>`. Op de Jobs pagina staan ze met het label *Fallback* en de taak die ze vervangt (`fallbackJobs` in `src/jobs/registry.ts`).
+
+| Fallback job | Reeks | Vervangen door | Nodig om met de hand te draaien |
+| --- | --- | --- | --- |
+| `s1-signals` | `maandag` | `claude-companies` | `APIFY_TOKEN`, `APIFY_LINKEDIN_JOBS_ACTOR`, `APIFY_INDEED_JOBS_ACTOR` |
+| `s2-qualify` | `maandag` | `claude-icp` | `ANTHROPIC_API_KEY` |
+| `s3-decision-makers` | `maandag` | `claude-companies` | `APIFY_TOKEN`, `APIFY_PEOPLE_ACTOR` |
+| `s4-email-enrich` | `maandag` | `claude-companies` | `PROSPEO_API_KEY` |
+| `s8-instantly-sync` | `dagelijks` | `claude-replies` | `INSTANTLY_API_KEY` |
+| `s8-webpartners-import` | `dagelijks` | `claude-calcom` (en Meetings, dat de afsprakensheet vervangt) | `GOOGLE_SERVICE_ACCOUNT_JSON`, `WEBPARTNERS_APPOINTMENTS_SHEET_ID` |
+
+Draai een fallback alleen als de taak van Claude niet kan draaien. `s8-instantly-sync` gebruikt voor replies dezelfde external id als `claude-replies` (`instantly:reply:<id>`), dus beide draaien geeft geen dubbele replies. De andere fallbacks werken met eigen sleutels (bedrijven op domein, vacatures op `dedupe_key`, de sheet op een hash per rij): dubbele bedrijven en vacatures ontstaan niet, maar een afspraak uit de oude sheet en dezelfde afspraak uit Cal.com worden niet als één herkend. Het weekrapport (`s10-weekly-report`, reeks `vrijdag`) is geen fallback en draait gewoon op vrijdag.

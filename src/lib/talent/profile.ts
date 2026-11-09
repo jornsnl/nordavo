@@ -3,7 +3,6 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { askJson, hasClaude } from "@/lib/ai/claude";
 import { PROFILE_SYSTEM, profileContentSchema, profileInput, type ProfileContent } from "@/lib/ai/prompts/profile";
 import type { Database, Json, MatchStatus } from "@/lib/database.types";
-import { addDealNote, hasOnePage, setNextAction } from "@/lib/integrations/onepage";
 import { collectText, findIdentifierLeaks, leakMessage, profileCode, redactIdentifiers, type CandidateIdentifiers } from "@/lib/talent/anonymize";
 import { advanceStage } from "@/lib/talent/match";
 import { getPoolCandidate, type PoolCandidate } from "@/lib/talent/pool";
@@ -209,39 +208,10 @@ export async function confirmConsentByStaff(db: Db, profileId: string, userId: s
   return profile.match.vacancy_id;
 }
 
-function addWorkdays(from: Date, days: number) {
-  const date = new Date(from);
-  let added = 0;
-  while (added < days) {
-    date.setUTCDate(date.getUTCDate() + 1);
-    const day = date.getUTCDay();
-    if (day !== 0 && day !== 6) added += 1;
-  }
-  return date.toISOString().slice(0, 10);
-}
-
-/** The OnePageCRM contact for the vacancy's company, best tier first. */
-async function findOnepageContact(db: Db, vacancy: { company_id: string | null; client_id: string | null }) {
-  let companyIds: string[] = vacancy.company_id ? [vacancy.company_id] : [];
-  if (companyIds.length === 0 && vacancy.client_id) {
-    const { data } = await db.from("companies").select("id").eq("client_id", vacancy.client_id);
-    companyIds = (data ?? []).map((c) => c.id);
-  }
-  if (companyIds.length === 0) return null;
-  const { data } = await db
-    .from("contacts")
-    .select("onepage_id, tier")
-    .in("company_id", companyIds)
-    .not("onepage_id", "is", null)
-    .order("tier", { ascending: true, nullsFirst: false })
-    .limit(1);
-  return data?.[0]?.onepage_id ?? null;
-}
-
 /**
  * T5 Markeer als verstuurd: sent_at, match status verstuurd, vacancy
- * profiles_sent_at and stage, then OnePageCRM (deal note and next action).
- * A CRM failure is returned as a warning; the sent state stays.
+ * profiles_sent_at and stage. The company's pipeline stage follows from the
+ * presented candidates (sales_sync_recruitment_stage); OnePageCRM is gone.
  */
 export async function markProfileSent(db: Db, profileId: string): Promise<{ vacancyId: string; warning?: string }> {
   const profile = await loadProfile(db, profileId);
@@ -271,7 +241,7 @@ export async function markProfileSent(db: Db, profileId: string): Promise<{ vaca
 
   const { data: vacancy } = await db
     .from("vacancies")
-    .select("id, title, talent_stage, profiles_sent_at, onepage_deal_id, company_id, client_id")
+    .select("id, talent_stage, profiles_sent_at")
     .eq("id", profile.match.vacancy_id)
     .maybeSingle();
   if (!vacancy) return { vacancyId: profile.match.vacancy_id };
@@ -284,23 +254,5 @@ export async function markProfileSent(db: Db, profileId: string): Promise<{ vaca
     })
     .eq("id", vacancy.id);
 
-  let warning: string | undefined;
-  if (vacancy.onepage_deal_id && hasOnePage()) {
-    const code = readProfileContent(profile.content)?.code || profileCode(profileId);
-    try {
-      await addDealNote(vacancy.onepage_deal_id, `Anonymous profile ${code} sent for ${vacancy.title}.`);
-      const contactId = await findOnepageContact(db, vacancy);
-      if (contactId) {
-        await setNextAction(contactId, { text: `Ask for feedback on profile ${code} (${vacancy.title})`, date: addWorkdays(new Date(), 2) });
-      } else {
-        warning = "The note is on the deal, but no OnePageCRM contact was found for the next action. Set it yourself.";
-      }
-    } catch (crmError) {
-      warning = `Recorded as sent, but updating OnePageCRM failed: ${crmError instanceof Error ? crmError.message : "unknown error"}. Update the deal yourself.`;
-    }
-  } else if (vacancy.onepage_deal_id) {
-    warning = "Recorded as sent. OnePageCRM is not connected, so update the deal yourself.";
-  }
-
-  return { vacancyId: vacancy.id, warning };
+  return { vacancyId: vacancy.id };
 }

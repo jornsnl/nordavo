@@ -33,10 +33,9 @@ De volgende diensten worden ook in de code gebruikt en verwerken mogelijk persoo
 | Supabase | Database, inloggen en opslag van bijlagen (cv's, video's) |
 | Hosting van de Next.js app | Draait het portaal en de geplande jobs |
 | Anthropic (Claude API) | Kwalificatie van leads, vacatures uitlezen, cv's lezen en scoren |
-| Apify | Vacatures en beslissers ophalen |
-| Prospeo | Mailadressen zoeken en verifiëren |
-| Instantly | Cold mail campagnes |
-| OnePageCRM | CRM voor deals en contacten |
+| Apify | Vacatures en beslissers ophalen (fallback job S1 en S3; normaal doet Claude dit met een eigen connector) |
+| Prospeo | Mailadressen zoeken en verifiëren (fallback job S4; normaal via Claude) |
+| Instantly | Replies ophalen (fallback job S8; normaal via Claude, dat ook de sequences klaarzet) |
 | Cal.com | Inplannen van sales en sollicitatiegesprekken |
-| Google (Sheets, inloggen met Google) | Bellijsten voor Web Partners, inloggen in Work |
+| Google (Sheets, inloggen met Google) | De oude afsprakensheet van Web Partners lezen (fallback job), inloggen in Work |
 | ClickUp | Eenmalige import naar Work |

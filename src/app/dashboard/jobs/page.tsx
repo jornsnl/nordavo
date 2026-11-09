@@ -27,7 +27,7 @@ import {
 } from "@/lib/data/jobs";
 import { formatDateTime, formatRelativeDays } from "@/lib/format";
 import { jobStatuses, optionFor } from "@/lib/labels";
-import { chains, jobs } from "@/jobs/registry";
+import { chains, fallbackJobs, jobs } from "@/jobs/registry";
 import { getCurrentUser, hasModule } from "@/lib/auth";
 import { jobModule } from "@/lib/modules";
 import { runJobAction } from "./actions";
@@ -136,12 +136,18 @@ async function JobsOverview() {
       )}
 
       <Card>
-        <CardHeader title="Chains" description="Run on a schedule through GitHub Actions. A chain runs its jobs one after the other." />
+        <CardHeader
+          title="Chains"
+          description="A chain runs its jobs one after the other. Scheduled chains run through GitHub Actions; fallback chains only run when you press the button."
+        />
         <ul className="divide-y divide-border">
           {visibleChains.map(([name, chain]) => (
             <li key={name} className="flex flex-col gap-3 px-5 py-4 lg:flex-row lg:items-start lg:justify-between">
               <div className="min-w-0 space-y-1">
-                <p className="font-medium text-ink capitalize">{name}</p>
+                <p className="flex flex-wrap items-center gap-2 font-medium text-ink">
+                  <span className="capitalize">{name}</span>
+                  {chain.scheduled ? <Badge tone="brand">Scheduled</Badge> : <Badge tone="warning">Fallback, by hand only</Badge>}
+                </p>
                 <p className="text-sm text-muted">{chain.description}</p>
                 <p className="text-xs text-muted">
                   {chain.jobs.join(", ")}
@@ -161,7 +167,10 @@ async function JobsOverview() {
       </Card>
 
       <Card>
-        <CardHeader title="Single jobs" description="Last run per job, and missing keys." />
+        <CardHeader
+          title="Single jobs"
+          description="Last run per job, and missing keys. A fallback job was replaced by a scheduled task of Claude (below) and runs only by hand, when that task cannot run."
+        />
         <ul className="divide-y divide-border">
           {names.map((name) => {
             const job = jobs[name];
@@ -174,8 +183,16 @@ async function JobsOverview() {
                   <div className="flex flex-wrap items-center gap-2">
                     <p className="font-mono text-sm font-semibold text-ink">{name}</p>
                     <StatusBadge run={run} />
+                    {fallbackJobs[name] && <Badge tone="warning">Fallback</Badge>}
                   </div>
                   <p className="text-sm text-muted">{job.description}</p>
+                  {fallbackJobs[name] && (
+                    <p className="text-sm text-amber-800">
+                      Fallback, replaced by Claude task{" "}
+                      <code className="rounded bg-amber-50 px-1.5 py-0.5 font-mono text-xs">{fallbackJobs[name].claudeTask}</code>{" "}
+                      ({fallbackJobs[name].task}). Not on a schedule: run it by hand only when that task cannot run.
+                    </p>
+                  )}
                   {run && (
                     <p className="text-xs text-muted">
                       Last run {formatRelativeDays(run.startedAt)} at {formatDateTime(run.startedAt)}, {run.recordsIn} in,{" "}
