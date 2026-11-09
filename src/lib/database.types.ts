@@ -384,6 +384,7 @@ export type Database = {
           nice_to_haves: string[];
           unclear: string[];
           search_brief: Json | null;
+          match_requested_at: string | null;
           talent_stage: TalentStage;
           intake_at: string | null;
           profiles_sent_at: string | null;
@@ -425,6 +426,7 @@ export type Database = {
           nice_to_haves?: string[];
           unclear?: string[];
           search_brief?: Json | null;
+          match_requested_at?: string | null;
           talent_stage?: TalentStage;
           intake_at?: string | null;
           profiles_sent_at?: string | null;
@@ -466,6 +468,7 @@ export type Database = {
           nice_to_haves?: string[];
           unclear?: string[];
           search_brief?: Json | null;
+          match_requested_at?: string | null;
           talent_stage?: TalentStage;
           intake_at?: string | null;
           profiles_sent_at?: string | null;
@@ -673,6 +676,7 @@ export type Database = {
           cv_score: number | null;
           cv_verdict: CvVerdict | null;
           cv_scored_at: string | null;
+          score_requested_at: string | null;
           video_score: number | null;
           video_notes: string | null;
           interview_at: string | null;
@@ -710,6 +714,7 @@ export type Database = {
           cv_score?: number | null;
           cv_verdict?: CvVerdict | null;
           cv_scored_at?: string | null;
+          score_requested_at?: string | null;
           video_score?: number | null;
           video_notes?: string | null;
           interview_at?: string | null;
@@ -747,6 +752,7 @@ export type Database = {
           cv_score?: number | null;
           cv_verdict?: CvVerdict | null;
           cv_scored_at?: string | null;
+          score_requested_at?: string | null;
           video_score?: number | null;
           video_notes?: string | null;
           interview_at?: string | null;

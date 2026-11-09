@@ -1,12 +1,12 @@
 # Geplande taken van Claude
 
-Het portaal heeft voor deze taken geen eigen koppeling met Instantly, Seleqt, Cal.com, Apify of Prospeo (spec 2.14: Claude is de motor). Claude doet het werk: het haalt de data op met zijn eigen connectors en schrijft het via de MCP server van het portaal ([mcp.md](./mcp.md)) in het portaal. Elke taak logt zijn run, zodat Julius op **Beheer, Jobs** onder *Claude's scheduled tasks* ziet wat er gebeurd is. De werking van het CRM staat in [sales.md](./sales.md).
+Het portaal heeft voor deze taken geen eigen koppeling met Instantly, Seleqt, Cal.com, Apify of Prospeo, en roept voor matchen en CV scores geen Claude API aan (spec 2.14: Claude is de motor). Claude doet het werk: het haalt de data op met zijn eigen connectors en schrijft het via de MCP server van het portaal ([mcp.md](./mcp.md)) in het portaal. Elke taak logt zijn run, zodat Julius op **Beheer, Jobs** onder *Claude's scheduled tasks* ziet wat er gebeurd is. De werking van het CRM staat in [sales.md](./sales.md).
 
 De oude portaaljobs die hetzelfde deden (S1 tot S4 en S8) staan op geen schema meer. Ze blijven bestaan als **fallback**, voor als een taak van Claude een tijd niet kan draaien; zie [Fallback jobs](#fallback-jobs) onderaan.
 
 ## Inrichten
 
-1. **Token.** Maak onder Instellingen een MCP token met *Lezen en schrijven* aan, op naam van iemand met de module Sales. Alles wat Claude doet komt op naam van die persoon in Activities, met bron `claude`. Voor de taak die bellijsten openzet moet de eigenaar admin zijn; die taak staat hier niet bij.
+1. **Token.** Maak onder Instellingen een MCP token met *Lezen en schrijven* aan, op naam van iemand met de module Sales (taken 1 tot 5) en Recruitment (taken 6 en 7). Alles wat Claude doet komt op naam van die persoon in Activities, met bron `claude`. Voor de taak die bellijsten openzet moet de eigenaar admin zijn; die taak staat hier niet bij.
 2. **Connectors.** Geef Claude toegang tot de Nordavo MCP en tot de connectors van Instantly, Seleqt, Cal.com, Apify en Prospeo (in claude.ai onder Connectors, of in Claude Code met `claude mcp add`).
 3. **Geplande taak.** Maak per prompt hieronder een geplande taak in Claude aan, met het schema dat erbij staat. Plak de prompt ongewijzigd; pas alleen de getallen tussen haken aan als dat nodig is.
 4. **Controle.** Kijk na de eerste runs op **Beheer, Jobs**. Een run die op *Running* blijft staan is niet afgerond: lees dan het gesprek van die run in Claude terug.
@@ -110,6 +110,36 @@ Je bent de ICP taak van Nordavo. Werk met de Nordavo MCP. Nordavo plaatst Indias
 6. Roep log_job_run aan met action "finish", status "success", records_in = het aantal beoordeelde bedrijven, records_out = het aantal GO, meta = {"go": n, "review": n, "no_go": n}.
 ```
 
+## 6. Matches uit de talentenpool
+
+**Job name:** `claude-match`. **Schema:** elk uur van 08:00 tot 19:00 op werkdagen. Een vacature komt in de wachtrij als iemand op de vacature *Ask Claude to match* indrukt.
+
+```text
+Je bent de match taak van Nordavo. Werk met de Nordavo MCP.
+
+1. Roep log_job_run aan met action "start" en job_name "claude-match".
+2. Roep list_match_requests aan. Geen vacatures: ga naar stap 6.
+3. Per vacature met has_requirements true: roep get_match_pool aan (top [25]). Beoordeel elke kandidaat volgens de instructions die de tool teruggeeft, alleen op de gegeven gegevens. De ref van een kandidaat is zijn candidate_id.
+4. Sla de scores op met save_matches: vacancy_id en per kandidaat candidate_id, score, reason, risks en missing. Geeft de tool search_brief_input terug, maak dan de zoekopdracht volgens die instructions en sla hem op met save_search_brief (met scored en strong uit het antwoord).
+5. Een vacature zonder eisen (has_requirements false) sla je over; tel hem als skipped.
+6. Roep log_job_run aan met action "finish", status "success", records_in = het aantal vacatures, records_out = het aantal opgeslagen matches, meta = {"vacancies": n, "matches": n, "strong": n, "search_briefs": n, "skipped": n}. Bij een fout: status "failed" met de fout in error.
+```
+
+## 7. CV scores tegen de vacature
+
+**Job name:** `claude-screening`. **Schema:** elk uur van 07:00 tot 21:00. In de wachtrij staan alle CV's zonder score en de CV's waarvoor iemand *Score again* of *Re-score everyone* koos.
+
+```text
+Je bent de screening taak van Nordavo. Werk met de Nordavo MCP.
+
+1. Roep log_job_run aan met action "start" en job_name "claude-screening".
+2. Roep list_applications_to_score aan (limit [20]).
+3. Per application met cv_pending true: roep get_cv_file aan met de candidate_id, lees de PDF volgens de instructies en sla de tekst en velden op met save_cv_text. Roep daarna list_applications_to_score opnieuw aan voor die vacature om de CV tekst te krijgen.
+4. Score elke application met cv volgens de instructions en de job van zijn vacancy: per eis status en bewijs, match_percentage, verdict en summary. Sla elke score op met save_cv_score (met model = het model waarmee je scoort). Een application zonder cv en zonder cv_pending sla je over.
+5. Is remaining groter dan 0, herhaal dan stap 2 tot 4, hooguit [5] keer per run.
+6. Roep log_job_run aan met action "finish", status "success", records_in = het aantal applications, records_out = het aantal opgeslagen scores, meta = {"scored": n, "cv_read": n, "skipped": n, "remaining": n}.
+```
+
 ## Overzicht
 
 | Taak | Job name | Schrijft met |
@@ -119,8 +149,10 @@ Je bent de ICP taak van Nordavo. Werk met de Nordavo MCP. Nordavo plaatst Indias
 | Sequences | `claude-sequences` | `draft_sequence_text`, `start_sequence`, `update_sequence_tasks` |
 | Instroom | `claude-companies` | `upsert_companies` |
 | ICP-oordeel | `claude-icp` | `set_icp_verdict` |
+| Matches | `claude-match` | `save_matches`, `save_search_brief` |
+| CV scores | `claude-screening` | `save_cv_text`, `save_cv_score` |
 
-Elke taak logt met `log_job_run`. Een job name begint altijd met `claude-`; daardoor hoort de run bij de module Sales en staat hij op de Jobs pagina.
+Elke taak logt met `log_job_run`. Een job name begint altijd met `claude-`; daardoor staat de run op de Jobs pagina. `claude-match` en `claude-screening` horen bij de module Recruitment, de andere bij Sales.
 
 ## Cal.com: taak en webhook
 
@@ -143,5 +175,9 @@ Deze portaaljobs zijn vervangen door een taak van Claude. Ze staan op geen schem
 | `s4-email-enrich` | `maandag` | `claude-companies` | `PROSPEO_API_KEY` |
 | `s8-instantly-sync` | `dagelijks` | `claude-replies` | `INSTANTLY_API_KEY` |
 | `s8-webpartners-import` | `dagelijks` | `claude-calcom` (en Meetings, dat de afsprakensheet vervangt) | `GOOGLE_SERVICE_ACCOUNT_JSON`, `WEBPARTNERS_APPOINTMENTS_SHEET_ID` |
+| `t2-match` | geen | `claude-match` | `ANTHROPIC_API_KEY` |
+| `screening-score` | geen | `claude-screening` | `ANTHROPIC_API_KEY` |
+
+Zonder `ANTHROPIC_API_KEY` zetten de knoppen in het portaal het werk in de wachtrij van Claude: *Ask Claude to match* zet `vacancies.match_requested_at`, *Score again* en *Re-score everyone* zetten `applications.score_requested_at`. Met de key werken ze zoals vroeger meteen. Het vergelijken van promptversies op een steekproef draait alleen met de key.
 
 Draai een fallback alleen als de taak van Claude niet kan draaien. `s8-instantly-sync` gebruikt voor replies dezelfde external id als `claude-replies` (`instantly:reply:<id>`), dus beide draaien geeft geen dubbele replies. De andere fallbacks werken met eigen sleutels (bedrijven op domein, vacatures op `dedupe_key`, de sheet op een hash per rij): dubbele bedrijven en vacatures ontstaan niet, maar een afspraak uit de oude sheet en dezelfde afspraak uit Cal.com worden niet als één herkend. Het weekrapport (`s10-weekly-report`, reeks `vrijdag`) is geen fallback en draait gewoon op vrijdag.

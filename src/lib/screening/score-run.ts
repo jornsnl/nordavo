@@ -82,9 +82,12 @@ export type ScoreRunSummary = {
   errors: string[];
 };
 
-const OUT_OF_FLOW = ["rejected", "placed"];
+export const OUT_OF_FLOW = ["rejected", "placed"];
 
-type CandidateRow = {
+export const CANDIDATE_SCORING_COLUMNS =
+  "id, full_name, email, phone, cv_text, cv_text_status, cv_path, skills, current_title, years_experience, summary" as const;
+
+export type CandidateRow = {
   id: string;
   full_name: string;
   email: string | null;
@@ -120,7 +123,7 @@ export function scoringText(c: CandidateRow): string | null {
     .join("\n");
 }
 
-async function loadVacancy(db: Db, vacancyId: string) {
+export async function loadScoringVacancy(db: Db, vacancyId: string) {
   const [{ data: vacancy, error }, { data: rows }] = await Promise.all([
     db
       .from("vacancies")
@@ -134,9 +137,19 @@ async function loadVacancy(db: Db, vacancyId: string) {
   return { vacancy, requirements: scoringRequirements(vacancy, rows ?? []) };
 }
 
+/** Insert a score; a real score also clears a pending score request. */
+export async function insertCvScore(db: Db, row: TablesInsert<"cv_scores">) {
+  const { error } = await db.from("cv_scores").insert(row);
+  if (error) throw new Error(`Could not save the score: ${error.message}`);
+  if ((row.purpose ?? "score") === "score") {
+    const { error: clearError } = await db.from("applications").update({ score_requested_at: null }).eq("id", row.application_id);
+    if (clearError) throw new Error(`Could not clear the score request: ${clearError.message}`);
+  }
+}
+
 export async function scoreApplications(db: Db, options: ScoreRunOptions = {}): Promise<ScoreRunSummary> {
   const { onlyUnscored = true, bulk = false, limit = 200, concurrency = 4, purpose = "score", log = () => {} } = options;
-  if (!hasClaude()) throw new Error("ANTHROPIC_API_KEY is missing: CVs cannot be scored without Claude.");
+  if (!hasClaude()) throw new Error("ANTHROPIC_API_KEY is missing: CVs are scored by Claude's scheduled task claude-screening.");
 
   let q = db
     .from("applications")
@@ -172,7 +185,7 @@ export async function scoreApplications(db: Db, options: ScoreRunOptions = {}): 
   for (const a of apps) byVacancy.set(a.vacancy_id, [...(byVacancy.get(a.vacancy_id) ?? []), a]);
 
   for (const [vacancyId, group] of byVacancy) {
-    const { vacancy, requirements } = await loadVacancy(db, vacancyId);
+    const { vacancy, requirements } = await loadScoringVacancy(db, vacancyId);
     const model: ScreeningModel = options.model ?? (isScreeningModel(vacancy.screening_model) ? vacancy.screening_model : DEFAULT_SCREENING_MODEL);
     const effort = effortFor(model, bulk);
     const job = jobInput({ ...vacancy, description: vacancy.description ?? vacancy.raw_text }, requirements);
@@ -180,7 +193,7 @@ export async function scoreApplications(db: Db, options: ScoreRunOptions = {}): 
 
     const { data: candidates } = await db
       .from("candidates")
-      .select("id, full_name, email, phone, cv_text, cv_text_status, cv_path, skills, current_title, years_experience, summary")
+      .select(CANDIDATE_SCORING_COLUMNS)
       .in("id", [...new Set(group.map((a) => a.candidate_id))]);
     const byId = new Map((candidates ?? []).map((c) => [c.id, c as CandidateRow]));
 
@@ -199,7 +212,7 @@ export async function scoreApplications(db: Db, options: ScoreRunOptions = {}): 
             await readStoredCv(db, candidate.id);
             const { data } = await db
               .from("candidates")
-              .select("id, full_name, email, phone, cv_text, cv_text_status, cv_path, skills, current_title, years_experience, summary")
+              .select(CANDIDATE_SCORING_COLUMNS)
               .eq("id", candidate.id)
               .maybeSingle();
             if (data) candidate = data as CandidateRow;
@@ -246,8 +259,7 @@ export async function scoreApplications(db: Db, options: ScoreRunOptions = {}): 
             cache_write_tokens: usage.cacheWriteTokens,
             cost_usd: cost,
           };
-          const { error: saveError } = await db.from("cv_scores").insert(row);
-          if (saveError) throw new Error(`Could not save the score: ${saveError.message}`);
+          await insertCvScore(db, row);
           summary.scored += 1;
           summary.costUsd += cost ?? 0;
           summary.inputTokens += usage.inputTokens;

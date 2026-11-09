@@ -60,30 +60,39 @@ export function ScoreControls({ vacancyId, claude, unscored }: { vacancyId: stri
   return (
     <form action={action} className="space-y-3">
       <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
-        <Field label="Model for this run" htmlFor="score-model" className="sm:w-64">
-          <Select id="score-model" name="model" defaultValue="">
-            <option value="">The vacancy&apos;s model</option>
-            {SCREENING_MODELS.map((m) => (
-              <option key={m.value} value={m.value}>
-                {m.label}
-              </option>
-            ))}
-          </Select>
-        </Field>
-        <label className="flex items-center gap-2 text-sm text-ink sm:pb-2.5">
-          <input type="checkbox" name="bulk" className="size-4 accent-brand-700" />
-          Bulk pass (low effort)
-        </label>
+        {claude && (
+          <>
+            <Field label="Model for this run" htmlFor="score-model" className="sm:w-64">
+              <Select id="score-model" name="model" defaultValue="">
+                <option value="">The vacancy&apos;s model</option>
+                {SCREENING_MODELS.map((m) => (
+                  <option key={m.value} value={m.value}>
+                    {m.label}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+            <label className="flex items-center gap-2 text-sm text-ink sm:pb-2.5">
+              <input type="checkbox" name="bulk" className="size-4 accent-brand-700" />
+              Bulk pass (low effort)
+            </label>
+          </>
+        )}
         <label className="flex items-center gap-2 text-sm text-ink sm:pb-2.5">
           <input type="checkbox" name="rescore" className="size-4 accent-brand-700" />
           Re-score everyone
         </label>
-        <Button type="submit" disabled={!claude || pending} aria-busy={pending}>
+        <Button type="submit" disabled={pending} aria-busy={pending}>
           {pending ? <LoaderCircle className="animate-spin" aria-hidden="true" /> : <Sparkles aria-hidden="true" />}
-          {pending ? "Scoring" : `Score ${unscored > 0 ? `${unscored} unscored` : "CVs"}`}
+          {pending ? (claude ? "Scoring" : "Queueing") : claude ? `Score ${unscored > 0 ? `${unscored} unscored` : "CVs"}` : "Ask Claude to score"}
         </Button>
       </div>
-      {!claude && <p className="text-sm text-amber-900">Claude is not connected (ANTHROPIC_API_KEY is missing): scoring is not available yet.</p>}
+      {!claude && (
+        <p className="text-sm text-muted">
+          Claude scores new CVs through the MCP in its scheduled task claude-screening
+          {unscored > 0 ? `; ${unscored} unscored CVs are in its queue` : ""}. Tick re-score to queue everyone again.
+        </p>
+      )}
       <ActionFeedback state={state} />
     </form>
   );

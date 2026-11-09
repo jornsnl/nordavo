@@ -108,7 +108,7 @@ async function JobsOverview() {
   const visibleChains = Object.entries(chains).filter(([, chain]) => chain.jobs.every(visible));
   const scheduledChains = visibleChains.filter(([, chain]) => chain.scheduled);
   const fallbackChains = visibleChains.filter(([, chain]) => !chain.scheduled);
-  const needsVacancy = names.some((n) => JOB_REQUIRED_PARAMS[n]?.name === "vacancy");
+  const needsVacancy = allNames.some((n) => JOB_REQUIRED_PARAMS[n]?.name === "vacancy");
   const [lastRuns, vacancies] = await Promise.all([
     getLastRuns(allNames),
     needsVacancy ? listVacancyOptions() : Promise.resolve([]),
@@ -240,6 +240,7 @@ async function JobsOverview() {
           names={fallbackNames}
           chains={fallbackChains}
           lastRuns={lastRuns}
+          vacancies={vacancies}
           noDbReason={noDbReason}
         />
       )}
@@ -258,11 +259,13 @@ function FallbackJobs({
   names,
   chains: fallbackChainList,
   lastRuns,
+  vacancies,
   noDbReason,
 }: {
   names: string[];
   chains: [string, (typeof chains)[string]][];
   lastRuns: Record<string, JobRunItem | undefined>;
+  vacancies: { id: string; label: string }[];
   noDbReason: string | null;
 }) {
   return (
@@ -278,8 +281,8 @@ function FallbackJobs({
               </Badge>
             </p>
             <p className="text-sm text-muted">
-              Claude does this work through the MCP with its own connectors (Apify, Prospeo, Instantly, Seleqt, Cal.com), so
-              the portal needs no API keys for it. These old jobs stay as a fallback, by hand only, for when a Claude task
+              Claude does this work through the MCP, with its own connectors (Apify, Prospeo, Instantly, Seleqt, Cal.com) and
+              its own judgement for matching and CV scores, so the portal needs no API keys for it. These old jobs stay as a fallback, by hand only, for when a Claude task
               cannot run; only then do they need the keys listed.
             </p>
           </div>
@@ -309,6 +312,7 @@ function FallbackJobs({
             const run = lastRuns[name];
             const fallback = fallbackJobs[name];
             const missing = missingEnvFor(name);
+            const required = JOB_REQUIRED_PARAMS[name];
             return (
               <li key={name} className="grid gap-3 px-5 py-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
                 <div className="min-w-0 space-y-1.5">
@@ -343,7 +347,8 @@ function FallbackJobs({
                   <RunJobForm
                     label="Run by hand"
                     action={runJobAction.bind(null, name)}
-                    showLimit
+                    vacancies={required?.name === "vacancy" ? vacancies : undefined}
+                    showLimit={!required}
                     disabledReason={noDbReason ?? (missing.required.length > 0 ? "Not set up to run by hand" : null)}
                   />
                 </div>
@@ -356,10 +361,10 @@ function FallbackJobs({
   );
 }
 
-/** Claude's tasks are sales work (claude-* jobs). */
+/** Claude's tasks: sales work, plus matching and screening for recruitment. RLS shows each user the runs of their modules. */
 async function ClaudeSection() {
   const user = await getCurrentUser();
-  if (!hasModule(user, "sales")) return null;
+  if (!hasModule(user, "sales") && !hasModule(user, "recruitment")) return null;
   return <ClaudeRuns />;
 }
 

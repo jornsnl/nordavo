@@ -5,6 +5,8 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { createNordavoMcpServer } from "@/lib/mcp/server";
 import { SALES_READ_TOOLS, SALES_WRITE_TOOLS } from "@/lib/mcp/sales-tools";
+import { JOB_RUN_TOOLS } from "@/lib/mcp/job-run-tool";
+import { RECRUITMENT_AI_READ_TOOLS, RECRUITMENT_AI_WRITE_TOOLS } from "@/lib/mcp/recruitment-ai-tools";
 import type { McpDb } from "@/lib/mcp/shared";
 import { amsterdamDate, searchPattern } from "@/lib/mcp/shared";
 import {
@@ -216,7 +218,7 @@ const WRITE_TOOLS = ["add_note", "create_task", "mark_topper", "move_candidates"
 
 test("a read token only gets read tools", async () => {
   const { names, tools, whoami, instructions } = await listToolNames("read");
-  assert.deepEqual(names, [...new Set([...READ_TOOLS, ...SALES_READ_TOOLS])].sort());
+  assert.deepEqual(names, [...new Set([...READ_TOOLS, ...SALES_READ_TOOLS, ...RECRUITMENT_AI_READ_TOOLS])].sort());
   assert.ok(tools.every((t) => t.annotations?.readOnlyHint === true));
   const listClients = tools.find((t) => t.name === "list_clients");
   const limit = (listClients?.inputSchema.properties as Record<string, { maximum?: number; default?: number }>).limit;
@@ -229,5 +231,18 @@ test("a read token only gets read tools", async () => {
 
 test("a write token also gets the write tools", async () => {
   const { names } = await listToolNames("write");
-  assert.deepEqual(names, [...new Set([...READ_TOOLS, ...WRITE_TOOLS, ...SALES_READ_TOOLS, ...SALES_WRITE_TOOLS])].sort());
+  assert.deepEqual(
+    names,
+    [
+      ...new Set([
+        ...READ_TOOLS,
+        ...WRITE_TOOLS,
+        ...SALES_READ_TOOLS,
+        ...SALES_WRITE_TOOLS,
+        ...RECRUITMENT_AI_READ_TOOLS,
+        ...RECRUITMENT_AI_WRITE_TOOLS,
+        ...JOB_RUN_TOOLS,
+      ]),
+    ].sort(),
+  );
 });

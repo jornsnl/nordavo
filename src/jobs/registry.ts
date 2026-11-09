@@ -66,6 +66,8 @@ export const fallbackJobs: Record<string, { claudeTask: string; task: string }> 
   "s4-email-enrich": { claudeTask: "claude-companies", task: "New companies and vacancies from Apify and Prospeo" },
   "s8-instantly-sync": { claudeTask: "claude-replies", task: "Replies from Instantly and Seleqt" },
   "s8-webpartners-import": { claudeTask: "claude-calcom", task: "Cal.com bookings to Meetings" },
+  "t2-match": { claudeTask: "claude-match", task: "Matches from the talent pool and the search brief" },
+  "screening-score": { claudeTask: "claude-screening", task: "CV scores against the job description" },
 };
 
 export type Chain = {

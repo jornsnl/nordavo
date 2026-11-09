@@ -39,7 +39,7 @@ export type CvReadResult = {
   fields: CvFields | null;
 };
 
-function toFields(raw: CvFields): CvFields {
+export function toFields(raw: CvFields): CvFields {
   return {
     full_name: raw.full_name?.trim().slice(0, 200) || null,
     email: cleanEmail(raw.email),

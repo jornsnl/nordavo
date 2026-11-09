@@ -79,8 +79,13 @@ export function canSeePath(path: string, modules: readonly PortalModule[] | null
   return mod === null || modules.includes(mod);
 }
 
+/** Claude's scheduled tasks that belong to recruitment, not sales (docs/claude-jobs.md). */
+export const CLAUDE_RECRUITMENT_JOBS: readonly string[] = ["claude-match", "claude-screening"];
+
 /** Which module a job belongs to. Mirrors public.job_module() in the database. */
 export function jobModule(jobName: string): PortalModule | null {
+  // Claude's recruitment tasks (docs/claude-jobs.md); mirrors public.job_module().
+  if (CLAUDE_RECRUITMENT_JOBS.includes(jobName)) return "recruitment";
   if (/^s[0-9]+-/.test(jobName) || jobName.startsWith("max-") || jobName.startsWith("claude-")) return "sales";
   if (jobName.startsWith("work-") || jobName.startsWith("clickup-")) return null;
   if (jobName.startsWith("academy-")) return "academy";

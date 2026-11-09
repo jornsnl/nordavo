@@ -1,12 +1,12 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { Check, CircleAlert, KanbanSquare, Lock, Plus, Sparkles, UserCheck, Users, X } from "lucide-react";
+import { Check, Clock, KanbanSquare, Lock, Plus, Sparkles, UserCheck, Users, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { hasClaude } from "@/lib/ai/claude";
 import type { MatchStatus } from "@/lib/database.types";
-import { listVacancyMatches, type MatchWithCandidate } from "@/lib/data/matches";
+import { getMatchRequestedAt, listVacancyMatches, type MatchWithCandidate } from "@/lib/data/matches";
 import { formatDateTime } from "@/lib/format";
 import { matchStatuses, optionFor } from "@/lib/labels";
 import { addMatchToPipelineAction, runMatchingAction, setMatchStatusAction } from "@/app/dashboard/vacancies/talent-actions";
@@ -184,7 +184,9 @@ function MatchCard({ vacancyId, match }: { vacancyId: string; match: MatchWithCa
 /** T2 matches for a vacancy: the shortlist of portal candidates. */
 export async function MatchesSection({ vacancyId, hasRequirements }: { vacancyId: string; hasRequirements: boolean }) {
   const matches = await listVacancyMatches(vacancyId);
-  const ready = hasClaude();
+  // With an API key the portal matches inline; without one Claude does it through the MCP.
+  const inline = hasClaude();
+  const requestedAt = await getMatchRequestedAt(vacancyId);
   const strong = matches.filter((m) => (m.score ?? 0) >= 70 && m.status !== "afgewezen").length;
 
   return (
@@ -198,19 +200,25 @@ export async function MatchesSection({ vacancyId, hasRequirements }: { vacancyId
         }
       />
       <CardBody className="space-y-4">
-        {!ready && (
-          <p className="flex gap-2 rounded-xl border border-amber-600/20 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-            <CircleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
-            Matching needs Claude: set ANTHROPIC_API_KEY.
-          </p>
-        )}
-        {ready && !hasRequirements && (
+        {!hasRequirements && (
           <p className="text-sm text-muted">Fill in the fixed requirements first. Without a stack or must haves there is nothing to match on.</p>
         )}
-        {ready && hasRequirements && (
-          <ActionButton action={runMatchingAction.bind(null, vacancyId)} variant="primary" size="md" pendingLabel="Claude is scoring the pool, this takes a moment">
+        {hasRequirements && requestedAt && (
+          <p className="flex gap-2 rounded-xl border border-brand-200 bg-brand-50 px-3 py-2 text-sm text-brand-900" role="status">
+            <Clock className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+            Waiting for Claude since {formatDateTime(requestedAt)}. Its scheduled task claude-match scores the pool and saves the
+            matches here.
+          </p>
+        )}
+        {hasRequirements && (
+          <ActionButton
+            action={runMatchingAction.bind(null, vacancyId)}
+            variant="primary"
+            size="md"
+            pendingLabel={inline ? "Claude is scoring the pool, this takes a moment" : "Queueing"}
+          >
             <Sparkles aria-hidden="true" />
-            {matches.length > 0 ? "Match again" : "Match"}
+            {inline ? (matches.length > 0 ? "Match again" : "Match") : matches.length > 0 ? "Ask Claude to match again" : "Ask Claude to match"}
           </ActionButton>
         )}
         <p className="text-xs text-muted">
