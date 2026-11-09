@@ -2,6 +2,9 @@ import { CircleHelp, TriangleAlert } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardBody, CardHeader, DetailList } from "@/components/ui/card";
 import { hasClaude } from "@/lib/ai/claude";
+import { vacancyExtractionSchema } from "@/lib/ai/prompts/vacancy";
+import { latestAiRequest } from "@/lib/ai/queue";
+import { createClient } from "@/lib/supabase/server";
 import type { Vacancy } from "@/lib/database.types";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { optionFor, seniorities } from "@/lib/labels";
@@ -28,7 +31,12 @@ function List({ items, empty }: { items: string[]; empty: string }) {
 }
 
 /** T1: the fixed requirements ("vaste eisen") of a vacancy, with the intake panel. */
-export function RequirementsCard({ vacancy }: { vacancy: Vacancy }) {
+export async function RequirementsCard({ vacancy }: { vacancy: Vacancy }) {
+  // Claude's reading through the MCP (claude-requests), when the portal has no API key.
+  const request = await latestAiRequest(await createClient(), "vacancy_extract", vacancy.id);
+  const parsed = request?.status === "done" ? vacancyExtractionSchema.safeParse(request.result) : null;
+  const claudeReading = parsed?.success ? { values: parsed.data, rawText: vacancy.raw_text ?? "" } : null;
+  const readingPending = request?.status === "pending";
   const hasRequirements = vacancy.stack.length > 0 || vacancy.must_haves.length > 0;
   const contact = vacancy.client_contact_required;
 
@@ -128,6 +136,8 @@ export function RequirementsCard({ vacancy }: { vacancy: Vacancy }) {
             extractAction={extractVacancyAction.bind(null, vacancy.id)}
             saveAction={saveRequirementsAction.bind(null, vacancy.id)}
             hasClaude={hasClaude()}
+            proposal={claudeReading}
+            proposalPending={readingPending}
             defaultText={vacancy.raw_text ?? vacancy.description ?? ""}
             current={{
               stack: vacancy.stack,

@@ -17,6 +17,7 @@ import { extractDocxText } from "@/lib/screening/docx";
 import { addToPipeline, findCandidateByContact } from "@/lib/screening/import";
 import { extractPdfText, looksLikeText } from "@/lib/screening/pdf-text";
 import { ATTACHMENTS_BUCKET, buildStoragePath } from "@/lib/storage";
+import { requestAi } from "@/lib/ai/queue";
 
 /**
  * Reading CVs (2.6.2, 2.11): text from DOCX in code, from PDF in code when
@@ -114,7 +115,7 @@ export async function readCvFile(bytes: Buffer, fileName: string, kind: CvFileKi
       return { text: null, status: "pending", note: `Claude could not read the PDF (${error instanceof Error ? error.message : "unknown error"}). Try Read CV again later.`, fields: null };
     }
   }
-  return { text: null, status: "pending", note: "PDF stored, text pending: Claude is not connected yet (ANTHROPIC_API_KEY).", fields: null };
+  return { text: null, status: "pending", note: "PDF stored, text pending: Claude reads it through the MCP in its next run.", fields: null };
 }
 
 export type CvUploadInput = {
@@ -230,6 +231,7 @@ export async function processCvUpload(db: Db, input: CvUploadInput, kind: CvFile
   }
   const { error: updateError } = await db.from("candidates").update(update).eq("id", candidateId);
   if (updateError) throw new Error(`Could not save the CV text: ${updateError.message}`);
+  await queueCvReading(db, candidateId, read, { path, name: input.fileName, kind });
 
   let alreadyInVacancy = false;
   if (input.vacancyId) {
@@ -278,5 +280,58 @@ export async function readStoredCv(db: Db, candidateId: string): Promise<{ statu
   };
   const { error: updateError } = await db.from("candidates").update(update).eq("id", candidateId);
   if (updateError) throw new Error(`Could not save the CV text: ${updateError.message}`);
+  await queueCvReading(db, candidateId, read, { path: candidate.cv_path, name: fileName, kind });
   return { status: read.status, note: read.note, characters: read.text?.length ?? 0 };
+}
+
+/**
+ * Without the API key Claude reads CVs through the MCP (claude-requests):
+ * the fields from text read in code (cv_fields), or a PDF the portal could
+ * not read (cv_read, text and fields).
+ */
+export async function queueCvReading(db: Db, candidateId: string, read: CvReadResult, file: { path: string; name: string; kind: CvFileKind }) {
+  if (hasClaude()) return;
+  if (read.text && !read.fields) {
+    await requestAi(db, {
+      kind: "cv_fields",
+      module: "recruitment",
+      entityType: "candidate",
+      entityId: candidateId,
+      system: CV_READ_SYSTEM,
+      input: `File: ${file.name}\n\n${read.text.slice(0, 60000)}`,
+    });
+  } else if (read.status === "pending" && file.kind === "pdf") {
+    await requestAi(db, {
+      kind: "cv_read",
+      module: "recruitment",
+      entityType: "candidate",
+      entityId: candidateId,
+      system: `${CV_READ_SYSTEM}\n\n${CV_PDF_EXTRA}`,
+      input: [
+        { type: "file", path: file.path, mime: "application/pdf", title: file.name },
+        { type: "text", text: `File: ${file.name}. Read this CV.` },
+      ],
+    });
+  }
+}
+
+/** Store what Claude read: the text (when given and not read yet) and fields that are still empty. */
+export async function applyCvReading(db: Db, candidateId: string, reading: { cv_text?: string | null; fields?: CvFields | null }) {
+  const { data: candidate, error } = await db
+    .from("candidates")
+    .select("id, cv_text_status, email, phone, linkedin_url, current_title, years_experience, skills, summary, video_url, employers")
+    .eq("id", candidateId)
+    .maybeSingle();
+  if (error) throw new Error(`Could not load the candidate: ${error.message}`);
+  if (!candidate) throw new Error("This candidate no longer exists.");
+  const update: TablesUpdate<"candidates"> = {};
+  const text = storableCvText(reading.cv_text);
+  if (text && candidate.cv_text_status !== "read") {
+    Object.assign(update, { cv_text: text, cv_text_status: "read", cv_read_at: new Date().toISOString() });
+  }
+  if (reading.fields) Object.assign(update, fillEmpty(candidate, { ...toFields(reading.fields), video_url: null }));
+  if (Object.keys(update).length === 0) return { updated: [] as string[] };
+  const { error: updateError } = await db.from("candidates").update(update).eq("id", candidateId);
+  if (updateError) throw new Error(`Could not save the CV reading: ${updateError.message}`);
+  return { updated: Object.keys(update) };
 }

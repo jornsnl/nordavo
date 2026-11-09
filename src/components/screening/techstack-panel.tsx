@@ -111,9 +111,9 @@ export function TechstackPanel({
               {selected.size > 0 ? `Check ${selected.size} selected` : `Check all ${rows.length}`}
             </Button>
             <label className="flex items-center gap-2 text-sm text-ink">
-              <input type="checkbox" name="use_claude" className="size-4 accent-brand-700" disabled={!claude} defaultChecked={claude} />
+              <input type="checkbox" name="use_claude" className="size-4 accent-brand-700" defaultChecked />
               <Sparkles className="size-4 text-accent-600" aria-hidden="true" />
-              Let Claude judge the unclear ones {claude ? "(Haiku, low cost)" : "(not connected)"}
+              Let Claude judge the unclear ones {claude ? "(Haiku, low cost)" : "(through the MCP, in its next run)"}
             </label>
             <Button type="button" variant="secondary" className="sm:ml-auto" disabled={plan.pass.length + failCount === 0} onClick={() => setConfirmOpen(true)}>
               Review moves

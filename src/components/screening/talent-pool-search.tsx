@@ -10,11 +10,11 @@ import { Button } from "@/components/ui/button";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { Field, Textarea } from "@/components/ui/field";
 import { SearchSelect } from "@/components/ui/search-select";
-import type { TalentPoolHit } from "@/lib/screening/talent-search";
+import type { TalentPoolAnswer, TalentPoolHit } from "@/lib/screening/talent-search";
 import type { TalentActionState } from "@/lib/talent/types";
 import { createPoolProfileAction, talentPoolSearchAction, type TalentPoolState } from "@/app/dashboard/vacancies/screening-actions";
 
-type VacancyOption = { id: string; title: string; clientName: string };
+export type VacancyOption = { id: string; title: string; clientName: string };
 
 /** Talent pool AI (2.15): a profile in free text or a vacancy in, the top 5 out. */
 export function TalentPoolSearch({ vacancies, claude }: { vacancies: VacancyOption[]; claude: boolean }) {
@@ -47,31 +47,50 @@ export function TalentPoolSearch({ vacancies, claude }: { vacancies: VacancyOpti
               {pending ? <LoaderCircle className="animate-spin" aria-hidden="true" /> : <Search aria-hidden="true" />}
               {pending ? "Searching the pool" : "Find the top 5"}
             </Button>
-            {!claude && <p className="text-sm text-amber-900">Claude is not connected (ANTHROPIC_API_KEY): the top 5 is ranked by keyword overlap only.</p>}
+            {!claude && (
+              <p className="text-sm text-muted">
+                You see the keyword ranking right away; Claude ranks the shortlist through the MCP in its next run of claude-requests.
+              </p>
+            )}
             <ActionFeedback state={state} />
           </form>
         </CardBody>
       </Card>
 
-      {answer && answer.hits.length > 0 && (
-        <section aria-labelledby="pool-results" className="space-y-3">
-          <div>
-            <h2 id="pool-results" className="font-display text-base font-semibold text-brand-900">
-              Top {answer.hits.length} for {answer.requirements.title}
-            </h2>
-            <p className="text-sm text-muted">
-              {answer.poolSize} candidates matched the stack in the pool, {answer.shortlisted} shortlisted, ranked by {answer.rankedBy === "claude" ? "Claude" : "keyword overlap"}.
-              {answer.requirements.stack.length > 0 && ` Looked for: ${answer.requirements.stack.join(", ")}.`}
-            </p>
-          </div>
-          <ol className="space-y-3">
-            {answer.hits.map((hit, i) => (
-              <HitCard key={hit.candidateId} rank={i + 1} hit={hit} vacancies={vacancies} defaultVacancyId={state.vacancyId} />
-            ))}
-          </ol>
-        </section>
-      )}
+      {answer && answer.hits.length > 0 && <AnswerList answer={answer} vacancies={vacancies} defaultVacancyId={state.vacancyId} />}
     </div>
+  );
+}
+
+/** The ranked candidates of one answer: from the search above, or a later answer of Claude. */
+export function AnswerList({
+  answer,
+  vacancies,
+  defaultVacancyId,
+  heading,
+}: {
+  answer: TalentPoolAnswer;
+  vacancies: VacancyOption[];
+  defaultVacancyId?: string;
+  heading?: string;
+}) {
+  return (
+    <section className="space-y-3">
+      <div>
+        <h2 className="font-display text-base font-semibold text-brand-900">
+          {heading ?? `Top ${answer.hits.length} for ${answer.requirements.title}`}
+        </h2>
+        <p className="text-sm text-muted">
+          {answer.poolSize} candidates matched the stack in the pool, {answer.shortlisted} shortlisted, ranked by {answer.rankedBy === "claude" ? "Claude" : "keyword overlap"}.
+          {answer.requirements.stack.length > 0 && ` Looked for: ${answer.requirements.stack.join(", ")}.`}
+        </p>
+      </div>
+      <ol className="space-y-3">
+        {answer.hits.map((hit, i) => (
+          <HitCard key={hit.candidateId} rank={i + 1} hit={hit} vacancies={vacancies} defaultVacancyId={defaultVacancyId} />
+        ))}
+      </ol>
+    </section>
   );
 }
 

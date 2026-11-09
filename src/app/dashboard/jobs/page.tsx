@@ -364,7 +364,7 @@ function FallbackJobs({
 /** Claude's tasks: sales work, plus matching and screening for recruitment. RLS shows each user the runs of their modules. */
 async function ClaudeSection() {
   const user = await getCurrentUser();
-  if (!hasModule(user, "sales") && !hasModule(user, "recruitment")) return null;
+  if (!hasModule(user, "sales") && !hasModule(user, "recruitment") && !hasModule(user, "academy")) return null;
   return <ClaudeRuns />;
 }
 

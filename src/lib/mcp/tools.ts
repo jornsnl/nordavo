@@ -791,7 +791,7 @@ function registerReadTools(server: McpServer, ctx: McpToolContext) {
     {
       title: "Talent pool top candidates",
       description:
-        "The best candidates in Nordavo's talent pool for a profile: give a free text profile (for example 'senior data engineer, Python and dbt, Snowflake a plus') or a vacancy_id. The pool is prefiltered on stack and seniority (placed, unavailable and junior candidates are left out; for a vacancy also everyone already in its pipeline) and Claude ranks the shortlist. Returns per candidate the score (null when Claude is not connected and only keywords ranked), the reason, risks, missing must haves, skills, project experience, location and seniority. No contact details.",
+        "The best candidates in Nordavo's talent pool for a profile: give a free text profile (for example 'senior data engineer, Python and dbt, Snowflake a plus') or a vacancy_id. The pool is prefiltered on stack and seniority (placed, unavailable and junior candidates are left out; for a vacancy also everyone already in its pipeline) and Claude ranks the shortlist. Returns per candidate the score (null when only keywords ranked: then rank_yourself holds the redacted shortlist and the instructions, so you judge it yourself), the reason, risks, missing must haves, skills, project experience, location and seniority. No contact details.",
       inputSchema: {
         profile: z.string().min(3).max(4000).optional().describe("Free text description of the wanted profile."),
         vacancy_id: idSchema.optional().describe("Use the stack and must haves of this vacancy instead of free text."),
@@ -808,6 +808,8 @@ function registerReadTools(server: McpServer, ctx: McpToolContext) {
           pool_matches: answer.poolSize,
           shortlisted: answer.shortlisted,
           ranked_by: answer.rankedBy,
+          // Without the API key you rank the shortlist yourself: score each candidate (ref is the candidate id) with these instructions.
+          rank_yourself: answer.forClaude ?? null,
           candidates: answer.hits.map((h) => ({
             id: h.candidateId,
             name: h.name,

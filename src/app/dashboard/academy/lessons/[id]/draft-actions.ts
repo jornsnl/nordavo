@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { type ActionState, GENERIC_ERROR } from "@/lib/action-state";
 import { ClaudeRefusalError, askJson, hasClaude } from "@/lib/ai/claude";
+import { requestAi } from "@/lib/ai/queue";
+import { insertLessonDraft } from "@/lib/academy/ats/draft-insert";
 import { requireAcademyManager } from "@/lib/academy/auth";
 import {
   DRAFT_TITLES,
@@ -12,19 +14,16 @@ import {
   draftSystemPrompt,
   lessonDraftSchema,
   normalizeDraft,
-  transcriptDraft,
 } from "@/lib/academy/ats/draft";
 import { blockTypes } from "@/lib/academy/blocks/types";
-import { sanitizeHtml } from "@/lib/academy/sanitize";
-import type { Json } from "@/lib/database.types";
 import { createClient } from "@/lib/supabase/server";
 
 // AI draft from a video transcript (Academy: beheeroverzichten, afhaakanalyse
 // en AI-concept uit transcript). Claude writes an explanation, tasks and a
 // knowledge check of three questions; they land as draft blocks at the end
 // of the lesson (academy_block_drafts: hidden from learners, not required)
-// for Nordavo to edit and accept. Without ANTHROPIC_API_KEY the transcript
-// itself becomes the draft explanation, with empty tasks and check blocks.
+// for Nordavo to edit and accept. Without ANTHROPIC_API_KEY Claude writes it
+// through the MCP (claude-requests).
 
 const guid = z.guid();
 
@@ -48,59 +47,6 @@ async function loadTranscript(lessonId: string, videoId: string | null, pasted: 
   return { transcript, videoId };
 }
 
-/** Insert the three draft blocks at the end of the lesson, with their tasks and questions. */
-async function insertDraft(lessonId: string, draft: NormalizedDraft, source: "ai" | "transcript", videoId: string | null): Promise<string | null> {
-  const supabase = await createClient();
-  const { data: last } = await supabase.from("academy_lesson_blocks").select("position").eq("lesson_id", lessonId).order("position", { ascending: false }).limit(1).maybeSingle();
-  let position = (last?.position ?? 0) + 1;
-  const created: string[] = [];
-  const insertBlock = async (type: "explanation" | "tasks" | "knowledge_check", content: Json) => {
-    const completion: Record<string, Json> = {};
-    for (const field of blockTypes[type].completionFields) completion[field.key] = field.defaultValue;
-    const { data, error } = await supabase
-      .from("academy_lesson_blocks")
-      // Not required while it is a draft, so it never holds up a green check.
-      .insert({ lesson_id: lessonId, type, position: position++, title: DRAFT_TITLES[type], content, required: false, completion })
-      .select("id")
-      .single();
-    if (error || !data) throw new Error(error?.message ?? "block not made");
-    created.push(data.id);
-    const { error: draftError } = await supabase.from("academy_block_drafts").insert({ block_id: data.id, source, video_id: videoId });
-    if (draftError) throw new Error(draftError.message);
-    return data.id;
-  };
-  try {
-    await insertBlock("explanation", { html: sanitizeHtml(draft.explanationHtml) });
-    const tasksBlock = await insertBlock("tasks", {});
-    if (draft.tasks.length > 0) {
-      const { error } = await supabase.from("academy_tasks").insert(
-        draft.tasks.map((t, i) => ({ block_id: tasksBlock, title: t.title, description: t.description, deadline_offset_days: t.deadline_offset_days, position: i + 1 })),
-      );
-      if (error) throw new Error(error.message);
-    }
-    const checkBlock = await insertBlock("knowledge_check", {});
-    if (draft.questions.length > 0) {
-      const { error } = await supabase.from("academy_check_questions").insert(
-        draft.questions.map((q, i) => ({
-          block_id: checkBlock,
-          question: q.question,
-          options: q.options as Json,
-          correct_index: q.correct_index,
-          explanation: q.explanation,
-          position: i + 1,
-        })),
-      );
-      if (error) throw new Error(error.message);
-    }
-    return null;
-  } catch (error) {
-    console.error("insertDraft", error);
-    // Leave nothing half made.
-    if (created.length > 0) await supabase.from("academy_lesson_blocks").delete().in("id", created);
-    return GENERIC_ERROR;
-  }
-}
-
 export async function generateLessonDraft(lessonId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
   await requireAcademyManager();
   if (!guid.safeParse(lessonId).success) return { error: "Lesson not found." };
@@ -117,36 +63,50 @@ export async function generateLessonDraft(lessonId: string, _prev: ActionState, 
   const { data: lesson } = await supabase.from("academy_lessons").select("title, language").eq("id", lessonId).maybeSingle();
   if (!lesson) return { error: "Lesson not found." };
 
-  let draft: NormalizedDraft;
-  let source: "ai" | "transcript" = "ai";
-  if (hasClaude()) {
+  if (!hasClaude()) {
+    // Claude writes the draft through the MCP (claude-requests); it lands at the end of the lesson.
     try {
-      const result = await askJson({
+      await requestAi(supabase, {
+        kind: "lesson_draft",
+        module: "academy",
+        entityType: "lesson",
+        entityId: lessonId,
+        context: { video_id: loaded.videoId },
         system: draftSystemPrompt(lesson.language),
         input: draftInput({ lessonTitle: lesson.title, transcript: loaded.transcript }),
-        schema: lessonDraftSchema,
-        effort: "medium",
-        maxTokens: 16000,
       });
-      draft = normalizeDraft(result);
     } catch (error) {
-      console.error("generateLessonDraft", error);
-      return { error: error instanceof ClaudeRefusalError ? "Claude declined this transcript." : "Claude could not make a draft. Try again." };
+      console.error("generateLessonDraft queue", error);
+      return { error: GENERIC_ERROR };
     }
-  } else {
-    draft = transcriptDraft(loaded.transcript, lesson.language);
-    source = "transcript";
+    refresh(lessonId);
+    return {
+      ok: true,
+      message: "Sent to Claude. The draft (explanation, tasks and three questions) lands at the end of the lesson after its next run of claude-requests.",
+    };
   }
 
-  const failed = await insertDraft(lessonId, draft, source, loaded.videoId);
+  let draft: NormalizedDraft;
+  try {
+    const result = await askJson({
+      system: draftSystemPrompt(lesson.language),
+      input: draftInput({ lessonTitle: lesson.title, transcript: loaded.transcript }),
+      schema: lessonDraftSchema,
+      effort: "medium",
+      maxTokens: 16000,
+    });
+    draft = normalizeDraft(result);
+  } catch (error) {
+    console.error("generateLessonDraft", error);
+    return { error: error instanceof ClaudeRefusalError ? "Claude declined this transcript." : "Claude could not make a draft. Try again." };
+  }
+
+  const failed = await insertLessonDraft(supabase, lessonId, draft, "ai", loaded.videoId);
   refresh(lessonId);
   if (failed) return { error: failed };
   return {
     ok: true,
-    message:
-      source === "ai"
-        ? `Draft made: explanation, ${draft.tasks.length} tasks and ${draft.questions.length} questions at the end of the lesson. Learners do not see it until you accept it.`
-        : "ANTHROPIC_API_KEY is not set: the transcript is now a draft explanation at the end of the lesson, with empty task and check blocks to fill in.",
+    message: `Draft made: explanation, ${draft.tasks.length} tasks and ${draft.questions.length} questions at the end of the lesson. Learners do not see it until you accept it.`,
   };
 }
 

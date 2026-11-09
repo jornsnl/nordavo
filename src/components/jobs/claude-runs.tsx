@@ -40,8 +40,8 @@ export async function ClaudeRuns() {
           Claude&apos;s scheduled tasks
         </h2>
         <p className="text-sm text-muted">
-          Cal.com bookings, replies from Instantly and Seleqt, sequences, new companies, ICP verdicts, matching and CV
-          scores. Claude runs these
+          Cal.com bookings, replies from Instantly and Seleqt, sequences, new companies, ICP verdicts, matching, CV
+          scores and the other requests for its judgement. Claude runs these
           on its own schedule through the MCP and logs every run here; a run that keeps saying Running did not finish.
         </p>
       </div>

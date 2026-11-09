@@ -3,7 +3,7 @@ import { Suspense } from "react";
 import Link from "next/link";
 import { Inbox } from "lucide-react";
 import { REVIEW_PAGE, type ReviewFilter, listReviewQueue } from "@/lib/academy/learn/admin";
-import { canProposeAssessment } from "@/lib/academy/learn/ai";
+import { hasClaude } from "@/lib/ai/claude";
 import { formatDateTime, formatRelativeDays } from "@/lib/format";
 import { EmptyState } from "@/components/dashboard/empty-state";
 import { PageHeader } from "@/components/dashboard/page-header";
@@ -58,8 +58,8 @@ async function Queue({ searchParams }: { searchParams: SearchParams }) {
           </Link>
         ))}
       </nav>
-      {!canProposeAssessment() && (
-        <p className="text-xs text-muted">The AI proposal is off: ANTHROPIC_API_KEY is not set. You can review everything yourself.</p>
+      {!hasClaude() && (
+        <p className="text-xs text-muted">Claude makes the AI proposal through the MCP in its next run of claude-requests; until then it says pending.</p>
       )}
       {items.length === 0 ? (
         <EmptyState icon={Inbox} title="Nothing here" description={filter === "waiting" ? "No assignment is waiting for a review." : "No assignments with this status."} />

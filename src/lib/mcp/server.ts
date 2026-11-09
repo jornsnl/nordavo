@@ -7,6 +7,7 @@ import { registerTools } from "@/lib/mcp/tools";
 import { registerSalesTools } from "@/lib/mcp/sales-tools";
 import { registerJobRunTool } from "@/lib/mcp/job-run-tool";
 import { registerRecruitmentAiTools } from "@/lib/mcp/recruitment-ai-tools";
+import { registerAiRequestTools } from "@/lib/mcp/ai-request-tools";
 import { effectiveModules, portalModules } from "@/lib/modules";
 
 export const MCP_SERVER_NAME = "nordavo";
@@ -36,6 +37,11 @@ function instructions(ctx: McpTokenContext) {
       "Matching and CV screening are done by you, not by the portal: list_match_requests, get_match_pool and save_matches (with save_search_brief) for matching; list_applications_to_score, get_cv_file, save_cv_text and save_cv_score for screening. Follow the instructions the tools return.",
     );
   }
+  if (modules.includes("recruitment") || modules.includes("academy")) {
+    lines.push(
+      "Other judgement the portal needs (reading vacancies and CVs, the techstack check, talent pool questions, anonymous profiles, prompt comparisons, Academy proposals and lesson drafts) waits in list_ai_requests; answer each with complete_ai_request in its answer_schema.",
+    );
+  }
   lines.push("Candidate and contact details are personal data: use them for the task at hand and do not copy them elsewhere unasked.");
   return lines.join("\n");
 }
@@ -51,6 +57,7 @@ export function createNordavoMcpServer(ctx: McpTokenContext, db: McpDb, siteUrl:
   registerTools(server, { ...ctx, db: scoped, siteUrl });
   registerSalesTools(server, { ...ctx, db: scoped, siteUrl });
   registerRecruitmentAiTools(server, { ...ctx, db: scoped, siteUrl });
+  registerAiRequestTools(server, { ...ctx, db: scoped, siteUrl });
   registerJobRunTool(server, { ...ctx, db: scoped, siteUrl });
   return server;
 }

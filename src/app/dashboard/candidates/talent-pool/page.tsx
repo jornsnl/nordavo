@@ -4,10 +4,14 @@ import Link from "next/link";
 import { ArrowLeft, GraduationCap } from "lucide-react";
 import { ButtonLink } from "@/components/ui/button";
 import { PageHeader } from "@/components/dashboard/page-header";
-import { TalentPoolSearch } from "@/components/screening/talent-pool-search";
+import { AnswerList, TalentPoolSearch } from "@/components/screening/talent-pool-search";
 import { ListSkeleton } from "@/components/ui/skeleton";
 import { hasClaude } from "@/lib/ai/claude";
+import { recentAiRequests } from "@/lib/ai/queue";
 import { listOpenVacancyOptions } from "@/lib/data/applications";
+import { formatDateTime } from "@/lib/format";
+import { answerFromRequest } from "@/lib/screening/talent-search";
+import { createClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = {
   title: "Talent pool",
@@ -45,6 +49,46 @@ export default function Page() {
 }
 
 async function Search() {
-  const vacancies = await listOpenVacancyOptions();
-  return <TalentPoolSearch vacancies={vacancies.map((v) => ({ id: v.id, title: v.title, clientName: v.clientName }))} claude={hasClaude()} />;
+  const vacancies = (await listOpenVacancyOptions()).map((v) => ({ id: v.id, title: v.title, clientName: v.clientName }));
+  return (
+    <div className="space-y-8">
+      <TalentPoolSearch vacancies={vacancies} claude={hasClaude()} />
+      {!hasClaude() && <ClaudeAnswers vacancies={vacancies} />}
+    </div>
+  );
+}
+
+/** Questions Claude ranked through the MCP (claude-requests), newest first. */
+async function ClaudeAnswers({ vacancies }: { vacancies: { id: string; title: string; clientName: string }[] }) {
+  const db = await createClient();
+  const requests = await recentAiRequests(db, "talent_pool_rank", 5);
+  if (requests.length === 0) return null;
+  const answers = await Promise.all(requests.map(async (r) => ({ request: r, answer: await answerFromRequest(db, r) })));
+  return (
+    <section aria-labelledby="claude-answers" className="space-y-6">
+      <h2 id="claude-answers" className="font-display text-lg font-semibold text-brand-900">
+        Claude&apos;s answers
+      </h2>
+      {answers.map(({ request, answer }) => {
+        const question = typeof request.context.query === "string" ? request.context.query : answer?.requirements.title ?? "Talent pool question";
+        if (request.status !== "done" || !answer) {
+          return (
+            <p key={request.id} className="rounded-2xl border border-dashed border-brand-200 bg-card px-5 py-4 text-sm text-muted">
+              &ldquo;{question}&rdquo;, asked {formatDateTime(request.createdAt)}:{" "}
+              {request.status === "failed" ? `Claude could not answer (${request.error ?? "unknown error"}).` : "waiting for Claude."}
+            </p>
+          );
+        }
+        return (
+          <AnswerList
+            key={request.id}
+            answer={answer}
+            vacancies={vacancies}
+            defaultVacancyId={typeof request.context.vacancy_id === "string" ? request.context.vacancy_id : undefined}
+            heading={`“${question}”, answered ${formatDateTime(request.completedAt ?? request.createdAt)}`}
+          />
+        );
+      })}
+    </section>
+  );
 }

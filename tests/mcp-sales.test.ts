@@ -308,3 +308,41 @@ test("claude-match and claude-screening are recruitment jobs, other claude-* job
   assert.equal(jobModule("claude-screening"), "recruitment");
   assert.equal(jobModule("claude-replies"), "sales");
 });
+
+test("every AI request kind has an answer schema, and the request tools follow the modules", async () => {
+  const { aiTasks, AI_REQUEST_KINDS } = await import("@/lib/ai/tasks");
+  assert.ok(AI_REQUEST_KINDS.length >= 9);
+  for (const kind of AI_REQUEST_KINDS) assert.ok(aiTasks[kind].schema && aiTasks[kind].what, `${kind} incomplete`);
+
+  const academy = await connect("write", { modules: ["academy"] });
+  try {
+    const names = (await academy.client.listTools()).tools.map((t) => t.name);
+    assert.ok(names.includes("list_ai_requests") && names.includes("complete_ai_request") && names.includes("log_job_run"));
+  } finally {
+    await academy.close();
+  }
+  const sales = await connect("write", { modules: ["sales"] });
+  try {
+    const names = (await sales.client.listTools()).tools.map((t) => t.name);
+    assert.ok(!names.includes("list_ai_requests"));
+  } finally {
+    await sales.close();
+  }
+});
+
+test("complete_ai_request needs a result or a reason and refuses unknown requests", async () => {
+  const { db } = fakeDb();
+  const { client, close } = await connect("write", { modules: ["recruitment"], db });
+  try {
+    const missing = await call(client, "complete_ai_request", { request_id: ID_A, result: { x: 1 } });
+    assert.ok(missing.isError);
+    assert.match(missing.text, /not found/);
+  } finally {
+    await close();
+  }
+});
+
+test("claude-requests is a job every staff member sees", async () => {
+  const { jobModule } = await import("@/lib/modules");
+  assert.equal(jobModule("claude-requests"), null);
+});

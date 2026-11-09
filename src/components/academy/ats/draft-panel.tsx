@@ -35,7 +35,7 @@ export function LessonDraftPanel({ lessonId, claude, videos, drafts }: Props) {
       <p className="mt-1 text-sm text-muted">
         {claude
           ? "Claude writes an explanation, tasks and a knowledge check of three questions from the transcript. They are added at the end as drafts: learners do not see them until you accept them."
-          : "ANTHROPIC_API_KEY is not set: the transcript becomes a draft explanation, with empty task and check blocks to fill in yourself."}
+          : "Claude writes an explanation, tasks and a knowledge check of three questions from the transcript through the MCP, in its next run of claude-requests. They are added at the end as drafts: learners do not see them until you accept them."}
       </p>
       <form action={action} className="mt-3 space-y-3">
         <FormMessage error={state.error} success={state.message} />

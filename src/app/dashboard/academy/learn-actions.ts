@@ -247,5 +247,6 @@ export async function requestAiProposal(submissionId: string): Promise<ActionSta
   const supabase = await createClient();
   const result = await proposeAssessment(supabase, submissionId);
   refresh();
-  return result.ok ? { ok: true, message: "AI proposal ready." } : { error: result.error ?? GENERIC_ERROR };
+  if (!result.ok) return { error: result.error ?? GENERIC_ERROR };
+  return { ok: true, message: result.queued ? "Sent to Claude. The proposal appears after its next run of claude-requests." : "AI proposal ready." };
 }

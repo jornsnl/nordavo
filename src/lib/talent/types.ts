@@ -5,4 +5,4 @@ import type { VacancyExtraction } from "@/lib/ai/prompts/vacancy";
 export type TalentActionState = ActionState & { warning?: string };
 
 /** Result of T1: Claude's extraction, shown as an editable form before saving. */
-export type IntakeState = ActionState & { extraction?: VacancyExtraction; rawText?: string };
+export type IntakeState = ActionState & { extraction?: VacancyExtraction; rawText?: string; queued?: boolean };

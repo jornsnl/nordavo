@@ -14,7 +14,7 @@ import type { AcademyLocale } from "@/lib/academy/database";
 //   knowledge_check  content {}, rows in academy_check_questions (question,
 //                    options, correct_index, explanation)
 //
-// Without ANTHROPIC_API_KEY transcriptDraft() makes the same three blocks
+// transcriptDraft() makes the same three blocks without AI
 // with the transcript as the explanation and no tasks or questions.
 
 export const MAX_TRANSCRIPT_CHARS = 60_000;

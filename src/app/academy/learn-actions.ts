@@ -8,7 +8,6 @@ import { t } from "@/lib/academy/i18n";
 import { MAX_SUBMISSION_FILE_BYTES, MAX_SUBMISSION_TEXT, isHttpUrl, submissionPath } from "@/lib/academy/learn/assignment";
 import { proposeAssessment } from "@/lib/academy/learn/ai";
 import { type CheckResult, parseCheckResult } from "@/lib/academy/learn/check";
-import { hasClaude } from "@/lib/ai/claude";
 import { ATTACHMENTS_BUCKET } from "@/lib/storage";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
@@ -89,8 +88,9 @@ export async function submitAssignment(formData: FormData): Promise<Result> {
   }
 
   // The AI proposal for Nordavo, after the response (needs the service role
-  // to write the staff-only assessment, and ANTHROPIC_API_KEY).
-  const admin = hasClaude() ? createAdminClient() : null;
+  // to write the staff-only assessment). Without ANTHROPIC_API_KEY it goes to
+  // Claude through the MCP.
+  const admin = createAdminClient();
   if (admin) {
     after(async () => {
       await proposeAssessment(admin, submissionId);
