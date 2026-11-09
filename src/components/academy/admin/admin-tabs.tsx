@@ -7,6 +7,8 @@ const tabs = [
   { label: "Courses", href: "/dashboard/academy" },
   { label: "People", href: "/dashboard/academy/people" },
   { label: "Groups", href: "/dashboard/academy/groups" },
+  { label: "Overview", href: "/dashboard/academy/overview" },
+  { label: "Automation", href: "/dashboard/academy/automation" },
   { label: "Library", href: "/dashboard/academy/library" },
   // Area placement
   { label: "Placements", href: "/dashboard/academy/placements" },

@@ -49,7 +49,7 @@ async function Groups() {
         <li key={g.id} className="flex items-start gap-3 rounded-2xl border border-border bg-card px-4 py-3.5 shadow-xs">
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
-              <Link href={`/dashboard/academy/people?group=${g.id}`} className="font-semibold text-brand-900 hover:underline">
+              <Link href={`/dashboard/academy/groups/${g.id}`} className="font-semibold text-brand-900 hover:underline">
                 {g.name}
               </Link>
               <Badge tone="neutral">{g.kind}</Badge>

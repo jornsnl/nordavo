@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, GraduationCap } from "lucide-react";
+import { ButtonLink } from "@/components/ui/button";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { TalentPoolSearch } from "@/components/screening/talent-pool-search";
 import { ListSkeleton } from "@/components/ui/skeleton";
@@ -29,6 +30,12 @@ export default function Page() {
         eyebrow="Recruitment"
         title="Talent pool"
         description="Ask who the best candidates are for a profile, with the reason, skills, project experience and location, and make an anonymous profile in one click."
+        actions={
+          <ButtonLink href="/dashboard/candidates/academy" variant="secondary">
+            <GraduationCap aria-hidden="true" />
+            Academy results
+          </ButtonLink>
+        }
       />
       <Suspense fallback={<ListSkeleton rows={4} />}>
         <Search />

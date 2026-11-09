@@ -83,6 +83,7 @@ export function canSeePath(path: string, modules: readonly PortalModule[] | null
 export function jobModule(jobName: string): PortalModule | null {
   if (/^s[0-9]+-/.test(jobName) || jobName.startsWith("max-") || jobName.startsWith("claude-")) return "sales";
   if (jobName.startsWith("work-") || jobName.startsWith("clickup-")) return null;
+  if (jobName.startsWith("academy-")) return "academy";
   return "recruitment";
 }
 

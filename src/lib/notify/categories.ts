@@ -10,6 +10,10 @@ export const mailCategories = [
   { value: "work_sign_in", label: "Work sign-in link" },
   { value: "caller_invite", label: "Caller invitation" },
   { value: "academy_invite", label: "Academy invitation" },
+  // Academy and ATS (docs/academy.md, ATS-koppeling)
+  { value: "academy_welcome", label: "Academy welcome (placed)" },
+  { value: "academy_top_candidate", label: "Academy top candidate" },
+  { value: "academy_reminder", label: "Academy reminder" },
   { value: "academy_digest", label: "Academy summary" },
   { value: "weekly_report", label: "Weekly report" },
   { value: "job_failure", label: "Job failure" },

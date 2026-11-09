@@ -7,6 +7,7 @@ import { ACADEMY_ROLES } from "@/lib/academy/people";
 import { formatDateTime } from "@/lib/format";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { PersonAccess, PersonGroups, PersonSettingsForm } from "@/components/academy/admin/person-forms";
+import { PersonProgressCard } from "@/components/academy/ats/person-progress";
 import { PersonLearningCards } from "@/components/academy/learn/person-learning";
 // Area: media (certificates, worksheet answers).
 import { PersonCertificates, PersonWorksheets } from "@/components/academy/admin/person-media";
@@ -58,6 +59,9 @@ async function Person({ params }: Pick<PageProps<"/dashboard/academy/people/[id]
               <PersonAccess detail={detail} />
             </CardBody>
           </Card>
+          <Suspense fallback={<ListSkeleton rows={4} />}>
+            <PersonProgressCard profileId={person.profile_id} />
+          </Suspense>
           {/* Area learn: knowledge checks, assignments, tasks, questionnaire. */}
           <Suspense fallback={<ListSkeleton rows={3} />}>
             <PersonLearningCards profileId={person.profile_id} />

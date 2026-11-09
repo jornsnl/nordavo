@@ -277,9 +277,8 @@ Beide courses staan als **concept**: niemand buiten Nordavo ziet ze tot een behe
 
 | Taak | Aanknopingspunten |
 | --- | --- |
-| ~~Plaatsingspagina, verlof, feestdagen, rituelen, pulse, reviews~~ | Gebouwd, zie sectie 14. De openstaande coursetaken van een plaatsing komen uit `<PlacementTasksPanel>` (sectie 12) |
-| Beheeroverzichten, afhaakanalyse, AI-concept uit transcript | `academy_people_progress()`, `academy_lesson_progress`, `academy_members.last_active_at`. De mensenlijst toont de 300 laatst toegevoegden |
-| Kandidatenbeheer en ATS-koppeling | `candidates.top_candidate`, `academy_members.candidate_id`, `academy_groups` (met `vacancy_id`), `academy_add_person()` met scope en open modules. Bij "geplaatst": rol naar developer en scope `all` (opnieuw `academy_add_person` met rol developer); voortgang blijft. Scores voor de kandidaatkaart en de talentpool: `academy_candidate_check_scores()`, `academy_candidate_assignments()`, `academy_candidate_questionnaire_results()`, `academy_candidate_learn_summary()` (sectie 12) |
+| ~~Plaatsingspagina, verlof, feestdagen, rituelen, pulse, reviews~~ | Gebouwd, zie sectie 14 |
+| ~~Kandidatenbeheer, ATS-koppeling, beheeroverzichten, afhaakanalyse, AI-concept~~ | Gebouwd, zie sectie 15 |
 
 ## 11. Omgevingsvariabelen
 
@@ -292,6 +291,8 @@ Beide courses staan als **concept**: niemand buiten Nordavo ziet ze tot een behe
 | `NEXT_PUBLIC_ACADEMY_BOOKING_URL` | Knop "Plan een call met Nordavo" als de plaatsing geen Nordavo contact met boekingslink heeft | Geen knop |
 | `ANTHROPIC_API_KEY` | AI-voorstel op de rubric bij opdrachten (sectie 12). Automatisch na inleveren vraagt ook `SUPABASE_SECRET_KEY`; anders met de knop op de beoordelingspagina | Geen voorstel; Nordavo beoordeelt zelf |
 | `CRON_SECRET` | De dagelijkse job `academy-task-reminders` (`.github/workflows/academy-task-reminders.yml`) | De job draait alleen met de hand (Jobs of `npm run job`) |
+| `SUPABASE_SECRET_KEY`, `RESEND_API_KEY`, `MAIL_FROM`, `CRON_SECRET` | ATS-koppeling (sectie 15): accounts bij geplaatst en bij inschrijven vanuit het ATS, welkomst-, topkandidaat- en herinneringsmails, de jobs `academy-ats-sync`, `academy-reminders`, `academy-retention` | Wat de database zelf kan gebeurt wel (modules van topkandidaten, inschrijven van bestaande Academy-accounts, het databasedeel van geplaatst via de knop); de rest blijft in de wachtrij tot de sleutel er is |
+| `ANTHROPIC_API_KEY` | AI-concept uit transcript (sectie 15) | Het transcript wordt zelf het concept (uitleg), met lege taken- en kennischeckblokken |
 
 ## 12. Opdracht, taken, kennischeck en vragenlijst (gebied learn)
 
@@ -510,3 +511,107 @@ Beide roepen de app aan met `CRON_SECRET` (`.github/workflows/academy-placement-
 
 * Openstaande coursetaken: de plaatsingspagina en de Academy-tab tonen `<PlacementTasksPanel>` (gebied learn, sectie 12).
 * Meldingen komen in `academy_notifications`; de mailsamenvatting (andere bouwer) stuurt ze door.
+
+## 15. ATS-koppeling, kandidatenbeheer, automatisering en beheeroverzichten (gebied ats)
+
+Academy en ATS gebruiken dezelfde kandidaat (`academy_members.candidate_id`), er is geen aparte lijst. Alles is live uit de database, zonder export. De resultaten zijn achtergrond voor Nordavo: niets wijst iemand automatisch af.
+
+| Onderdeel | Waar |
+| --- | --- |
+| Migraties | `20261113300000_academy_ats_core.sql` (instellingen, groepsinstellingen, gebeurtenissen, inschrijven, topkandidaat, geplaatst, triggers), `20261113310000_academy_ats_read.sql` (talentpool, kandidaatkaart, AI-concepten verborgen), `20261113320000_academy_ats_manage.sql` (overzichten, afhaakanalyse, groepsrapport, herinneringen, bewaartermijn) |
+| SQL test | `supabase/tests/academy_ats.test.sql` |
+| Types | `src/lib/academy/ats/database.ts` (samengevoegd in `src/lib/database.types.ts`) |
+| Puur (getest in `tests/academy-ats.test.ts`) | `src/lib/academy/ats/pool.ts` (filters, sorteren, pagina's), `mail.ts` (herinnering, welkom, topkandidaat), `draft.ts` (AI-concept) |
+| Server | `src/lib/academy/ats/data.ts` (lezen), `process.ts` (de app-kant van de automatisering: accounts, mails) |
+| Acties | `src/app/dashboard/candidates/academy-actions.ts` (ATS naar Academy), `src/app/dashboard/academy/automation/actions.ts` (instellingen, groepen), `src/app/dashboard/academy/lessons/[id]/draft-actions.ts` (AI-concept) |
+| UI | `src/components/academy/ats/*` |
+| Jobs | `src/jobs/academy-ats.ts`: `academy-ats-sync` (ieder uur), `academy-reminders` (dagelijks 10:00), `academy-retention` (maandag 06:00), planning in `.github/workflows/academy-ats-jobs.yml` |
+
+Teksten: het dashboard is Engels; de mails aan kandidaten, developers en klanten staan in `mail.ts` in het Nederlands en Engels (taal van de persoon, klanten Nederlands). Er zijn geen nieuwe teksten in de deelnemer-UI, dus geen `i18n/ats.ts`.
+
+### Instellingen
+
+Eén rij `academy_ats_settings`, te wijzigen op `/dashboard/academy/automation` (alleen beheer; het recruitmentteam leest mee):
+
+| Instelling | Standaard |
+| --- | --- |
+| Developercourse, klantcourse | Leeg: het startcurriculum (`developer`, `client`) |
+| Extra modules voor topkandidaten | Developer module 3 (Working independently and escalating) |
+| Mail aan topkandidaat | Aan |
+| Klantcontactpersoon uitnodigen, welkomstmails bij geplaatst | Aan |
+| Herinneringen | Aan, na 7 dagen zonder activiteit, hooguit 3 keer sinds de laatste activiteit, 7 dagen ertussen |
+| Bewaartermijn | 12 maanden, anonimiseren, **uit** (de job doet dan alleen een proefrun) |
+
+### ATS naar Academy
+
+* **Kandidaatkaart** (`/dashboard/candidates/[id]`, kaart Academy): toevoegen aan de developercourse (standaardmodules plus gekozen extra modules, optioneel een groep, uitnodigingsmail), open modules per persoon (met "Open now" voor direct open), topkandidaat aan/uit, en wat de automatisering deed met een knop om af te maken wat wacht.
+* **Talentpool met Academy-kolommen** (`/dashboard/candidates/academy`, ook vanaf de kandidatenlijst en de talentpool): per kandidaat voortgang, lessen, kennischeck, AI-voorstel en eindscore van opdrachten, kijkpercentage, gestart, doorlooptijd, laatste activiteit (rood na 14 dagen), certificaat, topkandidaat. Sorteren op elke kolom, filteren op in de Academy, voortgang, certificaat, topkandidaat, vacature, groep, minimale voortgang en kennischeckscore, 14 dagen inactief. In bulk: aan de developercourse toevoegen, topkandidaat aan of uit, aan een groep toevoegen; voor de aangevinkte kandidaten of voor alle treffers van de filters (dus een hele lijst of een hele vacature, hooguit 5000).
+* De kandidatenlijst heeft een kolom Academy (voortgang, rood als inactief, vinkje bij certificaat).
+* Inschrijven loopt via een wachtrij (`academy_ats_queue_enrol`, hooguit één open inschrijving per kandidaat): de eerste 25 meteen, de rest door `academy-ats-sync` binnen het uur. Nieuwe accounts krijgen een uitnodiging (`generateLink`, vereist `SUPABASE_SECRET_KEY`); een bestaand account wordt ingeschreven. Zonder e-mailadres bij de kandidaat wordt niets gedaan (overgeslagen, met reden).
+* Inschrijven doen alleen Academy-beheerders (module `academy`, de database controleert het). Topkandidaat markeren mag het recruitmentteam (het is een kolom van `candidates`).
+
+### Academy naar ATS
+
+| Functie | Wat |
+| --- | --- |
+| `academy_ats_progress(candidate_ids?)` (intern) | Per kandidaat in de developercourse: ingeschreven, lessen gedaan en totaal, voortgang %, modules, gestart, afgerond (certificaat of alle modules), doorlooptijd in dagen, laatste activiteit, 14 dagen inactief, kennischecks (beste poging per check, gemiddeld), opdrachten (laatste poging: ingeleverd, wachtend op reactie, gemiddelde AI-score en eindscore), kijkpercentage (gemiddeld over alle video's van de course, niet bekeken telt als 0), certificaat |
+| `academy_ats_pool(...)` | De talentpool: filters, sorteren (`name`, `progress`, `lessons`, `check`, `ai`, `final`, `watch`, `last_activity`, `lead_time`, `started`, `certificate`), pagina's, `total_count` |
+| `academy_ats_columns(candidate_ids)` | Kolommen voor de kandidatenlijst |
+| `academy_ats_candidate_detail(candidate)` | De kaart: samenvatting, `academy_person_detail` en de laatste gebeurtenissen |
+| `academy_person_detail(profile)` | Courses met scope, modules met toestand en afronddatum, lessen met data, video's met kijkpercentage, certificaten, groepen (beheer; recruitment alleen voor kandidaten) |
+
+Lezen mogen Academy-beheerders en teamleden met module `recruitment` (`academy_ats_can_read()`). De kaart haalt kennischecks, opdrachten (met link naar de beoordeling) en de uitslag van de vragenlijst uit de functies van sectie 12 (`academy_candidate_check_scores`, `academy_candidate_assignments`, `academy_candidate_questionnaire_results`). De talentpool rekent in één SQL-query met dezelfde regels (beste poging, laatste poging), maar alleen binnen de developercourse; `academy_candidate_learn_summary` telt over alle courses. Snelheid: 5000 kandidaten, 3000 in de Academy, een pagina van de talentpool in ongeveer 0,15 seconde (lokaal gemeten); extra indexen staan in de read-migratie.
+
+### Automatisering op ATS-statussen
+
+Alles komt in `academy_ats_events` (log en wachtrij, alleen-lezen voor beheer en recruitment, zichtbaar op `/dashboard/academy/automation`, op de kandidaatkaart en op de plaatsing). Status `pending` (de app moet nog iets doen), `done`, `skipped` (met reden) of `failed` (met fout; de job probeert het tot vijf keer, met de hand altijd opnieuw). Idempotent: één gebeurtenis per plaatsing (`placed:<id>`), per kandidaat en groep, per markering als topkandidaat; elke stap wordt op de gebeurtenis genoteerd en nooit herhaald (geen tweede welkomstmail).
+
+**Geplaatst.** Een plaatsing vastleggen (`createPlacement`, ook vanuit de pipeline) zet via een trigger op `placements` een gebeurtenis in de wachtrij; de app pakt hem direct na het antwoord op (`after()`), anders `academy-ats-sync`. Een plaatsing faalt nooit door de Academy. Stappen (`processPlaced` in `process.ts` en `academy_ats_apply_placement()` in SQL):
+
+1. Developer: het Academy-account van de kandidaat, of een nieuw account met het ATS-adres. Rol `developer` (het team houdt zijn rol), startdatum van de plaatsing, de hele developercourse (scope `all`); afgeronde voortgang blijft. Lid van de plaatsing.
+2. Klantcontactpersoon: de primaire contactpersoon van de klant (anders de eerste met een adres). Bestaand of nieuw account, rol `client` bij deze klant, Academy-rol `client_admin` tenzij al in de Academy, klantcourse (scope `all`). Alle Academy-gebruikers van de klant worden lid van de plaatsing met hun rol. Een adres van een teamlid, beller of andere klant wordt overgeslagen.
+3. Plaatsingspagina: de tijdlijn via `academy_ensure_milestones()` (dag 1 is de startdatum, week 1, 30 dagen en de review na 90 dagen, eenmaal per soort; zie sectie 14) en de rituelen via `academy_ensure_placement_rituals()`: één kopie per sjabloon van de courses die de leden volgen, die het sjabloon blijft volgen tot Nordavo hem aanpast. Beide zijn idempotent; een tweede keer geplaatst voegt niets toe.
+4. Taken: eigen taken met een relatieve deadline krijgen een statusrij met echte datum (`academy_ats_deadline`, einde van de dag in de eigen tijdzone, gelijk aan `deadlineFromOffset`); gedeelde taken van beide courses een statusrij voor de plaatsing. Een bestaande datum blijft. Placement-only taken worden zichtbaar door het lidmaatschap. Gestarte lessen van de developer worden opnieuw berekend. (Het takenblok uit sectie 12 rekent deadlines ook zelf uit met `academy_task_instances`; de statusrijen zijn daarmee in lijn.)
+5. Welkomstmail aan developer en klant (`academy_welcome` in het maillog), met link om een wachtwoord in te stellen of om in te loggen.
+
+Opnieuw draaien: knop op de plaatsing (Academy-kaart; ook voor plaatsingen van vóór de koppeling) of `academy_ats_rerun_placement()` (alleen het databasedeel, zonder sleutel).
+
+**Gekoppeld aan een vacature.** Een groep met `vacancy_id` en in `academy_group_settings` `auto_enrol` aan (instellen op `/dashboard/academy/groups/[id]`, met extra modules en mail aan of uit): elke kandidaat die aan de vacature wordt gekoppeld (trigger op `applications`) krijgt de developercourse met de standaardmodules en komt in de groep. Met een bestaand Academy-account gebeurt dat meteen in de database, anders maakt de app het account. "Add everyone in the vacancy now" doet het voor wie al in de pipeline staat. Een campagne is een groep zonder vacature: kandidaten erin zetten kan in bulk vanuit de talentpool.
+
+**Topkandidaat.** `candidates.top_candidate` aan: `top_candidate_at` wordt gezet en de ingestelde extra modules gaan open (`academy_open_modules`, op volgorde, niet geforceerd), met een melding in de app en een mail (`academy_top_candidate`). Uit: die rijen gaan weg; voortgang blijft en een gestarte module blijft open. Wordt een topkandidaat later ingeschreven, dan krijgt hij de modules alsnog. Per persoon aan te passen op de kaart of de mensenpagina.
+
+### Kandidatenbeheer
+
+* Groepen per vacature, maand of campagne: `/dashboard/academy/groups/[id]` met rapport: leden, gestart, afgerond (met gemiddelde doorlooptijd), 14 dagen inactief, gemiddelde voortgang, kennischeck en eindscore, certificaten, scoreverdeling (0-49, 50-69, 70-89, 90-100) voor kennischecks en opdrachten, en waar ze afhaken. Filteren per groep in de talentpool en het overzicht.
+* **Herinneringen** (`academy-reminders`, dagelijks): `academy_stuck_candidates()` geeft kandidaten (rol `candidate`) met toegang tot de gepubliceerde developercourse, niet klaar, met een open les die nog niet af is, zonder activiteit sinds de ingestelde dagen (laatste van `last_active_at`, lesvoortgang, kijken, anders uitnodiging), minder dan het maximum aantal herinneringen sinds die activiteit en niet in de laatste herhaaldagen. Per persoon een melding (`academy_notify`, soort `reminder`, met link naar de volgende les) en een mail (`academy_reminder`), vastgelegd in `academy_reminders`. `--dry-run=1` telt alleen. Achterstallige taken herinnert de job uit sectie 12.
+* **Bewaartermijn** (`academy-retention`, wekelijks). In het ATS bestond nog geen bewaartermijn voor de talentpool; die is nu een instelling (standaard 12 maanden, de gangbare AVG-termijn voor een talentpool met toestemming). `academy_retention_candidates()` kiest behoudend: Academy-rol en portaalrol `candidate`, nooit geplaatst (geen plaatsing, status niet `placed`, nooit lid van een plaatsing), geen sollicitatie in de flow (alleen geparkeerd of afgewezen), en geen activiteit in ATS of Academy (aanmaken, uitnodiging, leren, kandidaat bijgewerkt, sollicitaties) sinds de termijn.
+  * Staat bewaren uit, of `--dry-run=1`: alleen tellen en per persoon een regel `dry_run` in `academy_retention_log`.
+  * Anonimiseren (`academy_retention_anonymise()`, controleert opnieuw): notities, werkbladantwoorden, opdrachten (en hun bestanden), vragenlijst en toestemming, meldingen, certificaten (en pdf), herinneringen en vrije blokstatus weg; antwoorden van kennischecks geleegd; de koppeling met de ATS-kandidaat en naam en mail weg. Lesvoortgang, scores en kijkpercentages blijven als anonieme cijfers voor de afhaakanalyse. Het inlogaccount krijgt een onbruikbaar adres en wordt geblokkeerd.
+  * Verwijderen: het account en daarmee alle Academy-data (cascade), plus de bestanden.
+  * Hooguit 50 personen per run (`--limit=`), elke stap in de log (zonder namen of adressen), fouten per persoon. **De ATS-kandidaat zelf blijft staan**: een bewaartermijn voor het ATS (CV, contactgegevens) is een eigen besluit van Nordavo.
+  * Aanzetten: eerst een proefrun bekijken op `/dashboard/academy/automation`, dan "Retention is on".
+
+### Beheeroverzichten en afhaakanalyse
+
+`/dashboard/academy/overview` (tab Overview):
+
+| Functie | Wat |
+| --- | --- |
+| `academy_admin_people(client?, group?, role?, course?)` | Per persoon: lessen gedaan en totaal in de gepubliceerde courses met toegang, kijkpercentage, open en achterstallige taken (in gestarte lessen; eigen of gedeeld via de plaatsing), opdrachten die op reactie wachten, pulse (laatste, gemiddelde, gemarkeerd), laatste activiteit en 14 dagen inactief. Klant: eigen klant of de klant van de (laatste) plaatsing |
+| `academy_admin_rollup('client' of 'group')` | Dezelfde cijfers per klantbedrijf of per kandidatengroep |
+| `academy_lesson_funnel(course, group?, client?)` | Per les in volgorde: cohort (mensen met toegang), bereikt, afgerond, en "gestopt hier" (verste les, niet af, 14 dagen inactief, course niet af) |
+| `academy_group_report(group, course?)` | Het groepsrapport hierboven |
+
+Alleen voor beheer (pulse is nooit voor klanten). De mensenpagina toont per persoon courses, lessen met voortgang en kijkpercentage per video (de kaarten van sectie 12 tonen checks, opdrachten en taken).
+
+### AI-concept uit transcript
+
+In de lessen-editor (`/dashboard/academy/lessons/[id]`): kies een video uit de les met transcript (`academy_video_versions.transcript` van de huidige versie) of plak een transcript, en "Make a draft". Claude (Anthropic SDK, `askJson` in `src/lib/ai/claude.ts`, schema in `draft.ts`) schrijft in de taal van de les:
+
+| Conceptblok | Opgeslagen als |
+| --- | --- |
+| Uitleg | `explanation`, content `{ html }` (opgeschoond met `sanitizeHtml`) |
+| Taken | `tasks`, content `{}`, rijen in `academy_tasks` (titel, uitleg, `deadline_offset_days`) |
+| Kennischeck | `knowledge_check`, content `{}`, drie rijen in `academy_check_questions` (vraag, opties, `correct_index`, uitleg) |
+
+De blokken komen achteraan, niet verplicht, met titel "Draft: ...", en staan in `academy_block_drafts`. Een restrictive policy op `academy_lesson_blocks` en `academy_tasks` verbergt ze voor deelnemers tot Nordavo ze accepteert (dan verplicht zoals het bloktype standaard is, en de conceptitel weg) of weggooit. Bewerken gebeurt gewoon in het blok; dat houdt het concept verborgen. Zonder `ANTHROPIC_API_KEY` wordt het transcript (zonder WebVTT-tijden) de conceptuitleg met lege taken- en kennischeckblokken.

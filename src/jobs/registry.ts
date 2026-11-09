@@ -13,6 +13,7 @@ import { interviewReminders } from "./interview-reminders";
 import { clickupImport, workDaily, workNotify } from "./work";
 import { formsReminders } from "./forms-reminders";
 import { academyPlacements, academyRituals } from "./academy-placements";
+import { academyAtsSync, academyReminders, academyRetention } from "./academy-ats";
 import { academyTaskReminders } from "./academy-tasks";
 import { academyDigest, academyTranscribe } from "./academy";
 
@@ -42,6 +43,9 @@ export const jobs: Record<string, Job> = Object.fromEntries(
   formsReminders,
   academyRituals,
   academyPlacements,
+  academyAtsSync,
+  academyReminders,
+  academyRetention,
   academyTaskReminders,
   academyDigest,
   academyTranscribe,

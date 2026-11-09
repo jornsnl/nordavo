@@ -1,0 +1,56 @@
+name: Academy ATS jobs
+
+# Scheduled jobs of the Academy and ATS link (docs/academy.md, ATS-koppeling).
+# They call the running app, so its environment (SUPABASE_SECRET_KEY,
+# RESEND_API_KEY, MAIL_FROM) is used and nothing is installed here.
+#   academy-ats-sync    hourly: finish placements, enrolments, top candidate mails
+#   academy-reminders   daily 10:00 Europe/Amsterdam: candidates who got stuck
+#   academy-retention   Mondays 06:00 Europe/Amsterdam: a dry run unless
+#                       retention is switched on in /dashboard/academy/automation
+# The guard keeps the right UTC hour across summer and winter time.
+on:
+  schedule:
+    - cron: "41 * * * *" # academy-ats-sync
+    - cron: "0 8,9 * * *" # academy-reminders, 10:00 Amsterdam
+    - cron: "0 4,5 * * 1" # academy-retention, Monday 06:00 Amsterdam
+  workflow_dispatch:
+    inputs:
+      job:
+        description: "academy-ats-sync, academy-reminders or academy-retention"
+        required: true
+      params:
+        description: 'Optional JSON params, e.g. {"dry-run":"1"}'
+        required: false
+
+concurrency:
+  group: academy-ats-${{ github.event.schedule || github.event.inputs.job }}
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Pick the job
+        id: pick
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "job=${{ github.event.inputs.job }}" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          HOUR=$(TZ=Europe/Amsterdam date +%H)
+          case "${{ github.event.schedule }}" in
+            "41 * * * *") echo "job=academy-ats-sync" >> "$GITHUB_OUTPUT" ;;
+            "0 8,9 * * *") [ "$HOUR" = "10" ] && echo "job=academy-reminders" >> "$GITHUB_OUTPUT" ;;
+            "0 4,5 * * 1") [ "$HOUR" = "06" ] && echo "job=academy-retention" >> "$GITHUB_OUTPUT" ;;
+          esac
+          true
+      - name: Call the app
+        if: steps.pick.outputs.job != ''
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          SITE_URL: ${{ secrets.NEXT_PUBLIC_SITE_URL }}
+          PARAMS: ${{ github.event.inputs.params || '{}' }}
+        run: |
+          curl -fsS -X POST -H "Authorization: Bearer $CRON_SECRET" -H "Content-Type: application/json" \
+            -d "{\"params\": $PARAMS}" "$SITE_URL/api/jobs/${{ steps.pick.outputs.job }}"
