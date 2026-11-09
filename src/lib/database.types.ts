@@ -9,6 +9,7 @@ import type { AcademyPlacementFunctions, AcademyPlacementTables } from "@/lib/ac
 import type { AcademyAtsFunctions, AcademyAtsTables } from "@/lib/academy/ats/database";
 import type { LearnFunctions } from "@/lib/academy/learn/database";
 import type { AcademyMediaFunctions, AcademyMediaTables } from "@/lib/academy/media/database";
+import type { WspFunctions, WspTables } from "@/lib/wsp/database";
 import type {
   ActivityDirection,
   ActivityType,
@@ -2528,7 +2529,7 @@ export type Database = {
         };
         Relationships: [];
       };
-    } & WorkTables & FormsTables & SalesTables & AcademyTables & AcademyMediaTables & AcademyPlacementTables & AcademyAtsTables;
+    } & WorkTables & FormsTables & SalesTables & AcademyTables & AcademyMediaTables & AcademyPlacementTables & AcademyAtsTables & WspTables;
     Views: {
       call_list_candidates: { Row: ListCandidateBase & { phone: string; linkedin_url: string | null }; Relationships: [] };
       mail_list_candidates: { Row: ListCandidateBase & { email: string }; Relationships: [] };
@@ -2699,7 +2700,7 @@ export type Database = {
         Args: { p_entity: CustomFieldEntity; p_new: Json; p_old?: Json };
         Returns: CustomFieldValues;
       };
-    } & WorkFunctions & FormsFunctions & SalesFunctions & AcademyFunctions & LearnFunctions & AcademyMediaFunctions & AcademyPlacementFunctions & AcademyAtsFunctions;
+    } & WorkFunctions & FormsFunctions & SalesFunctions & AcademyFunctions & LearnFunctions & AcademyMediaFunctions & AcademyPlacementFunctions & AcademyAtsFunctions & WspFunctions;
     Enums: { [_ in never]: never };
     CompositeTypes: { [_ in never]: never };
   };

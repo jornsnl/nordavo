@@ -4,9 +4,10 @@ const tabs = [
   { key: "general", label: "General", href: "/dashboard/settings" },
   { key: "callers", label: "Callers", href: "/dashboard/settings/callers" },
   { key: "mail-log", label: "Mail log", href: "/dashboard/settings/mail-log" },
+  { key: "working-style", label: "Working style", href: "/dashboard/settings/working-style" },
 ] as const;
 
-/** Tabs at the top of Settings. Callers and Mail log are for admins only. */
+/** Tabs at the top of Settings. Callers, Mail log and Working style are for admins only. */
 export function SettingsTabs({ active, isAdmin }: { active: (typeof tabs)[number]["key"]; isAdmin: boolean }) {
   if (!isAdmin) return null;
   return (

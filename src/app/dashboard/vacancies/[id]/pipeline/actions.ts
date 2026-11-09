@@ -9,6 +9,7 @@ import type { ApplicationStage, TablesUpdate } from "@/lib/database.types";
 import { applicationStages } from "@/lib/labels";
 import { PRESENTED_STAGES } from "@/components/pipeline/stages";
 import { createClient } from "@/lib/supabase/server";
+import { sendWspMailAfter } from "@/lib/wsp/after";
 
 const stageValues = applicationStages.map((s) => s.value) as [ApplicationStage, ...ApplicationStage[]];
 
@@ -85,6 +86,7 @@ export async function moveApplication(
     .eq("id", parsed.data.applicationId);
   if (error) return { error: "The move failed. Please try again." };
 
+  sendWspMailAfter(); // a stage can be the Working Style Profile trigger
   revalidateBoard(current.vacancy_id, current.candidate_id);
   return { ok: true };
 }

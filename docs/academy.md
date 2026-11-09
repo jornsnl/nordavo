@@ -346,7 +346,7 @@ Vier bloktypes: opdracht (`assignment`), taken (`tasks`), kennischeck (`knowledg
 
 ### Vragenlijst (persoonlijkheidstest)
 
-**De inhoud van de persoonlijkheidstest volgt nog (Julius specificeert die).** Gebouwd is het generieke mechanisme:
+**Let op:** de persoonlijkheidstest van Julius is gebouwd als eigen functie, het Nordavo Working Style Profile (`docs/working-style-profile.md`, tabellen `wsp_*`), niet als dit lesblok. Dit bloktype blijft een generieke vragenlijst voor in een les; het Working Style Profile komt niet in `academy_candidate_questionnaire_results` of `academy_candidate_learn_summary`. Gebouwd is het generieke mechanisme:
 
 * In de editor: inleiding, toestemmingstekst, labels voor 1 en 5 van de schaal, of de deelnemer zijn uitslag ziet (standaard niet), scoringsdimensies (optioneel) en vragen: schaal 1 tot 5 (eventueel omgekeerd), keuze (per optie een score 1 tot 5 voor de dimensie) of open, elk verplicht of niet. Vaste vraag-id's; pas vragen aan voordat mensen beginnen.
 * Toestemming eerst: `academy_questionnaire_consent(block, true)` legt `consented_at` vast; intrekken (`false`) zet `withdrawn_at` en verwijdert de antwoorden. Daarna kan de persoon opnieuw beginnen.
@@ -750,3 +750,17 @@ Migratie `20261115000000_academy_security.sql`, SQL test `supabase/tests/academy
 | Accounts bij toevoegen | Eerst controleren (`academy_add_person_check`), dan pas een account maken; mislukt het toevoegen toch, dan wordt het net gemaakte account verwijderd. De ATS-automatisering verwijdert een net gemaakt account als het databasedeel faalt | `src/app/dashboard/academy/people/actions.ts`, `src/lib/academy/ats/process.ts` |
 
 Let op: de rol in het sessietoken wordt pas bij het verversen van de sessie bijgewerkt (hooguit een uur). De pagina's en de database controleren daarom zelf ook; een klant lid met een oud token komt via de proxy nog op `/portal`, maar `requireClient()` stuurt hem door en de portaalfuncties geven niets.
+
+## 18. Working Style Profile
+
+De Big Five vragenlijst van Julius is een eigen functie naast de Academy: zie [working-style-profile.md](working-style-profile.md). Raakvlakken met de Academy:
+
+| Onderdeel | Hoe |
+| --- | --- |
+| Wie is de persoon | De ATS-kandidaat; het Academy-account via `academy_members.candidate_id` (`wsp_my_person_id()`) |
+| Pagina voor developers en kandidaten | `/academy/working-style` ("My working style profile") en `/academy/working-style/<id>`, met een icoon in de kop van de Academy zolang de functie aan staat |
+| Meldingen | `academy_notify()` met soort `wsp_invite` en `wsp_permission_request`, link naar `/academy/working-style` |
+| Plaatsing | Een eigen trigger op `placements` (`wsp_on_placement`) naast `academy_ats_on_placement`; de Academy-automatisering is niet aangepast |
+| Beheer | Kaart Working style profile op `/dashboard/academy/people/<id>` en `/dashboard/placements/<id>` |
+
+Teksten zijn alleen Engels (de opdracht vraagt geen vertalingen), daarom niet in `i18n.ts`.
