@@ -130,6 +130,10 @@ export type AcademyVideoVersionRow = {
   subtitles_en_path: string | null;
   transcript: string | null;
   transcript_status: AcademyTranscriptStatus;
+  /** nl or en: the language of the transcript (media migration). */
+  transcript_language: AcademyLocale | null;
+  /** Why automatic transcription failed (media migration). */
+  transcript_error: string | null;
   created_by: string | null;
   created_at: string;
 };
@@ -659,7 +663,15 @@ export type AcademyFunctions = {
   academy_open_lesson: Fn<{ p_lesson_id: string; p_course_id?: string | null }, Json>;
   academy_record_block_view: Fn<{ p_block_id: string }, undefined>;
   academy_record_watch: Fn<
-    { p_video_id: string; p_version_id: string | null; p_position_seconds: number; p_percent: number; p_watched_seconds?: number },
+    {
+      p_video_id: string;
+      p_version_id: string | null;
+      p_position_seconds: number;
+      p_percent: number;
+      p_watched_seconds?: number;
+      /** Played [start, end] ranges; the percent is computed from them (media migration). */
+      p_ranges?: Json | null;
+    },
     Json
   >;
   academy_course_outline: Fn<{ p_course_id: string }, AcademyOutlineRow[]>;
