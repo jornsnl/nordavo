@@ -313,7 +313,7 @@ function registerReadTools(server: McpServer, ctx: McpToolContext) {
       const [contacts, vacancies, placements, notes] = await Promise.all([
         db
           .from("client_contacts")
-          .select("id, full_name, email, phone, job_title, is_primary")
+          .select("id, full_name, email, phone, job_title, linkedin_url, is_primary")
           .eq("client_id", id)
           .order("is_primary", { ascending: false })
           .order("full_name")

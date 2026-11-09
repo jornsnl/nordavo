@@ -44,6 +44,15 @@ const fieldLabels: Record<string, string> = {
   assigned_until: "Caller until",
   company_id: "Company",
   is_primary: "Primary contact",
+  segment: "Segment",
+  icp_reason: "ICP reason",
+  icp_score: "ICP score",
+  legal_form: "Legal form",
+  kvk_number: "KvK number",
+  phone_type: "Phone type",
+  email_status: "Mail status",
+  manual_position: "Manual order",
+  draft_body: "Concept text",
 };
 
 const valueLabels: Record<string, { value: string; label: string }[]> = {
@@ -75,6 +84,8 @@ export function valueText(field: string | null | undefined, value: Json | null |
 /** One sentence for a change row. */
 export function describeChange(field: string | null, oldValue: Json | null, newValue: Json | null): string {
   if (field === "pinned_at") return newValue ? "Pinned on top" : "Unpinned";
+  if (field === "manual_position") return newValue === null ? "Taken out of the manual order" : "Moved in the manual order";
+  if (field === "draft_body") return "Concept text written, waits for approval";
   if (field === "is_primary") return newValue ? "Made the primary contact" : "No longer the primary contact";
   if (field && field.endsWith("_id")) return `${fieldLabel(field)} changed`;
   return `${fieldLabel(field)} from ${valueText(field, oldValue)} to ${valueText(field, newValue)}`;

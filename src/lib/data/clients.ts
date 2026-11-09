@@ -83,7 +83,7 @@ export async function getClientContacts(clientId: string) {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("client_contacts")
-    .select("id, full_name, email, phone, job_title, is_primary")
+    .select("id, full_name, email, phone, job_title, linkedin_url, is_primary")
     .eq("client_id", clientId)
     .order("is_primary", { ascending: false })
     .order("full_name");

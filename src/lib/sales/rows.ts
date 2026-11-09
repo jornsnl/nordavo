@@ -6,7 +6,7 @@ import type { ContactStatus, EmailStatus, IcpDecision, PhoneType } from "@/lib/d
 import type { CompanyCategory, ContactRole, LeadStatus, PipelineStage } from "@/lib/sales/database";
 import type { Accessor, SortRule } from "@/lib/sales/grid";
 import { contactStatuses, contactTiers, icpDecisions } from "@/lib/labels";
-import { companyCategories, companyPrios, contactRoles, leadStatuses, pipelineStages } from "@/lib/sales/labels";
+import { companyCategories, companyPrios, contactRoles, contactRouteOptions, leadStatuses, parseRoute, pipelineStages } from "@/lib/sales/labels";
 
 export type PrimaryContact = {
   id: string;
@@ -161,6 +161,13 @@ const list = (input: string) => ({
     .filter(Boolean),
 });
 
+/** Pasted Excel text such as "Bellen" or "06" becomes one of the fixed routes. */
+const route = (input: string) => {
+  if (input.trim() === "") return { value: null };
+  const hit = parseRoute(input);
+  return hit ? { value: hit } : { error: `Pick one of: ${routeOptions.map((o) => o.label).join(", ")}.` };
+};
+
 const prioOptions = opts(companyPrios);
 const categoryOptions = opts(companyCategories);
 const leadStatusOptions = opts(leadStatuses);
@@ -168,6 +175,7 @@ const stageOptions = opts(pipelineStages);
 const icpOptions = opts(icpDecisions);
 const roleOptions = opts(contactRoles);
 const statusOptions = opts(contactStatuses);
+const routeOptions = contactRouteOptions.map((o) => ({ value: o.value as string, label: o.label }));
 const tierOptions = contactTiers.map((t) => ({ value: t.value, label: `Tier ${t.value}` }));
 
 export const companyColumns: ColumnDef<CompanyRow>[] = [
@@ -230,7 +238,7 @@ export const contactColumns: ColumnDef<ContactRow>[] = [
   { key: "title", label: "Job title", type: "text", field: "title", entity: "contact", width: 160, defaultVisible: true, get: (r) => r.title, parse: text },
   { key: "tier", label: "Tier", type: "select", field: "tier", entity: "contact", options: tierOptions, width: 80, defaultVisible: true, get: (r) => (r.tier == null ? null : String(r.tier)), parse: (i) => { const r = choice(tierOptions)(i.replace(/^tier\s*/i, "")); return "value" in r && r.value != null ? { value: Number(r.value) } : r; } },
   { key: "role", label: "Role", type: "select", field: "role", entity: "contact", options: roleOptions, width: 100, defaultVisible: true, get: (r) => r.role, parse: requiredChoice(roleOptions) },
-  { key: "route", label: "Route", type: "text", field: "route", entity: "contact", width: 120, defaultVisible: true, get: (r) => r.route, parse: text },
+  { key: "route", label: "Route", type: "select", field: "route", entity: "contact", options: routeOptions, width: 130, defaultVisible: true, get: (r) => r.route, parse: route },
   { key: "phone", label: "Mobile", type: "phone", field: "phone", entity: "contact", width: 140, defaultVisible: true, get: (r) => r.phone, parse: text },
   { key: "email", label: "Mail", type: "email", field: "email", entity: "contact", width: 200, defaultVisible: true, get: (r) => r.email, parse: text },
   { key: "attempts", label: "Attempts", type: "number", field: "attempts", entity: "contact", width: 90, defaultVisible: true, get: (r) => r.attempts, parse: number(0, 99) },

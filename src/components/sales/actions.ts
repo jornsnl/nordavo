@@ -115,9 +115,11 @@ const positionsSchema = z.object({
   entity: z.enum(["company", "contact"]),
   ids: z.array(uuid).min(1).max(20000),
   positions: z.array(z.number().finite()).min(1).max(20000),
+  /** The dragged row: the reorder is logged once, on this row. */
+  moved: uuid.optional(),
 });
 
-/** Stores the dragged order of rows (one call for the whole view). */
+/** Stores the dragged order of rows (one call and one activity per drag). */
 export async function setPositions(input: z.input<typeof positionsSchema>): Promise<EditResult> {
   await requireModule("sales");
   const parsed = positionsSchema.safeParse(input);
@@ -129,6 +131,7 @@ export async function setPositions(input: z.input<typeof positionsSchema>): Prom
     p_entity: parsed.data.entity,
     p_ids: parsed.data.ids,
     p_positions: parsed.data.positions,
+    p_moved: parsed.data.moved ?? null,
   });
   if (error) return { ok: false, error: friendly(error.message) };
   return { ok: true, count: data ?? 0 };
