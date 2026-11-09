@@ -298,6 +298,37 @@ select pg_temp.check((select count(distinct module_id) from public.academy_cours
 select pg_temp.check(
   (select bool_and(module_state = 'open') from public.academy_course_outline('00000000-0000-0000-0000-00000000bc11')),
   'manager outline is all open');
+
+-- Editor helpers: duplicate a lesson (deep copy) and a module.
+select public.academy_duplicate_lesson('00000000-0000-0000-0000-00000000bf01', '00000000-0000-0000-0000-00000000bd01') as copy_id \gset
+select pg_temp.check((select status = 'draft' and title = 'L1 video and tasks (copy)' from public.academy_lessons where id = :'copy_id'), 'copy is a draft');
+select pg_temp.check((select count(*) from public.academy_lesson_blocks where lesson_id = :'copy_id') = 4, 'blocks copied');
+select pg_temp.check((select count(*) from public.academy_tasks t join public.academy_lesson_blocks b on b.id = t.block_id where b.lesson_id = :'copy_id') = 2, 'tasks copied');
+select pg_temp.check(
+  (select position from public.academy_module_lessons where lesson_id = :'copy_id') between 1 and 2,
+  'copy right after the original');
+select pg_temp.check((select video_id from public.academy_lesson_blocks where lesson_id = :'copy_id' and type = 'video') = '00000000-0000-0000-0000-00000000be01', 'video shared, not copied');
+select public.academy_duplicate_module('00000000-0000-0000-0000-00000000bd05') as module_copy \gset
+select pg_temp.check((select status = 'draft' and position = 7 from public.academy_modules where id = :'module_copy'), 'module copy at the end, draft');
+select pg_temp.check((select count(*) from public.academy_module_lessons where module_id = :'module_copy') = 2, 'module copy has its lessons');
+select pg_temp.check(
+  not exists (select 1 from public.academy_module_lessons a join public.academy_module_lessons b on a.lesson_id = b.lesson_id
+    where a.module_id = :'module_copy' and b.module_id = '00000000-0000-0000-0000-00000000bd05'),
+  'module copy has its own lessons');
+select pg_temp.check((select count(*) from public.academy_module_requirements where module_id = :'module_copy') = 1, 'requirements copied');
+select pg_temp.check((select count(*) from public.academy_client_options()) >= 1, 'managers see client names');
+reset role;
+
+-- Learners cannot use the editor helpers.
+select pg_temp.act('cand.en@example.in');
+set role authenticated;
+select pg_temp.check((select count(*) from public.academy_client_options()) = 0, 'learner sees no client options');
+select pg_temp.check((select count(*) from public.academy_candidate_options(null)) = 0, 'learner sees no candidates');
+do $$ begin
+  perform public.academy_duplicate_lesson('00000000-0000-0000-0000-00000000bf01');
+  raise exception 'FAIL: learner duplicated a lesson';
+exception when insufficient_privilege then null;
+end $$;
 reset role;
 
 rollback;

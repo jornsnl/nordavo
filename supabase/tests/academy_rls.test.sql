@@ -133,6 +133,9 @@ select public.academy_add_person('00000000-0000-0000-0000-00000000a007', 'develo
   '00000000-0000-0000-0000-00000000acd1', (select id from public.academy_courses where slug = 'developer'), 'all', '{}');
 select public.academy_add_person('00000000-0000-0000-0000-00000000a008', 'candidate', null, null, null,
   '00000000-0000-0000-0000-00000000acd2', (select id from public.academy_courses where slug = 'developer'), 'default', '{}');
+select public.academy_add_person(p_profile_id => '00000000-0000-0000-0000-00000000a008', p_academy_role => 'candidate', p_time_zone => 'Asia/Kolkata');
+select pg_temp.check((select time_zone from public.profiles where id = '00000000-0000-0000-0000-00000000a008') = 'Asia/Kolkata', 'time zone set on adding');
+select pg_temp.check((select scope from public.academy_course_access where profile_id = '00000000-0000-0000-0000-00000000a008') = 'default', 'adding again keeps access');
 insert into public.academy_placement_members (placement_id, profile_id, role) values
   ('00000000-0000-0000-0000-00000000ac91', '00000000-0000-0000-0000-00000000a004', 'client_admin'),
   ('00000000-0000-0000-0000-00000000ac91', '00000000-0000-0000-0000-00000000a005', 'client_member'),

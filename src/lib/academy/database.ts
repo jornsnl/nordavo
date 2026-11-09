@@ -679,6 +679,7 @@ export type AcademyFunctions = {
       p_course_id?: string | null;
       p_scope?: AcademyScope;
       p_open_module_ids?: string[];
+      p_time_zone?: string | null;
     },
     undefined
   >;
@@ -687,6 +688,10 @@ export type AcademyFunctions = {
   academy_can_see_video: Fn<{ p_video_id: string }, boolean>;
   academy_can_see_document: Fn<{ p_document_id: string }, boolean>;
   academy_can_read_file: Fn<{ p_path: string }, boolean>;
+  academy_client_options: Fn<Record<string, never>, { id: string; name: string }[]>;
+  academy_candidate_options: Fn<{ p_search?: string | null }, { id: string; full_name: string; email: string | null; top_candidate: boolean }[]>;
+  academy_duplicate_lesson: Fn<{ p_lesson_id: string; p_module_id?: string | null }, string>;
+  academy_duplicate_module: Fn<{ p_module_id: string }, string>;
   /** Service role only. */
   academy_notify: Fn<
     { p_profile_id: string; p_kind: string; p_title: string; p_body?: string | null; p_link?: string | null; p_payload?: Json },

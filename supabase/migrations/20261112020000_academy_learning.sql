@@ -1110,7 +1110,9 @@ create or replace function public.academy_add_person(
   p_candidate_id uuid default null,
   p_course_id uuid default null,
   p_scope text default 'all',
-  p_open_module_ids uuid[] default '{}'
+  p_open_module_ids uuid[] default '{}',
+  -- profiles.time_zone (Europe/Amsterdam, Asia/Kolkata); null keeps it.
+  p_time_zone text default null
 )
 returns void
 language plpgsql
@@ -1179,6 +1181,10 @@ begin
     invited_at = now(),
     invited_by = excluded.invited_by;
 
+  if p_time_zone is not null and v_role not in ('admin', 'member') then
+    update public.profiles set time_zone = p_time_zone where id = p_profile_id;
+  end if;
+
   if p_course_id is not null then
     insert into public.academy_course_access (course_id, profile_id, scope)
     values (p_course_id, p_profile_id, p_scope)
@@ -1226,7 +1232,7 @@ begin
     'academy_can_open_lesson(uuid)', 'academy_can_open_module(uuid)', 'academy_touch()', 'academy_open_lesson(uuid, uuid)',
     'academy_record_block_view(uuid)', 'academy_record_watch(uuid, uuid, numeric, integer, numeric)',
     'academy_course_outline(uuid)', 'academy_my_courses()', 'academy_lesson_blocks_state(uuid)',
-    'academy_people_progress()', 'academy_add_person(uuid, text, text, date, uuid, uuid, uuid, text, uuid[])'
+    'academy_people_progress()', 'academy_add_person(uuid, text, text, date, uuid, uuid, uuid, text, uuid[], text)'
   ] loop
     execute format('revoke execute on function public.%s from public, anon', v_fn);
     execute format('grant execute on function public.%s to authenticated, service_role', v_fn);
