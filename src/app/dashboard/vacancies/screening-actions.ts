@@ -308,13 +308,60 @@ export async function saveScreeningRequirementsAction(vacancyId: string, _prev: 
   };
 }
 
+const QUEUED = "Claude scores them in its next run of claude-screening.";
+
+/**
+ * Without ANTHROPIC_API_KEY Claude scores through the MCP (task
+ * claude-screening). Unscored CVs are always in its queue; a re-score is
+ * asked for with score_requested_at.
+ */
+async function queueVacancyScores(vacancyId: string, rescore: boolean): Promise<TalentActionState> {
+  const supabase = await createClient();
+  if (rescore) {
+    const { data, error } = await supabase
+      .from("applications")
+      .update({ score_requested_at: new Date().toISOString() })
+      .eq("vacancy_id", vacancyId)
+      .not("stage", "in", "(rejected,placed)")
+      .select("id");
+    if (error) return { error: GENERIC_ERROR };
+    revalidateVacancy(vacancyId);
+    return data.length > 0 ? { ok: true, message: `${data.length} CVs queued for a new score. ${QUEUED}` } : { ok: true, warning: "No candidates to score." };
+  }
+  const { count, error } = await supabase
+    .from("applications")
+    .select("id", { count: "exact", head: true })
+    .eq("vacancy_id", vacancyId)
+    .not("stage", "in", "(rejected,placed)")
+    .is("cv_scored_at", null);
+  if (error) return { error: GENERIC_ERROR };
+  return count
+    ? { ok: true, message: `${count} unscored CVs are in Claude's queue. ${QUEUED}` }
+    : { ok: true, warning: "Every candidate already has a score. Tick re-score to score them again." };
+}
+
+async function queueApplicationScore(applicationId: string): Promise<TalentActionState> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("applications")
+    .update({ score_requested_at: new Date().toISOString() })
+    .eq("id", applicationId)
+    .select("vacancy_id, candidate_id")
+    .maybeSingle();
+  if (error) return { error: GENERIC_ERROR };
+  if (!data) return { error: "This application no longer exists." };
+  revalidateVacancy(data.vacancy_id);
+  revalidatePath(`/dashboard/candidates/${data.candidate_id}`);
+  return { ok: true, message: `Queued. ${QUEUED}` };
+}
+
 /** One click scores at most this many CVs; the job does the rest. */
 const SCORE_PER_CLICK = 60;
 
 export async function scoreVacancyAction(vacancyId: string, _prev: TalentActionState, formData: FormData): Promise<TalentActionState> {
   await requireStaff();
   if (!idSchema.safeParse(vacancyId).success) return { error: GENERIC_ERROR };
-  if (!hasClaude()) return { error: `${NO_CLAUDE} CVs cannot be scored yet.` };
+  if (!hasClaude()) return queueVacancyScores(vacancyId, formData.get("rescore") === "on");
   const modelRaw = formData.get("model");
   const model = typeof modelRaw === "string" && isScreeningModel(modelRaw) ? modelRaw : undefined;
   const rescore = formData.get("rescore") === "on";
@@ -346,7 +393,7 @@ export async function scoreApplicationAction(applicationId: string, _prev: Talen
   void _formData;
   await requireStaff();
   if (!idSchema.safeParse(applicationId).success) return { error: GENERIC_ERROR };
-  if (!hasClaude()) return { error: NO_CLAUDE };
+  if (!hasClaude()) return queueApplicationScore(applicationId);
   try {
     const supabase = await createClient();
     const { data: app } = await supabase.from("applications").select("vacancy_id, candidate_id").eq("id", applicationId).maybeSingle();

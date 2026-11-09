@@ -174,11 +174,9 @@ async function RankingPage({
                       </div>
                       <div className="flex shrink-0 flex-col items-start gap-2 sm:items-end">
                         {r.cvScore !== null && <ScoreBar score={r.cvScore} />}
-                        {claude && (
-                          <ActionButton action={scoreApplicationAction.bind(null, r.applicationId)} pendingLabel="Scoring">
-                            {r.cvScore === null ? "Score" : "Score again"}
-                          </ActionButton>
-                        )}
+                        <ActionButton action={scoreApplicationAction.bind(null, r.applicationId)} pendingLabel={claude ? "Scoring" : "Queueing"}>
+                          {r.cvScore === null ? "Score" : "Score again"}
+                        </ActionButton>
                       </div>
                     </div>
                   </li>

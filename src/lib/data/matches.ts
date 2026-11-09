@@ -105,3 +105,12 @@ export async function listCandidateMatches(candidateId: string) {
   if (error) throw new Error(`Could not load matches: ${error.message}`);
   return data;
 }
+
+/** When Match was pressed and Claude (task claude-match) has not saved matches yet; null otherwise. */
+export async function getMatchRequestedAt(vacancyId: string): Promise<string | null> {
+  await requireStaff();
+  if (!isUuid(vacancyId)) return null;
+  const supabase = await createClient();
+  const { data } = await supabase.from("vacancies").select("match_requested_at").eq("id", vacancyId).maybeSingle();
+  return data?.match_requested_at ?? null;
+}

@@ -83,58 +83,50 @@ async function mapLimit<T, R>(items: T[], limit: number, fn: (item: T) => Promis
   return results;
 }
 
-export async function runMatching(db: Db, vacancyId: string, options: MatchOptions = {}): Promise<MatchSummary> {
-  const { topN = 25, batchSize = 5, keepAbove = 50, poolLimit = POOL_LIMIT, log = () => {} } = options;
-  if (!hasClaude()) throw new Error("ANTHROPIC_API_KEY is missing: matching cannot run without Claude.");
+export type ScoredMatch = { candidateId: string; score: number; reason: string; risks: string[]; missing: string[] };
 
+/**
+ * The shortlist Claude judges for one vacancy: the SQL prefilter, then the
+ * points prefilter, as redacted payloads. Shared by the in-app run and the
+ * MCP tool get_match_pool (Claude's scheduled task claude-match).
+ */
+export async function buildMatchPool(db: Db, vacancyId: string, { topN = 25, poolLimit = POOL_LIMIT }: { topN?: number; poolLimit?: number } = {}) {
   const vacancy = await loadRequirements(db, vacancyId);
   if (!hasRequirements(vacancy)) {
     throw new Error("This vacancy has no fixed requirements yet. Extract the vacancy first (T1) or fill in the stack and must haves.");
   }
-
   const [poolSize, pool] = await Promise.all([countPool(db), listPoolCandidates(db, vacancyId, vacancy, poolLimit)]);
-  log(`Pool: ${poolSize} candidates, ${pool.length} after the SQL prefilter.`);
   const shortlist = prefilterCandidates(vacancy, pool, topN);
-  log(`After the prefilter: ${shortlist.length} candidates go to Claude.`);
+  return {
+    vacancy,
+    poolSize,
+    prefilteredFromPool: pool.length,
+    requirements: requirementsPayload(vacancy),
+    candidates: shortlist.map((item) => ({ candidateId: item.candidate.id, payload: judgementPayload(item.candidate, item.candidate.id) })),
+  };
+}
 
-  const requirements = requirementsPayload(vacancy);
-  const refToId = new Map<string, string>();
-  const payloads = shortlist.map((item, i) => {
-    const ref = `K${i + 1}`;
-    refToId.set(ref, item.candidate.id);
-    return judgementPayload(item.candidate, ref);
-  });
-
-  const batches: (typeof payloads)[] = [];
-  for (let i = 0; i < payloads.length; i += Math.max(1, batchSize)) batches.push(payloads.slice(i, i + Math.max(1, batchSize)));
-
-  let failedBatches = 0;
-  const batchResults = await mapLimit(batches, 3, async (batch) => {
-    try {
-      const result = await askJson({ system: MATCH_SYSTEM, input: matchInput(requirements, batch), schema: matchResultSchema });
-      return result.candidates;
-    } catch (error) {
-      failedBatches += 1;
-      log(`A batch of ${batch.length} candidates could not be scored: ${error instanceof Error ? error.message : "unknown error"}`);
-      return [];
-    }
-  });
-  if (batches.length > 0 && failedBatches === batches.length) {
-    throw new Error("Claude could not score any candidate. Try again later.");
-  }
-
-  const scored = batchResults
-    .flat()
-    .filter((r) => refToId.has(r.ref))
+/** Clean scores from Claude: clamp, two sentence reasons, one per candidate. Pure. */
+export function cleanScoredMatches(
+  raw: { candidateId: string; score: number; reason: string; risks: string[]; missing: string[] }[],
+): ScoredMatch[] {
+  return raw
     .map((r) => ({
-      candidateId: refToId.get(r.ref)!,
+      candidateId: r.candidateId,
       score: clampScore(r.score),
       reason: twoSentences(r.reason),
       risks: r.risks.map((x) => x.trim()).filter(Boolean),
       missing: r.missing.map((x) => x.trim()).filter(Boolean),
     }))
     .filter((r, i, all) => all.findIndex((x) => x.candidateId === r.candidateId) === i);
+}
 
+/**
+ * Store scored matches (always the top 3, plus everyone at or above
+ * keepAbove), move the talent stage to zoeken and clear a match request.
+ */
+export async function storeMatches(db: Db, vacancyId: string, scored: ScoredMatch[], { keepAbove = 50 }: { keepAbove?: number | null } = {}) {
+  const vacancy = await loadRequirements(db, vacancyId);
   const toStore = selectMatchesToStore(scored, { keepAbove });
   if (toStore.length > 0) {
     // No status in the row: new matches get the default 'voorgesteld', existing
@@ -151,28 +143,71 @@ export async function runMatching(db: Db, vacancyId: string, options: MatchOptio
     const { error } = await db.from("matches").upsert(rows, { onConflict: "vacancy_id,candidate_id" });
     if (error) throw new Error(`Could not save the matches: ${error.message}`);
   }
-
-  const strongScores = scored.map((s) => s.score);
-  const strong = strongScores.filter((s) => s >= 70).length;
+  const scores = scored.map((s) => s.score);
   const stage = advanceStage(vacancy.talent_stage, "zoeken");
-  if (stage !== vacancy.talent_stage) {
-    const { error } = await db.from("vacancies").update({ talent_stage: stage }).eq("id", vacancyId);
-    if (error) throw new Error(`Could not update the stage: ${error.message}`);
+  const { error } = await db
+    .from("vacancies")
+    .update({ talent_stage: stage, match_requested_at: null })
+    .eq("id", vacancyId);
+  if (error) throw new Error(`Could not update the vacancy: ${error.message}`);
+  return { stored: toStore.length, strong: scores.filter((s) => s >= 70).length, needsSearchBrief: needsSearchBrief(scores) };
+}
+
+export async function runMatching(db: Db, vacancyId: string, options: MatchOptions = {}): Promise<MatchSummary> {
+  const { topN = 25, batchSize = 5, keepAbove = 50, poolLimit = POOL_LIMIT, log = () => {} } = options;
+  if (!hasClaude()) throw new Error("ANTHROPIC_API_KEY is missing: matching runs through Claude's scheduled task claude-match.");
+
+  const pool = await buildMatchPool(db, vacancyId, { topN, poolLimit });
+  log(`Pool: ${pool.poolSize} candidates, ${pool.prefilteredFromPool} after the SQL prefilter.`);
+  log(`After the prefilter: ${pool.candidates.length} candidates go to Claude.`);
+
+  // Claude sees an opaque ref, not the candidate id.
+  const refToId = new Map<string, string>();
+  const payloads = pool.candidates.map((c, i) => {
+    const ref = `K${i + 1}`;
+    refToId.set(ref, c.candidateId);
+    return { ...c.payload, ref };
+  });
+
+  const batches: (typeof payloads)[] = [];
+  for (let i = 0; i < payloads.length; i += Math.max(1, batchSize)) batches.push(payloads.slice(i, i + Math.max(1, batchSize)));
+
+  let failedBatches = 0;
+  const batchResults = await mapLimit(batches, 3, async (batch) => {
+    try {
+      const result = await askJson({ system: MATCH_SYSTEM, input: matchInput(pool.requirements, batch), schema: matchResultSchema });
+      return result.candidates;
+    } catch (error) {
+      failedBatches += 1;
+      log(`A batch of ${batch.length} candidates could not be scored: ${error instanceof Error ? error.message : "unknown error"}`);
+      return [];
+    }
+  });
+  if (batches.length > 0 && failedBatches === batches.length) {
+    throw new Error("Claude could not score any candidate. Try again later.");
   }
 
+  const scored = cleanScoredMatches(
+    batchResults
+      .flat()
+      .filter((r) => refToId.has(r.ref))
+      .map((r) => ({ ...r, candidateId: refToId.get(r.ref)! })),
+  );
+  const saved = await storeMatches(db, vacancyId, scored, { keepAbove });
+
   let searchBrief = false;
-  if (needsSearchBrief(strongScores)) {
-    log(`Fewer than 3 strong matches (${strong}): making a search brief outside the pool.`);
-    await generateSearchBrief(db, vacancyId, { scored: scored.length, strong });
+  if (saved.needsSearchBrief) {
+    log(`Fewer than 3 strong matches (${saved.strong}): making a search brief outside the pool.`);
+    await generateSearchBrief(db, vacancyId, { scored: scored.length, strong: saved.strong });
     searchBrief = true;
   }
 
   return {
-    poolSize,
-    prefiltered: shortlist.length,
+    poolSize: pool.poolSize,
+    prefiltered: pool.candidates.length,
     scored: scored.length,
-    stored: toStore.length,
-    strong,
+    stored: saved.stored,
+    strong: saved.strong,
     searchBrief,
   };
 }
@@ -185,7 +220,7 @@ export async function generateSearchBrief(
   vacancyId: string,
   context: { scored: number; strong: number } = { scored: 0, strong: 0 },
 ): Promise<StoredSearchBrief> {
-  if (!hasClaude()) throw new Error("ANTHROPIC_API_KEY is missing: a search brief cannot be made without Claude.");
+  if (!hasClaude()) throw new Error("ANTHROPIC_API_KEY is missing: the search brief is made by Claude's scheduled task claude-match.");
   const vacancy = await loadRequirements(db, vacancyId);
   if (!hasRequirements(vacancy)) {
     throw new Error("This vacancy has no fixed requirements yet. Extract the vacancy first.");
@@ -196,6 +231,22 @@ export async function generateSearchBrief(
     schema: searchBriefSchema,
     effort: "low",
   });
+  return storeSearchBrief(db, vacancyId, brief, context);
+}
+
+/** The input Claude gets for a search brief (T3), for the MCP route. */
+export async function searchBriefInput(db: Db, vacancyId: string, context: { scored: number; strong: number }) {
+  const vacancy = await loadRequirements(db, vacancyId);
+  return { instructions: SEARCH_SYSTEM, input: searchInput(requirementsPayload(vacancy), context) };
+}
+
+/** Save a search brief on the vacancy, Bangalore first. */
+export async function storeSearchBrief(
+  db: Db,
+  vacancyId: string,
+  brief: SearchBrief,
+  context: { scored: number; strong: number },
+): Promise<StoredSearchBrief> {
   // Bangalore always first (briefing T3).
   const locations = brief.locations.filter((l) => !/bangalore|bengaluru/i.test(l));
   const stored: StoredSearchBrief = {

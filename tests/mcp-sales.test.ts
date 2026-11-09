@@ -272,3 +272,39 @@ test("companyPatch turns pinned into pinned_at and keeps null to clear", () => {
   assert.deepEqual(companyPatch({ pinned: true, owner_id: null }, now), { pinned_at: "2026-11-09T10:00:00.000Z", owner_id: null });
   assert.deepEqual(companyPatch({ pinned: false }, now), { pinned_at: null });
 });
+
+test("a recruitment owner gets the matching and screening tools and log_job_run, only for recruitment tasks", async () => {
+  const { RECRUITMENT_AI_READ_TOOLS, RECRUITMENT_AI_WRITE_TOOLS } = await import("@/lib/mcp/recruitment-ai-tools");
+  const { db } = fakeDb();
+  const { client, close } = await connect("write", { modules: ["recruitment"], db });
+  try {
+    const names = (await client.listTools()).tools.map((t) => t.name);
+    for (const tool of [...RECRUITMENT_AI_READ_TOOLS, ...RECRUITMENT_AI_WRITE_TOOLS, "log_job_run"]) {
+      assert.ok(names.includes(tool), `${tool} missing`);
+    }
+    const sales = await call(client, "log_job_run", { action: "start", job_name: "claude-replies" });
+    assert.ok(sales.isError);
+    assert.match(sales.text, /Sales/);
+  } finally {
+    await close();
+  }
+});
+
+test("a sales owner gets no matching or screening tools", async () => {
+  const { RECRUITMENT_AI_READ_TOOLS, RECRUITMENT_AI_WRITE_TOOLS } = await import("@/lib/mcp/recruitment-ai-tools");
+  const { client, close } = await connect("write", { modules: ["sales"] });
+  try {
+    const names = (await client.listTools()).tools.map((t) => t.name);
+    for (const tool of [...RECRUITMENT_AI_READ_TOOLS, ...RECRUITMENT_AI_WRITE_TOOLS]) assert.ok(!names.includes(tool), `${tool} should not be listed`);
+    assert.ok(names.includes("log_job_run"));
+  } finally {
+    await close();
+  }
+});
+
+test("claude-match and claude-screening are recruitment jobs, other claude-* jobs sales", async () => {
+  const { jobModule } = await import("@/lib/modules");
+  assert.equal(jobModule("claude-match"), "recruitment");
+  assert.equal(jobModule("claude-screening"), "recruitment");
+  assert.equal(jobModule("claude-replies"), "sales");
+});

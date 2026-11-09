@@ -91,9 +91,9 @@ export function CvUpload({ vacancyId, claude }: { vacancyId: string; claude: boo
   return (
     <div className="space-y-6">
       {!claude && (
-        <p className="rounded-2xl border border-amber-600/20 bg-amber-50 px-5 py-4 text-sm text-amber-900">
-          Claude is not connected (ANTHROPIC_API_KEY is missing). DOCX files and simple PDFs are read in code; other PDFs are stored with their text marked pending
-          and are read later. Names, email and phone are found in the text by pattern.
+        <p className="rounded-2xl border border-brand-200 bg-brand-50 px-5 py-4 text-sm text-brand-900">
+          DOCX files and simple PDFs are read in code; other PDFs are stored with their text marked pending, and Claude reads them
+          through the MCP in its scheduled task claude-screening before it scores them. Names, email and phone are found in the text by pattern.
         </p>
       )}
       <Card>

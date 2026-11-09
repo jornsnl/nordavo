@@ -110,7 +110,22 @@ Lijsten geven standaard 25 en maximaal 100 rijen, met `offset` om te bladeren. R
 | `start_sequence` | Een actieve sequence starten voor een of meer bedrijven |
 | `update_sequence_tasks` | Mail en LinkedIn stappen afvinken als klaargezet in Instantly of Seleqt, of overslaan |
 | `pause_company` | Een bedrijf overal pauzeren na een reply: sequences op pauze, open belstappen vervallen |
-| `log_job_run` | Het begin en einde van een run van een geplande taak loggen (`claude-...`), zichtbaar op Beheer, Jobs |
+| `log_job_run` | Het begin en einde van een run van een geplande taak loggen (`claude-...`), zichtbaar op Beheer, Jobs. Ook voor een eigenaar met alleen Recruitment, dan alleen `claude-match` en `claude-screening` |
+
+### Matchen en screenen (eigenaar met de module Recruitment)
+
+Het portaal roept hiervoor geen Claude API aan (geen `ANTHROPIC_API_KEY` nodig): Claude doet het oordeel zelf in de geplande taken `claude-match` en `claude-screening` ([claude-jobs.md](./claude-jobs.md)). Het portaal doet wat elke keer hetzelfde moet: de voorselectie, namen en contactgegevens weglaten, de must have grens, het verdict en de fase.
+
+| Tool | Wat het doet |
+| --- | --- |
+| `list_match_requests` | Vacatures waarvoor iemand *Ask Claude to match* indrukte (lezen) |
+| `get_match_pool` | De vaste eisen en de voorgeselecteerde kandidaten zonder naam, contact of werkgevers, met de instructies (lezen) |
+| `save_matches` | Scores opslaan: top 3 plus alles boven `keep_above`, fase naar zoeken, verzoek gewist. Geeft `search_brief_input` terug bij minder dan 3 sterke matches |
+| `save_search_brief` | De zoekopdracht buiten de pool (T3) op de vacature, Bangalore eerst |
+| `list_applications_to_score` | Sollicitaties zonder score of met een verzoek om opnieuw te scoren, met de CV tekst zonder naam en contact, de vacaturetekst, de eisen en de actieve promptversie (lezen) |
+| `get_cv_file` | De PDF van een CV waarvan de tekst nog pending is, met de leesinstructies (lezen) |
+| `save_cv_text` | De gelezen CV tekst opslaan en lege velden van de kandidaat aanvullen |
+| `save_cv_score` | Een CV score opslaan per eis (met bewijs), met de must have grens en het verdict van het portaal |
 
 Schrijftools worden voor een leestoken niet eens aangeboden (ze staan niet in `tools/list`), en elke schrijftool controleert de rechten nog een keer. Er is bewust niets om te verwijderen; `close_list_for_callers` haalt alleen de toegang van bellers tot een lijst weg.
 

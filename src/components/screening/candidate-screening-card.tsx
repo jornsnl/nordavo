@@ -38,7 +38,7 @@ export async function CandidateScreeningCard({ candidateId }: { candidateId: str
       />
       <CardBody className="space-y-4">
         {cv.status === "pending" && !claude && (
-          <p className="text-sm text-amber-900">This PDF is read as soon as Claude is connected (ANTHROPIC_API_KEY).</p>
+          <p className="text-sm text-muted">Claude reads this PDF through the MCP in its next run of claude-screening, then scores it.</p>
         )}
         {scores.length === 0 ? (
           <p className="text-sm text-muted">Not in a vacancy yet, so there is no CV score.</p>
@@ -57,11 +57,9 @@ export async function CandidateScreeningCard({ candidateId }: { candidateId: str
                     </div>
                     <div className="flex items-center gap-3">
                       {s.score !== null && <ScoreBar score={s.score} />}
-                      {claude && (
-                        <ActionButton action={scoreApplicationAction.bind(null, s.applicationId)} pendingLabel="Scoring">
-                          {s.score === null ? "Score CV" : "Score again"}
-                        </ActionButton>
-                      )}
+                      <ActionButton action={scoreApplicationAction.bind(null, s.applicationId)} pendingLabel={claude ? "Scoring" : "Queueing"}>
+                        {s.score === null ? "Score CV" : "Score again"}
+                      </ActionButton>
                     </div>
                   </div>
                   {s.summary && <p className="text-sm text-ink">{s.summary}</p>}

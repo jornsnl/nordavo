@@ -5,6 +5,8 @@ import type { McpTokenContext } from "@/lib/mcp/tokens";
 import { scopeDbToModules } from "@/lib/mcp/module-scope";
 import { registerTools } from "@/lib/mcp/tools";
 import { registerSalesTools } from "@/lib/mcp/sales-tools";
+import { registerJobRunTool } from "@/lib/mcp/job-run-tool";
+import { registerRecruitmentAiTools } from "@/lib/mcp/recruitment-ai-tools";
 import { effectiveModules, portalModules } from "@/lib/modules";
 
 export const MCP_SERVER_NAME = "nordavo";
@@ -29,6 +31,11 @@ function instructions(ctx: McpTokenContext) {
       "Write tools (create_task, update_task_status, add_note, move_candidates, mark_topper) change shared data the whole team sees. Only call them when the user asked for that specific change, never speculatively or in a loop.",
     );
   }
+  if (modules.includes("recruitment")) {
+    lines.push(
+      "Matching and CV screening are done by you, not by the portal: list_match_requests, get_match_pool and save_matches (with save_search_brief) for matching; list_applications_to_score, get_cv_file, save_cv_text and save_cv_score for screening. Follow the instructions the tools return.",
+    );
+  }
   lines.push("Candidate and contact details are personal data: use them for the task at hand and do not copy them elsewhere unasked.");
   return lines.join("\n");
 }
@@ -43,5 +50,7 @@ export function createNordavoMcpServer(ctx: McpTokenContext, db: McpDb, siteUrl:
   const scoped = scopeDbToModules(db, effectiveModules(ctx.role, ctx.modules));
   registerTools(server, { ...ctx, db: scoped, siteUrl });
   registerSalesTools(server, { ...ctx, db: scoped, siteUrl });
+  registerRecruitmentAiTools(server, { ...ctx, db: scoped, siteUrl });
+  registerJobRunTool(server, { ...ctx, db: scoped, siteUrl });
   return server;
 }

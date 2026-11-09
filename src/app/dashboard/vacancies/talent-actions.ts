@@ -158,6 +158,18 @@ export async function runMatchingAction(vacancyId: string, _prev: TalentActionSt
   await requireStaff();
   if (!idSchema.safeParse(vacancyId).success) return { error: MATCH_ERROR };
   const supabase = await createClient();
+  if (!hasClaude()) {
+    // Claude matches through the MCP (task claude-match): queue the request.
+    const { data, error } = await supabase
+      .from("vacancies")
+      .update({ match_requested_at: new Date().toISOString() })
+      .eq("id", vacancyId)
+      .select("id")
+      .maybeSingle();
+    if (error || !data) return { error: MATCH_ERROR };
+    revalidateVacancy(vacancyId);
+    return { ok: true, message: "Queued for Claude. The matches appear here after its next run of claude-match." };
+  }
   try {
     const s = await runMatching(supabase, vacancyId);
     revalidateVacancy(vacancyId);
