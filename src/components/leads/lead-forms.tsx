@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Ban, Building2, Pencil, Plus } from "lucide-react";
+import { SearchSelect } from "@/components/ui/search-select";
 import { Field, Input, Select, Textarea } from "@/components/ui/field";
 import type { CompanyStatus, Segment } from "@/lib/database.types";
 import { todayIso } from "@/lib/format";
@@ -349,16 +350,15 @@ function LinkClientFields({
         </Field>
       ) : (
         <Field label="Existing client" htmlFor="client-id" required error={errors.client_id}>
-          <Select id="client-id" name="client_id" defaultValue={match?.id ?? ""}>
-            <option value="" disabled>
-              Pick a client
-            </option>
-            {clients.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.label}
-              </option>
-            ))}
-          </Select>
+          <SearchSelect
+            id="client-id"
+            name="client_id"
+            defaultValue={match?.id ?? null}
+            options={clients.map((c) => ({ value: c.id, label: c.label }))}
+            placeholder="Pick a client"
+            searchPlaceholder="Search clients"
+            allowClear={false}
+          />
         </Field>
       )}
     </>

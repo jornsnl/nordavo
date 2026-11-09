@@ -6,6 +6,7 @@ import { type ActionState, initialActionState } from "@/lib/action-state";
 import { candidateStatuses, optionFor, vacancyStatuses } from "@/lib/labels";
 import type { CandidateStatus, VacancyStatus } from "@/lib/database.types";
 import { ButtonLink } from "@/components/ui/button";
+import { SearchSelect } from "@/components/ui/search-select";
 import { Field, FormMessage, Input, Select, Textarea } from "@/components/ui/field";
 import { FormActions } from "@/components/entity/form-actions";
 import { addDays } from "./dates";
@@ -77,48 +78,47 @@ export function PlacementForm({
       <div className="grid gap-5 sm:grid-cols-2">
         <Field label="Client" htmlFor="client_id" required error={errors.client_id}>
           {locked && <input type="hidden" name="client_id" value={clientId} />}
-          <Select
+          <SearchSelect
             id="client_id"
             name={locked ? undefined : "client_id"}
-            value={clientId}
+            value={clientId || null}
             disabled={locked}
             required
             aria-invalid={Boolean(errors.client_id)}
             aria-describedby={describedBy("client_id")}
-            onChange={(event) => {
-              setClientId(event.target.value);
+            placeholder="Pick a client"
+            searchPlaceholder="Search clients"
+            allowClear={false}
+            options={options.clients.map((client) => ({ value: client.id, label: client.name }))}
+            onChange={(value) => {
+              setClientId(value ?? "");
               setVacancyId("");
             }}
-          >
-            <option value="">Pick a client</option>
-            {options.clients.map((client) => (
-              <option key={client.id} value={client.id}>
-                {client.name}
-              </option>
-            ))}
-          </Select>
+          />
         </Field>
 
         <Field label="Candidate" htmlFor="candidate_id" required error={errors.candidate_id}>
           {locked && <input type="hidden" name="candidate_id" value={defaults.candidate_id ?? ""} />}
-          <Select
+          <SearchSelect
             id="candidate_id"
             name={locked ? undefined : "candidate_id"}
-            defaultValue={defaults.candidate_id ?? ""}
+            defaultValue={defaults.candidate_id ?? null}
             disabled={locked}
             required
             aria-invalid={Boolean(errors.candidate_id)}
             aria-describedby={describedBy("candidate_id")}
-          >
-            <option value="">Pick a candidate</option>
-            {options.candidates.map((candidate) => (
-              <option key={candidate.id} value={candidate.id}>
-                {candidate.full_name}
-                {candidate.status !== "available" &&
-                  ` (${optionFor(candidateStatuses, candidate.status).label.toLowerCase()})`}
-              </option>
-            ))}
-          </Select>
+            placeholder="Pick a candidate"
+            searchPlaceholder="Search candidates"
+            allowClear={false}
+            options={options.candidates.map((candidate) => ({
+              value: candidate.id,
+              label: candidate.full_name,
+              hint:
+                candidate.status !== "available"
+                  ? optionFor(candidateStatuses, candidate.status).label
+                  : undefined,
+            }))}
+          />
         </Field>
 
         <Field

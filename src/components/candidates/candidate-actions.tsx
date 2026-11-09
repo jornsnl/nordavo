@@ -7,7 +7,8 @@ import { initialActionState } from "@/lib/action-state";
 import type { VacancyOption } from "@/lib/data/applications";
 import { optionFor, vacancyStatuses } from "@/lib/labels";
 import { Button, ButtonLink } from "@/components/ui/button";
-import { Field, FormMessage, Select } from "@/components/ui/field";
+import { SearchSelect } from "@/components/ui/search-select";
+import { Field, FormMessage } from "@/components/ui/field";
 import { Modal } from "@/components/ui/modal";
 import { ConfirmButton } from "./confirm-button";
 
@@ -118,20 +119,21 @@ function LinkVacancyForm({
       <input type="hidden" name="candidate_id" value={candidateId} />
       <FormMessage error={state.error} />
       <Field label="Vacancy" htmlFor="link-vacancy" required error={state.fieldErrors?.vacancy_id}>
-        <Select
+        <SearchSelect
           id="link-vacancy"
           name="vacancy_id"
-          value={vacancyId}
-          onChange={(e) => setVacancyId(e.target.value)}
+          value={vacancyId || null}
+          onChange={(value) => setVacancyId(value ?? "")}
           required
-        >
-          {vacancies.map((v) => (
-            <option key={v.id} value={v.id}>
-              {v.title} at {v.clientName}
-              {v.status !== "open" ? ` (${optionFor(vacancyStatuses, v.status).label})` : ""}
-            </option>
-          ))}
-        </Select>
+          allowClear={false}
+          placeholder="Pick a vacancy"
+          searchPlaceholder="Search vacancies or clients"
+          options={vacancies.map((v) => ({
+            value: v.id,
+            label: `${v.title} at ${v.clientName}`,
+            hint: v.status !== "open" ? optionFor(vacancyStatuses, v.status).label : undefined,
+          }))}
+        />
       </Field>
       <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
         <Button variant="secondary" onClick={onClose} disabled={pending}>

@@ -24,6 +24,7 @@ export function SearchSelect({
   required,
   className = "",
   emptyText = "Nothing found",
+  submitOnChange = false,
   "aria-labelledby": labelledBy,
   "aria-label": ariaLabel,
   "aria-invalid": invalid,
@@ -42,6 +43,8 @@ export function SearchSelect({
   required?: boolean;
   className?: string;
   emptyText?: string;
+  /** Submits the surrounding form after a pick (filter bars). */
+  submitOnChange?: boolean;
   "aria-labelledby"?: string;
   "aria-label"?: string;
   "aria-invalid"?: boolean;
@@ -95,6 +98,10 @@ export function SearchSelect({
     onChange?.(next);
     setOpen(false);
     setQuery("");
+    if (submitOnChange) {
+      // After React wrote the hidden input.
+      setTimeout(() => rootRef.current?.closest("form")?.requestSubmit(), 0);
+    }
   };
 
   return (

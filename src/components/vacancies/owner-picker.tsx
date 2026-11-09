@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Field, Select } from "@/components/ui/field";
+import { Field } from "@/components/ui/field";
+import { SearchSelect } from "@/components/ui/search-select";
 import { TALENT_POOL_LABEL, type VacancyOwnerType } from "@/lib/talent/talent-pool";
 
 type Option = { id: string; label: string };
@@ -69,16 +70,17 @@ export function OwnerPicker({
       </div>
       {ownerType === "client" && (
         <Field label="Client" htmlFor="client_id" required error={errors.client_id}>
-          <Select id="client_id" name="client_id" required defaultValue={defaultClientId ?? ""} {...invalid("client_id")}>
-            <option value="" disabled>
-              Choose a client
-            </option>
-            {clients.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.label}
-              </option>
-            ))}
-          </Select>
+          <SearchSelect
+            id="client_id"
+            name="client_id"
+            required
+            defaultValue={defaultClientId ?? null}
+            options={clients.map((c) => ({ value: c.id, label: c.label }))}
+            placeholder="Choose a client"
+            searchPlaceholder="Search clients"
+            allowClear={false}
+            {...invalid("client_id")}
+          />
         </Field>
       )}
       {ownerType === "company" && (
@@ -89,16 +91,17 @@ export function OwnerPicker({
           error={errors.company_id}
           hint="GO prospects and active companies from sales. Company not listed? Open the vacancy from the lead."
         >
-          <Select id="company_id" name="company_id" required defaultValue={defaultCompanyId ?? ""} {...invalid("company_id")}>
-            <option value="" disabled>
-              Choose a company
-            </option>
-            {companies.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.label}
-              </option>
-            ))}
-          </Select>
+          <SearchSelect
+            id="company_id"
+            name="company_id"
+            required
+            defaultValue={defaultCompanyId ?? null}
+            options={companies.map((c) => ({ value: c.id, label: c.label }))}
+            placeholder="Choose a company"
+            searchPlaceholder="Search companies"
+            allowClear={false}
+            {...invalid("company_id")}
+          />
         </Field>
       )}
       {ownerType === "talent_pool" && (
