@@ -9,6 +9,7 @@ import {
   type PublicKeyCredentialRequestOptionsJSON,
 } from "@simplewebauthn/server";
 import { z } from "zod";
+import { isAcademyOnlyRole, landingPathFor } from "@/lib/academy/routing";
 import { safeNextPath } from "@/lib/safe-redirect";
 import {
   PASSKEY_SESSION_COOKIE,
@@ -181,8 +182,8 @@ export async function finishPasskeySignIn(
     .eq("id", passkey.user_id)
     .maybeSingle();
 
-  if (profile?.role === "client") {
-    redirect("/portal");
+  if (profile?.role === "client" || isAcademyOnlyRole(profile?.role)) {
+    redirect(landingPathFor(profile?.role, next));
   }
   redirect(safeNextPath(next));
 }

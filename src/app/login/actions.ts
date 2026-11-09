@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { isAcademyOnlyRole, landingPathFor } from "@/lib/academy/routing";
 import { safeNextPath } from "@/lib/safe-redirect";
 import { MFA_VERIFY_PATH, hasVerifiedTotp } from "@/lib/security/mfa";
 
@@ -49,8 +50,8 @@ export async function login(
     .eq("id", data.user.id)
     .maybeSingle();
 
-  if (profile?.role === "client") {
-    redirect("/portal");
+  if (profile?.role === "client" || isAcademyOnlyRole(profile?.role)) {
+    redirect(landingPathFor(profile?.role, formData.get("next")));
   }
   if (profile?.role === "caller") {
     redirect("/caller");
