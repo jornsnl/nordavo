@@ -5,6 +5,7 @@
 import type { WorkFunctions, WorkTables } from "@/lib/work/database";
 import type { FormsFunctions, FormsTables } from "@/lib/forms/database";
 import type { AcademyFunctions, AcademyTables } from "@/lib/academy/database";
+import type { AcademyPlacementFunctions, AcademyPlacementTables } from "@/lib/academy/placement/database";
 import type {
   ActivityDirection,
   ActivityType,
@@ -784,6 +785,7 @@ export type Database = {
           overlap_time_zone: string;
           probation_end_date: string | null;
           nordavo_contact_id: string | null;
+          nordavo_response_hours: number;
           status: PlacementStatus;
           notice_given_at: string | null;
           guarantee_until: string | null;
@@ -807,6 +809,7 @@ export type Database = {
           overlap_time_zone?: string;
           probation_end_date?: string | null;
           nordavo_contact_id?: string | null;
+          nordavo_response_hours?: number;
           status?: PlacementStatus;
           notice_given_at?: string | null;
           next_checkin_at?: string | null;
@@ -829,6 +832,7 @@ export type Database = {
           overlap_time_zone?: string;
           probation_end_date?: string | null;
           nordavo_contact_id?: string | null;
+          nordavo_response_hours?: number;
           status?: PlacementStatus;
           notice_given_at?: string | null;
           next_checkin_at?: string | null;
@@ -2521,7 +2525,7 @@ export type Database = {
         };
         Relationships: [];
       };
-    } & WorkTables & FormsTables & SalesTables & AcademyTables;
+    } & WorkTables & FormsTables & SalesTables & AcademyTables & AcademyPlacementTables;
     Views: {
       call_list_candidates: { Row: ListCandidateBase & { phone: string; linkedin_url: string | null }; Relationships: [] };
       mail_list_candidates: { Row: ListCandidateBase & { email: string }; Relationships: [] };
@@ -2692,7 +2696,7 @@ export type Database = {
         Args: { p_entity: CustomFieldEntity; p_new: Json; p_old?: Json };
         Returns: CustomFieldValues;
       };
-    } & WorkFunctions & FormsFunctions & SalesFunctions & AcademyFunctions;
+    } & WorkFunctions & FormsFunctions & SalesFunctions & AcademyFunctions & AcademyPlacementFunctions;
     Enums: { [_ in never]: never };
     CompositeTypes: { [_ in never]: never };
   };

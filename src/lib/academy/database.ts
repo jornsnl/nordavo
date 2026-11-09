@@ -255,6 +255,10 @@ export type AcademyRitualRow = {
   audience: AcademyRitualAudience;
   active: boolean;
   position: number;
+  /** Placement copy: the course ritual it was made from. */
+  template_id: string | null;
+  /** Placement copy adjusted by Nordavo: no longer follows the template. */
+  customized: boolean;
   created_at: string;
   updated_at: string;
 };
@@ -267,6 +271,7 @@ export type AcademyRitualLogRow = {
   period_date: string;
   done_at: string;
   note: string | null;
+  done_by: string | null;
 };
 
 export type AcademyPulseRow = {
@@ -286,6 +291,11 @@ export type AcademyPulseAnswerRow = {
   going_well: string | null;
   friction: string | null;
   flagged: boolean;
+  flag_reason: "low" | "drop" | null;
+  previous_score: number | null;
+  handled_at: string | null;
+  handled_by: string | null;
+  handled_note: string | null;
   created_at: string;
 };
 
@@ -325,6 +335,8 @@ export type AcademyHolidayRow = {
   date: string;
   name_nl: string;
   name_en: string;
+  day_off: boolean;
+  confirmed: boolean;
   created_at: string;
 };
 
@@ -335,6 +347,7 @@ export type AcademyMilestoneRow = {
   title: string;
   due_date: string | null;
   completed_at: string | null;
+  notified_at: string | null;
   position: number;
   created_at: string;
   updated_at: string;
@@ -347,6 +360,7 @@ export type AcademyReviewRow = {
   author_id: string | null;
   answers: Json;
   report: string | null;
+  kind: "form" | "report";
   status: "draft" | "submitted";
   submitted_at: string | null;
   created_at: string;
