@@ -145,7 +145,7 @@ async function readEnrolment(formData: FormData) {
     openModuleIds: formData.getAll("open_module_ids").filter((m): m is string => typeof m === "string" && z.guid().safeParse(m).success),
     startDate: v.start_date ?? null,
     locale: v.locale ?? null,
-    sendMail: formData.get("send_mail") !== "off",
+    sendMail: formData.get("send_mail") === "on",
   };
   let courseTitle: string | null = null;
   if (enrolment.courseId) {
