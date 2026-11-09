@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useRef, useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
-import { Briefcase, Building2, Handshake, LoaderCircle, Radar, Search, Users, type LucideIcon } from "lucide-react";
+import { Briefcase, Building2, CheckSquare, Handshake, LoaderCircle, Radar, Search, Users, type LucideIcon } from "lucide-react";
 import type { RecordHit, SearchGroups } from "@/lib/data/search";
 import { globalSearch } from "./actions";
 
@@ -12,9 +12,10 @@ const groups: { key: keyof SearchGroups; label: string; icon: LucideIcon }[] = [
   { key: "vacancy", label: "Vacancies", icon: Briefcase },
   { key: "candidate", label: "Candidates", icon: Users },
   { key: "placement", label: "Placements", icon: Handshake },
+  { key: "task", label: "Tasks in Work", icon: CheckSquare },
 ];
 
-const emptyResults: SearchGroups = { company: [], client: [], vacancy: [], candidate: [], placement: [] };
+const emptyResults: SearchGroups = { company: [], client: [], vacancy: [], candidate: [], placement: [], task: [] };
 
 const subscribeNever = () => () => {};
 
@@ -28,7 +29,7 @@ export function useShortcutLabel() {
 }
 
 /**
- * Global search over clients, vacancies, candidates and placements.
+ * Global search over leads, clients, vacancies, candidates, placements and Work tasks.
  * Opens with Ctrl/Cmd + K or through `open`. On phones it is a full screen
  * search sheet with a large field, a "Annuleren" button and big result rows.
  */

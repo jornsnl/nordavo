@@ -31,7 +31,7 @@ export const offsetSchema = z
 
 export const idSchema = z.guid().describe("Record id (uuid).");
 
-/** Record types that tasks and notes can be linked to. */
+/** Record types that Work tasks and notes can be linked to. */
 export const linkableTypes = ["client", "vacancy", "candidate", "application", "placement", "company"] as const;
 export type LinkableType = (typeof linkableTypes)[number];
 
@@ -106,7 +106,7 @@ export function recordUrl(siteUrl: string, type: string, id: string): string | n
     case "company":
       return `${base}/dashboard/leads/${id}`;
     case "task":
-      return `${base}/dashboard/tasks`;
+      return `${base}/work/tasks/${id}`;
     default:
       return null;
   }
@@ -179,9 +179,21 @@ export async function resolveLabels(
   const tasks = idsOf("task");
   if (tasks.length)
     jobs.push(
-      db.from("tasks").select("id, title").in("id", tasks).then(({ data }) => {
+      db.from("work_tasks").select("id, title").in("id", tasks).then(({ data }) => {
         for (const r of data ?? []) labels.set(key("task", r.id), r.title);
       }),
+    );
+  // Portal log rows from before the move to Work point at the old task id.
+  if (tasks.length)
+    jobs.push(
+      db
+        .from("work_tasks")
+        .select("title, external_id")
+        .eq("external_source", "portal_tasks")
+        .in("external_id", tasks)
+        .then(({ data }) => {
+          for (const r of data ?? []) if (r.external_id) labels.set(key("task", r.external_id), r.title);
+        }),
     );
 
   await Promise.all(jobs);

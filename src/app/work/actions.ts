@@ -16,6 +16,7 @@ import { deliverNotifications, sendInviteMail } from "@/lib/work/notify";
 import { mayUseSignInLink, signInLinkUrl } from "@/lib/security/sign-in-link";
 import { generateInviteToken, generateWorkToken } from "@/lib/work/tokens";
 import { localInputToUtc } from "@/lib/work/time";
+import { canUseRecordType, isRecordType } from "@/lib/work/records";
 import { isListedTimeZone, normalizeTimeZone } from "@/lib/work/time-zones";
 
 /**
@@ -343,10 +344,44 @@ const taskSchema = z.object({
 });
 
 export async function createTaskAction(projectId: string, _prev: WorkActionState, formData: FormData): Promise<WorkActionState> {
-  await requireWorkUser();
-  const parsed = taskSchema.safeParse(formValues(formData));
+  const user = await requireWorkUser();
+  const values = formValues(formData);
+  const parsed = taskSchema.safeParse(values);
   if (!parsed.success) return invalid(parsed.error);
   const supabase = await createClient();
+
+  // A task on a portal record (team with that module only; the database checks too).
+  const entityType = values.entity_type;
+  if (entityType && !parsed.data.parent_id) {
+    const entityId = id.safeParse(values.entity_id);
+    if (!isRecordType(entityType) || !entityId.success) {
+      return { error: "Choose a record or remove the link.", fieldErrors: { entity_id: "Choose a record" } };
+    }
+    if (!canUseRecordType(user, entityType)) return { error: "You cannot link tasks to this kind of record." };
+    const { data, error } = await supabase.rpc("work_create_record_task", {
+      p_entity_type: entityType,
+      p_entity_id: entityId.data,
+      p_project: projectId,
+      p_title: parsed.data.title,
+      p_description: parsed.data.description ?? null,
+      p_priority: parsed.data.priority,
+      p_due_at: await deadline(parsed.data.due_at),
+      p_assignees: ids(formData, "assignees"),
+    });
+    if (error || !data) return { error: workErrorMessage(error) };
+    // work_create_record_task makes the maker reviewer; another reviewer is set after.
+    if (parsed.data.reviewer_id && parsed.data.reviewer_id !== user.id) {
+      const { error: reviewerError } = await supabase.rpc("work_update_task", {
+        p_task: data,
+        p_fields: { reviewer_id: parsed.data.reviewer_id },
+      });
+      if (reviewerError) console.error("[work] setting the reviewer failed:", reviewerError.message);
+    }
+    sendQueuedMail();
+    revalidatePath("/work", "layout");
+    redirect(`/work/tasks/${data}`);
+  }
+
   const { data, error } = await supabase.rpc("work_create_task", {
     p_project: projectId,
     p_title: parsed.data.title,

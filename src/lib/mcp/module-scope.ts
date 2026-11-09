@@ -41,7 +41,8 @@ export const tableModules: Record<string, PortalModule[]> = {
   client_contacts: ["clients", "recruitment"],
 };
 
-const polymorphicTables = new Set(["tasks", "notes", "attachments", "activity_log"]);
+/** Tables with entity_type/entity_id; work_task_links holds the record of a Work task. */
+const polymorphicTables = new Set(["work_task_links", "notes", "attachments", "activity_log"]);
 
 const moduleLabels: Record<PortalModule, string> = {
   sales: "Sales",

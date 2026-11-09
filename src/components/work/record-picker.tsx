@@ -8,15 +8,27 @@ import { entityTypes } from "@/lib/labels";
 import { Field, Input, Select } from "@/components/ui/field";
 import { searchRecords } from "@/components/search/actions";
 
-const pickableTypes = ["company", "client", "vacancy", "candidate", "placement"] as const;
+const searchableTypes: EntityType[] = ["company", "client", "vacancy", "candidate", "placement"];
 
 export type PickedRecord = { type: EntityType; id: string; label: string };
 
 /**
- * Optional link from a task to a record: pick a type, search, choose.
- * Submits `entity_type` and `entity_id` as hidden inputs.
+ * Optional link from a Work task to a portal record: pick a type, search,
+ * choose. Submits `entity_type` and `entity_id` as hidden inputs, nothing
+ * when no record is chosen (which clears the link). `types` are the record
+ * types this team member has the module for; the picker offers only those.
  */
-export function RecordPicker({ initial, error }: { initial: PickedRecord | null; error?: string }) {
+export function RecordPicker({
+  initial,
+  types,
+  error,
+  legend = "Linked record",
+}: {
+  initial: PickedRecord | null;
+  types: EntityType[];
+  error?: string;
+  legend?: string;
+}) {
   const id = useId();
   const [type, setType] = useState<EntityType | "">(initial?.type ?? "");
   const [picked, setPicked] = useState<PickedRecord | null>(initial);
@@ -27,10 +39,8 @@ export function RecordPicker({ initial, error }: { initial: PickedRecord | null;
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const requestId = useRef(0);
 
-  const typeOptions: EntityType[] =
-    initial && !pickableTypes.includes(initial.type as (typeof pickableTypes)[number])
-      ? [...pickableTypes, initial.type]
-      : [...pickableTypes];
+  const pickable = searchableTypes.filter((t) => types.includes(t));
+  const typeOptions: EntityType[] = initial && !pickable.includes(initial.type) ? [...pickable, initial.type] : pickable;
 
   function runSearch(nextType: EntityType | "", nextQuery: string) {
     clearTimeout(timer.current);
@@ -51,6 +61,7 @@ export function RecordPicker({ initial, error }: { initial: PickedRecord | null;
   }
 
   function choose(hit: RecordHit) {
+    if (hit.type === "task") return;
     setPicked({ type: hit.type, id: hit.id, label: hit.label });
     setQuery("");
     setHits([]);
@@ -61,7 +72,7 @@ export function RecordPicker({ initial, error }: { initial: PickedRecord | null;
 
   return (
     <fieldset className="space-y-3 rounded-xl border border-border p-4">
-      <legend className="px-1 text-sm font-medium text-ink">Link to</legend>
+      <legend className="px-1 text-sm font-medium text-ink">{legend}</legend>
       {picked && <input type="hidden" name="entity_type" value={picked.type} />}
       {picked && <input type="hidden" name="entity_id" value={picked.id} />}
 

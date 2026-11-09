@@ -8,6 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Field, FormMessage, Input, Select, Textarea } from "@/components/ui/field";
 import { Modal } from "@/components/ui/modal";
 import { PendingSubmit, submitWithoutReset } from "@/components/placements/form-utils";
+import { RecordPicker } from "@/components/work/record-picker";
+import type { EntityType } from "@/lib/database.types";
 
 export type WorkAction = (state: WorkActionState, formData: FormData) => Promise<WorkActionState>;
 export type PersonOption = { id: string; name: string; role?: string };
@@ -72,6 +74,7 @@ export function TaskForm({
   parentId,
   onDone,
   submitLabel = "Create task",
+  recordTypes = [],
 }: {
   action: WorkAction;
   people: PersonOption[];
@@ -79,6 +82,8 @@ export function TaskForm({
   parentId?: string;
   onDone?: () => void;
   submitLabel?: string;
+  /** Record types the user may link the task to (team with the module only). */
+  recordTypes?: EntityType[];
 }) {
   const formRef = useRef<HTMLFormElement>(null);
   const { state, formAction, pending, errors } = useWorkAction(action, () => {
@@ -129,6 +134,9 @@ export function TaskForm({
         </Field>
       </div>
       <PeoplePicker name="assignees" label="Owners" people={people} />
+      {!parentId && recordTypes.length > 0 && (
+        <RecordPicker initial={null} types={recordTypes} error={errors.entity_id} legend="Linked record (optional)" />
+      )}
       <div className="flex justify-end max-sm:*:w-full">
         <PendingSubmit pending={pending} pendingLabel="Saving">
           {submitLabel}
@@ -143,11 +151,13 @@ export function NewTaskButton({
   people,
   currentUserId,
   label = "New task",
+  recordTypes,
 }: {
   action: WorkAction;
   people: PersonOption[];
   currentUserId: string;
   label?: string;
+  recordTypes?: EntityType[];
 }) {
   const [open, setOpen] = useState(false);
   return (
@@ -157,7 +167,13 @@ export function NewTaskButton({
         {label}
       </Button>
       <Modal open={open} onClose={() => setOpen(false)} title={label} size="lg">
-        <TaskForm action={action} people={people} currentUserId={currentUserId} onDone={() => setOpen(false)} />
+        <TaskForm
+          action={action}
+          people={people}
+          currentUserId={currentUserId}
+          onDone={() => setOpen(false)}
+          recordTypes={recordTypes}
+        />
       </Modal>
     </>
   );

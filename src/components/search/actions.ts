@@ -3,6 +3,7 @@
 import { z } from "zod";
 import { requireStaff } from "@/lib/auth";
 import {
+  emptySearchGroups,
   isSearchableType,
   searchEverything,
   searchRecordsOfType,
@@ -16,7 +17,7 @@ const querySchema = z.string().trim().max(100);
 export async function globalSearch(query: string): Promise<SearchGroups> {
   await requireStaff();
   const q = querySchema.safeParse(query);
-  if (!q.success) return { company: [], client: [], vacancy: [], candidate: [], placement: [] };
+  if (!q.success) return emptySearchGroups;
   return searchEverything(q.data);
 }
 

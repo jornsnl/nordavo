@@ -2,20 +2,39 @@ import Link from "next/link";
 import { CalendarClock, CornerDownRight, ListChecks, NotebookPen } from "lucide-react";
 import type { TaskListItem } from "@/lib/work/data";
 import type { WorkPriority, WorkStatus } from "@/lib/work/database";
-import { workOption, workPriorities, workStatuses } from "@/lib/work/labels";
+import { workOption, workStatuses } from "@/lib/work/labels";
+import { priorityStyles } from "@/lib/sales/labels";
 import { dueState, formatDue } from "@/lib/work/time";
 import { Badge } from "@/components/ui/badge";
 import { initials } from "@/lib/format";
+import { RecordChip } from "@/components/work/task-record";
+import { groupByDue } from "@/lib/work/grouping";
 
 export function StatusBadge({ status }: { status: WorkStatus }) {
   const option = workOption(workStatuses, status);
   return <Badge tone={option.tone}>{option.label}</Badge>;
 }
 
+/**
+ * The priority in its fixed color (priorityStyles), the same in every list,
+ * board, filter and on the task itself. Quiet hides Normal and Low.
+ */
 export function PriorityBadge({ priority, quiet = false }: { priority: WorkPriority; quiet?: boolean }) {
   if (quiet && (priority === "normal" || priority === "low")) return null;
-  const option = workOption(workPriorities, priority);
-  return <Badge tone={option.tone}>{option.label}</Badge>;
+  const style = priorityStyles[priority];
+  return (
+    <span
+      className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs font-semibold whitespace-nowrap ${style.chip}`}
+    >
+      <span className="sr-only">Priority: </span>
+      {style.label}
+    </span>
+  );
+}
+
+/** Left border in the priority color, for rows and cards. */
+export function priorityBorder(priority: WorkPriority) {
+  return `border-l-4 ${priorityStyles[priority].border}`;
 }
 
 export function DueLabel({ dueAt, timeZone, done = false }: { dueAt: string | null; timeZone: string; done?: boolean }) {
@@ -68,7 +87,9 @@ export function TaskRow({
 }) {
   const done = task.status === "done" || task.status === "cancelled";
   return (
-    <li className="group relative flex flex-col gap-2 px-4 py-3 transition hover:bg-brand-50/50 sm:flex-row sm:items-center sm:gap-4 sm:px-5">
+    <li
+      className={`group relative flex flex-col gap-2 px-4 py-3 transition hover:bg-brand-50/50 sm:flex-row sm:items-center sm:gap-4 sm:px-5 ${priorityBorder(task.priority)}`}
+    >
       <div className="min-w-0 flex-1">
         {showContext && (
           <p className="mb-0.5 truncate text-xs text-muted">
@@ -90,6 +111,11 @@ export function TaskRow({
           {task.isLog && <NotebookPen className="mr-1.5 inline size-3.5 text-muted" aria-label="Logged work" />}
           {task.title}
         </Link>
+        {task.record && (
+          <div className="mt-1">
+            <RecordChip record={task.record} />
+          </div>
+        )}
       </div>
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 sm:shrink-0 sm:justify-end">
         <StatusBadge status={task.status} />
@@ -136,5 +162,23 @@ export function TaskGroup({
         ))}
       </ul>
     </section>
+  );
+}
+
+/** Tasks in the groups of the old Tasks page: overdue, today, this week, later and no date (viewer's time zone). */
+export function DueGroups({ tasks, timeZone, showContext = true }: { tasks: TaskListItem[]; timeZone: string; showContext?: boolean }) {
+  return (
+    <div className="space-y-4">
+      {groupByDue(tasks, timeZone).map((group) => (
+        <TaskGroup
+          key={group.key}
+          title={group.label}
+          tone={group.tone}
+          tasks={group.tasks}
+          timeZone={timeZone}
+          showContext={showContext}
+        />
+      ))}
+    </div>
   );
 }
