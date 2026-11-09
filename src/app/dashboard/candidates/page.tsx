@@ -12,6 +12,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { Input, Select } from "@/components/ui/field";
+import { SearchSelect } from "@/components/ui/search-select";
 import { MobileList, MobileListItem } from "@/components/ui/mobile-list";
 import { ListSkeleton } from "@/components/ui/skeleton";
 import { TBody, TD, TH, THead, TR, Table } from "@/components/ui/table";
@@ -145,15 +146,16 @@ async function CandidateList({ searchParams }: { searchParams: SearchParams }) {
           <label htmlFor="candidate-skill" className="sr-only">
             Skill
           </label>
-          <Select id="candidate-skill" name="skill" defaultValue={skill ?? ""} className="max-sm:w-full">
-            <option value="">All skills</option>
-            {skill && !skills.includes(skill) && <option value={skill}>{skill}</option>}
-            {skills.map((s) => (
-              <option key={s} value={s}>
-                {s}
-              </option>
-            ))}
-          </Select>
+          <SearchSelect
+            id="candidate-skill"
+            name="skill"
+            defaultValue={skill ?? null}
+            className="max-sm:w-full sm:w-48"
+            placeholder="All skills"
+            searchPlaceholder="Search skills"
+            submitOnChange
+            options={[...(skill && !skills.includes(skill) ? [skill] : []), ...skills].map((s) => ({ value: s, label: s }))}
+          />
           {filtered && (
             <ButtonLink href="/dashboard/candidates" variant="ghost" className="shrink-0 sm:hidden">
               Clear

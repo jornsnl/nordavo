@@ -1,7 +1,7 @@
 "use client";
 
 import { startTransition, useActionState, useState } from "react";
-import { LoaderCircle, Mail, Pencil, Phone, Plus, Star } from "lucide-react";
+import { ExternalLink, LoaderCircle, Mail, Pencil, Phone, Plus, Star } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
@@ -17,6 +17,7 @@ export type ContactItem = {
   email: string | null;
   phone: string | null;
   job_title: string | null;
+  linkedin_url: string | null;
   is_primary: boolean;
 };
 
@@ -87,6 +88,17 @@ export function ContactsCard({
                     >
                       <Phone className="size-3.5 shrink-0" aria-hidden="true" />
                       {contact.phone}
+                    </a>
+                  )}
+                  {contact.linkedin_url && (
+                    <a
+                      href={contact.linkedin_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 text-brand-700 hover:underline active:text-brand-900 pointer-coarse:min-h-10"
+                    >
+                      <ExternalLink className="size-3.5 shrink-0" aria-hidden="true" />
+                      LinkedIn
                     </a>
                   )}
                 </div>
@@ -207,12 +219,26 @@ function ContactForm({
             name="phone"
             type="tel"
             autoComplete="tel"
-            enterKeyHint="done"
+            enterKeyHint="next"
             defaultValue={contact?.phone ?? ""}
             {...invalid("phone")}
           />
         </Field>
       </div>
+      <Field label="LinkedIn" htmlFor="contact-linkedin_url" error={errors.linkedin_url}>
+        <Input
+          id="contact-linkedin_url"
+          name="linkedin_url"
+          type="url"
+          inputMode="url"
+          autoCapitalize="none"
+          spellCheck={false}
+          placeholder="https://www.linkedin.com/in/..."
+          enterKeyHint="done"
+          defaultValue={contact?.linkedin_url ?? ""}
+          {...invalid("linkedin_url")}
+        />
+      </Field>
       <label className="flex cursor-pointer items-start gap-3 text-sm text-ink pointer-coarse:py-1">
         <input
           type="checkbox"

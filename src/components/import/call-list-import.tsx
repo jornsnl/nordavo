@@ -13,7 +13,16 @@ import { Card, CardBody, CardHeader } from "@/components/ui/card";
 
 const CHUNK = 150;
 
-type Totals = { companiesCreated: number; companiesUpdated: number; contactsCreated: number; contactsUpdated: number; contactsSkipped: number; signalsCreated: number; signalsUpdated: number };
+type Totals = {
+  companiesCreated: number;
+  companiesUpdated: number;
+  contactsCreated: number;
+  contactsUpdated: number;
+  contactsSkipped: number;
+  calls: number;
+  signalsCreated: number;
+  signalsUpdated: number;
+};
 
 function chunks<T>(list: T[], size = CHUNK): T[][] {
   const out: T[][] = [];
@@ -63,7 +72,7 @@ export function CallListImport() {
   const run = async () => {
     if (!parsed) return;
     setError(null);
-    const t: Totals = { companiesCreated: 0, companiesUpdated: 0, contactsCreated: 0, contactsUpdated: 0, contactsSkipped: 0, signalsCreated: 0, signalsUpdated: 0 };
+    const t: Totals = { companiesCreated: 0, companiesUpdated: 0, contactsCreated: 0, contactsUpdated: 0, contactsSkipped: 0, calls: 0, signalsCreated: 0, signalsUpdated: 0 };
     const total = parsed.companies.length + parsed.contacts.length + parsed.signals.length;
     let done = 0;
 
@@ -102,6 +111,7 @@ export function CallListImport() {
       t.contactsCreated += result.created;
       t.contactsUpdated += result.updated;
       t.contactsSkipped += result.skipped;
+      t.calls += result.calls ?? 0;
       done += block.length;
     }
     const signals = parsed.signals.flatMap((s) => {
@@ -165,20 +175,11 @@ export function CallListImport() {
               Found <strong>{parsed.companies.length}</strong> companies, <strong>{parsed.contacts.length}</strong> contacts
               (of which {parsed.contacts.filter((c) => c.role !== "main").length} Extra or Reserve and{" "}
               {parsed.contacts.filter((c) => c.status === "enrich").length} without a number to enrich) and{" "}
-              <strong>{parsed.signals.length}</strong> vacancies.
+              <strong>{parsed.signals.length}</strong> vacancies.{" "}
+              {parsed.contacts.filter((c) => c.history).length} earlier calls from the status, attempts and last attempt
+              columns go on the timeline.
             </p>
-            {Object.keys(parsed.unknownColumns).length > 0 && (
-              <details className="text-xs text-muted">
-                <summary className="cursor-pointer">Columns that are not imported</summary>
-                <ul className="mt-1 space-y-1">
-                  {Object.entries(parsed.unknownColumns).map(([sheet, cols]) => (
-                    <li key={sheet}>
-                      {sheet}: {cols.join(", ")}
-                    </li>
-                  ))}
-                </ul>
-              </details>
-            )}
+            <ColumnPreview columns={parsed.columns} />
             <Button onClick={run} disabled={Boolean(progress)}>
               <Upload aria-hidden="true" />
               {progress ? `${progress.step}: ${progress.done} of ${progress.total}` : "Import"}
@@ -194,7 +195,8 @@ export function CallListImport() {
         {totals && (
           <p role="status" className="rounded-xl border border-emerald-600/20 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
             Done. Companies: {totals.companiesCreated} new, {totals.companiesUpdated} filled in. Contacts: {totals.contactsCreated} new,{" "}
-            {totals.contactsUpdated} filled in{totals.contactsSkipped > 0 ? `, ${totals.contactsSkipped} already there` : ""}. Vacancies:{" "}
+            {totals.contactsUpdated} filled in{totals.contactsSkipped > 0 ? `, ${totals.contactsSkipped} already there` : ""}. Earlier
+            calls on the timeline: {totals.calls} new. Vacancies:{" "}
             {totals.signalsCreated} new, {totals.signalsUpdated} already there.
           </p>
         )}
@@ -205,5 +207,60 @@ export function CallListImport() {
         )}
       </CardBody>
     </Card>
+  );
+}
+
+/**
+ * Which column of the file goes where, per tab, before anything is
+ * imported: so the mapping can be checked against the real file.
+ */
+function ColumnPreview({ columns }: { columns: ParsedCallList["columns"] }) {
+  const sheets = Object.entries(columns);
+  if (sheets.length === 0) return null;
+  return (
+    <details className="rounded-xl border border-border text-sm" open>
+      <summary className="cursor-pointer px-3 py-2 font-semibold text-brand-900">Column mapping: check before you import</summary>
+      <div className="space-y-4 border-t border-border px-3 py-3">
+        {sheets.map(([sheet, mapping]) => (
+          <section key={sheet} aria-label={`Columns of ${sheet}`} className="space-y-2">
+            <h3 className="font-semibold">{sheet}</h3>
+            {mapping.recognized.length > 0 && (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="text-muted">
+                    <tr>
+                      <th scope="col" className="py-1 pr-3 font-medium">Column in the file</th>
+                      <th scope="col" className="py-1 font-medium">Imported as</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {mapping.recognized.map((r) => (
+                      <tr key={`${r.column}:${r.field}`}>
+                        <td className="py-1 pr-3 font-medium text-ink">{r.column}</td>
+                        <td className="py-1 text-muted">{r.label}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            {mapping.ignored.length > 0 && (
+              <p className="text-xs text-amber-800">
+                <span className="font-medium">Ignored, not imported:</span> {mapping.ignored.join(", ")}
+              </p>
+            )}
+            {mapping.missing.length > 0 && (
+              <p className="text-xs text-muted">
+                <span className="font-medium">Not found in this tab:</span> {mapping.missing.join(", ")}
+              </p>
+            )}
+          </section>
+        ))}
+        <p className="text-xs text-muted">
+          A LinkedIn link goes where it points: a /company/ link to the company, an /in/ link to the person. A route that is
+          not on the list (Mobile, Main number, Via reception, LinkedIn, Mail) is kept in the caller note.
+        </p>
+      </div>
+    </details>
   );
 }

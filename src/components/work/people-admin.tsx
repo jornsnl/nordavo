@@ -6,6 +6,7 @@ import type { WorkRole } from "@/lib/work/database";
 import { workRoles } from "@/lib/work/labels";
 import { Button } from "@/components/ui/button";
 import { Field, FormMessage, Input, Select } from "@/components/ui/field";
+import { SearchSelect } from "@/components/ui/search-select";
 import { Modal } from "@/components/ui/modal";
 import { PendingSubmit, submitWithoutReset } from "@/components/placements/form-utils";
 import { useWorkAction, type WorkAction } from "@/components/work/forms";
@@ -61,15 +62,15 @@ export function InviteForm({
           error={errors.project_id}
           hint={role === "guest" ? "Guests only see this project" : "Optional: land straight in this project"}
         >
-          <Select id="invite_project" name="project_id" defaultValue={defaultProjectId ?? ""}>
-            {role !== "guest" && <option value="">No project</option>}
-            {role === "guest" && !defaultProjectId && <option value="">Pick a project</option>}
-            {projects.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
-            ))}
-          </Select>
+          <SearchSelect
+            id="invite_project"
+            name="project_id"
+            defaultValue={defaultProjectId ?? null}
+            required={role === "guest"}
+            placeholder={role === "guest" ? "Pick a project" : "No project"}
+            searchPlaceholder="Search projects"
+            options={projects.map((p) => ({ value: p.id, label: p.name }))}
+          />
         </Field>
         {role === "guest" && (
           <Field label="Access ends" htmlFor="invite_expires" hint="Optional. Access stops by itself after this moment.">

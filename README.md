@@ -26,7 +26,7 @@ Het interne portaal van [Nordavo](https://nordavo.nl): de brug tussen Nederlands
 | MCP server | `/api/mcp` | Claude Code leest (en met schrijfrechten wijzigt) portaaldata met een persoonlijke token |
 | Zoeken | Ctrl+K / Cmd+K | Klanten, vacatures, kandidaten en plaatsingen |
 
-Daarnaast draait het **GTM systeem** (signalen, kwalificatie met Claude, Instantly en Web Partners syncs, weekrapport en talentmatching). Werking, inrichting en planning staan in [docs/gtm.md](docs/gtm.md); de oorspronkelijke briefing in [docs/gtm-briefing.md](docs/gtm-briefing.md). Het sales CRM staat in [docs/sales.md](docs/sales.md), de geplande taken van Claude in [docs/claude-jobs.md](docs/claude-jobs.md).
+Daarnaast draait het **GTM systeem** (weekrapport en talentmatching, plus de oude jobs voor signalen, kwalificatie en de Instantly en Web Partners syncs, die nu alleen nog met de hand draaien als fallback voor de geplande taken van Claude). Werking, inrichting en planning staan in [docs/gtm.md](docs/gtm.md); de oorspronkelijke briefing in [docs/gtm-briefing.md](docs/gtm-briefing.md). Het sales CRM staat in [docs/sales.md](docs/sales.md), de geplande taken van Claude in [docs/claude-jobs.md](docs/claude-jobs.md).
 
 Op elke detailpagina staan taken, notities, bijlagen en een activiteitenlog. Het activiteitenlog wordt door database-triggers gevuld, dus elke wijziging komt erin.
 

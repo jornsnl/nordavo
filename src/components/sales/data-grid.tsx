@@ -23,7 +23,7 @@ import {
 } from "lucide-react";
 import type { Json } from "@/lib/database.types";
 import { applyView, parseTsv, positionBetween, toTsv, type ColumnFilter, type SortRule, type ViewConfig } from "@/lib/sales/grid";
-import type { ColumnDef, ContactRow } from "@/lib/sales/rows";
+import type { ColumnDef, CompanyRow, ContactRow } from "@/lib/sales/rows";
 import { accessorsFor } from "@/lib/sales/rows";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
@@ -31,6 +31,7 @@ import { applyEdits, deleteView, saveView, setPositions, type Edit } from "./act
 import { CellEditor, CellView, displayText, editText } from "./cell";
 import { ColumnChooser, Chips, FilterEditor } from "./grid-toolbar";
 import { kinds, type AnyRow, type GridKind } from "./grid-kinds";
+import { LostReasonDialog } from "./lost-reason-dialog";
 import { SalesBoard } from "./sales-board";
 import { AssignCallersDialog, type CallerOption } from "@/components/calls/assign-callers-dialog";
 
@@ -44,6 +45,24 @@ export type GridView = { id: string; name: string; config: ViewConfig; isCallLis
 type Change = { row: AnyRow; column: ColumnDef<AnyRow>; value: unknown; old: unknown };
 
 type Range = { r1: number; c1: number; r2: number; c2: number };
+
+/** The changes that move a company without a lost reason to Lost. */
+function lostRows(changes: Change[]): Change[] {
+  if (changes.some((c) => c.column.field === "lost_reason" && c.value)) return [];
+  return changes.filter(
+    (c) => c.column.field === "pipeline_stage" && c.value === "lost" && c.old !== "lost" && !(c.row as CompanyRow).lost_reason,
+  );
+}
+
+/** Written next to the stage when a company goes to Lost from the table. */
+const lostReasonColumn: ColumnDef<AnyRow> = {
+  key: "lost_reason",
+  label: "Lost reason",
+  type: "text",
+  field: "lost_reason",
+  entity: "company",
+  get: (r) => (r as CompanyRow).lost_reason,
+};
 
 function rowKey(row: AnyRow) {
   return row.id;
@@ -204,6 +223,31 @@ export function SalesWorkspace({
     [k, kind],
   );
 
+  // Lost needs a reason (section 2.5): a cell, paste or bulk edit that sets
+  // the stage to Lost waits for the reason dialog, like the board does.
+  const [lostChanges, setLostChanges] = useState<Change[] | null>(null);
+  const commitChecked = useCallback(
+    (changes: Change[]) => {
+      if (lostRows(changes).length > 0) {
+        setLostChanges(changes);
+        return;
+      }
+      commit(changes);
+    },
+    [commit],
+  );
+  const confirmLost = (reason: string) => {
+    const changes = lostChanges ?? [];
+    setLostChanges(null);
+    const reasons: Change[] = lostRows(changes).map((c) => ({
+      row: c.row,
+      column: lostReasonColumn,
+      value: reason,
+      old: (c.row as CompanyRow).lost_reason ?? null,
+    }));
+    commit([...reasons, ...changes]);
+  };
+
   const undo = useCallback(() => {
     const last = undoStack.at(-1);
     if (!last) return;
@@ -303,7 +347,7 @@ export function SalesWorkspace({
     const previous = new Map(rows.map((r) => [r.id, r.manual_position]));
     setRows((prev) => prev.map((r) => (byId.has(r.id) ? ({ ...r, manual_position: byId.get(r.id)! } as AnyRow) : r)));
     startTransition(async () => {
-      const result = await setPositions({ entity: k.rowEntity, ids, positions });
+      const result = await setPositions({ entity: k.rowEntity, ids, positions, moved: moving.id });
       if (!result.ok) {
         setRows((prev) => prev.map((r) => (byId.has(r.id) ? ({ ...r, manual_position: previous.get(r.id) ?? null } as AnyRow) : r)));
         flash("error", result.error);
@@ -454,7 +498,7 @@ export function SalesWorkspace({
           selected={selectedRows}
           columns={allColumns}
           onClear={() => setSelected(new Set())}
-          onApply={(column, value) => commit(selectedRows.map((row) => ({ row, column, value, old: rawValue(row, column) })))}
+          onApply={(column, value) => commitChecked(selectedRows.map((row) => ({ row, column, value, old: rawValue(row, column) })))}
           onPin={(pin) => {
             const column: ColumnDef<AnyRow> = { key: "pinned_at", label: "Pinned", type: "datetime", field: "pinned_at", entity: k.rowEntity, get: (r) => r.pinned_at };
             const now = new Date().toISOString();
@@ -491,7 +535,7 @@ export function SalesWorkspace({
           selected={selected}
           setSelected={setSelected}
           manual={manual}
-          onCommit={commit}
+          onCommit={commitChecked}
           onUndo={undo}
           onPin={togglePin}
           onMove={moveRow}
@@ -510,6 +554,20 @@ export function SalesWorkspace({
           commit(changes);
         }} />
       )}
+
+      <LostReasonDialog
+        open={Boolean(lostChanges)}
+        description={
+          lostChanges
+            ? (() => {
+                const names = [...new Set(lostRows(lostChanges).map((c) => k.title(c.row)))];
+                return names.length === 1 ? names[0] : `${names.length} companies`;
+              })()
+            : undefined
+        }
+        onCancel={() => setLostChanges(null)}
+        onConfirm={confirmLost}
+      />
 
       {saveAs && (
         <SaveViewDialog

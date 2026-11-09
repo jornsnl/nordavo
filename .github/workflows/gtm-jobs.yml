@@ -1,17 +1,20 @@
 name: GTM jobs
 
-# Scheduled GTM workflows (briefing sections 9 and 10). Times are Europe/Amsterdam:
-# each schedule fires at two UTC hours and the guard step keeps only the run
-# that matches local time, so summer and winter time both work.
+# GTM jobs. Times are Europe/Amsterdam: each schedule fires at two UTC hours
+# and the guard step keeps only the run that matches local time, so summer
+# and winter time both work.
+#
+# Only the weekly report is scheduled. The chains maandag (S1 to S4) and
+# dagelijks (S8) are fallbacks for Claude's scheduled tasks
+# (docs/claude-jobs.md) and only run by hand: workflow_dispatch below, the
+# Jobs page or npm run job.
 on:
   schedule:
-    - cron: "0 4,5 * * 1" # maandag 06:00: S1 tot en met S4
-    - cron: "0 5,6 * * *" # dagelijks 07:00: S8 en S9
     - cron: "0 14,15 * * 5" # vrijdag 16:00: S10 weekrapport
   workflow_dispatch:
     inputs:
       job:
-        description: "Job of reeks (bijvoorbeeld maandag, s2-qualify, t2-match)"
+        description: "Job of reeks (bijvoorbeeld maandag als fallback, s2-qualify, t2-match)"
         required: true
       params:
         description: "Optionele parameters, bijvoorbeeld --vacancy=<uuid>"
@@ -37,10 +40,7 @@ jobs:
       APIFY_PEOPLE_ACTOR: ${{ vars.APIFY_PEOPLE_ACTOR }}
       PROSPEO_API_KEY: ${{ secrets.PROSPEO_API_KEY }}
       INSTANTLY_API_KEY: ${{ secrets.INSTANTLY_API_KEY }}
-      ONEPAGE_USER_ID: ${{ secrets.ONEPAGE_USER_ID }}
-      ONEPAGE_API_KEY: ${{ secrets.ONEPAGE_API_KEY }}
       GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
-      WEBPARTNERS_SHARE_WITH: ${{ vars.WEBPARTNERS_SHARE_WITH }}
       WEBPARTNERS_APPOINTMENTS_SHEET_ID: ${{ vars.WEBPARTNERS_APPOINTMENTS_SHEET_ID }}
       RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
       MAIL_FROM: ${{ vars.MAIL_FROM }}
@@ -56,8 +56,6 @@ jobs:
           fi
           HOUR=$(TZ=Europe/Amsterdam date +%H)
           case "${{ github.event.schedule }}" in
-            "0 4,5 * * 1") [ "$HOUR" = "06" ] && echo "job=maandag" >> "$GITHUB_OUTPUT" ;;
-            "0 5,6 * * *") [ "$HOUR" = "07" ] && echo "job=dagelijks" >> "$GITHUB_OUTPUT" ;;
             "0 14,15 * * 5") [ "$HOUR" = "16" ] && echo "job=vrijdag" >> "$GITHUB_OUTPUT" ;;
           esac
           true

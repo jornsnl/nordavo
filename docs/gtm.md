@@ -62,23 +62,23 @@ Supabase is de enige bron van waarheid voor alle prospectdata. Geplande jobs hal
 1. **Migraties.** Voer alle bestanden in `supabase/migrations` in volgorde uit.
 2. **Omgevingsvariabelen.** Zie `.env.example`. De app (bijvoorbeeld op Vercel) heeft ze nodig voor de knoppen in het portaal. GitHub Actions heeft ze nodig voor de geplande jobs: zet geheimen onder Settings, Secrets and variables, Actions, en vul de niet-geheime waarden (actor-id's, mailadressen) in als variables.
 3. **Apify.** Kies de actors voor LinkedIn-vacatures, Indeed-vacatures en het zoeken van personen, en zet hun id's in `APIFY_LINKEDIN_JOBS_ACTOR`, `APIFY_INDEED_JOBS_ACTOR` en `APIFY_PEOPLE_ACTOR`. De mapping per actor staat in `src/lib/integrations/apify.ts`. Draai de eerste keer klein: `npm run job -- s1-signals --limit=20`.
-4. **Google service account.** Maak een service account met de Sheets API en de Drive API aan, en zet de JSON-sleutel op één regel in `GOOGLE_SERVICE_ACCOUNT_JSON`. Deel de afsprakensheet van Web Partners met het mailadres van het service account.
+4. **Google service account (alleen voor de fallback `s8-webpartners-import`).** Maak een service account met de Sheets API aan, en zet de JSON-sleutel op één regel in `GOOGLE_SERVICE_ACCOUNT_JSON`. Deel de oude afsprakensheet van Web Partners met het mailadres van het service account. Meetings en de Cal.com taak van Claude vervangen die sheet.
 5. **Cal.com.** Maak een webhook naar `https://<domein>/api/webhooks/calcom` voor `BOOKING_CREATED`, `BOOKING_RESCHEDULED` en `BOOKING_CANCELLED`, met een geheim dat je ook in `CALCOM_WEBHOOK_SECRET` zet.
 6. **Claude.** Maak een MCP token met schrijfrechten aan en richt de geplande taken in volgens [claude-jobs.md](./claude-jobs.md). OnePageCRM is niet meer nodig: de pipeline zit in het portaal.
 7. **Mail.** Maak een Resend-account aan, verifieer het afzenderdomein en zet `RESEND_API_KEY`, `MAIL_FROM` en `REPORT_EMAIL_TO`.
-8. **Externe scheduler (optioneel).** In plaats van GitHub Actions kan elke scheduler `POST /api/jobs/<naam>` aanroepen met `Authorization: Bearer <CRON_SECRET>`. Voor lange jobs is de command line (`npm run job -- maandag`) beter dan een serverless functie.
+8. **Externe scheduler (optioneel).** In plaats van GitHub Actions kan elke scheduler `POST /api/jobs/<naam>` aanroepen met `Authorization: Bearer <CRON_SECRET>`, behalve voor de fallback jobs (409). Voor lange jobs is de command line (`npm run job -- vrijdag`) beter dan een serverless functie.
 
 ## Planning
 
 | Wanneer (Amsterdam) | Reeks | Jobs |
 | --- | --- | --- |
-| Maandag 06:00 | `maandag` | S1 signalen, S2 kwalificatie, S3 beslissers, S4 mailadressen. Stopt bij de eerste fout |
-| Elke dag 07:00 | `dagelijks` | S8 Instantly, S8 Web Partners |
+| Alleen met de hand (fallback) | `maandag` | S1 signalen, S2 kwalificatie, S3 beslissers, S4 mailadressen. Stopt bij de eerste fout. Vervangen door de taken `claude-companies` en `claude-icp` |
+| Alleen met de hand (fallback) | `dagelijks` | S8 Instantly, S8 Web Partners. Vervangen door de taken `claude-replies` en `claude-calcom` |
 | Vrijdag 16:00 | `vrijdag` | S10 weekrapport |
 | Op verzoek | | Max-export en -import (Contacten, Enrich), T2 matchen (vanuit het portaal of `npm run job`) |
 | Op het schema van Claude | | Cal.com, replies, sequences, instroom en ICP-oordeel, zie [claude-jobs.md](./claude-jobs.md) |
 
-S6 (bellijst naar een Google Sheet voor Web Partners), S7 (mailcampagnes in Instantly) en S9 (OnePageCRM) zijn verwijderd: bellers werken op het belscherm met bellijsten in het portaal, sequences vervangen de campagnes en de pipeline vervangt OnePageCRM.
+S6 (bellijst naar een Google Sheet voor Web Partners), S7 (mailcampagnes in Instantly) en S9 (OnePageCRM) zijn verwijderd: bellers werken op het belscherm met bellijsten in het portaal, sequences vervangen de campagnes en de pipeline vervangt OnePageCRM. S1 tot S4 en S8 zijn fallbacks voor de geplande taken van Claude: ze staan op geen schema meer en een externe scheduler met `CRON_SECRET` krijgt een 409, maar met de hand draaien ze nog ([claude-jobs.md](./claude-jobs.md#fallback-jobs)).
 
 Handmatig draaien kan via Beheer, Jobs, via GitHub (Actions, GTM jobs, Run workflow) of lokaal:
 

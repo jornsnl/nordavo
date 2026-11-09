@@ -142,7 +142,7 @@ export async function loadPrimaryContacts(
     clientIds.length > 0 &&
       supabase
         .from("client_contacts")
-        .select("client_id, full_name, job_title, email, phone")
+        .select("client_id, full_name, job_title, email, phone, linkedin_url")
         .in("client_id", clientIds)
         .eq("is_primary", true)
         .order("created_at")
@@ -155,7 +155,7 @@ export async function loadPrimaryContacts(
               title: c.job_title,
               email: c.email,
               phone: c.phone,
-              linkedinUrl: null,
+              linkedinUrl: c.linkedin_url,
             });
           }
         }),

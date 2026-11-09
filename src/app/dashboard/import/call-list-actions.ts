@@ -6,6 +6,8 @@ import { requireModule } from "@/lib/auth";
 import type { ContactStatus, Json, TablesInsert } from "@/lib/database.types";
 import { normalizeEmail, normalizeLinkedin, normalizePhone, phoneTypeFor } from "@/lib/gtm/normalize";
 import type { LeadStatus } from "@/lib/sales/database";
+import { contactRoutes } from "@/lib/sales/labels";
+import { historyExternalId } from "@/lib/sales/call-list-import";
 import { createClient } from "@/lib/supabase/server";
 
 // Writes the call list import in blocks, without duplicates (feedback Julius,
@@ -43,7 +45,7 @@ const contactSchema = z.object({
   last_name: z.string().max(200).nullable(),
   title: z.string().max(300).nullable(),
   tier: z.union([z.literal(1), z.literal(2), z.literal(3)]).nullable(),
-  route: z.string().max(100).nullable(),
+  route: z.enum(contactRoutes).nullable(),
   phone: z.string().max(50).nullable(),
   email: z.string().max(320).nullable(),
   linkedin_url: z.string().max(500).nullable(),
@@ -53,7 +55,37 @@ const contactSchema = z.object({
   referred_to: z.string().max(300).nullable(),
   caller_note: z.string().max(5000).nullable(),
   role: z.enum(["main", "extra", "reserve"]),
+  history: z
+    .object({
+      outcome: z
+        .enum([
+          "no_answer",
+          "call_back",
+          "reached_interested",
+          "meeting_planned",
+          "reached_not_interested",
+          "referred",
+          "wrong_person",
+          "wrong_number",
+          "bereikt",
+        ])
+        .nullable(),
+      statusText: z.string().max(300).nullable(),
+    })
+    .nullable()
+    .default(null),
 });
+
+type ImportContactInput = z.infer<typeof contactSchema>;
+
+/** The note of the call from the Excel on the timeline. */
+function historyNote(c: ImportContactInput): string {
+  const parts = ["From the call list (Excel)"];
+  if (c.history?.statusText) parts.push(`status "${c.history.statusText}"`);
+  if (c.attempts > 0) parts.push(`${c.attempts} ${c.attempts === 1 ? "attempt" : "attempts"}`);
+  if (!c.last_attempt_at) parts.push("date of the call unknown");
+  return `${parts.join(", ")}.`;
+}
 
 const signalSchema = z.object({
   companyId: z.guid(),
@@ -67,7 +99,9 @@ const signalSchema = z.object({
 export type CompanyChunkResult =
   | { ok: true; ids: Record<string, string>; created: number; updated: number }
   | { ok: false; error: string };
-export type ChunkResult = { ok: true; created: number; updated: number; skipped: number } | { ok: false; error: string };
+export type ChunkResult =
+  | { ok: true; created: number; updated: number; skipped: number; calls?: number }
+  | { ok: false; error: string };
 
 function emptyValue(v: unknown) {
   return v === null || v === undefined || v === "" || (Array.isArray(v) && v.length === 0);
@@ -182,7 +216,27 @@ export async function importContacts(input: z.input<typeof contactSchema>[]): Pr
   let created = 0;
   let updated = 0;
   let skipped = 0;
+  let calls = 0;
   const now = new Date().toISOString();
+
+  const logHistory = async (contactId: string, c: ImportContactInput): Promise<string | null> => {
+    if (!c.history) return null;
+    const { data, error } = await supabase.rpc("sales_log_activity", {
+      p_company: c.companyId,
+      p_contact: contactId,
+      p_channel: "bellen",
+      p_type: "contact",
+      p_outcome: c.history.outcome,
+      p_notes: historyNote(c),
+      p_direction: "outbound",
+      p_date: c.last_attempt_at ? `${c.last_attempt_at}T12:00:00Z` : null,
+      p_source: "import",
+      p_external_id: historyExternalId(contactId, c.history, c.last_attempt_at),
+    });
+    if (error) return error.message;
+    if (data) calls += 1;
+    return null;
+  };
   const select =
     "id, first_name, last_name, title, tier, route, phone, email, linkedin_url, status, attempts, last_attempt_at, referred_to, caller_note, role";
 
@@ -248,6 +302,8 @@ export async function importContacts(input: z.input<typeof contactSchema>[]): Pr
           })
           .eq("id", existing.id as string);
       }
+      const historyError = await logHistory(existing.id as string, c);
+      if (historyError) return { ok: false, error: `${c.first_name ?? ""} ${c.last_name ?? ""}: ${historyError}` };
       continue;
     }
 
@@ -262,7 +318,7 @@ export async function importContacts(input: z.input<typeof contactSchema>[]): Pr
       ...(phone ? { phone, phone_type: phoneTypeFor(phone), phone_source: SOURCE, phone_found_at: now } : {}),
       ...(email ? { email, email_status: "unknown" as const, email_source: SOURCE, email_found_at: now } : {}),
     };
-    const { error } = await supabase.from("contacts").insert(row);
+    const { data: inserted, error } = await supabase.from("contacts").insert(row).select("id").single();
     if (error) {
       if (error.code === "23505") {
         skipped += 1;
@@ -271,9 +327,11 @@ export async function importContacts(input: z.input<typeof contactSchema>[]): Pr
       return { ok: false, error: `${c.first_name ?? ""} ${c.last_name ?? ""}: ${error.message}` };
     }
     created += 1;
+    const historyError = await logHistory(inserted.id, c);
+    if (historyError) return { ok: false, error: `${c.first_name ?? ""} ${c.last_name ?? ""}: ${historyError}` };
   }
   revalidatePath("/dashboard/contacts");
-  return { ok: true, created, updated, skipped };
+  return { ok: true, created, updated, skipped, calls };
 }
 
 export async function importSignals(input: z.input<typeof signalSchema>[]): Promise<ChunkResult> {

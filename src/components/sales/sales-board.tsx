@@ -16,10 +16,10 @@ import {
   type DragEndEvent,
 } from "@dnd-kit/core";
 import { CalendarClock, Clock, Phone, User } from "lucide-react";
-import type { CompanyRow, ContactRow } from "@/lib/sales/rows";
 import { Button } from "@/components/ui/button";
-import { Modal } from "@/components/ui/modal";
+import type { CompanyRow, ContactRow } from "@/lib/sales/rows";
 import { kinds, type AnyRow, type GridKind } from "./grid-kinds";
+import { LostReasonDialog } from "./lost-reason-dialog";
 
 // The board of the sales tables (section 2.5): one column per status or
 // stage, a card per company (Leads, Pipeline) or contact (Contacts). Dragging
@@ -205,7 +205,6 @@ export function SalesBoard({
   );
   const [activeId, setActiveId] = useState<string | null>(null);
   const [lost, setLost] = useState<AnyRow | null>(null);
-  const [reason, setReason] = useState("");
 
   const byId = useMemo(() => new Map(rows.map((r) => [r.id, r])), [rows]);
   const grouped = useMemo(() => {
@@ -225,7 +224,6 @@ export function SalesBoard({
     const value = over.slice(4);
     if (String((row as unknown as Record<string, unknown>)[k.board.key]) === value) return;
     if (kind === "pipeline" && value === "lost") {
-      setReason("");
       setLost(row);
       return;
     }
@@ -251,30 +249,15 @@ export function SalesBoard({
         </div>
         <DragOverlay>{active ? <Card card={cardFor(kind, active)} dragging /> : null}</DragOverlay>
       </DndContext>
-      <Modal open={Boolean(lost)} onClose={() => setLost(null)} title="Why was this lost?" description={lost ? k.title(lost) : undefined}>
-        <form
-          className="space-y-4"
-          onSubmit={(e) => {
-            e.preventDefault();
-            if (!lost || !reason.trim()) return;
-            onMove(lost, "lost", reason.trim());
-            setLost(null);
-          }}
-        >
-          <label className="block space-y-1.5 text-sm font-medium">
-            Reason
-            <textarea required autoFocus maxLength={2000} rows={3} value={reason} onChange={(e) => setReason(e.target.value)} className="block w-full rounded-xl border border-border px-3 py-2 font-normal" />
-          </label>
-          <div className="flex justify-end gap-2">
-            <Button variant="ghost" onClick={() => setLost(null)}>
-              Cancel
-            </Button>
-            <Button type="submit" disabled={!reason.trim()}>
-              Move to Lost
-            </Button>
-          </div>
-        </form>
-      </Modal>
+      <LostReasonDialog
+        open={Boolean(lost)}
+        description={lost ? k.title(lost) : undefined}
+        onCancel={() => setLost(null)}
+        onConfirm={(reason) => {
+          if (lost) onMove(lost, "lost", reason);
+          setLost(null);
+        }}
+      />
     </>
   );
 }

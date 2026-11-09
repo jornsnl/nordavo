@@ -1,5 +1,4 @@
 import type { Tone } from "@/lib/labels";
-import type { TaskPriority } from "@/lib/database.types";
 import type {
   ActivityType,
   CallerStatus,
@@ -65,8 +64,40 @@ export const companyPrios: Option<"1" | "2" | "3" | "4" | "5">[] = [
   { value: "5", label: "P5", tone: "neutral" },
 ];
 
-/** Suggestions for the route column; any text is allowed. */
-export const contactRoutes = ["Mobile", "Main number", "Via reception", "LinkedIn", "Mail"];
+/**
+ * How a contact is best reached (section 2.3: a pick list). The value is
+ * stored as is; contacts_route_check in the database allows only these.
+ */
+export const contactRoutes = ["Mobile", "Main number", "Via reception", "LinkedIn", "Mail"] as const;
+export type ContactRoute = (typeof contactRoutes)[number];
+
+export const contactRouteOptions = contactRoutes.map((value) => ({ value, label: value }));
+
+/**
+ * A route as people write it in the Excel ("Bellen", "06", "Receptie",
+ * "e-mail") to one of the fixed routes, or null when it is none of them.
+ * "Bellen" without more is the mobile number when the contact has one.
+ */
+export function parseRoute(value: unknown, phone?: string | null): ContactRoute | null {
+  const s = String(value ?? "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+  if (!s) return null;
+  if (/recept|reception|centrale|front ?desk|doorverbind|switchboard/.test(s)) return "Via reception";
+  if (/linked ?in|^li$|inmail|seleqt/.test(s)) return "LinkedIn";
+  if (/^e ?mail|^mail|mailen|instantly/.test(s)) return "Mail";
+  if (/mobi|^06|gsm|cell|direct/.test(s)) return "Mobile";
+  if (/main|algemeen|hoofdnummer|vast|kantoor|bedrijfsnummer|general/.test(s)) return "Main number";
+  if (/bel|call|phone|telefo/.test(s)) {
+    const digits = String(phone ?? "").replace(/[^\d+]/g, "");
+    const mobile = /^(\+316|00316|06)/.test(digits);
+    return phone && !mobile ? "Main number" : "Mobile";
+  }
+  return null;
+}
 
 /** The buttons on the call screen, in the order of the Excel (section 2.9). */
 export const callOutcomes: (Option<CallOutcome> & { needs?: "date" | "name" })[] = [
@@ -122,7 +153,7 @@ export const activityTypes: Option<ActivityType>[] = [
  * en Work samenvoegen, point 4): filters, lists, boards and the task itself.
  * Classes use the design tokens of globals.css.
  */
-export const priorityStyles: Record<WorkPriority | TaskPriority, { label: string; dot: string; chip: string; border: string }> = {
+export const priorityStyles: Record<WorkPriority, { label: string; dot: string; chip: string; border: string }> = {
   urgent: {
     label: "Urgent",
     dot: "bg-red-600",

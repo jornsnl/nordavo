@@ -85,7 +85,7 @@ export function SuppressionTable({ items, filtered }: { items: SuppressionItem[]
                   <ConfirmDeleteButton
                     action={deleteSuppressionAction.bind(null, item.id)}
                     title="Lift suppression?"
-                    description={`${name} can then go on call and mail lists again, if the 30 day rule allows it. Only do this if you are sure it is allowed.`}
+                    description={`${name} can then be called and mailed again. Only do this if you are sure it is allowed.`}
                     label={`Lift suppression for ${name}`}
                     confirmLabel="Yes, lift it"
                     iconOnly
@@ -142,7 +142,7 @@ export function SuppressionTable({ items, filtered }: { items: SuppressionItem[]
                   <ConfirmDeleteButton
                     action={deleteSuppressionAction.bind(null, item.id)}
                     title="Lift suppression?"
-                    description={`${name} can then go on call and mail lists again, if the 30 day rule allows it. Only do this if you are sure it is allowed.`}
+                    description={`${name} can then be called and mailed again. Only do this if you are sure it is allowed.`}
                     label={`Lift suppression for ${name}`}
                     confirmLabel="Yes, lift it"
                     iconOnly

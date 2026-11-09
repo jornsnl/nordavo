@@ -3,7 +3,8 @@
 import { startTransition, useActionState, useId } from "react";
 import { LoaderCircle, Play } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { FormMessage, Input, Select } from "@/components/ui/field";
+import { FormMessage, Input } from "@/components/ui/field";
+import { SearchSelect } from "@/components/ui/search-select";
 import { initialActionState, type ActionState } from "@/lib/action-state";
 
 /** "Nu draaien" for one job or chain, with optional parameters. */
@@ -41,16 +42,16 @@ export function RunJobForm({
             <label htmlFor={`${id}-vacancy`} className="sr-only">
               Vacancy
             </label>
-            <Select id={`${id}-vacancy`} name="vacancy" defaultValue="" className="sm:w-64" disabled={pending}>
-              <option value="" disabled>
-                {noVacancies ? "No open vacancies" : "Pick a vacancy"}
-              </option>
-              {vacancies.map((v) => (
-                <option key={v.id} value={v.id}>
-                  {v.label}
-                </option>
-              ))}
-            </Select>
+            <SearchSelect
+              id={`${id}-vacancy`}
+              name="vacancy"
+              className="sm:w-64"
+              disabled={pending || noVacancies}
+              required
+              placeholder={noVacancies ? "No open vacancies" : "Pick a vacancy"}
+              searchPlaceholder="Search vacancies"
+              options={vacancies.map((v) => ({ value: v.id, label: v.label }))}
+            />
           </>
         )}
         {showLimit && (

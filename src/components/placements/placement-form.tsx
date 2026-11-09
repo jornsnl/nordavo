@@ -7,7 +7,7 @@ import { candidateStatuses, optionFor, vacancyStatuses } from "@/lib/labels";
 import type { CandidateStatus, VacancyStatus } from "@/lib/database.types";
 import { ButtonLink } from "@/components/ui/button";
 import { SearchSelect } from "@/components/ui/search-select";
-import { Field, FormMessage, Input, Select, Textarea } from "@/components/ui/field";
+import { Field, FormMessage, Input, Textarea } from "@/components/ui/field";
 import { FormActions } from "@/components/entity/form-actions";
 import { addDays } from "./dates";
 import { PendingSubmit, submitWithoutReset } from "./form-utils";
@@ -129,24 +129,22 @@ export function PlacementForm({
           className="sm:col-span-2"
         >
           {locked && <input type="hidden" name="vacancy_id" value={vacancyId} />}
-          <Select
+          <SearchSelect
             id="vacancy_id"
             name={locked ? undefined : "vacancy_id"}
-            value={vacancyId}
+            value={vacancyId || null}
             disabled={locked || !clientId}
             aria-invalid={Boolean(errors.vacancy_id)}
             aria-describedby={describedBy("vacancy_id")}
-            onChange={(event) => setVacancyId(event.target.value)}
-          >
-            <option value="">No vacancy</option>
-            {clientVacancies.map((vacancy) => (
-              <option key={vacancy.id} value={vacancy.id}>
-                {vacancy.title}
-                {vacancy.status !== "open" &&
-                  ` (${optionFor(vacancyStatuses, vacancy.status).label.toLowerCase()})`}
-              </option>
-            ))}
-          </Select>
+            onChange={(value) => setVacancyId(value ?? "")}
+            placeholder="No vacancy"
+            searchPlaceholder="Search vacancies"
+            options={clientVacancies.map((vacancy) => ({
+              value: vacancy.id,
+              label: vacancy.title,
+              hint: vacancy.status !== "open" ? optionFor(vacancyStatuses, vacancy.status).label : undefined,
+            }))}
+          />
         </Field>
 
         <Field label="Start date" htmlFor="start_date" required error={errors.start_date}>

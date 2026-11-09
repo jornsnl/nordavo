@@ -41,7 +41,7 @@ const FIELDS: { key: MappingKey; label: string; hint?: string; group: "bedrijf" 
   { key: "person_linkedin", label: "LinkedIn person", group: "contact" },
   { key: "email", label: "Email address", group: "contact" },
   { key: "phone", label: "Phone", group: "contact" },
-  { key: "last_contacted_at", label: "Last contacted on", hint: "Becomes an activity and counts towards the 30 day rule.", group: "historie" },
+  { key: "last_contacted_at", label: "Last contacted on", hint: "Becomes an activity on the timeline.", group: "historie" },
   { key: "contact_channel", label: "Channel", hint: "Call or mail. Empty means call.", group: "historie" },
   { key: "contact_outcome", label: "Outcome", hint: "Added as a note on the activity.", group: "historie" },
 ];
