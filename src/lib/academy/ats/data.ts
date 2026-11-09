@@ -57,7 +57,7 @@ export type PersonDetailJson = {
   courses: { course_id: string; title: string; status: string; scope: "all" | "default"; done: boolean }[];
   modules: PersonModule[];
   lessons: { lesson_id: string; title: string; percent: number; started_at: string; last_viewed_at: string | null; completed_at: string | null }[];
-  checks: { block_id: string; title: string; lesson_title: string; attempts: number; best_percent: number; last_percent: number; last_at: string }[];
+  checks: { block_id: string; title: string; lesson_title: string; attempts: number; first_percent: number; best_percent: number; last_percent: number; last_at: string }[];
   assignments: {
     submission_id: string;
     block_id: string;

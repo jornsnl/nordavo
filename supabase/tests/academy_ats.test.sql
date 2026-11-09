@@ -250,7 +250,7 @@ select pg_temp.check((pg_temp.pool('00000000-0000-0000-0000-0000000ca001') ->> '
 select pg_temp.check((pg_temp.pool('00000000-0000-0000-0000-0000000ca001') ->> 'lessons_done')::int = 2, 'two lessons done');
 select pg_temp.check((pg_temp.pool('00000000-0000-0000-0000-0000000ca001') ->> 'progress_percent')::int = 66, 'progress in percent');
 select pg_temp.check((pg_temp.pool('00000000-0000-0000-0000-0000000ca001') ->> 'modules_done')::int = 1, 'module 1 done');
-select pg_temp.check((pg_temp.pool('00000000-0000-0000-0000-0000000ca001') ->> 'check_avg_percent')::int = 67, 'best knowledge check attempt');
+select pg_temp.check((pg_temp.pool('00000000-0000-0000-0000-0000000ca001') ->> 'check_avg_percent')::int = 33, 'first knowledge check attempt counts (33, not the best 67)');
 select pg_temp.check((pg_temp.pool('00000000-0000-0000-0000-0000000ca001') ->> 'ai_avg_score')::int = 70, 'AI proposal score');
 select pg_temp.check((pg_temp.pool('00000000-0000-0000-0000-0000000ca001') ->> 'final_avg_score')::int = 80, 'final score');
 select pg_temp.check((pg_temp.pool('00000000-0000-0000-0000-0000000ca001') ->> 'watch_avg_percent')::int = 50, 'watch percent');
@@ -262,8 +262,8 @@ select pg_temp.check((pg_temp.pool('00000000-0000-0000-0000-0000000ca003') ->> '
 select pg_temp.check((select candidate_id from public.academy_ats_pool(p_sort => 'progress', p_desc => true) limit 1)
   = '00000000-0000-0000-0000-0000000ca001', 'sort by progress');
 select pg_temp.check((select count(*) from public.academy_ats_pool(p_enrolled => false)) = 2, 'filter on not enrolled');
-select pg_temp.check((select count(*) from public.academy_ats_pool(p_min_check => 70)) = 0, 'filter on check score');
-select pg_temp.check((select count(*) from public.academy_ats_pool(p_min_check => 60)) = 1, 'filter on check score, met');
+select pg_temp.check((select count(*) from public.academy_ats_pool(p_min_check => 40)) = 0, 'filter on check score (first attempt 33)');
+select pg_temp.check((select count(*) from public.academy_ats_pool(p_min_check => 30)) = 1, 'filter on check score, met');
 select pg_temp.check((select count(*) from public.academy_ats_pool(p_state => 'in_progress')) = 2, 'filter on started (handing in starts the lesson)');
 select pg_temp.check((select count(*) from public.academy_ats_pool(p_state => 'not_started')) = 2, 'enrolled but not started');
 select pg_temp.check((select count(*) from public.academy_ats_pool(p_top => true)) = 2, 'filter on top candidate');

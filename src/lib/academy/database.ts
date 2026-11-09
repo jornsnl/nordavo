@@ -711,6 +711,18 @@ export type AcademyFunctions = {
     },
     undefined
   >;
+  /** Every check of academy_add_person without changes; raises the same errors. p_profile_id null for a new address. */
+  academy_add_person_check: Fn<
+    {
+      p_profile_id: string | null;
+      p_academy_role: AcademyRole;
+      p_client_id?: string | null;
+      p_course_id?: string | null;
+      p_scope?: AcademyScope;
+      p_open_module_ids?: string[];
+    },
+    undefined
+  >;
   academy_task_open: Fn<{ p_task_id: string }, boolean>;
   academy_task_can_tick: Fn<{ p_task_id: string; p_profile_id: string | null; p_placement_id: string | null }, boolean>;
   academy_can_see_video: Fn<{ p_video_id: string }, boolean>;

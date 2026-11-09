@@ -19,7 +19,7 @@ export async function AcademyHeaderMenu() {
   return (
     <div className="flex items-center gap-1.5 sm:gap-2">
       <LocaleSwitch locale={user.locale} label={tr("shell.language")} disabled={!user.member} />
-      {user.role === "client" && (
+      {user.role === "client" && user.clientPortal && (
         <Link href="/portal" className={`${iconLink} max-sm:hidden w-auto px-2.5 text-sm font-medium`}>
           {tr("shell.backToPortal")}
         </Link>

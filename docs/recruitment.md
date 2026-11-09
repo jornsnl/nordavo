@@ -37,6 +37,8 @@ Klanten lezen niets meer rechtstreeks uit de tabellen. Het klantportaal haalt al
 
 Contactgegevens, CV tekst, notities, redenen voor parkeren of afwijzen, beoordelingen, salaris, payslips, background checks en eigen velden komen nooit bij een klant, ook niet via de API. Een klant opent alleen het CV.
 
+Het klantportaal is voor klantgebruikers zonder Academy-rol of met Academy-rol `client_admin`. Klant leden en meelezers uit de Academy (`client_member`, `client_reader`) krijgen niets uit de `portal_*` functies en openen geen cv's: `current_client_id()` is voor hen null (`docs/academy.md`, sectie 17).
+
 ## Wie wat ziet
 
 Een beheerder zet per teamlid de onderdelen aan: Sales, Recruitment, Clients en Report. Zo ziet Judith geen sales. Dit wordt in de database afgedwongen, ook voor alle nieuwe wervingstabellen.

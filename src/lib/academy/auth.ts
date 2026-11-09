@@ -4,6 +4,8 @@ import { redirect } from "next/navigation";
 import { type CurrentUser, getCurrentUser, hasModule, homePathFor, requireModule } from "@/lib/auth";
 import type { AcademyLocale, AcademyMemberRow, AcademyRole } from "@/lib/academy/database";
 import { safeZone } from "@/lib/academy/time";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@/lib/database.types";
 import { createClient } from "@/lib/supabase/server";
 
 export type AcademyUser = CurrentUser & {
@@ -46,6 +48,21 @@ export const requireAcademyUser = cache(async (): Promise<AcademyUser> => {
     isManager,
   };
 });
+
+/**
+ * The Academy role of a client user, for the sign-in redirects
+ * (landingPathFor): client_member and client_reader land in the Academy, not
+ * the portal. Null for other portal roles.
+ */
+export async function clientAcademyRole(
+  db: SupabaseClient<Database>,
+  userId: string,
+  role: string | null | undefined,
+): Promise<string | null> {
+  if (role !== "client") return null;
+  const { data } = await db.from("academy_members").select("academy_role").eq("profile_id", userId).maybeSingle();
+  return data?.academy_role ?? null;
+}
 
 /** Nordavo team members with module academy (and admins). */
 export async function requireAcademyManager(): Promise<CurrentUser> {

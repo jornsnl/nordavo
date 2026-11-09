@@ -72,6 +72,19 @@ export async function ensureAccount(db: JobDb, email: string, name: string | nul
   };
 }
 
+/**
+ * Accounts that ensureAccount() made for this step are removed again when the
+ * database part fails, so a refused enrolment leaves no auth user behind (a
+ * retry makes a new one with a new invite link).
+ */
+async function removeCreatedAccounts(db: JobDb, ...accounts: (Account | null)[]) {
+  for (const account of accounts) {
+    if (!account?.created) continue;
+    const { error } = await db.auth.admin.deleteUser(account.profileId);
+    if (error) console.error("academy ats cleanup", error.code, error.message);
+  }
+}
+
 function asObject(value: Json | null | undefined): Result {
   return value && typeof value === "object" && !Array.isArray(value) ? (value as Result) : {};
 }
@@ -160,7 +173,10 @@ async function processPlaced(db: JobDb, event: AcademyAtsEventRow, log: Log): Pr
     p_client_profile_id: client?.profileId ?? null,
     p_developer_profile_id: developer?.profileId ?? null,
   });
-  if (error) throw new Error(`Database part failed: ${error.message}`);
+  if (error) {
+    await removeCreatedAccounts(db, developer, client);
+    throw new Error(`Database part failed: ${error.message}`);
+  }
   step.database = database;
   const db_ = asObject(database);
 
@@ -237,7 +253,10 @@ async function processEnrol(db: JobDb, event: AcademyAtsEventRow, log: Log): Pro
     p_scope: "default",
     p_actor: event.created_by,
   });
-  if (error) throw new Error(error.message);
+  if (error) {
+    await removeCreatedAccounts(db, account);
+    throw new Error(error.message);
+  }
   const step: Result = { database, account: account.created ? "invited" : "existing account" };
   if (sendInvite && candidate.email && (account.created || !member)) {
     const { data: inviter } = event.created_by

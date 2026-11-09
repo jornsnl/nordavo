@@ -1,6 +1,6 @@
 import "server-only";
 import { cache } from "react";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { getCurrentUser, type CurrentUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import type {
@@ -30,9 +30,14 @@ import {
 
 export type WorkUser = CurrentUser;
 
-/** The signed-in user. Any account may open /work; memberships decide what it sees. */
+/**
+ * The signed-in user. Any account may open /work and memberships decide what
+ * it sees, except developers and candidates: they only have the Academy (the
+ * database refuses them Work as well, work_private.role_in).
+ */
 export const requireWorkUser = cache(async (): Promise<WorkUser> => {
   const user = await getCurrentUser();
+  if (user.role === "developer" || user.role === "candidate") redirect("/academy");
   return { ...user, timeZone: safeTimeZone(user.timeZone) };
 });
 
