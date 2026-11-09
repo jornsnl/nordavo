@@ -3,6 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/database.types";
 import { env } from "@/lib/env";
 import { escapeHtml, sendMail } from "@/lib/notify/mail";
+import { mailButton } from "@/lib/notify/layout";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { WorkDelivery, WorkNotificationKind, WorkNotificationRow } from "@/lib/work/database";
 import { formatDue, safeTimeZone } from "@/lib/work/time";
@@ -167,17 +168,17 @@ function renderMail(name: string, lines: Line[], delivery: WorkDelivery) {
       (l) => `<tr><td style="padding:12px 0;border-bottom:1px solid #e5e7eb">
         ${l.context ? `<div style="font-size:12px;color:#6b7280">${escapeHtml(l.context)}</div>` : ""}
         <div style="font-size:14px;color:#111827;margin:2px 0 6px">${escapeHtml(l.text)}</div>
-        <a href="${escapeHtml(l.url)}" style="font-size:13px;color:#1d3a8a">Open in Work</a>
+        <a href="${escapeHtml(l.url)}" style="font-size:13px;color:#1f4e8c">Open in Work</a>
       </td></tr>`,
     )
     .join("");
   const intro = delivery === "digest" ? "Here is what happened since yesterday." : "There is something for you in Work.";
-  return `<div style="font-family:Inter,Arial,sans-serif;max-width:560px;margin:0 auto;padding:24px">
+  return `
     <p style="font-size:14px;color:#111827">Hi ${escapeHtml(name)},</p>
     <p style="font-size:14px;color:#374151">${intro}</p>
     <table style="width:100%;border-collapse:collapse">${items}</table>
     <p style="font-size:12px;color:#6b7280;margin-top:24px">Choose which mails you get under Settings in Work.</p>
-  </div>`;
+`;
 }
 
 /** Mail an invite link. Returns false when mail is not configured. */
@@ -203,22 +204,22 @@ export async function sendInviteMail({
       to,
       subject: `${inviter} invited you to ${project ?? workspace}`,
       text: `${inviter} invited you to ${where} in Work, Nordavo's task tool.\n\nSign in and accept the invite (no password needed): ${signInUrl}\n\nThis sign-in link works once and expires after a while. After that, open ${url} and choose "Email me a sign-in link". The invite works for 14 days.`,
-      html: `<div style="font-family:Inter,Arial,sans-serif;max-width:560px;margin:0 auto;padding:24px">
+      html: `
       <p style="font-size:14px;color:#111827">${escapeHtml(inviter)} invited you to ${escapeHtml(where)} in Work, Nordavo's task tool.</p>
-      <p><a href="${escapeHtml(signInUrl)}" style="display:inline-block;background:#1d3a8a;color:#fff;padding:10px 16px;border-radius:10px;text-decoration:none;font-size:14px">Sign in and accept</a></p>
-      <p style="font-size:12px;color:#6b7280">No password needed: the button signs you in as ${escapeHtml(to)}. It works once and expires after a while. After that, <a href="${escapeHtml(url)}" style="color:#1d3a8a">open the invite</a> and choose "Email me a sign-in link". The invite works for 14 days.</p>
-    </div>`,
+      ${mailButton(signInUrl, "Sign in and accept")}
+      <p style="font-size:12px;color:#6b7280">No password needed: the button signs you in as ${escapeHtml(to)}. It works once and expires after a while. After that, <a href="${escapeHtml(url)}" style="color:#1f4e8c">open the invite</a> and choose "Email me a sign-in link". The invite works for 14 days.</p>
+`,
     });
   }
   return sendMail({
     to,
     subject: `${inviter} invited you to ${project ?? workspace}`,
     text: `${inviter} invited you to ${where} in Work, Nordavo's task tool.\n\nAccept the invite: ${url}\n\nThe link works for 14 days.`,
-    html: `<div style="font-family:Inter,Arial,sans-serif;max-width:560px;margin:0 auto;padding:24px">
+    html: `
       <p style="font-size:14px;color:#111827">${escapeHtml(inviter)} invited you to ${escapeHtml(where)} in Work, Nordavo's task tool.</p>
-      <p><a href="${escapeHtml(url)}" style="display:inline-block;background:#1d3a8a;color:#fff;padding:10px 16px;border-radius:10px;text-decoration:none;font-size:14px">Accept the invite</a></p>
+      ${mailButton(url, "Accept the invite")}
       <p style="font-size:12px;color:#6b7280">The link works for 14 days. Sign in with Google, your password, or (for guests) a sign-in link by e-mail, using ${escapeHtml(to)}.</p>
-    </div>`,
+`,
   });
 }
 
@@ -228,10 +229,10 @@ export async function sendSignInMail(to: string, url: string) {
     to,
     subject: "Your sign-in link for Work",
     text: `Sign in to Work: ${url}\n\nThe link works once and expires within an hour. Did not ask for it? Ignore this mail.`,
-    html: `<div style="font-family:Inter,Arial,sans-serif;max-width:560px;margin:0 auto;padding:24px">
+    html: `
       <p style="font-size:14px;color:#111827">Here is your link to sign in to Work.</p>
-      <p><a href="${escapeHtml(url)}" style="display:inline-block;background:#1d3a8a;color:#fff;padding:10px 16px;border-radius:10px;text-decoration:none;font-size:14px">Sign in</a></p>
+      ${mailButton(url, "Sign in")}
       <p style="font-size:12px;color:#6b7280">The link works once and expires within an hour. Did not ask for it? Ignore this mail.</p>
-    </div>`,
+`,
   });
 }

@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { ActivityChannel, ActivityOutcome, Database, Segment, TalentStage } from "@/lib/database.types";
 import { activityChannels, optionFor, segments, signalTypes, talentStages } from "@/lib/labels";
 import { countsInMetrics } from "@/lib/talent/talent-pool";
+import { mailButton, renderMailLayout } from "@/lib/notify/layout";
 
 /**
  * Weekly report (S10): the numbers Julius gets every Friday and sees under
@@ -411,7 +412,6 @@ export async function buildWeeklyReport(db: Db, { from, to }: { from: string; to
 // ---------------------------------------------------------------------------
 
 const navy = "#0a1a2f";
-const saffron = "#f2a33a";
 const saffronDark = "#d9871a";
 const muted = "#5b6b80";
 const line = "#e3ecf8";
@@ -474,14 +474,7 @@ export function renderReportHtml(report: WeeklyReport, portalUrl?: string): stri
         .join("")}</ul></div>`
     : "";
 
-  return `<!doctype html><html lang="en"><body style="margin:0;padding:0;background:#f2f6fc;font-family:Arial,Helvetica,sans-serif">
-<div style="max-width:680px;margin:0 auto;padding:24px 16px">
-<div style="background:${navy};color:#ffffff;padding:20px 24px;border-radius:12px 12px 0 0;border-bottom:4px solid ${saffron}">
-<p style="margin:0;font-size:12px;letter-spacing:1px;text-transform:uppercase;color:${saffron}">Weekly report</p>
-<h1 style="margin:4px 0 0;font-size:22px">${esc(formatDay(report.period.from))} to ${esc(formatDay(report.period.to))}</h1>
-</div>
-<div style="background:#ffffff;padding:24px;border-radius:0 0 12px 12px">
-${warnings}
+  const body = `${warnings}
 <table role="presentation" cellspacing="6" cellpadding="0" style="width:100%;margin:0 0 8px"><tr>${statCells}</tr></table>
 ${a.meetingsApproved || a.meetingsRejected ? `<p style="margin:0 0 8px;font-size:13px;color:${muted}">After the call: ${a.meetingsApproved} approved, ${a.meetingsRejected} rejected.</p>` : ""}
 ${heading("GO percentage per segment")}
@@ -511,7 +504,13 @@ ${table(
   ]),
   "No open vacancies.",
 )}
-${portalUrl ? `<p style="margin:24px 0 0"><a href="${esc(portalUrl)}" style="display:inline-block;background:${saffron};color:${navy};padding:10px 18px;border-radius:8px;font-weight:700;text-decoration:none">View the report in the portal</a></p>` : ""}
-</div>
-</div></body></html>`;
+${portalUrl ? mailButton(portalUrl, "View the report in the portal", { tone: "accent" }) : ""}`;
+  return renderMailLayout({
+    body,
+    eyebrow: "Weekly report",
+    title: `${formatDay(report.period.from)} to ${formatDay(report.period.to)}`,
+    preheader: `${report.meetings} meetings${report.warnings.length ? `, ${report.warnings.length} warnings` : ""}`,
+    footerNote: "You get this mail because your address is set as REPORT_EMAIL_TO.",
+    width: 680,
+  });
 }

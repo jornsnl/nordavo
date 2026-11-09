@@ -21,6 +21,8 @@ import { ModulesEditor } from "@/components/settings/modules-editor";
 import { PasswordForm } from "@/components/settings/password-form";
 import { ProfileForm } from "@/components/settings/profile-form";
 import { RoleEditor } from "@/components/settings/role-editor";
+import { TestMailForm } from "@/components/settings/test-mail-form";
+import { recruitmentFrom } from "@/lib/notify/mail";
 import { CustomFieldsSettings } from "@/components/custom-fields/custom-fields-settings";
 import { McpSection } from "@/components/settings/security/mcp-section";
 import { MfaSection } from "@/components/settings/security/mfa-section";
@@ -34,6 +36,7 @@ import {
   updateUserRole,
 } from "./actions";
 import { resetUserMfa } from "./mfa-actions";
+import { sendTestMail } from "./mail-actions";
 
 export const metadata: Metadata = {
   title: "Settings",
@@ -86,6 +89,10 @@ export default function Page() {
 
         <CustomFieldsSettings />
 
+        <Suspense fallback={<ListSkeleton rows={2} />}>
+          <MailSection />
+        </Suspense>
+
         <Suspense fallback={<ListSkeleton rows={4} />}>
           <UsersSection />
         </Suspense>
@@ -112,6 +119,76 @@ async function Interviews() {
       />
       <CardBody className="py-5">
         <BookingLinkForm action={updateBookingUrl} bookingUrl={profile.bookingUrl} />
+      </CardBody>
+    </Card>
+  );
+}
+
+/** Admins check the Resend setup and send a test mail in the house style. */
+async function MailSection() {
+  const user = await getCurrentUser();
+  if (user.role !== "admin") return null;
+
+  const hasKey = Boolean(process.env.RESEND_API_KEY);
+  const from = process.env.MAIL_FROM;
+  const recruitment = process.env.MAIL_FROM_RECRUITMENT;
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "";
+  const checks: { label: string; value: string | null; hint: string; ok: boolean }[] = [
+    { label: "RESEND_API_KEY", value: hasKey ? "Set" : null, hint: "Without it no mail leaves the portal.", ok: hasKey },
+    { label: "MAIL_FROM", value: from ?? null, hint: "Sender of system mail, on a domain verified in Resend.", ok: Boolean(from) },
+    {
+      label: "MAIL_FROM_RECRUITMENT",
+      value: recruitment ?? null,
+      hint: "Sender for candidates. Empty falls back to MAIL_FROM.",
+      ok: true,
+    },
+    {
+      label: "REPORT_EMAIL_TO",
+      value: process.env.REPORT_EMAIL_TO ?? null,
+      hint: "Gets the weekly report and job failures.",
+      ok: Boolean(process.env.REPORT_EMAIL_TO),
+    },
+    {
+      label: "NEXT_PUBLIC_SITE_URL",
+      value: siteUrl || null,
+      hint: "Links and the logo in mails. Must be the public https address.",
+      ok: siteUrl.startsWith("https://"),
+    },
+  ];
+  const senders: { value: "default" | "recruitment"; label: string }[] = [];
+  if (from) senders.push({ value: "default", label: from });
+  const recruitmentSender = recruitmentFrom();
+  if (recruitment && recruitmentSender && recruitmentSender !== from) {
+    senders.push({ value: "recruitment", label: recruitmentSender });
+  }
+  if (senders.length === 0) senders.push({ value: "default", label: "MAIL_FROM is not set" });
+
+  return (
+    <Card>
+      <CardHeader
+        title="Email"
+        description="Every mail the portal sends goes through Resend in the Nordavo template. Send a test mail to check the setup."
+      />
+      <CardBody className="space-y-6 py-5">
+        <ul className="divide-y divide-border rounded-xl border border-border text-sm">
+          {checks.map((c) => (
+            <li key={c.label} className="flex flex-wrap items-start justify-between gap-x-4 gap-y-1 px-4 py-3">
+              <div className="min-w-0">
+                <p className="font-mono text-xs font-medium text-ink">{c.label}</p>
+                <p className="text-xs text-muted">{c.hint}</p>
+              </div>
+              <div className="flex min-w-0 items-center gap-2">
+                {c.value && c.label !== "RESEND_API_KEY" && (
+                  <span className="truncate text-xs text-muted">{c.value}</span>
+                )}
+                <Badge tone={c.ok ? (c.value ? "success" : "neutral") : c.value ? "warning" : "danger"}>
+                  {c.ok ? (c.value ? "OK" : "Not set") : c.value ? "Check" : "Missing"}
+                </Badge>
+              </div>
+            </li>
+          ))}
+        </ul>
+        <TestMailForm action={sendTestMail} defaultTo={user.email} senders={senders} enabled={hasKey && Boolean(from)} />
       </CardBody>
     </Card>
   );

@@ -1,6 +1,7 @@
 import { z } from "zod";
 import type { InterviewKind, InterviewStatus } from "@/lib/database.types";
 import type { Tone } from "@/lib/labels";
+import { mailButton, mailLinkFallback } from "@/lib/notify/layout";
 
 /**
  * Interview scheduling (recruitment brief 2.14), the pure parts: labels,
@@ -188,8 +189,8 @@ export function inviteMail(
   ].join("\n");
   const html = `<p>Hi ${escape(first)},</p>
 <p>Thank you for your application for <strong>${escape(vacancyTitle)}</strong>. We would like to invite you to ${article} ${escape(label)} with ${escape(interviewerName)} of Nordavo.</p>
-<p><a href="${escape(url)}" style="display:inline-block;padding:10px 18px;background:#0b2a5b;color:#ffffff;border-radius:8px;text-decoration:none">Pick a time</a></p>
-<p style="color:#555">Or open this link: ${escape(url)}</p>
+${mailButton(url, "Pick a time")}
+${mailLinkFallback(url)}
 <p>The meeting is added to your calendar with the link to join. You can reschedule or cancel from the confirmation mail.</p>
 <p>Kind regards,<br>Nordavo</p>`;
   return { subject, html, text };
