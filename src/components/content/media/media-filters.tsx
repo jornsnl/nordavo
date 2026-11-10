@@ -27,7 +27,8 @@ export function MediaFilterBar({ filters, facets }: { filters: MediaFilters; fac
         apply(e.currentTarget);
       }}
       onChange={(e) => {
-        if ((e.target as HTMLElement).tagName !== "INPUT" || (e.target as HTMLInputElement).type === "checkbox") apply(e.currentTarget);
+        const target = e.target as unknown as HTMLInputElement;
+        if (target.tagName !== "INPUT" || target.type === "checkbox") apply(e.currentTarget);
       }}
     >
       <label className="sr-only" htmlFor="media-q">

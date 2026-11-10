@@ -16,7 +16,7 @@ export function DriveFoldersCard({ workspaceId }: { workspaceId: string | null }
     <Card>
       <CardHeader
         title="Google Drive folders"
-        description="New photos, videos and PDFs in these folders and their subfolders are imported every night, or now with Sync."
+        description="New photos, videos and PDFs in these folders and their subfolders are imported automatically by the sync job, or right away with Sync now."
       />
       <CardBody>
         <Suspense fallback={<ListSkeleton rows={2} />}>

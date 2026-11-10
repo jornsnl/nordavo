@@ -104,9 +104,11 @@ export async function saveGeneralSettingsAction(slug: string, _prev: ContentActi
       .refine((v) => v.buffer_max >= v.buffer_min, { path: ["buffer_max"], error: "At least the minimum" })
       .safeParse(Object.fromEntries(["name", "rhythm_goal", "buffer_min", "buffer_max", "success_threshold", "media_reuse_months"].map((k) => [k, formData.get(k)])));
     if (!parsed.success) return invalid(parsed.error);
-    const update: Record<string, unknown> = { ...parsed.data };
     // Only an admin decides whether new employees need admin approval.
-    if (workspace.role === "admin") update.admin_approval_required = checkbox(formData, "admin_approval_required");
+    const update = {
+      ...parsed.data,
+      ...(workspace.role === "admin" ? { admin_approval_required: checkbox(formData, "admin_approval_required") } : {}),
+    };
     const { error } = await supabase.from("content_workspaces").update(update).eq("id", workspace.id);
     if (error) return { error: contentErrorMessage(error) };
     return done(slug);

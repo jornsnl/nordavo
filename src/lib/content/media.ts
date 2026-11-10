@@ -264,7 +264,7 @@ export type PostMediaData = {
   chosen: (PickerItem & { position: number })[];
   suggestions: ImageSuggestionItem[];
   library: PickerItem[];
-  people: Map<string, { name: string }>;
+  people: Awaited<ReturnType<typeof peopleById>>;
 };
 
 /** Chosen media, image suggestions, the brief and the library to pick from, for one post. */

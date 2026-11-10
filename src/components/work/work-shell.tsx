@@ -3,7 +3,7 @@
 import { Suspense, useCallback, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CheckCheck, ClipboardList, Inbox, Menu, NotebookPen, Search, Settings, X, type LucideIcon } from "lucide-react";
+import { CheckCheck, ClipboardList, Inbox, Megaphone, Menu, NotebookPen, Search, Settings, X, type LucideIcon } from "lucide-react";
 import { LogoMark } from "@/components/brand/logo";
 import { TabBar, TabButton, type TabItem } from "@/components/ui/tab-bar";
 import { useDrawer } from "@/components/ui/use-drawer";
@@ -25,6 +25,7 @@ const links: { label: string; href: string; icon: LucideIcon }[] = [
   { label: "My overview", href: "/work", icon: Inbox },
   { label: "Quick log", href: "/work/log", icon: NotebookPen },
   { label: "Search", href: "/work/search", icon: Search },
+  { label: "Content", href: "/content", icon: Megaphone },
   { label: "Settings", href: "/work/settings", icon: Settings },
 ];
 
