@@ -246,3 +246,51 @@ export async function updateBookingUrl(
     message: parsed.data.booking_url ? "Your booking link has been saved." : "Your booking link has been removed.",
   };
 }
+
+const setPasswordSchema = z.object({ user_id: z.guid({ error: "User not found" }) });
+
+/**
+ * Admin only: sets a new password for another user, for example to hand
+ * out an account without an invite mail. The user can change it later in
+ * their own settings. Other sessions of that user stay signed in.
+ */
+export async function setUserPassword(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const me = await requireAdmin();
+  const target = setPasswordSchema.safeParse(formValues(formData));
+  if (!target.success) return { error: "User not found." };
+  const parsed = passwordSchema.safeParse(passwordValues(formData));
+  if (!parsed.success) {
+    return { error: "Check the new password.", fieldErrors: fieldErrorsFrom(parsed.error) };
+  }
+  if (target.data.user_id === me.id) {
+    return { error: "Change your own password on the Settings page." };
+  }
+
+  const admin = createAdminClient();
+  if (!admin) {
+    return {
+      error:
+        "Setting a password only works once SUPABASE_SECRET_KEY is set on the server. Until then, use the Supabase dashboard.",
+    };
+  }
+
+  const { error } = await admin.auth.admin.updateUserById(target.data.user_id, {
+    password: parsed.data.password,
+    // An invited user who never opened the mail can sign in right away.
+    email_confirm: true,
+  });
+  if (error) {
+    console.error("setUserPassword", error.code, error.message);
+    if (error.code === "user_not_found") return { error: "User not found." };
+    if (error.code === "weak_password") {
+      return { error: "This password is too weak. Generate one or choose a longer password." };
+    }
+    return { error: GENERIC_ERROR };
+  }
+
+  revalidatePath(`/dashboard/settings/users/${target.data.user_id}`);
+  return { ok: true, message: "The password has been set. Share it with the user through a safe channel." };
+}

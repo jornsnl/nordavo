@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import Link from "next/link";
 import { ArrowLeft, KeyRound } from "lucide-react";
+import { getCurrentUser } from "@/lib/auth";
 import { getUserDetails, tokenState } from "@/lib/data/user-details";
 import { formatDate, formatDateTime } from "@/lib/format";
 import { optionFor, profileRoles } from "@/lib/labels";
@@ -14,13 +15,16 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardBody, CardHeader, DetailList } from "@/components/ui/card";
 import { ListSkeleton } from "@/components/ui/skeleton";
 import { TBody, TD, TH, THead, TR, Table } from "@/components/ui/table";
+import { AdminPasswordForm } from "@/components/settings/admin-password-form";
+import { setUserPassword } from "../../actions";
 
 export const metadata: Metadata = { title: "User" };
 
 /**
- * One user, read only, for admins: profile, security, memberships and the
- * MCP and API tokens they connected. Changing a role or modules stays in
- * the list on Settings; tokens are revoked by their owner.
+ * One user, for admins: profile, security, memberships and the MCP and API
+ * tokens they connected, plus setting a new password for them. Changing a
+ * role or modules stays in the list on Settings; tokens are revoked by
+ * their owner.
  */
 export default function UserPage({ params }: PageProps<"/dashboard/settings/users/[id]">) {
   return (
@@ -38,6 +42,8 @@ async function UserDetailsView({ params }: { params: Promise<{ id: string }> }) 
   const role = optionFor(profileRoles, user.role as ProfileRole);
   const modules = effectiveModules(user.role as ProfileRole, user.modules);
   const keyKnown = hasAdminClient();
+  const me = await getCurrentUser();
+  const isSelf = me.id === user.id;
 
   return (
     <>
@@ -104,6 +110,22 @@ async function UserDetailsView({ params }: { params: Promise<{ id: string }> }) 
                 },
               ]}
             />
+          </CardBody>
+        </Card>
+
+        <Card className="lg:col-span-2">
+          <CardHeader
+            title="Password"
+            description="Set a new password for this user. They can change it themselves later in their own settings."
+          />
+          <CardBody>
+            {isSelf ? (
+              <p className="text-sm text-muted">This is your own account: change your password on the Settings page.</p>
+            ) : !keyKnown ? (
+              <p className="text-sm text-muted">Needs SUPABASE_SECRET_KEY on the server. Until then, use the Supabase dashboard.</p>
+            ) : (
+              <AdminPasswordForm userId={user.id} action={setUserPassword} />
+            )}
           </CardBody>
         </Card>
 
