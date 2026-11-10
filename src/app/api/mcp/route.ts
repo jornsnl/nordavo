@@ -1,6 +1,7 @@
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
 import { connection } from "next/server";
 import { env } from "@/lib/env";
+import { oauthUrls } from "@/lib/mcp/oauth";
 import { createNordavoMcpServer } from "@/lib/mcp/server";
 import { authenticateMcpToken, mcpAuthErrorMessage } from "@/lib/mcp/tokens";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -8,12 +9,14 @@ import { createAdminClient } from "@/lib/supabase/admin";
 /**
  * MCP server for Claude Code (Streamable HTTP, stateless, JSON responses).
  *
- *   POST /api/mcp   JSON-RPC, Authorization: Bearer nrd_...
+ *   POST /api/mcp   JSON-RPC, Authorization: Bearer nrd_... or nrda_...
  *   GET, DELETE     405: no SSE stream and no sessions in stateless mode.
  *
  * Public in the proxy; authenticates itself with a personal MCP token
- * (Instellingen > Claude Code koppelen). Reads and writes with the secret
- * key, scoped to what a Nordavo team member may see.
+ * (Instellingen > Claude Code koppelen) or an OAuth access token
+ * (src/lib/mcp/oauth.ts). A 401 points to the OAuth metadata, so clients
+ * like Claude can start the sign in themselves. Reads and writes with the
+ * secret key, scoped to what a Nordavo team member may see.
  */
 export async function POST(request: Request) {
   await connection();
@@ -25,8 +28,11 @@ export async function POST(request: Request) {
 
   const auth = await authenticateMcpToken(request.headers.get("authorization"), db);
   if (!auth.ok) {
-    const error = auth.reason === "missing" ? 'realm="nordavo"' : 'realm="nordavo", error="invalid_token"';
-    return jsonRpcError(401, mcpAuthErrorMessage(auth.reason), { "WWW-Authenticate": `Bearer ${error}` });
+    const metadata = `resource_metadata="${oauthUrls(env.siteUrl()).resourceMetadata}"`;
+    const error = auth.reason === "missing" ? "" : ', error="invalid_token"';
+    return jsonRpcError(401, mcpAuthErrorMessage(auth.reason), {
+      "WWW-Authenticate": `Bearer realm="nordavo", ${metadata}${error}`,
+    });
   }
 
   const server = createNordavoMcpServer(auth.context, db, env.siteUrl());

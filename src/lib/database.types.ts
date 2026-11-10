@@ -2510,6 +2510,117 @@ export type Database = {
         };
         Relationships: [];
       };
+      oauth_clients: {
+        Row: {
+          id: string;
+          client_id: string;
+          client_name: string;
+          client_uri: string | null;
+          redirect_uris: string[];
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          client_id: string;
+          client_name: string;
+          client_uri?: string | null;
+          redirect_uris: string[];
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          client_id?: string;
+          client_name?: string;
+          client_uri?: string | null;
+          redirect_uris?: string[];
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      oauth_codes: {
+        Row: {
+          id: string;
+          code_hash: string;
+          client_id: string;
+          user_id: string;
+          redirect_uri: string;
+          code_challenge: string;
+          access: McpTokenAccess;
+          resource: string | null;
+          created_at: string;
+          expires_at: string;
+          used_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          code_hash: string;
+          client_id: string;
+          user_id: string;
+          redirect_uri: string;
+          code_challenge: string;
+          access: McpTokenAccess;
+          resource?: string | null;
+          created_at?: string;
+          expires_at: string;
+          used_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          code_hash?: string;
+          client_id?: string;
+          user_id?: string;
+          redirect_uri?: string;
+          code_challenge?: string;
+          access?: McpTokenAccess;
+          resource?: string | null;
+          created_at?: string;
+          expires_at?: string;
+          used_at?: string | null;
+        };
+        Relationships: [];
+      };
+      oauth_grants: {
+        Row: {
+          id: string;
+          user_id: string;
+          client_id: string;
+          access: McpTokenAccess;
+          access_token_hash: string;
+          access_expires_at: string;
+          refresh_token_hash: string;
+          refresh_expires_at: string;
+          created_at: string;
+          last_used_at: string | null;
+          revoked_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          client_id: string;
+          access: McpTokenAccess;
+          access_token_hash: string;
+          access_expires_at: string;
+          refresh_token_hash: string;
+          refresh_expires_at: string;
+          created_at?: string;
+          last_used_at?: string | null;
+          revoked_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          client_id?: string;
+          access?: McpTokenAccess;
+          access_token_hash?: string;
+          access_expires_at?: string;
+          refresh_token_hash?: string;
+          refresh_expires_at?: string;
+          created_at?: string;
+          last_used_at?: string | null;
+          revoked_at?: string | null;
+        };
+        Relationships: [];
+      };
       mcp_tokens: {
         Row: {
           id: string;
