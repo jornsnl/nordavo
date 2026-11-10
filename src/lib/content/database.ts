@@ -1,4 +1,4 @@
-// Types of the content module tables (supabase/migrations/20261119000000_content.sql),
+// Types of the content module tables (supabase/migrations/20261120000000_content.sql),
 // merged into Database in src/lib/database.types.ts. Signed-in users write
 // most tables directly (RLS and the triggers decide), so Insert and Update
 // matter here. Relationships are left empty: queries load related rows with

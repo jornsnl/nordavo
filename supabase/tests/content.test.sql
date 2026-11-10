@@ -1,4 +1,4 @@
--- Content module (supabase/migrations/20261119000000_content.sql): the
+-- Content module (supabase/migrations/20261120000000_content.sql): the
 -- "done when" of the brief of Julius as a test. One transaction, rolled back.
 --
 --   * an idea never shows up as a post until it is turned into one

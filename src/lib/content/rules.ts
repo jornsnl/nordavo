@@ -1,5 +1,5 @@
 // Labels and pure rules of the content module. The database enforces every
-// rule (supabase/migrations/20261119000000_content.sql); the functions here
+// rule (supabase/migrations/20261120000000_content.sql); the functions here
 // mirror them so the interface only offers what will work and says why
 // something is not possible yet. Safe for client components; unit tested in
 // tests/content.test.ts. The interface is in English.

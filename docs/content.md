@@ -44,7 +44,7 @@ Content staat in het menu van Work en van het portaal. Wie niet is ingelogd gaat
 - Per workspace staat de instelling *Admin approval required* voor nieuwe medewerkers: dan keurt alleen een admin goed.
 - Klanten, bellers, developers en kandidaten hebben geen Content. Teamleden en Work accounts (`external`, zoals een freelance reviewer) wel, als ze in een workspace zitten.
 
-Hoe het is afgedwongen staat in [20261119000000_content.sql](../supabase/migrations/20261119000000_content.sql):
+Hoe het is afgedwongen staat in [20261120000000_content.sql](../supabase/migrations/20261120000000_content.sql):
 
 - **Lezen** gaat via row level security, met de regels één keer in het schema `content_private`.
 - **Schrijven** gaat ook via RLS (per rol), en de triggers op `content_posts` dwingen de statusflow en de veldregels af voor iedereen, ook voor admins en de API. Een reviewer kan de tekst niet wijzigen, alleen voorstellen.
@@ -153,7 +153,7 @@ Nodig: `SUPABASE_SECRET_KEY`, `RESEND_API_KEY`, `MAIL_FROM`, `NEXT_PUBLIC_SITE_U
 
 ## Inrichten
 
-1. Migratie `20261119000000_content.sql` uitvoeren (`supabase db push`). Die maakt ook de bucket `content` aan.
+1. Migratie `20261120000000_content.sql` uitvoeren (`supabase db push`). Die maakt ook de bucket `content` aan.
 2. Log in als portaalbeheerder, open `/content/new` en maak een workspace per medewerker met die medewerker als eigenaar. Elke nieuwe workspace krijgt de standaardstatussen, de flow en de keuzelijsten uit de brief.
 3. Voeg onder Settings, People de reviewer toe (een freelancer nodig je eerst uit in Work, zodat er een account is).
 4. Zet eventueel *Admin approval required* aan voor nieuwe medewerkers.

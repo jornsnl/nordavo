@@ -31,7 +31,7 @@ Het interne portaal van [Nordavo](https://nordavo.nl): de brug tussen Nederlands
 
 Daarnaast draait het **GTM systeem** (weekrapport en talentmatching, plus de oude jobs voor signalen, kwalificatie en de Instantly en Web Partners syncs, die nu alleen nog met de hand draaien als fallback voor de geplande taken van Claude). Werking, inrichting en planning staan in [docs/gtm.md](docs/gtm.md); de oorspronkelijke briefing in [docs/gtm-briefing.md](docs/gtm-briefing.md). Het sales CRM staat in [docs/sales.md](docs/sales.md), de geplande taken van Claude in [docs/claude-jobs.md](docs/claude-jobs.md).
 
-Content heeft een eigen migratie (`supabase/migrations/20261119000000_content.sql`, met de bucket `content`), eigen jobs (`content-notify`, `content-weekly`, `content-drive-sync` in [.github/workflows/content-jobs.yml](.github/workflows/content-jobs.yml)) en een databasetest met de punten uit de brief: `psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/tests/content.test.sql`.
+Content heeft een eigen migratie (`supabase/migrations/20261120000000_content.sql`, met de bucket `content`), eigen jobs (`content-notify`, `content-weekly`, `content-drive-sync` in [.github/workflows/content-jobs.yml](.github/workflows/content-jobs.yml)) en een databasetest met de punten uit de brief: `psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/tests/content.test.sql`.
 
 Op elke detailpagina staan taken, notities, bijlagen en een activiteitenlog. Het activiteitenlog wordt door database-triggers gevuld, dus elke wijziging komt erin.
 
