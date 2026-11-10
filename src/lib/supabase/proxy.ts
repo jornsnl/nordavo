@@ -12,8 +12,11 @@ import {
 // /api/webhooks, /api/mcp and /api/work authenticate themselves (signatures,
 // bearer tokens) and never use the session cookie. /api/academy/calendar is
 // the calendar subscription of a placement (token in the path, for calendar
-// apps that cannot sign in).
-const TOKEN_API_PATHS = ["/api/webhooks", "/api/mcp", "/api/work", "/api/academy/calendar"];
+// apps that cannot sign in). /api/oauth and /.well-known are the OAuth server
+// of the MCP server (src/lib/mcp/oauth.ts), called by apps without a session.
+const TOKEN_API_PATHS = ["/api/webhooks", "/api/mcp", "/api/work", "/api/academy/calendar", "/api/oauth", "/.well-known"];
+// The OAuth consent page needs its whole query string after signing in.
+const KEEP_QUERY_PATHS = ["/oauth/authorize"];
 // /api/jobs takes CRON_SECRET or a staff session, so a session there still
 // needs its second step.
 // The task tool has its own sign-in page, and invite links must open signed out.
@@ -103,9 +106,12 @@ export async function updateSession(request: NextRequest) {
   const isSignedIn = Boolean(claims);
   const { pathname } = request.nextUrl;
 
+  // Where to come back to after signing in: the path, plus the query for the consent page.
+  const returnTo = matches(KEEP_QUERY_PATHS, pathname) ? `${pathname}${request.nextUrl.search}` : pathname;
+
   if (!isSignedIn && !isPublicPath(pathname)) {
     const signIn = matches(["/work", "/content"], pathname) ? WORK_SIGN_IN : "/login";
-    return redirectWithCookies(request, response, signIn, pathname);
+    return redirectWithCookies(request, response, signIn, returnTo);
   }
 
   // Password done but authenticator app code not yet: only the code form is open.
@@ -114,7 +120,7 @@ export async function updateSession(request: NextRequest) {
     const step = await checkSecondStep(supabase, claims, (name) => request.cookies.get(name)?.value);
     if (step.required) {
       if (matches(SECOND_STEP_PATHS, pathname)) return response;
-      const next = pathname === "/" || pathname === "/login" ? undefined : pathname;
+      const next = pathname === "/" || pathname === "/login" ? undefined : returnTo;
       return redirectWithCookies(request, response, MFA_VERIFY_PATH, next);
     }
     if (step.checkCookie) {

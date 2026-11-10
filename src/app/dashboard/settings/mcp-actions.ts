@@ -98,3 +98,28 @@ export async function revokeMcpToken(tokenId: string): Promise<ActionState> {
   refresh();
   return { ok: true, message: "Token revoked." };
 }
+
+/** Disconnect an app that was connected with OAuth (Claude and others). */
+export async function revokeOAuthGrant(grantId: string): Promise<ActionState> {
+  const user = await requireStaff();
+  const id = z.guid().safeParse(grantId);
+  if (!id.success) return { error: GENERIC_ERROR };
+
+  const supabase = await createClient();
+  // The column grant only allows revoked_at; RLS only the owner's own rows.
+  const { data, error } = await supabase
+    .from("oauth_grants")
+    .update({ revoked_at: new Date().toISOString() })
+    .eq("id", id.data)
+    .eq("user_id", user.id)
+    .is("revoked_at", null)
+    .select("id");
+  if (error) {
+    console.error("revokeOAuthGrant", error.code, error.message);
+    return { error: GENERIC_ERROR };
+  }
+  if (data.length === 0) return { error: "Connection not found or already disconnected." };
+
+  refresh();
+  return { ok: true, message: "App disconnected." };
+}

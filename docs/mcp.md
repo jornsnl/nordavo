@@ -3,10 +3,39 @@
 Nordavo heeft een eigen MCP server op `/api/mcp`. Daarmee kan [Claude Code](https://code.claude.com) met jouw rechten klanten, vacatures, pipelines, kandidaten, plaatsingen, taken, notities, het activiteitenlog en het sales CRM (bedrijven, contacten, meetings, bellijsten, sequences, replies en cijfers) opzoeken, en met een schrijftoken ook taken en notities aanmaken en alle sales acties doen die de geplande taken van Claude nodig hebben ([claude-jobs.md](./claude-jobs.md)).
 
 - **Transport:** Streamable HTTP, stateless, JSON antwoorden. `POST /api/mcp` voor JSON-RPC; `GET` en `DELETE` geven `405` (geen SSE stream, geen sessies).
-- **Authenticatie:** een persoonlijk token in de header `Authorization: Bearer nrd_...`. Zonder of met een ongeldig, verlopen of ingetrokken token: `401` met `WWW-Authenticate: Bearer`.
+- **Authenticatie:** OAuth 2.1 (aanbevolen, zie hieronder) of een persoonlijk token in de header `Authorization: Bearer nrd_...`. Zonder of met een ongeldig, verlopen of ingetrokken token: `401` met `WWW-Authenticate: Bearer resource_metadata="..."`, zodat Claude zelf de OAuth login kan starten.
 - **Wie:** alleen het Nordavo team (rol `admin` of `member`). Klantaccounts kunnen geen token aanmaken, en een token stopt met werken zodra de eigenaar geen teamlid meer is.
 
-## Instellen (voor gebruikers)
+## Koppelen met OAuth (aanbevolen)
+
+Geen token kopiëren: je logt in bij Nordavo en kiest op een toestemmingspagina *Lezen* of *Lezen en schrijven*.
+
+- **Claude.ai of Claude Desktop:** Instellingen, Connectors, *Add custom connector*, URL `https://<jouw-portaal>/api/mcp`. Laat de OAuth client velden leeg.
+- **Claude Code:**
+  ```bash
+  claude mcp add --transport http --scope user nordavo https://<jouw-portaal>/api/mcp
+  ```
+  Start daarna `claude`, typ `/mcp`, kies `nordavo` en *Authenticate*.
+
+De browser opent `/oauth/authorize` in het portaal (eerst inloggen als dat nodig is, ook met de tweede stap). Na *Allow access* ga je terug naar de app. De koppeling staat onder Instellingen, *Connected apps*, en is daar los te koppelen.
+
+**Hoe het werkt** (`src/lib/mcp/oauth.ts`, migratie `20261119000000_mcp_oauth.sql`):
+
+| Endpoint | Wat |
+| --- | --- |
+| `GET /.well-known/oauth-protected-resource[/api/mcp]` | RFC 9728: de MCP server en zijn authorization server |
+| `GET /.well-known/oauth-authorization-server` | RFC 8414 metadata |
+| `POST /api/oauth/register` | Dynamic client registration (RFC 7591), alleen public clients (`token_endpoint_auth_method: none`) |
+| `/oauth/authorize` | Toestemmingspagina; alleen `response_type=code` met PKCE `S256` |
+| `POST /api/oauth/token` | `authorization_code` en `refresh_token` |
+| `POST /api/oauth/revoke` | RFC 7009, beëindigt de hele koppeling |
+
+- Redirect URIs: `https`, `http` alleen op localhost (poort mag per login verschillen) en private-use schemes zoals `com.example.app:/cb`.
+- Codes zijn 10 minuten geldig en werken één keer. Access tokens (`nrda_...`) een uur, refresh tokens (`nrdr_...`) 90 dagen en ze roteren bij elk gebruik.
+- Alleen SHA-256 hashes worden opgeslagen, in `oauth_codes` en `oauth_grants` (één rij per koppeling). Gebruikers lezen en intrekken alleen hun eigen koppelingen; de hashes zijn niet leesbaar via RLS.
+- Een token stopt met werken zodra de eigenaar geen teamlid meer is, net als persoonlijke tokens. De rechten (`read` of `write`) kiest de gebruiker op de toestemmingspagina; `scope=write` van de app zet alleen de voorkeuze.
+
+## Instellen met een persoonlijk token
 
 Dezelfde stappen staan in het portaal onder **Instellingen, Claude Code koppelen (MCP)**.
 
