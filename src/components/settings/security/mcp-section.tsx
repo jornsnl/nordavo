@@ -7,7 +7,8 @@ import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { McpSetupGuide } from "@/components/settings/security/mcp-setup-guide";
 import { McpTokenForm } from "@/components/settings/security/mcp-token-form";
 import { McpTokenList, type McpTokenRow } from "@/components/settings/security/mcp-token-list";
-import { createMcpToken, revokeMcpToken } from "@/app/dashboard/settings/mcp-actions";
+import { McpOAuthList, type OAuthGrantRow } from "@/components/settings/security/mcp-oauth-list";
+import { createMcpToken, revokeMcpToken, revokeOAuthGrant } from "@/app/dashboard/settings/mcp-actions";
 
 /**
  * Claude Code koppelen via MCP: personal tokens and setup instructions.
@@ -17,7 +18,7 @@ export async function McpSection() {
   const user = await getCurrentUser();
   if (!isStaff(user)) return null;
 
-  const { tokens, error } = await loadTokens(user.id);
+  const [{ tokens, error }, grants] = await Promise.all([loadTokens(user.id), loadGrants(user.id)]);
 
   const endpoint = `${env.siteUrl().replace(/\/$/, "")}/api/mcp`;
   const enabled = hasAdminClient();
@@ -25,8 +26,8 @@ export async function McpSection() {
   return (
     <Card>
       <CardHeader
-        title="Connect Claude Code (MCP)"
-        description="Let Claude Code look up clients, vacancies, candidates and tasks in Nordavo with your permissions."
+        title="Connect Claude (MCP)"
+        description="Let Claude look up clients, vacancies, candidates and tasks in Nordavo with your permissions. Sign in with OAuth, or use a personal token."
       />
       <CardBody className="space-y-6 py-5">
         {!enabled && (
@@ -40,6 +41,13 @@ export async function McpSection() {
             Your tokens could not be loaded. Has the migration for mcp_tokens been run?
           </p>
         )}
+
+        <section aria-labelledby="mcp-apps-heading" className="space-y-3">
+          <h3 id="mcp-apps-heading" className="text-sm font-semibold text-brand-900">
+            Connected apps
+          </h3>
+          <McpOAuthList grants={grants} revokeAction={revokeOAuthGrant} />
+        </section>
 
         <section aria-labelledby="mcp-tokens-heading" className="space-y-3">
           <h3 id="mcp-tokens-heading" className="text-sm font-semibold text-brand-900">
@@ -88,4 +96,37 @@ async function loadTokens(userId: string): Promise<{ tokens: McpTokenRow[]; erro
         : "active",
   }));
   return { tokens, error: Boolean(error) };
+}
+
+/** Active OAuth connections of the user (RLS; the hashes are not even readable). */
+async function loadGrants(userId: string): Promise<OAuthGrantRow[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("oauth_grants")
+    .select("id, client_id, access, created_at, last_used_at, refresh_expires_at")
+    .eq("user_id", userId)
+    .is("revoked_at", null)
+    .gt("refresh_expires_at", new Date().toISOString())
+    .order("created_at", { ascending: false })
+    .limit(50);
+  if (error) {
+    console.error("McpSection grants", error.message);
+    return [];
+  }
+  if (!data?.length) return [];
+
+  const clientIds = [...new Set(data.map((g) => g.client_id))];
+  const { data: clients } = await supabase
+    .from("oauth_clients")
+    .select("client_id, client_name")
+    .in("client_id", clientIds);
+  const names = new Map((clients ?? []).map((c) => [c.client_id, c.client_name]));
+
+  return data.map((g) => ({
+    id: g.id,
+    appName: names.get(g.client_id) ?? "Unknown app",
+    access: g.access === "write" ? "write" : "read",
+    createdAt: formatDate(g.created_at),
+    lastUsedAt: g.last_used_at ? formatDateTime(g.last_used_at) : "Not yet",
+  }));
 }

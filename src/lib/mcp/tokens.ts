@@ -3,6 +3,7 @@ import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database, McpTokenAccess, PortalModule } from "@/lib/database.types";
 import { effectiveModules } from "@/lib/modules";
+import { isOAuthAccessToken, sha256Hex } from "@/lib/mcp/oauth";
 
 /**
  * Personal access tokens for the MCP server at /api/mcp.
@@ -91,6 +92,7 @@ export async function authenticateMcpToken(
 ): Promise<McpAuthResult> {
   const token = parseBearerToken(authorizationHeader);
   if (!token) return { ok: false, reason: "missing" };
+  if (isOAuthAccessToken(token)) return authenticateOAuthAccessToken(token, db, now);
   if (!isMcpTokenFormat(token)) return { ok: false, reason: "malformed" };
 
   const hash = hashMcpToken(token);
@@ -112,30 +114,80 @@ export async function authenticateMcpToken(
     return { ok: false, reason: "expired" };
   }
 
-  const { data: profile } = await db
-    .from("profiles")
-    .select("full_name, email, role, modules")
-    .eq("id", row.user_id)
-    .maybeSingle();
-  if (!profile || (profile.role !== "admin" && profile.role !== "member")) {
-    return { ok: false, reason: "forbidden" };
-  }
-
-  if (shouldTouchLastUsed(row.last_used_at, now)) {
+  const result = await contextForOwner(db, { tokenId: row.id, tokenName: row.name, userId: row.user_id, access: row.access });
+  if (result.ok && shouldTouchLastUsed(row.last_used_at, now)) {
     const { error: touchError } = await db
       .from("mcp_tokens")
       .update({ last_used_at: now.toISOString() })
       .eq("id", row.id);
     if (touchError) console.error("[mcp] last_used_at update failed:", touchError.message);
   }
+  return result;
+}
+
+/**
+ * An "nrda_" access token from the OAuth flow (src/lib/mcp/oauth.ts): looked
+ * up in oauth_grants, valid for an hour, with the access chosen on the
+ * consent page.
+ */
+async function authenticateOAuthAccessToken(token: string, db: AdminDb, now: Date): Promise<McpAuthResult> {
+  const hash = sha256Hex(token);
+  const { data: grant, error } = await db
+    .from("oauth_grants")
+    .select("id, user_id, client_id, access, access_token_hash, access_expires_at, last_used_at, revoked_at")
+    .eq("access_token_hash", hash)
+    .maybeSingle();
+  if (error) {
+    console.error("[mcp] oauth token lookup failed:", error.message);
+    return { ok: false, reason: "invalid" };
+  }
+  if (!grant || !hashesEqual(grant.access_token_hash, hash)) return { ok: false, reason: "invalid" };
+  if (grant.revoked_at) return { ok: false, reason: "revoked" };
+  if (new Date(grant.access_expires_at).getTime() <= now.getTime()) return { ok: false, reason: "expired" };
+
+  const { data: client } = await db
+    .from("oauth_clients")
+    .select("client_name")
+    .eq("client_id", grant.client_id)
+    .maybeSingle();
+
+  const result = await contextForOwner(db, {
+    tokenId: grant.id,
+    tokenName: client?.client_name ?? "OAuth app",
+    userId: grant.user_id,
+    access: grant.access,
+  });
+  if (result.ok && shouldTouchLastUsed(grant.last_used_at, now)) {
+    const { error: touchError } = await db
+      .from("oauth_grants")
+      .update({ last_used_at: now.toISOString() })
+      .eq("id", grant.id);
+    if (touchError) console.error("[mcp] oauth last_used_at update failed:", touchError.message);
+  }
+  return result;
+}
+
+/** The context of a token whose owner is still on the Nordavo team, or forbidden. */
+async function contextForOwner(
+  db: AdminDb,
+  token: { tokenId: string; tokenName: string; userId: string; access: string },
+): Promise<McpAuthResult> {
+  const { data: profile } = await db
+    .from("profiles")
+    .select("full_name, email, role, modules")
+    .eq("id", token.userId)
+    .maybeSingle();
+  if (!profile || (profile.role !== "admin" && profile.role !== "member")) {
+    return { ok: false, reason: "forbidden" };
+  }
 
   return {
     ok: true,
     context: {
-      tokenId: row.id,
-      tokenName: row.name,
-      userId: row.user_id,
-      access: row.access === "write" ? "write" : "read",
+      tokenId: token.tokenId,
+      tokenName: token.tokenName,
+      userId: token.userId,
+      access: token.access === "write" ? "write" : "read",
       name: profile.full_name || profile.email?.split("@")[0] || "Nordavo",
       email: profile.email,
       role: profile.role,
@@ -153,9 +205,9 @@ export function mcpAuthErrorMessage(reason: Exclude<McpAuthResult, { ok: true }>
     case "invalid":
       return "Invalid token. Check that you pasted the whole token.";
     case "revoked":
-      return "This token has been revoked. Create a new token under Settings.";
+      return "This token has been revoked. Create a new token or connect again under Settings.";
     case "expired":
-      return "This token has expired. Create a new token under Settings.";
+      return "This token has expired. Refresh it, or create a new token under Settings.";
     case "forbidden":
       return "This account has no access to the MCP server.";
   }
