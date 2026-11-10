@@ -220,6 +220,27 @@ Gasten en freelancers in Work zien nooit welke klant, kandidaat of lead achter e
 - De REST API en MCP van Work (`/api/work/v1`, `/api/work/mcp`) lezen `work_task_links` niet. Alleen de MCP van het portaal (`/api/mcp`, alleen teamleden) toont het record, beperkt tot de modules van de eigenaar van het token.
 - De test `work_guest_isolation.test.sql` controleert dit, en ook dat `work_close_record_tasks` en `work_api_record_tasks` gasten en teamleden zonder de module weigeren.
 
+## Planning: type, labels, startdatum en schatting (feedback Julius)
+
+Julius wilde de functies van het takenoverzicht van Jorn (Athmium) ook in Work. Overgenomen uit Athmium, aangepast aan de rechten, de reviewregels en het offline werken van Work:
+
+| Onderdeel | Waar | Wat het doet |
+| --- | --- | --- |
+| Type | Taakpagina, chip met icoon in lijst, bord en kalender | Soort werk: Call, Schedule meeting, Discuss, Teams meeting, Brainstorm, Programming, Design, Writing, Email, Research, Check work, Admin. Zo pak je bijvoorbeeld alle calls tegelijk op |
+| Labels | Taakpagina (Enter of komma voegt toe, met suggesties), chips in lijst en bord | Vrije labels, hoogstens 20 per taak van elk hoogstens 40 tekens. Dubbel (ook met andere hoofdletters) en leeg wordt weggelaten |
+| Startdatum | Taakpagina | Een kalenderdag (zonder tijdzone). Samen met de deadline de balk op de tijdlijn |
+| Schatting | Taakpagina | `2h`, `30m`, `1h30`, `1:30` of `1.5` (uren). Een taak met maar één datum krijgt op de tijdlijn het andere eind uit de schatting (8 uur per werkdag, weekend overgeslagen), gestippeld |
+| Filters | My overview en projectpagina | *Type* (ook *No type*) en *Label* naast de bestaande filters, in de URL (`?type=call&label=sales`) |
+| Kalender | `?view=calendar` | Maand of week. Een taak staat op zijn deadline, en met startdatum op elke dag van start tot deadline. Slepen naar een andere dag verplaatst de deadline (zelfde tijd van de dag in jouw tijdzone) en de startdatum schuift mee. Onder de kalender de taken zonder datum: sleep er een op een dag voor een deadline om 17:00, of sleep een taak erheen om de datums weg te halen |
+| Tijdlijn | `?view=timeline` | Balken van startdatum tot deadline, in banen per project of per eigenaar, 2 weken, 6 weken of een kwartaal. Een balk slepen verplaatst beide datums, de randen slepen (muis) wijzigt de startdatum of de deadline. Per baan het aantal taken en de geschatte tijd |
+
+- **Rechten:** alles gaat via `work_update_task`, dus wie de taak mag wijzigen mag ook plannen; gasten alleen binnen hun projecten. De velden staan in het activiteitenlog en `work_duplicate_task` neemt ze mee. Migratie [20261118000000_work_planning.sql](../supabase/migrations/20261118000000_work_planning.sql), test [work_planning.test.sql](../supabase/tests/work_planning.test.sql).
+- **Offline:** slepen in kalender en tijdlijn gaat door de outbox (`task.update` met `due_at`, `start_on`), dus werkt ook zonder verbinding. Het formulier op de taakpagina wacht op een verbinding, zoals daarvoor.
+- **API en MCP:** `task_type`, `labels`, `start_on` (YYYY-MM-DD) en `estimate_minutes` staan in elke taak, en zijn te zetten bij `POST /tasks`, `PATCH /tasks/<id>` en de MCP tools `create_task` en `update_task` (labels vervangt de lijst).
+- **Code:** dagen en de balk in `src/lib/work/days.ts`, de weergaven in `src/components/work/task-calendar.tsx` en `task-timeline.tsx`, unit tests in `tests/work-planning.test.ts`, browsertests in `tests/e2e/planning.spec.ts`.
+
+Nog niet overgenomen uit Athmium: werkdrukweergave, terugkerende taken, checklist (Work heeft subtaken), sprints, tijdregistratie, sneltoetsen, meerdere taken tegelijk selecteren en het zijpaneel.
+
 ## Offline
 
 Work werkt ook zonder verbinding, bijvoorbeeld in de trein. Dit is gebouwd voor de telefoon (de app op het beginscherm), maar werkt in elke browser na het eerste bezoek.

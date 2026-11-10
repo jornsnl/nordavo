@@ -1,9 +1,9 @@
 "use client";
 
-import { startTransition, useRef, useState, useTransition } from "react";
-import { Archive, Copy, Download, FileUp, Pencil, Trash2 } from "lucide-react";
+import { startTransition, useId, useRef, useState, useTransition } from "react";
+import { Archive, Copy, Download, FileUp, Pencil, Trash2, X } from "lucide-react";
 import type { WorkStatus } from "@/lib/work/database";
-import { workPriorities } from "@/lib/work/labels";
+import { workPriorities, workTaskTypes } from "@/lib/work/labels";
 import { mentionToken } from "@/lib/work/mentions";
 import { Button } from "@/components/ui/button";
 import { Field, FormMessage, Input, Select, Textarea } from "@/components/ui/field";
@@ -170,6 +170,11 @@ export function TaskFieldsForm({
   assigneeIds,
   timeZone,
   editable,
+  taskType,
+  labels,
+  startOn,
+  estimate,
+  labelSuggestions = [],
 }: {
   action: WorkAction;
   people: PersonOption[];
@@ -179,6 +184,14 @@ export function TaskFieldsForm({
   assigneeIds: string[];
   timeZone: string;
   editable: boolean;
+  taskType: string | null;
+  labels: string[];
+  /** YYYY-MM-DD. */
+  startOn: string | null;
+  /** Formatted, like "1h 30m". */
+  estimate: string;
+  /** Labels used elsewhere, offered while typing. */
+  labelSuggestions?: string[];
 }) {
   const { state, formAction, pending } = useWorkAction(action);
   return (
@@ -211,6 +224,25 @@ export function TaskFieldsForm({
             <Input id="field_due" name="due_at" type="datetime-local" defaultValue={dueLocal} />
           </Field>
         </div>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Start date" htmlFor="field_start" hint="For the timeline">
+            <Input id="field_start" name="start_on" type="date" defaultValue={startOn ?? ""} />
+          </Field>
+          <Field label="Estimate" htmlFor="field_estimate" hint="2h, 30m or 1h30">
+            <Input id="field_estimate" name="estimate" inputMode="text" placeholder="2h" defaultValue={estimate} />
+          </Field>
+        </div>
+        <Field label="Type" htmlFor="field_type" hint="What kind of work it is">
+          <Select id="field_type" name="task_type" defaultValue={taskType ?? ""}>
+            <option value="">No type</option>
+            {workTaskTypes.map((t) => (
+              <option key={t.value} value={t.value}>
+                {t.label}
+              </option>
+            ))}
+          </Select>
+        </Field>
+        <LabelsInput defaultLabels={labels} suggestions={labelSuggestions} />
         {editable && (
           <div className="flex justify-end max-sm:*:w-full">
             <PendingSubmit pending={pending} size="sm" pendingLabel="Saving">
@@ -454,5 +486,63 @@ export function CommentForm({ action, people }: { action: WorkAction; people: Pe
         </PendingSubmit>
       </div>
     </form>
+  );
+}
+
+/**
+ * Labels as chips with a text field: Enter or a comma adds one, Backspace in
+ * an empty field takes the last one off. Sent as one comma separated value.
+ */
+function LabelsInput({ defaultLabels, suggestions }: { defaultLabels: string[]; suggestions: string[] }) {
+  const [labels, setLabels] = useState(defaultLabels);
+  const [draft, setDraft] = useState("");
+  const listId = useId();
+  const add = (value: string) => {
+    const label = value.trim().replace(/,/g, "").slice(0, 40);
+    if (label && !labels.some((l) => l.toLowerCase() === label.toLowerCase()) && labels.length < 20) setLabels([...labels, label]);
+    setDraft("");
+  };
+  const open = suggestions.filter((s) => !labels.some((l) => l.toLowerCase() === s.toLowerCase()));
+  return (
+    <Field label="Labels" htmlFor="field_labels" hint="Enter or a comma adds a label">
+      <input type="hidden" name="labels" value={[...labels, ...(draft.trim() ? [draft.trim()] : [])].join(", ")} />
+      <div className="flex min-h-11 flex-wrap items-center gap-1.5 rounded-xl border border-border bg-white px-2 py-1.5 focus-within:border-brand-500 focus-within:ring-2 focus-within:ring-brand-500/20">
+        {labels.map((label) => (
+          <span key={label} className="inline-flex items-center gap-1 rounded-full bg-brand-50 py-0.5 pr-1 pl-2.5 text-xs font-medium text-brand-800">
+            {label}
+            <button
+              type="button"
+              onClick={() => setLabels(labels.filter((l) => l !== label))}
+              className="rounded-full p-0.5 text-brand-700 hover:bg-brand-100 pointer-coarse:p-1.5"
+              aria-label={`Remove label ${label}`}
+            >
+              <X className="size-3" aria-hidden="true" />
+            </button>
+          </span>
+        ))}
+        <input
+          id="field_labels"
+          list={listId}
+          value={draft}
+          onChange={(e) => (e.target.value.endsWith(",") ? add(e.target.value) : setDraft(e.target.value))}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              add(draft);
+            } else if (e.key === "Backspace" && !draft && labels.length) {
+              setLabels(labels.slice(0, -1));
+            }
+          }}
+          onBlur={() => draft.trim() && add(draft)}
+          placeholder={labels.length ? "" : "e.g. sales, urgent-client"}
+          className="min-w-24 flex-1 bg-transparent py-1 text-sm outline-none"
+        />
+        <datalist id={listId}>
+          {open.slice(0, 50).map((s) => (
+            <option key={s} value={s} />
+          ))}
+        </datalist>
+      </div>
+    </Field>
   );
 }

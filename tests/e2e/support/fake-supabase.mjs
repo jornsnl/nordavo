@@ -27,7 +27,7 @@ const now = () => new Date().toISOString();
 const daysFromNow = (n) => new Date(Date.now() + n * 86_400_000).toISOString();
 
 function seed() {
-  const task = (id, title, status, priority, due) => ({
+  const task = (id, title, status, priority, due, planning = {}) => ({
     id,
     title,
     description: null,
@@ -46,10 +46,24 @@ function seed() {
     position: 1,
     project_id: PROJECT_ID,
     workspace_id: WORKSPACE_ID,
+    task_type: null,
+    labels: [],
+    start_on: null,
+    estimate_minutes: null,
+    ...planning,
   });
   const tasks = [
-    task("44444444-4444-4444-8444-000000000001", "Call back Bright Fintech about the backend role", "todo", "high", daysFromNow(0)),
-    task("44444444-4444-4444-8444-000000000002", "Shortlist three React developers for Lumen", "in_progress", "urgent", daysFromNow(1)),
+    task("44444444-4444-4444-8444-000000000001", "Call back Bright Fintech about the backend role", "todo", "high", daysFromNow(0), {
+      task_type: "call",
+      labels: ["sales"],
+      estimate_minutes: 30,
+    }),
+    task("44444444-4444-4444-8444-000000000002", "Shortlist three React developers for Lumen", "in_progress", "urgent", daysFromNow(1), {
+      task_type: "research",
+      labels: ["recruitment", "lumen"],
+      start_on: daysFromNow(-2).slice(0, 10),
+      estimate_minutes: 16 * 60,
+    }),
     task("44444444-4444-4444-8444-000000000003", "Prepare the check-in with Arjun after 30 days", "todo", "normal", daysFromNow(4)),
     task("44444444-4444-4444-8444-000000000004", "Update the hiring report for Q4", "review", "normal", daysFromNow(-1)),
     task("44444444-4444-4444-8444-000000000005", "Send the contract to Noord Logistics", "done", "low", null),
@@ -429,6 +443,10 @@ const rpcs = {
       review_requested_at: null,
       archived_at: null,
       position: Date.now() / 1000,
+      task_type: null,
+      labels: [],
+      start_on: null,
+      estimate_minutes: null,
       project_id: project.id,
       workspace_id: project.workspace_id,
     });
@@ -441,7 +459,7 @@ const rpcs = {
     const task = findTask(args.p_task);
     const fields = args.p_fields ?? {};
     if ("title" in fields && !String(fields.title ?? "").trim()) throw new DbError("A task needs a title");
-    for (const key of ["title", "description", "priority", "due_at", "reviewer_id"]) {
+    for (const key of ["title", "description", "priority", "due_at", "reviewer_id", "task_type", "labels", "start_on", "estimate_minutes"]) {
       if (key in fields) task[key] = fields[key] === "" ? null : fields[key];
     }
     task.updated_at = now();

@@ -1,8 +1,9 @@
 import Link from "next/link";
-import { CalendarClock, CornerDownRight, ListChecks, NotebookPen } from "lucide-react";
+import { CalendarClock, CornerDownRight, ListChecks, NotebookPen, Tag } from "lucide-react";
 import type { TaskListItem } from "@/lib/work/data";
-import type { WorkPriority, WorkStatus } from "@/lib/work/database";
-import { workOption, workStatuses } from "@/lib/work/labels";
+import type { WorkPriority, WorkStatus, WorkTaskType } from "@/lib/work/database";
+import { workOption, workStatuses, workTaskTypeLabel } from "@/lib/work/labels";
+import { TaskTypeIcon } from "@/components/work/task-type-icon";
 import { priorityStyles } from "@/lib/sales/labels";
 import { dueState, formatDue } from "@/lib/work/time";
 import { Badge } from "@/components/ui/badge";
@@ -29,6 +30,37 @@ export function PriorityBadge({ priority, quiet = false }: { priority: WorkPrior
     >
       <span className="sr-only">Priority: </span>
       {style.label}
+    </span>
+  );
+}
+
+/** The kind of work, with its icon. Nothing without a type. */
+export function TypeChip({ type }: { type: WorkTaskType | null }) {
+  const label = workTaskTypeLabel(type);
+  if (!type || !label) return null;
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium whitespace-nowrap text-slate-700">
+      <TaskTypeIcon type={type} className="size-3" />
+      <span className="sr-only">Type: </span>
+      {label}
+    </span>
+  );
+}
+
+/** Labels as small chips; `max` of them, then "+2". */
+export function LabelChips({ labels, max = 4 }: { labels: string[]; max?: number }) {
+  if (labels.length === 0) return null;
+  const shown = labels.slice(0, max);
+  return (
+    <span className="inline-flex flex-wrap items-center gap-1" title={labels.join(", ")}>
+      <span className="sr-only">Labels: </span>
+      {shown.map((label) => (
+        <span key={label} className="inline-flex items-center gap-1 rounded-full bg-brand-50 px-2 py-0.5 text-xs font-medium text-brand-800">
+          <Tag className="size-3" aria-hidden="true" />
+          {label}
+        </span>
+      ))}
+      {labels.length > max && <span className="text-xs text-muted">+{labels.length - max}</span>}
     </span>
   );
 }
@@ -130,6 +162,8 @@ export function TaskRow({
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 sm:shrink-0 sm:justify-end">
         <StatusBadge status={task.status} />
         <PriorityBadge priority={task.priority} quiet />
+        <TypeChip type={task.taskType} />
+        <LabelChips labels={task.labels} max={2} />
         {task.subtasks.total > 0 && (
           <span className="inline-flex items-center gap-1 text-xs text-muted" title="Subtasks done">
             <ListChecks className="size-3.5" aria-hidden="true" />

@@ -5,6 +5,7 @@ import type {
   WorkPriority,
   WorkRole,
   WorkStatus,
+  WorkTaskType,
   WorkVisibility,
 } from "@/lib/work/database";
 
@@ -26,6 +27,68 @@ export const workPriorities: Option<WorkPriority>[] = [
   { value: "high", label: "High", tone: "warning" },
   { value: "urgent", label: "Urgent", tone: "danger" },
 ];
+
+/** What kind of work a task is, so someone can pick up all tasks of one kind (all calls, all programming). */
+export const workTaskTypes: { value: WorkTaskType; label: string }[] = [
+  { value: "call", label: "Call" },
+  { value: "schedule", label: "Schedule meeting" },
+  { value: "meeting", label: "Discuss" },
+  { value: "teams", label: "Teams meeting" },
+  { value: "brainstorm", label: "Brainstorm" },
+  { value: "programming", label: "Programming" },
+  { value: "design", label: "Design" },
+  { value: "writing", label: "Writing" },
+  { value: "email", label: "Email" },
+  { value: "research", label: "Research" },
+  { value: "review", label: "Check work" },
+  { value: "admin", label: "Admin" },
+];
+
+export function isWorkTaskType(value: unknown): value is WorkTaskType {
+  return typeof value === "string" && workTaskTypes.some((t) => t.value === value);
+}
+
+export type WorkView = "list" | "board" | "calendar" | "timeline";
+
+/** ?view= from a URL: list (the default), board, calendar or timeline. */
+export function parseWorkView(value: string | undefined): WorkView {
+  return value === "board" || value === "calendar" || value === "timeline" ? value : "list";
+}
+
+/** ?type= and ?label= from a URL, for the list filters. */
+export function planningParams(type: string | undefined, label: string | undefined): { taskType?: WorkTaskType | "none"; label?: string } {
+  return {
+    taskType: type === "none" || isWorkTaskType(type) ? type : undefined,
+    label: label && label.length <= 40 ? label : undefined,
+  };
+}
+
+export const taskTypeFilterOptions = [...workTaskTypes.map((t) => ({ value: t.value, label: t.label })), { value: "none", label: "No type" }];
+
+export function workTaskTypeLabel(value: WorkTaskType | null | undefined): string | null {
+  return value ? (workTaskTypes.find((t) => t.value === value)?.label ?? null) : null;
+}
+
+/** "1h 30m", "45m", "2h": an estimate in minutes, short. */
+export function formatEstimate(minutes: number | null | undefined): string {
+  if (!minutes) return "";
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  return h && m ? `${h}h ${m}m` : h ? `${h}h` : `${m}m`;
+}
+
+/** "1.5", "2h", "90m", "1h30", "1:30" to minutes; null when empty, NaN when not understood. */
+export function parseEstimate(input: string | null | undefined): number | null {
+  const value = (input ?? "").trim().toLowerCase().replace(",", ".");
+  if (!value) return null;
+  let match = /^(\d+(?:\.\d+)?)\s*h?$/.exec(value);
+  if (match) return Math.round(Number(match[1]) * 60);
+  match = /^(\d+)\s*m(?:in)?$/.exec(value);
+  if (match) return Number(match[1]);
+  match = /^(\d+)\s*(?:h|:)\s*(\d{1,2})\s*m?$/.exec(value);
+  if (match) return Number(match[1]) * 60 + Number(match[2]);
+  return Number.NaN;
+}
 
 export const workRoles: Option<WorkRole>[] = [
   { value: "admin", label: "Admin", tone: "accent" },

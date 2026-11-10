@@ -8,6 +8,7 @@ import type {
   WorkPriority,
   WorkRole,
   WorkStatus,
+  WorkTaskType,
   WorkVisibility,
 } from "@/lib/work/database";
 import { openStatuses, priorityRank } from "@/lib/work/labels";
@@ -255,6 +256,11 @@ export type TaskListItem = {
   createdBy: string | null;
   updatedAt: string;
   completedAt: string | null;
+  taskType: WorkTaskType | null;
+  labels: string[];
+  /** YYYY-MM-DD. */
+  startOn: string | null;
+  estimateMinutes: number | null;
   project: { id: string; name: string };
   workspace: { id: string; name: string; slug: string };
   assignees: Person[];
@@ -264,7 +270,7 @@ export type TaskListItem = {
 };
 
 const LIST_SELECT = `id, title, status, priority, due_at, parent_id, is_log, reviewer_id, created_by, updated_at,
-  completed_at, project_id, workspace_id,
+  completed_at, project_id, workspace_id, task_type, labels, start_on, estimate_minutes,
   project:work_projects!work_tasks_project_id_workspace_id_fkey(id, name),
   workspace:work_workspaces!work_tasks_workspace_id_fkey(id, name, slug),
   parent:parent_id(id, title),
@@ -285,6 +291,10 @@ type ListRow = {
   completed_at: string | null;
   project_id: string;
   workspace_id: string;
+  task_type: WorkTaskType | null;
+  labels: string[] | null;
+  start_on: string | null;
+  estimate_minutes: number | null;
   project: { id: string; name: string } | null;
   workspace: { id: string; name: string; slug: string } | null;
   parent: { id: string; title: string } | null;
@@ -313,6 +323,10 @@ async function toListItems(rows: ListRow[]): Promise<TaskListItem[]> {
       createdBy: r.created_by,
       updatedAt: r.updated_at,
       completedAt: r.completed_at,
+      taskType: r.task_type,
+      labels: r.labels ?? [],
+      startOn: r.start_on,
+      estimateMinutes: r.estimate_minutes,
       project: r.project ?? { id: r.project_id, name: "Project" },
       workspace: r.workspace ?? { id: r.workspace_id, name: "Workspace", slug: "" },
       assignees: r.assignees.map((a) => people.get(a.user_id)).filter((p): p is Person => Boolean(p)),
@@ -335,7 +349,46 @@ export type TaskFilters = {
   status?: WorkStatus;
   priority?: WorkPriority;
   owner?: string;
+  taskType?: WorkTaskType | "none";
+  label?: string;
 };
+
+type Filterable = {
+  eq(column: string, value: string): Filterable;
+  is(column: string, value: null): Filterable;
+  contains(column: string, value: string[]): Filterable;
+};
+
+/** The type and label filters, the same on every list. */
+function planningFilters<Q>(query: Q, filters: TaskFilters): Q {
+  let q = query as unknown as Filterable;
+  if (filters.taskType === "none") q = q.is("task_type", null);
+  else if (filters.taskType) q = q.eq("task_type", filters.taskType);
+  if (filters.label) q = q.contains("labels", [filters.label]);
+  return q as unknown as Q;
+}
+
+/**
+ * Every label on the open tasks this user can see (in one project, or across
+ * the workspaces), most used first, for the label filter and suggestions.
+ */
+export async function listLabels(scope: { projectId?: string } = {}): Promise<string[]> {
+  await requireWorkUser();
+  const supabase = await createClient();
+  let query = supabase.from("work_tasks").select("labels").is("archived_at", null).not("labels", "eq", "{}");
+  if (scope.projectId) query = query.eq("project_id", scope.projectId);
+  const { data } = await query.limit(2000);
+  const counts = new Map<string, { label: string; n: number }>();
+  for (const row of (data ?? []) as { labels: string[] | null }[]) {
+    for (const label of row.labels ?? []) {
+      const key = label.toLowerCase();
+      const entry = counts.get(key) ?? { label, n: 0 };
+      entry.n++;
+      counts.set(key, entry);
+    }
+  }
+  return [...counts.values()].sort((a, b) => b.n - a.n || a.label.localeCompare(b.label)).map((e) => e.label);
+}
 
 export type OverviewTab = "mine" | "review" | "today";
 
@@ -356,6 +409,7 @@ export async function listOverview(tab: OverviewTab, filters: TaskFilters): Prom
   if (filters.workspace) query = query.eq("workspace_id", filters.workspace);
   if (filters.project) query = query.eq("project_id", filters.project);
   if (filters.priority) query = query.eq("priority", filters.priority);
+  query = planningFilters(query, filters);
   if (tab !== "review") {
     query = filters.status ? query.eq("status", filters.status) : query.in("status", openStatuses);
   }
@@ -393,6 +447,7 @@ export async function listProjectTasks(projectId: string, filters: TaskFilters &
     .is("parent_id", null);
   if (filters.owner) query = query.eq("owner.user_id", filters.owner);
   if (filters.priority) query = query.eq("priority", filters.priority);
+  query = planningFilters(query, filters);
   if (filters.status) query = query.eq("status", filters.status);
   else if (!filters.showDone) query = query.in("status", openStatuses);
   const rows = check(await query.order("position").limit(1000), "tasks") as unknown as ListRow[];
@@ -480,6 +535,10 @@ export type TaskDetail = {
   status: WorkStatus;
   priority: WorkPriority;
   dueAt: string | null;
+  taskType: WorkTaskType | null;
+  labels: string[];
+  startOn: string | null;
+  estimateMinutes: number | null;
   isLog: boolean;
   archivedAt: string | null;
   completedAt: string | null;
@@ -517,7 +576,7 @@ export async function getTask(taskId: string): Promise<TaskDetail> {
     .from("work_tasks")
     .select(
       `id, title, description, status, priority, due_at, is_log, archived_at, completed_at, review_requested_at,
-       created_at, created_by, reviewer_id, parent_id, project_id, workspace_id,
+       task_type, labels, start_on, estimate_minutes, created_at, created_by, reviewer_id, parent_id, project_id, workspace_id,
        project:work_projects!work_tasks_project_id_workspace_id_fkey(id, name, archived_at),
        parent:parent_id(id, title),
        assignees:work_task_assignees(user_id)`,
@@ -584,6 +643,10 @@ export async function getTask(taskId: string): Promise<TaskDetail> {
     status: task.status,
     priority: task.priority,
     dueAt: task.due_at,
+    taskType: task.task_type,
+    labels: task.labels ?? [],
+    startOn: task.start_on,
+    estimateMinutes: task.estimate_minutes,
     isLog: task.is_log,
     archivedAt: task.archived_at,
     completedAt: task.completed_at,

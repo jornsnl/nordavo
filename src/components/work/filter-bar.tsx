@@ -36,8 +36,13 @@ export function FilterBar({ filters, basePath }: { filters: FilterDef[]; basePat
   }
 
   return (
-    // On phones the filters share one row (each an equal part) instead of wrapping or running off screen.
-    <div className="flex min-w-0 items-center gap-2 *:min-w-0 *:flex-1 sm:flex-wrap sm:*:flex-none">
+    // On phones the filters share one row: equal parts while they fit, sideways scrolling when there are
+    // more (with type and label up to five), so each keeps a readable width.
+    <div
+      className={`flex min-w-0 items-center gap-2 sm:flex-wrap sm:*:flex-none ${
+        filters.length > 3 ? "snap-strip scrollbar-none -mx-4 px-4 *:w-40 *:shrink-0 sm:mx-0 sm:px-0" : "*:min-w-0 *:flex-1"
+      }`}
+    >
       {filters.map((filter) =>
         filter.searchable || filter.options.length > SEARCH_FROM ? (
           <div key={filter.name} className="min-w-0 sm:w-56">

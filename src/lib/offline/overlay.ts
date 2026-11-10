@@ -19,6 +19,9 @@ export type TaskView = {
   isLog?: boolean;
   /** Due at or before this moment (Today and overdue). */
   dueBefore?: string;
+  /** A task type, or "none" for tasks without one. */
+  taskType?: string;
+  label?: string;
 };
 
 type ViewTask = {
@@ -30,6 +33,8 @@ type ViewTask = {
   project: { id: string };
   workspace: { id: string };
   assignees: { id: string }[];
+  taskType?: string | null;
+  labels?: string[];
 };
 
 export function matchesView(task: ViewTask, view: TaskView): boolean {
@@ -41,6 +46,8 @@ export function matchesView(task: ViewTask, view: TaskView): boolean {
   if (view.priority && task.priority !== view.priority) return false;
   if (view.isLog !== undefined && task.isLog !== view.isLog) return false;
   if (view.dueBefore && (!task.dueAt || new Date(task.dueAt) > new Date(view.dueBefore))) return false;
+  if (view.taskType && (task.taskType ?? "none") !== view.taskType) return false;
+  if (view.label && !(task.labels ?? []).some((l) => l.toLowerCase() === view.label!.toLowerCase())) return false;
   return true;
 }
 

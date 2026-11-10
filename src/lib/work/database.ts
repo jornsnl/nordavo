@@ -9,6 +9,20 @@ export type WorkRole = "admin" | "member" | "guest";
 export type WorkVisibility = "open" | "private";
 export type WorkStatus = "todo" | "in_progress" | "review" | "done" | "cancelled";
 export type WorkPriority = "low" | "normal" | "high" | "urgent";
+/** What kind of work a task is (the task types of Athmium). */
+export type WorkTaskType =
+  | "call"
+  | "schedule"
+  | "meeting"
+  | "teams"
+  | "brainstorm"
+  | "programming"
+  | "design"
+  | "writing"
+  | "email"
+  | "research"
+  | "review"
+  | "admin";
 export type WorkCommentKind = "comment" | "returned";
 export type WorkNotificationKind =
   | "assigned"
@@ -131,6 +145,11 @@ export type WorkTaskRow = {
   archived_by: string | null;
   external_source: string | null;
   external_id: string | null;
+  task_type: WorkTaskType | null;
+  labels: string[];
+  /** YYYY-MM-DD, a calendar day without a time zone. */
+  start_on: string | null;
+  estimate_minutes: number | null;
   created_at: string;
   updated_at: string;
 };

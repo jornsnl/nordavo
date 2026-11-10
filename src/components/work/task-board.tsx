@@ -19,7 +19,7 @@ import type { TaskListItem } from "@/lib/work/data";
 import type { WorkStatus } from "@/lib/work/database";
 import { workOption, workStatuses } from "@/lib/work/labels";
 import { FormMessage } from "@/components/ui/field";
-import { DueLabel, People, PriorityBadge, priorityBorder } from "@/components/work/task-row";
+import { DueLabel, LabelChips, People, PriorityBadge, TypeChip, priorityBorder } from "@/components/work/task-row";
 import { RecordChip } from "@/components/work/task-record";
 import { TaskMenuButton, useTaskMenu } from "@/components/work/task-menu";
 import { useOfflineTasks } from "@/components/offline/use-offline-tasks";
@@ -297,7 +297,9 @@ function TaskCard({
           </Link>
           <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5">
             <PriorityBadge priority={task.priority} />
+            <TypeChip type={task.taskType} />
             <DueLabel dueAt={task.dueAt} timeZone={timeZone} done={done} />
+            <LabelChips labels={task.labels} max={2} />
             <People people={task.assignees} />
             {!overlay && <TaskMenuButton task={menuTaskOf(task)} className="-my-1 ml-auto" />}
           </div>

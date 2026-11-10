@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { after } from "next/server";
 import { z } from "zod";
-import { formValues } from "@/lib/action-state";
+import { formValues, parseList } from "@/lib/action-state";
 import { env } from "@/lib/env";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
@@ -16,6 +16,7 @@ import { deliverNotifications, sendInviteMail } from "@/lib/work/notify";
 import { mayUseSignInLink, signInLinkUrl } from "@/lib/security/sign-in-link";
 import { generateInviteToken, generateWorkToken } from "@/lib/work/tokens";
 import { localInputToUtc } from "@/lib/work/time";
+import { isWorkTaskType, parseEstimate } from "@/lib/work/labels";
 import { canUseRecordType, isRecordType } from "@/lib/work/records";
 import { isListedTimeZone, normalizeTimeZone } from "@/lib/work/time-zones";
 
@@ -409,12 +410,37 @@ export async function updateTaskAction(taskId: string, _prev: WorkActionState, f
   if (!parsed.success) return invalid(parsed.error);
 
   // Only the fields this form sent change.
-  const fields: Record<string, string | null> = {};
+  const fields: Record<string, string | string[] | number | null> = {};
   if (formData.has("title")) fields.title = parsed.data.title ?? "";
   if (formData.has("description")) fields.description = parsed.data.description ?? null;
   if (formData.has("priority")) fields.priority = parsed.data.priority ?? "normal";
   if (formData.has("due_at")) fields.due_at = await deadline(parsed.data.due_at);
   if (formData.has("reviewer_id")) fields.reviewer_id = parsed.data.reviewer_id ?? null;
+
+  // Planning: type, labels, start date and estimate.
+  if (formData.has("task_type")) {
+    const type = values.task_type;
+    if (type && !isWorkTaskType(type)) return { error: "Choose a type from the list.", fieldErrors: { task_type: "Unknown type" } };
+    fields.task_type = type ?? null;
+  }
+  if (formData.has("labels")) {
+    const labels = [...new Map(parseList(values.labels).map((l) => [l.toLowerCase(), l])).values()];
+    if (labels.some((l) => l.length > 40)) return { error: "A label is at most 40 characters.", fieldErrors: { labels: "At most 40 characters each" } };
+    if (labels.length > 20) return { error: "A task has at most 20 labels.", fieldErrors: { labels: "At most 20 labels" } };
+    fields.labels = labels;
+  }
+  if (formData.has("start_on")) {
+    const start = values.start_on;
+    if (start && !/^\d{4}-\d{2}-\d{2}$/.test(start)) return { error: "Pick a start date.", fieldErrors: { start_on: "Not a date" } };
+    fields.start_on = start ?? null;
+  }
+  if (formData.has("estimate")) {
+    const minutes = parseEstimate(values.estimate);
+    if (minutes !== null && (!Number.isFinite(minutes) || minutes < 1 || minutes > 60_000)) {
+      return { error: "Write the estimate as 2h, 30m, 1h30 or 1.5.", fieldErrors: { estimate: "For example 2h, 30m or 1h30" } };
+    }
+    fields.estimate_minutes = minutes;
+  }
 
   const supabase = await createClient();
   const { error } = await supabase.rpc("work_update_task", { p_task: taskId, p_fields: fields });
