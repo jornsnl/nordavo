@@ -104,7 +104,7 @@ export async function updateSession(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   if (!isSignedIn && !isPublicPath(pathname)) {
-    const signIn = matches(["/work"], pathname) ? WORK_SIGN_IN : "/login";
+    const signIn = matches(["/work", "/content"], pathname) ? WORK_SIGN_IN : "/login";
     return redirectWithCookies(request, response, signIn, pathname);
   }
 

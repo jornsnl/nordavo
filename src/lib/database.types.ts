@@ -3,6 +3,7 @@
 // once the project exists, then keep the aliases at the bottom.
 
 import type { WorkFunctions, WorkTables } from "@/lib/work/database";
+import type { ContentFunctions, ContentTables } from "@/lib/content/database";
 import type { FormsFunctions, FormsTables } from "@/lib/forms/database";
 import type { AcademyFunctions, AcademyTables } from "@/lib/academy/database";
 import type { AcademyPlacementFunctions, AcademyPlacementTables } from "@/lib/academy/placement/database";
@@ -2593,7 +2594,7 @@ export type Database = {
         };
         Relationships: [];
       };
-    } & WorkTables & FormsTables & SalesTables & AcademyTables & AcademyMediaTables & AcademyPlacementTables & AcademyAtsTables & WspTables;
+    } & WorkTables & ContentTables & FormsTables & SalesTables & AcademyTables & AcademyMediaTables & AcademyPlacementTables & AcademyAtsTables & WspTables;
     Views: {
       call_list_candidates: { Row: ListCandidateBase & { phone: string; linkedin_url: string | null }; Relationships: [] };
       mail_list_candidates: { Row: ListCandidateBase & { email: string }; Relationships: [] };
@@ -2764,7 +2765,7 @@ export type Database = {
         Args: { p_entity: CustomFieldEntity; p_new: Json; p_old?: Json };
         Returns: CustomFieldValues;
       };
-    } & WorkFunctions & FormsFunctions & SalesFunctions & AcademyFunctions & LearnFunctions & AcademyMediaFunctions & AcademyPlacementFunctions & AcademyAtsFunctions & WspFunctions;
+    } & WorkFunctions & ContentFunctions & FormsFunctions & SalesFunctions & AcademyFunctions & LearnFunctions & AcademyMediaFunctions & AcademyPlacementFunctions & AcademyAtsFunctions & WspFunctions;
     Enums: { [_ in never]: never };
     CompositeTypes: { [_ in never]: never };
   };
