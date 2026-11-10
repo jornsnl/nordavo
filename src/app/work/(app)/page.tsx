@@ -12,6 +12,7 @@ import type { TaskView } from "@/lib/offline/overlay";
 import { PriorityChips, ViewToggle } from "@/components/work/view-controls";
 import {
   countReviews,
+  listLabels,
   listMyWorkspaces,
   listOverview,
   listProjects,
@@ -19,7 +20,16 @@ import {
   type OverviewTab,
   type TaskFilters,
 } from "@/lib/work/data";
-import { isWorkPriority, isWorkStatus, openStatuses, workStatuses } from "@/lib/work/labels";
+import {
+  isWorkPriority,
+  isWorkStatus,
+  openStatuses,
+  parseWorkView,
+  planningParams,
+  taskTypeFilterOptions,
+  workStatuses,
+  type WorkView,
+} from "@/lib/work/labels";
 import { dayIn, localInputToUtc } from "@/lib/work/time";
 
 export const metadata: Metadata = { title: "My overview" };
@@ -32,19 +42,20 @@ function first(value: string | string[] | undefined) {
 
 type Tab = OverviewTab;
 
-function parse(params: Search): { tab: Tab; view: "list" | "board"; filters: TaskFilters } {
+function parse(params: Search): { tab: Tab; view: WorkView; filters: TaskFilters } {
   const tab = first(params.tab);
   const status = first(params.status);
   const priority = first(params.priority);
   const uuid = (v: string | undefined) => (v && /^[0-9a-f-]{36}$/i.test(v) ? v : undefined);
   return {
     tab: tab === "review" || tab === "today" ? tab : "mine",
-    view: first(params.view) === "board" ? "board" : "list",
+    view: parseWorkView(first(params.view)),
     filters: {
       workspace: uuid(first(params.workspace)),
       project: uuid(first(params.project)),
       status: isWorkStatus(status) ? status : undefined,
       priority: isWorkPriority(priority) ? priority : undefined,
+      ...planningParams(first(params.type), first(params.label)),
     },
   };
 }
@@ -68,7 +79,12 @@ async function Overview({ searchParams }: { searchParams: Promise<Search> }) {
   const params = await searchParams;
   const { tab, view, filters } = parse(params);
   const user = await requireWorkUser();
-  const [workspaces, reviewCount, tasks] = await Promise.all([listMyWorkspaces(), countReviews(), listOverview(tab, filters)]);
+  const [workspaces, reviewCount, tasks, labels] = await Promise.all([
+    listMyWorkspaces(),
+    countReviews(),
+    listOverview(tab, filters),
+    listLabels(filters.project ? { projectId: filters.project } : {}),
+  ]);
   const projects = (await Promise.all(workspaces.map((w) => listProjects(w.id)))).flat();
 
   const keep = new URLSearchParams();
@@ -76,7 +92,9 @@ async function Overview({ searchParams }: { searchParams: Promise<Search> }) {
     const value = filters[key];
     if (value) keep.set(key, value);
   }
-  if (view === "board") keep.set("view", "board");
+  if (filters.taskType) keep.set("type", filters.taskType);
+  if (filters.label) keep.set("label", filters.label);
+  if (view !== "list") keep.set("view", view);
   const hrefFor = (t: Tab) => {
     const q = new URLSearchParams(keep);
     if (t !== "mine") q.set("tab", t);
@@ -90,6 +108,8 @@ async function Overview({ searchParams }: { searchParams: Promise<Search> }) {
     workspaceId: filters.workspace,
     projectId: filters.project,
     priority: filters.priority,
+    taskType: filters.taskType,
+    label: filters.label,
     ...(tab !== "review" ? { statuses: filters.status ? [filters.status] : openStatuses } : {}),
     ...(tab === "today"
       ? {
@@ -116,6 +136,8 @@ async function Overview({ searchParams }: { searchParams: Promise<Search> }) {
     ...(tab === "review"
       ? []
       : [{ name: "status", label: "Status", all: "Open statuses", options: workStatuses.map((s) => ({ value: s.value, label: s.label })) }]),
+    { name: "type", label: "Type", all: "Any type", options: taskTypeFilterOptions },
+    ...(labels.length ? [{ name: "label", label: "Label", all: "Any label", options: labels.map((l) => ({ value: l, label: l })) }] : []),
   ];
 
   return (
@@ -152,7 +174,7 @@ async function Overview({ searchParams }: { searchParams: Promise<Search> }) {
       <LiveTasks
         tasks={tasks}
         view={taskView}
-        layout={view === "board" ? "board" : tab === "mine" ? "due" : tab === "review" ? "group" : "today"}
+        layout={view !== "list" ? view : tab === "mine" ? "due" : tab === "review" ? "group" : "today"}
         title="Waiting for your review"
         description="Approve, or send back with a comment"
         timeZone={user.timeZone}

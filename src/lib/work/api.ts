@@ -41,6 +41,16 @@ function requireWrite(actor: WorkApiActor) {
 const uuid = z.guid();
 export const statusSchema = z.enum(["todo", "in_progress", "review", "done", "cancelled"]);
 export const prioritySchema = z.enum(["low", "normal", "high", "urgent"]);
+export const taskTypeSchema = z.enum(["call", "schedule", "meeting", "teams", "brainstorm", "programming", "design", "writing", "email", "research", "review", "admin"]);
+
+/** Type, labels, start date and estimate: the same on create and update. */
+const planningFields = {
+  task_type: taskTypeSchema.nullable().optional(),
+  labels: z.array(z.string().trim().min(1).max(40)).max(20).optional(),
+  start_on: z.iso.date({ error: "Use a day, e.g. 2026-11-03" }).nullable().optional(),
+  estimate_minutes: z.number().int().min(1).max(60_000).nullable().optional(),
+};
+const planningKeys = ["task_type", "labels", "start_on", "estimate_minutes"] as const;
 
 /** "me" or a user id. */
 function personParam(value: string | null | undefined, actor: WorkApiActor): string | null {
@@ -127,6 +137,10 @@ async function shapeTasks(db: ApiDb, actor: WorkApiActor, rows: WorkTaskRow[], s
     status: t.status,
     priority: t.priority,
     due_at: t.due_at,
+    task_type: t.task_type ?? null,
+    labels: t.labels ?? [],
+    start_on: t.start_on ?? null,
+    estimate_minutes: t.estimate_minutes ?? null,
     workspace_id: t.workspace_id,
     project: { id: t.project_id, name: projectName.get(t.project_id) ?? null },
     parent_id: t.parent_id,
@@ -234,6 +248,7 @@ export const createTaskBody = z.object({
   assignee_ids: z.array(uuid).max(20).optional(),
   parent_id: uuid.optional(),
   status: z.enum(["todo", "in_progress", "done"]).optional(),
+  ...planningFields,
 });
 
 export async function createTask(db: ApiDb, actor: WorkApiActor, body: z.infer<typeof createTaskBody>, siteUrl: string) {
@@ -251,6 +266,11 @@ export async function createTask(db: ApiDb, actor: WorkApiActor, body: z.infer<t
     p_actor: actor.userId,
   });
   fromDb(error, "Creating the task");
+  const planning = Object.fromEntries(planningKeys.filter((k) => body[k] !== undefined).map((k) => [k, body[k]]));
+  if (Object.keys(planning).length > 0) {
+    const { error: planningError } = await db.rpc("work_update_task", { p_task: data!, p_fields: planning as Json, p_actor: actor.userId });
+    fromDb(planningError, "Setting type, labels and dates");
+  }
   return getTask(db, actor, data!, siteUrl);
 }
 
@@ -262,6 +282,7 @@ export const updateTaskBody = z
     due_at: isoDate.nullable().optional(),
     reviewer_id: uuid.optional(),
     assignee_ids: z.array(uuid).max(20).optional(),
+    ...planningFields,
   })
   .refine((v) => Object.keys(v).length > 0, { error: "Send at least one field" });
 

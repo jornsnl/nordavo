@@ -1,5 +1,5 @@
 import type { TaskListItem } from "@/lib/work/data";
-import type { WorkPriority, WorkStatus } from "@/lib/work/database";
+import type { WorkPriority, WorkStatus, WorkTaskType } from "@/lib/work/database";
 import { workOption, workPriorities, workStatuses } from "@/lib/work/labels";
 import {
   syncCreateTaskAction,
@@ -39,6 +39,10 @@ export function applyTaskOp(task: TaskListItem | null, change: TaskOp): TaskList
     ...(fields.title !== undefined ? { title: fields.title } : {}),
     ...(fields.priority !== undefined ? { priority: fields.priority as WorkPriority } : {}),
     ...(fields.due_at !== undefined ? { dueAt: fields.due_at } : {}),
+    ...(fields.start_on !== undefined ? { startOn: fields.start_on } : {}),
+    ...(fields.task_type !== undefined ? { taskType: fields.task_type as WorkTaskType | null } : {}),
+    ...(fields.labels !== undefined ? { labels: fields.labels } : {}),
+    ...(fields.estimate_minutes !== undefined ? { estimateMinutes: fields.estimate_minutes } : {}),
     updatedAt: new Date().toISOString(),
   };
 }
@@ -49,6 +53,7 @@ export function describeTaskOp(change: TaskOp, title: string): string {
   if (change.op === "task.status") return `${workOption(workStatuses, change.payload.status).label}: ${title}`;
   const fields = change.payload.fields;
   if (fields.priority) return `Priority ${workOption(workPriorities, fields.priority as WorkPriority).label}: ${title}`;
+  if (fields.due_at !== undefined || fields.start_on !== undefined) return `New dates: ${title}`;
   return `Edit: ${title}`;
 }
 

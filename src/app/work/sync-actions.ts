@@ -26,6 +26,8 @@ const title = z.string().trim().min(1, { error: "Add a title" }).max(300, { erro
 const priority = z.enum(["low", "normal", "high", "urgent"]);
 const status = z.enum(["todo", "in_progress", "review", "done", "cancelled"]);
 const isoTime = z.iso.datetime({ offset: true });
+const isoDay = z.iso.date();
+const taskType = z.enum(["call", "schedule", "meeting", "teams", "brainstorm", "programming", "design", "writing", "email", "research", "review", "admin"]);
 
 function queuedMail() {
   after(async () => {
@@ -85,6 +87,11 @@ const updateSchema = z
     description: z.string().max(50_000).nullable().optional(),
     priority: priority.optional(),
     due_at: isoTime.nullable().optional(),
+    // Planning (calendar, timeline and the task page).
+    start_on: isoDay.nullable().optional(),
+    task_type: taskType.nullable().optional(),
+    labels: z.array(z.string().trim().min(1).max(40)).max(20).optional(),
+    estimate_minutes: z.number().int().min(1).max(60_000).nullable().optional(),
   })
   .strict();
 

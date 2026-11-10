@@ -16,8 +16,16 @@ import { QuickAddTask } from "@/components/work/quick-add-task";
 import type { TaskView } from "@/lib/offline/overlay";
 import { PriorityChips, ViewToggle } from "@/components/work/view-controls";
 import { createTaskAction } from "@/app/work/actions";
-import { getProject, listProjectPeople, listProjectTasks, requireWorkUser } from "@/lib/work/data";
-import { isWorkPriority, isWorkStatus, openStatuses, workStatuses } from "@/lib/work/labels";
+import { getProject, listLabels, listProjectPeople, listProjectTasks, requireWorkUser } from "@/lib/work/data";
+import {
+  isWorkPriority,
+  isWorkStatus,
+  openStatuses,
+  parseWorkView,
+  planningParams,
+  taskTypeFilterOptions,
+  workStatuses,
+} from "@/lib/work/labels";
 import { linkableRecordTypes } from "@/lib/work/records";
 
 export const metadata: Metadata = { title: "Project" };
@@ -43,15 +51,18 @@ async function Project({ params, searchParams }: { params: Promise<{ id: string 
   const priority = first(query.priority);
   const owner = first(query.owner);
   const showDone = first(query.done) === "1";
-  const view = first(query.view) === "board" ? "board" : "list";
-  const [tasks, people] = await Promise.all([
+  const view = parseWorkView(first(query.view));
+  const planning = planningParams(first(query.type), first(query.label));
+  const [tasks, people, labels] = await Promise.all([
     listProjectTasks(id, {
       status: isWorkStatus(status) ? status : undefined,
       priority: isWorkPriority(priority) ? priority : undefined,
       owner: owner && /^[0-9a-f-]{36}$/i.test(owner) ? owner : undefined,
       showDone,
+      ...planning,
     }),
     listProjectPeople(id),
+    listLabels({ projectId: id }),
   ]);
 
   const base = `/work/projects/${id}`;
@@ -60,8 +71,10 @@ async function Project({ params, searchParams }: { params: Promise<{ id: string 
     if (isWorkStatus(status)) q.set("status", status);
     if (isWorkPriority(priority)) q.set("priority", priority);
     if (owner) q.set("owner", owner);
+    if (planning.taskType) q.set("type", planning.taskType);
+    if (planning.label) q.set("label", planning.label);
     if (on) q.set("done", "1");
-    if (view === "board") q.set("view", "board");
+    if (view !== "list") q.set("view", view);
     const s = q.toString();
     return s ? `${base}?${s}` : base;
   };
@@ -76,6 +89,8 @@ async function Project({ params, searchParams }: { params: Promise<{ id: string 
     projectId: id,
     priority: isWorkPriority(priority) ? priority : undefined,
     assignee: owner && /^[0-9a-f-]{36}$/i.test(owner) ? owner : undefined,
+    taskType: planning.taskType,
+    label: planning.label,
   };
   const only = (statuses: typeof openStatuses): TaskView => ({
     ...scope,
@@ -151,6 +166,8 @@ async function Project({ params, searchParams }: { params: Promise<{ id: string 
           filters={[
             { name: "status", label: "Status", all: "Any status", options: workStatuses.map((s) => ({ value: s.value, label: s.label })) },
             { name: "owner", label: "Owner", all: "Any owner", options: people.map((p) => ({ value: p.id, label: p.name })) },
+            { name: "type", label: "Type", all: "Any type", options: taskTypeFilterOptions },
+            ...(labels.length ? [{ name: "label", label: "Label", all: "Any label", options: labels.map((l) => ({ value: l, label: l })) }] : []),
           ]}
         />
       </div>
@@ -168,8 +185,8 @@ async function Project({ params, searchParams }: { params: Promise<{ id: string 
         </div>
       )}
 
-      {view === "board" ? (
-        <LiveTasks tasks={tasks} view={only(allStatuses)} layout="board" timeZone={user.timeZone} showContext={false} empty={noTasks} />
+      {view !== "list" ? (
+        <LiveTasks tasks={tasks} view={only(allStatuses)} layout={view} timeZone={user.timeZone} showContext={false} empty={noTasks} />
       ) : (
         <div className="space-y-4">
           <LiveTasks tasks={open} view={only(openStatuses)} layout="due" timeZone={user.timeZone} showContext={false} empty={tasks.length === 0 ? noTasks : null} />

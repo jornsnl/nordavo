@@ -7,8 +7,10 @@ import { dueState } from "@/lib/work/time";
 import { useOfflineTasks } from "@/components/offline/use-offline-tasks";
 import { DueGroups, TaskGroup } from "@/components/work/task-row";
 import { TaskBoard } from "@/components/work/task-board";
+import { TaskCalendar } from "@/components/work/task-calendar";
+import { TaskTimeline } from "@/components/work/task-timeline";
 
-export type TaskLayout = "due" | "group" | "today" | "board";
+export type TaskLayout = "due" | "group" | "today" | "board" | "calendar" | "timeline";
 
 /**
  * A task list as this device has it: the server's tasks with the changes
@@ -37,6 +39,9 @@ export function LiveTasks({
   empty: ReactNode;
 }) {
   const live = useOfflineTasks(tasks, view);
+  // The calendar shows its own "no date" tray and the timeline its own empty period, so no empty state.
+  if (layout === "calendar") return <TaskCalendar tasks={tasks} view={view} timeZone={timeZone} />;
+  if (layout === "timeline") return <TaskTimeline tasks={tasks} view={view} timeZone={timeZone} defaultLanes={showContext ? "project" : "person"} />;
   if (layout === "board") {
     return live.length === 0 && tasks.length === 0 ? empty : <TaskBoard tasks={tasks} timeZone={timeZone} showContext={showContext} view={view} />;
   }

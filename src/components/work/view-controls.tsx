@@ -2,9 +2,10 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { Columns3, List } from "lucide-react";
+import { CalendarDays, Columns3, GanttChart, List } from "lucide-react";
 import type { WorkPriority } from "@/lib/work/database";
 import { priorityStyles } from "@/lib/sales/labels";
+import type { WorkView } from "@/lib/work/labels";
 
 const priorityOrder: WorkPriority[] = ["urgent", "high", "normal", "low"];
 
@@ -63,12 +64,14 @@ export function PriorityChips({ basePath }: { basePath: string }) {
   );
 }
 
-/** List or board, kept in ?view=board. */
-export function ViewToggle({ basePath, view }: { basePath: string; view: "list" | "board" }) {
+/** List, board, calendar or timeline, kept in ?view=. */
+export function ViewToggle({ basePath, view }: { basePath: string; view: WorkView }) {
   const hrefWith = useHref(basePath);
   const options = [
     { value: "list" as const, label: "List", icon: List, href: hrefWith("view", null) },
     { value: "board" as const, label: "Board", icon: Columns3, href: hrefWith("view", "board") },
+    { value: "calendar" as const, label: "Calendar", icon: CalendarDays, href: hrefWith("view", "calendar") },
+    { value: "timeline" as const, label: "Timeline", icon: GanttChart, href: hrefWith("view", "timeline") },
   ];
   return (
     <nav aria-label="View" className="inline-flex w-fit shrink-0 rounded-xl border border-border bg-white p-1 shadow-xs">

@@ -17,7 +17,7 @@ import {
   TaskActionButtons,
   TaskFieldsForm,
 } from "@/components/work/task-controls";
-import { DueLabel, PriorityBadge, StatusBadge, TaskRow, priorityBorder } from "@/components/work/task-row";
+import { DueLabel, LabelChips, PriorityBadge, StatusBadge, TaskRow, TypeChip, priorityBorder } from "@/components/work/task-row";
 import { RecordLinkForm } from "@/components/work/record-link-form";
 import { PrimaryContactDetails, RecordChip } from "@/components/work/task-record";
 import {
@@ -33,8 +33,8 @@ import {
   uploadFileAction,
 } from "@/app/work/actions";
 import { setTaskRecordAction } from "@/app/work/record-actions";
-import { getTask, listProjectPeople, listProjects, requireWorkUser, type ActivityItem, type Person } from "@/lib/work/data";
-import { workOption, workPriorities, workStatuses } from "@/lib/work/labels";
+import { getTask, listLabels, listProjectPeople, listProjects, requireWorkUser, type ActivityItem, type Person } from "@/lib/work/data";
+import { formatEstimate, workOption, workPriorities, workStatuses, workTaskTypeLabel } from "@/lib/work/labels";
 import { formatAgo, formatDateTimeIn, utcToLocalInput } from "@/lib/work/time";
 
 export const metadata: Metadata = { title: "Task" };
@@ -59,9 +59,10 @@ async function TaskDetailView({ params }: { params: Promise<{ id: string }> }) {
   const user = await requireWorkUser();
   const task = await getTask(id);
   const tz = user.timeZone;
-  const [people, projects] = await Promise.all([
+  const [people, projects, labelSuggestions] = await Promise.all([
     listProjectPeople(task.project.id),
     task.workspace.role === "guest" ? Promise.resolve([]) : listProjects(task.workspace.id),
+    listLabels({ projectId: task.project.id }),
   ]);
   const peopleOptions = people.map((p) => ({ id: p.id, name: p.name, role: p.role }));
   const archived = Boolean(task.archivedAt);
@@ -92,6 +93,9 @@ async function TaskDetailView({ params }: { params: Promise<{ id: string }> }) {
           <StatusBadge status={task.status} />
           <PriorityBadge priority={task.priority} />
           <DueLabel dueAt={task.dueAt} timeZone={tz} done={task.status === "done"} />
+          <TypeChip type={task.taskType} />
+          {task.estimateMinutes && <span className="text-xs text-muted">Estimate {formatEstimate(task.estimateMinutes)}</span>}
+          <LabelChips labels={task.labels} />
           {task.isLog && <Badge>Logged work</Badge>}
           {archived && <Badge tone="danger">In the trash</Badge>}
         </div>
@@ -285,6 +289,11 @@ async function TaskDetailView({ params }: { params: Promise<{ id: string }> }) {
                 assigneeIds={task.assignees.map((a) => a.id)}
                 timeZone={tz}
                 editable={task.can.edit}
+                taskType={task.taskType}
+                labels={task.labels}
+                startOn={task.startOn}
+                estimate={formatEstimate(task.estimateMinutes)}
+                labelSuggestions={labelSuggestions}
               />
               <dl className="mt-5 space-y-2 border-t border-border pt-4 text-xs text-muted">
                 <div className="flex justify-between gap-3">
@@ -374,6 +383,16 @@ function describeActivity(entry: ActivityItem, assignees: Person[], people: Pers
       const due = change("due_at");
       if (due) parts.push(due.to ? `set the deadline to ${formatDateTimeIn(String(due.to), tz)}` : "removed the deadline");
       if (change("reviewer_id")) parts.push(`made ${name(change("reviewer_id")?.to)} reviewer`);
+      const type = change("task_type");
+      if (type) parts.push(type.to ? `set the type to ${workTaskTypeLabel(type.to as never) ?? String(type.to)}` : "removed the type");
+      if (change("labels")) {
+        const labels = (change("labels")?.to as string[] | null) ?? [];
+        parts.push(labels.length ? `set the labels to ${labels.join(", ")}` : "removed the labels");
+      }
+      const start = change("start_on");
+      if (start) parts.push(start.to ? `set the start date to ${String(start.to)}` : "removed the start date");
+      const estimate = change("estimate_minutes");
+      if (estimate) parts.push(estimate.to ? `estimated it at ${formatEstimate(Number(estimate.to))}` : "removed the estimate");
       if (change("title")) parts.push("renamed it");
       if (d.description) parts.push("edited the description");
       if (change("project_id")) parts.push("moved it to another project");
