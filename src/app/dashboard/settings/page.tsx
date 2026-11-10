@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
+import Link from "next/link";
 import { getCurrentUser, hasModule } from "@/lib/auth";
 import { getOwnProfile, listClientOptions, listProfiles } from "@/lib/data/users";
 import { formatDate } from "@/lib/format";
@@ -244,7 +245,7 @@ async function UsersSection() {
           <p className="mt-0.5 text-sm text-muted">
             Admins see everything. For each member you decide which modules they see: Sales (leads,
             contacts, lists, campaigns), Recruitment (vacancies, candidates, pipelines, placements),
-            Clients and Report. Every member sees tasks and the task tool. Client accounts only see
+            Clients and Report. Every member sees tasks and the task tool. Click a name for the details and connected MCP tokens. Client accounts only see
             their own vacancies and proposed candidates in the client portal.
           </p>
         </div>
@@ -260,7 +261,9 @@ async function UsersSection() {
                 leading={<Avatar name={name} />}
                 title={
                   <>
-                    {name}
+                    <Link href={`/dashboard/settings/users/${profile.id}`} className="hover:text-brand-700 hover:underline">
+                      {name}
+                    </Link>
                     {isSelf && <span className="ml-1.5 text-xs font-normal text-muted">(you)</span>}
                   </>
                 }
@@ -331,7 +334,9 @@ async function UsersSection() {
                       <Avatar name={name} size="sm" />
                       <div className="min-w-0">
                         <p className="truncate font-medium text-ink">
-                          {name}
+                          <Link href={`/dashboard/settings/users/${profile.id}`} className="hover:text-brand-700 hover:underline">
+                            {name}
+                          </Link>
                           {isSelf && <span className="ml-1.5 text-xs text-muted">(you)</span>}
                         </p>
                         <p className="truncate text-xs text-muted">
