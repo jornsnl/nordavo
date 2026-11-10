@@ -148,8 +148,8 @@ async function UserDetailsView({ params }: { params: Promise<{ id: string }> }) 
 
       <Card className="mt-6">
         <CardHeader
-          title="Connected MCP and API tokens"
-          description="For reference only. Portal MCP tokens open /api/mcp, Work tokens open /api/work (REST and MCP). Only the first characters are shown; the owner revokes a token in their own settings."
+          title="Connected MCP apps and API tokens"
+          description="For reference only. Apps connected through OAuth (such as claude.ai) and portal MCP tokens open /api/mcp, Work tokens open /api/work (REST and MCP). Tokens show their first characters, apps their client id; the owner disconnects them in their own settings."
         />
         <CardBody>
           {user.tokens.length === 0 ? (
@@ -177,9 +177,9 @@ async function UserDetailsView({ params }: { params: Promise<{ id: string }> }) 
                     <TR key={`${token.kind}-${token.id}`}>
                       <TD>
                         <p className="font-medium text-ink">{token.name}</p>
-                        <p className="font-mono text-xs text-muted">{token.prefix}…</p>
+                        <p className="font-mono text-xs text-muted">{token.kind === "oauth" ? `client ${token.prefix}…` : `${token.prefix}…`}</p>
                       </TD>
-                      <TD>{token.kind === "portal" ? "Portal MCP" : "Work API and MCP"}</TD>
+                      <TD>{token.kind === "oauth" ? "Portal MCP (app via OAuth)" : token.kind === "portal" ? "Portal MCP (token)" : "Work API and MCP"}</TD>
                       <TD>
                         <Badge tone={token.access === "write" ? "warning" : "neutral"}>
                           {token.access === "write" ? "Read and write" : "Read only"}

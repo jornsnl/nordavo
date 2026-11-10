@@ -7,8 +7,12 @@ import { createClient } from "@/lib/supabase/server";
 
 export type ConnectedToken = {
   id: string;
-  /** Which API the token opens: the portal MCP (/api/mcp) or Work (/api/work, REST and MCP). */
-  kind: "portal" | "work";
+  /**
+   * How it connects: a portal MCP token (/api/mcp), an app connected to the
+   * portal MCP through OAuth (for example claude.ai), or a Work token
+   * (/api/work, REST and MCP).
+   */
+  kind: "portal" | "oauth" | "work";
   name: string;
   prefix: string;
   access: "read" | "write";
@@ -39,7 +43,7 @@ export type UserDetails = {
 /**
  * Everything an admin may want to look up about one user, read only: the
  * profile, sign-in and security state, Work and Content memberships, and
- * the MCP and API tokens they connected (name, first characters, access and
+ * the MCP apps (OAuth) and API tokens they connected (name, first characters, access and
  * use; never the token itself, which is only stored as a hash). Tokens and
  * passkeys are private to their owner under RLS, so they are read with the
  * secret key after requireAdmin().
@@ -74,7 +78,7 @@ export async function getUserDetails(userId: string): Promise<UserDetails> {
   };
   if (!admin) return details;
 
-  const [authUser, factors, passkeys, portalTokens, workTokens, workMembers, contentMembers] = await Promise.all([
+  const [authUser, factors, passkeys, portalTokens, workTokens, workMembers, contentMembers, grants] = await Promise.all([
     admin.auth.admin.getUserById(userId),
     admin.auth.admin.mfa.listFactors({ userId }),
     admin.from("passkeys").select("name, created_at, last_used_at").eq("user_id", userId).order("created_at"),
@@ -90,6 +94,11 @@ export async function getUserDetails(userId: string): Promise<UserDetails> {
       .order("created_at", { ascending: false }),
     admin.from("work_members").select("role, deactivated_at, workspace_id").eq("user_id", userId),
     admin.from("content_members").select("role, workspace_id").eq("user_id", userId),
+    admin
+      .from("oauth_grants")
+      .select("id, client_id, access, created_at, refresh_expires_at, last_used_at, revoked_at")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false }),
   ]);
 
   details.lastSignInAt = authUser.data.user?.last_sign_in_at ?? null;
@@ -107,7 +116,27 @@ export async function getUserDetails(userId: string): Promise<UserDetails> {
     lastUsedAt: t.last_used_at,
     revokedAt: t.revoked_at,
   });
-  details.tokens = [...(portalTokens.data ?? []).map(token("portal")), ...(workTokens.data ?? []).map(token("work"))];
+  const clientIds = [...new Set((grants.data ?? []).map((g) => g.client_id))];
+  const { data: clients } = clientIds.length
+    ? await admin.from("oauth_clients").select("client_id, client_name").in("client_id", clientIds)
+    : { data: [] };
+  const clientName = new Map((clients ?? []).map((c) => [c.client_id, c.client_name]));
+  const oauth: ConnectedToken[] = (grants.data ?? []).map((g) => ({
+    id: g.id,
+    kind: "oauth",
+    name: clientName.get(g.client_id) ?? "Connected app",
+    prefix: g.client_id.slice(0, 8),
+    access: g.access === "write" ? "write" : "read",
+    createdAt: g.created_at,
+    expiresAt: g.refresh_expires_at,
+    lastUsedAt: g.last_used_at,
+    revokedAt: g.revoked_at,
+  }));
+  details.tokens = [
+    ...oauth,
+    ...(portalTokens.data ?? []).map(token("portal")),
+    ...(workTokens.data ?? []).map(token("work")),
+  ];
 
   const workIds = (workMembers.data ?? []).map((m) => m.workspace_id);
   const contentIds = (contentMembers.data ?? []).map((m) => m.workspace_id);
