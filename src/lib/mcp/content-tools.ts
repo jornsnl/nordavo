@@ -88,7 +88,7 @@ export function registerContentTools(server: McpServer, ctx: McpToolContext) {
       const rows = check(await query, "posts");
       return ok({
         workspace: { slug: ws.slug, role: ws.role },
-        posts: rows.map(({ submitted_at: _submitted, ...p }) => ({ ...p, url: postUrl(ws.slug, p.id) })),
+        posts: rows.map((p) => ({ id: p.id, title: p.title, status: p.status, planned_date: p.planned_date, time_slot: p.time_slot, format: p.format, angle: p.angle, audience: p.audience, language: p.language, updated_at: p.updated_at, url: postUrl(ws.slug, p.id) })),
       });
     },
   );

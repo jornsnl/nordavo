@@ -216,10 +216,12 @@ const READ_TOOLS = [
   "whoami",
 ];
 const WRITE_TOOLS = ["add_note", "create_task", "mark_topper", "move_candidates", "update_task_status"];
+const CONTENT_READ_TOOLS = ["content_get_post", "content_list_media", "content_list_posts", "content_list_workspaces"];
+const CONTENT_WRITE_TOOLS = ["content_suggest_image_brief", "content_suggest_images", "content_suggest_media_description", "content_suggest_text"];
 
 test("a read token only gets read tools", async () => {
   const { names, tools, whoami, instructions } = await listToolNames("read");
-  assert.deepEqual(names, [...new Set([...READ_TOOLS, ...SALES_READ_TOOLS, ...RECRUITMENT_AI_READ_TOOLS, ...AI_REQUEST_READ_TOOLS])].sort());
+  assert.deepEqual(names, [...new Set([...READ_TOOLS, ...SALES_READ_TOOLS, ...RECRUITMENT_AI_READ_TOOLS, ...AI_REQUEST_READ_TOOLS, ...CONTENT_READ_TOOLS])].sort());
   assert.ok(tools.every((t) => t.annotations?.readOnlyHint === true));
   const listClients = tools.find((t) => t.name === "list_clients");
   const limit = (listClients?.inputSchema.properties as Record<string, { maximum?: number; default?: number }>).limit;
@@ -245,6 +247,8 @@ test("a write token also gets the write tools", async () => {
         ...AI_REQUEST_READ_TOOLS,
         ...AI_REQUEST_WRITE_TOOLS,
         ...JOB_RUN_TOOLS,
+        ...CONTENT_READ_TOOLS,
+        ...CONTENT_WRITE_TOOLS,
       ]),
     ].sort(),
   );

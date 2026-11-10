@@ -26,7 +26,8 @@ export default function SearchPage({ searchParams }: PageProps<"/content/search"
 }
 
 async function Results({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
-  const q = typeof (await searchParams).q === "string" ? ((await searchParams).q as string).trim() : "";
+  const { q: raw } = await searchParams;
+  const q = typeof raw === "string" ? raw.trim() : "";
   const results = q ? await searchContent(q) : { ideas: [], posts: [] };
   const total = results.ideas.length + results.posts.length;
   return (

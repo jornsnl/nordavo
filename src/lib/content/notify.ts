@@ -7,6 +7,7 @@ import { escapeHtml, sendMail } from "@/lib/notify/mail";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { ContentNotificationRow } from "@/lib/content/database";
 import { addDays, dayKey, notificationLabel, weekStart } from "@/lib/content/rules";
+import { missingFor } from "@/lib/content/summary";
 
 /**
  * Mails for the notifications the database queued in content_notifications
@@ -128,26 +129,6 @@ function renderList(name: string, intro: string, lines: Line[], footer = "Choose
 // ---------------------------------------------------------------------------
 // Monday morning summary
 // ---------------------------------------------------------------------------
-
-export type SummaryPost = {
-  title: string;
-  status: string;
-  plannedDate: string | null;
-  timeSlot: string | null;
-  formatNeedsMedia: boolean;
-  mediaCount: number;
-};
-
-const READY = ["approved", "scheduled", "published", "measured"];
-
-/** What is still missing before a post can go live. Pure, unit tested. */
-export function missingFor(post: SummaryPost): string[] {
-  const missing: string[] = [];
-  if (!READY.includes(post.status)) missing.push("not approved");
-  if (!post.timeSlot) missing.push("no time slot");
-  if (post.formatNeedsMedia && post.mediaCount === 0) missing.push("no media");
-  return missing;
-}
 
 /**
  * Per user: what goes live this week in each workspace they are in, and

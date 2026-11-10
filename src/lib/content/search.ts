@@ -1,6 +1,7 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { check, listMyContentWorkspaces } from "@/lib/content/data";
+import { searchPattern } from "@/lib/mcp/shared";
 
 /**
  * One search bar across ideas and posts (title, text and tags), within what
@@ -8,18 +9,6 @@ import { check, listMyContentWorkspaces } from "@/lib/content/data";
  */
 
 export type SearchHit = { id: string; title: string; snippet: string; href: string; workspace: string; status: string };
-
-/** Free text to a safe ilike pattern for PostgREST filters; null when too short. */
-export function contentSearchPattern(raw: string | undefined | null): string | null {
-  if (!raw) return null;
-  const cleaned = raw
-    .replace(/[,()"'*:]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim()
-    .slice(0, 80);
-  if (cleaned.length < 2) return null;
-  return `%${cleaned.replace(/[\\%_]/g, (m) => `\\${m}`)}%`;
-}
 
 /** A tag to look for: one word, lowercase. */
 function tagOf(raw: string): string | null {
@@ -36,7 +25,7 @@ function snippet(text: string, query: string): string {
 }
 
 export async function searchContent(query: string): Promise<{ ideas: SearchHit[]; posts: SearchHit[] }> {
-  const pattern = contentSearchPattern(query);
+  const pattern = searchPattern(query);
   if (!pattern) return { ideas: [], posts: [] };
   const workspaces = await listMyContentWorkspaces();
   if (workspaces.length === 0) return { ideas: [], posts: [] };

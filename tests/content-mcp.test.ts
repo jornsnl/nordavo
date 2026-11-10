@@ -1,8 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { locateOriginal, occurrences } from "../src/lib/content/text-match";
-import { missingFor } from "../src/lib/content/notify";
-import { contentSearchPattern } from "../src/lib/content/search";
+import { missingFor } from "../src/lib/content/summary";
 
 test("text match: Claude names the text, the offset is counted in characters", () => {
   const body = "We hire in India. We hire fast.";
@@ -24,9 +23,4 @@ test("monday summary: what is still missing", () => {
   const post = { title: "x", status: "draft", plannedDate: "2026-11-10", timeSlot: null, formatNeedsMedia: true, mediaCount: 0 };
   assert.deepEqual(missingFor(post), ["not approved", "no time slot", "no media"]);
   assert.deepEqual(missingFor({ ...post, status: "scheduled", timeSlot: "t0830", mediaCount: 1 }), []);
-});
-
-test("search: a safe pattern for PostgREST filters", () => {
-  assert.equal(contentSearchPattern("a"), null);
-  assert.equal(contentSearchPattern("100% (india), hire_fast"), "%100\\% india hire\\_fast%");
 });
