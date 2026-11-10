@@ -110,7 +110,7 @@ export async function updateSession(request: NextRequest) {
   const returnTo = matches(KEEP_QUERY_PATHS, pathname) ? `${pathname}${request.nextUrl.search}` : pathname;
 
   if (!isSignedIn && !isPublicPath(pathname)) {
-    const signIn = matches(["/work"], pathname) ? WORK_SIGN_IN : "/login";
+    const signIn = matches(["/work", "/content"], pathname) ? WORK_SIGN_IN : "/login";
     return redirectWithCookies(request, response, signIn, returnTo);
   }
 

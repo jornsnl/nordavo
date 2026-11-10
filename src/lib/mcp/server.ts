@@ -8,6 +8,7 @@ import { registerSalesTools } from "@/lib/mcp/sales-tools";
 import { registerJobRunTool } from "@/lib/mcp/job-run-tool";
 import { registerRecruitmentAiTools } from "@/lib/mcp/recruitment-ai-tools";
 import { registerAiRequestTools } from "@/lib/mcp/ai-request-tools";
+import { registerContentTools } from "@/lib/mcp/content-tools";
 import { effectiveModules, portalModules } from "@/lib/modules";
 
 export const MCP_SERVER_NAME = "nordavo";
@@ -42,6 +43,9 @@ function instructions(ctx: McpTokenContext) {
       "Other judgement the portal needs (reading vacancies and CVs, the techstack check, talent pool questions, anonymous profiles, prompt comparisons, Academy proposals and lesson drafts) waits in list_ai_requests; answer each with complete_ai_request in its answer_schema.",
     );
   }
+  lines.push(
+    "LinkedIn content (content_* tools): workspaces per employee with ideas, posts, media and results. Read posts and media, and help with suggestions only (media descriptions, image suggestions, image briefs, text changes): you never pick, approve, schedule or publish, a person decides on every suggestion.",
+  );
   lines.push("Candidate and contact details are personal data: use them for the task at hand and do not copy them elsewhere unasked.");
   return lines.join("\n");
 }
@@ -59,5 +63,7 @@ export function createNordavoMcpServer(ctx: McpTokenContext, db: McpDb, siteUrl:
   registerRecruitmentAiTools(server, { ...ctx, db: scoped, siteUrl });
   registerAiRequestTools(server, { ...ctx, db: scoped, siteUrl });
   registerJobRunTool(server, { ...ctx, db: scoped, siteUrl });
+  // Content has its own rights (content_api_*), independent of the portal modules.
+  registerContentTools(server, { ...ctx, db, siteUrl });
   return server;
 }

@@ -11,6 +11,7 @@ import {
   KanbanSquare,
   Library,
   LayoutDashboard,
+  Megaphone,
   ListChecks,
   Phone,
   Radar,
@@ -41,6 +42,7 @@ export const navSections: NavSection[] = [
     items: [
       { label: "Overview", href: "/dashboard", icon: LayoutDashboard },
       { label: "Work (tasks)", href: "/work", icon: KanbanSquare },
+      { label: "Content (LinkedIn)", href: "/content", icon: Megaphone },
     ],
   },
   {

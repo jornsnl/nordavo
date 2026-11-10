@@ -8,6 +8,8 @@ export const mailCategories = [
   { value: "work_notification", label: "Work update" },
   { value: "work_invite", label: "Work invite" },
   { value: "work_sign_in", label: "Work sign-in link" },
+  { value: "content_notification", label: "Content update" },
+  { value: "content_summary", label: "Content Monday summary" },
   { value: "caller_invite", label: "Caller invitation" },
   { value: "academy_invite", label: "Academy invitation" },
   // Academy and ATS (docs/academy.md, ATS-koppeling)
