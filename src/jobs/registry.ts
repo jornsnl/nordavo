@@ -11,6 +11,8 @@ import { screeningScore } from "./screening-score";
 import { t2Match } from "./t2-match";
 import { interviewReminders } from "./interview-reminders";
 import { clickupImport, workDaily, workNotify } from "./work";
+import { contentNotify, contentWeekly } from "./content";
+import { contentDriveSync } from "./content-drive";
 import { formsReminders } from "./forms-reminders";
 import { academyPlacements, academyRituals } from "./academy-placements";
 import { academyAtsSync, academyReminders, academyRetention } from "./academy-ats";
@@ -41,6 +43,9 @@ export const jobs: Record<string, Job> = Object.fromEntries(
   workNotify,
   workDaily,
   clickupImport,
+  contentNotify,
+  contentWeekly,
+  contentDriveSync,
   formsReminders,
   academyRituals,
   academyPlacements,

@@ -1,0 +1,75 @@
+name: Content jobs
+
+# Scheduled jobs of the content module (docs/content.md). Mails for status
+# changes go out right after the change; content-notify is the hourly run of
+# the checks (unapproved posts tomorrow, missing URLs, results due, buffer and
+# rhythm), the event handlers and the mail queue. It only calls the running
+# app (no install), so it costs seconds. content-weekly sends the Monday
+# summary at 07:00 Europe/Amsterdam, content-drive-sync imports new files from
+# Google Drive at 06:00 (the guards keep the right UTC hour).
+on:
+  schedule:
+    - cron: "23 * * * *" # content-notify
+    - cron: "0 5,6 * * 1" # content-weekly, Monday 07:00 Amsterdam
+    - cron: "0 4,5 * * *" # content-drive-sync, 06:00 Amsterdam
+  workflow_dispatch:
+    inputs:
+      job:
+        description: "content-notify, content-weekly or content-drive-sync"
+        required: true
+      params:
+        description: "Optional, e.g. --workspace=julius"
+        required: false
+
+concurrency:
+  group: content-${{ github.event.schedule || github.event.inputs.job }}
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
+      NEXT_PUBLIC_SITE_URL: ${{ secrets.NEXT_PUBLIC_SITE_URL }}
+      SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+      RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+      MAIL_FROM: ${{ vars.MAIL_FROM }}
+      REPORT_EMAIL_TO: ${{ vars.REPORT_EMAIL_TO }}
+      GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+    steps:
+      - name: Pick the job
+        id: pick
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "job=${{ github.event.inputs.job }}" >> "$GITHUB_OUTPUT"
+            echo "params=${{ github.event.inputs.params }}" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          HOUR=$(TZ=Europe/Amsterdam date +%H)
+          case "${{ github.event.schedule }}" in
+            "23 * * * *") echo "job=content-notify" >> "$GITHUB_OUTPUT" ;;
+            "0 5,6 * * 1") [ "$HOUR" = "07" ] && echo "job=content-weekly" >> "$GITHUB_OUTPUT" ;;
+            "0 4,5 * * *") [ "$HOUR" = "06" ] && echo "job=content-drive-sync" >> "$GITHUB_OUTPUT" ;;
+          esac
+          true
+      - name: Call the app for content-notify
+        if: steps.pick.outputs.job == 'content-notify'
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          curl -fsS -X POST -H "Authorization: Bearer $CRON_SECRET" \
+            "${{ secrets.NEXT_PUBLIC_SITE_URL }}/api/jobs/content-notify"
+      - uses: actions/checkout@v4
+        if: steps.pick.outputs.job != '' && steps.pick.outputs.job != 'content-notify'
+      - uses: actions/setup-node@v4
+        if: steps.pick.outputs.job != '' && steps.pick.outputs.job != 'content-notify'
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+        if: steps.pick.outputs.job != '' && steps.pick.outputs.job != 'content-notify'
+      - name: Run ${{ steps.pick.outputs.job }}
+        if: steps.pick.outputs.job != '' && steps.pick.outputs.job != 'content-notify'
+        run: npm run job -- ${{ steps.pick.outputs.job }} ${{ steps.pick.outputs.params }}
