@@ -2484,3 +2484,25 @@ grant execute on function content_private.current_actor() to authenticated;
 insert into storage.buckets (id, name, public, file_size_limit)
 values ('content', 'content', false, 104857600)
 on conflict (id) do nothing;
+
+-- ---------------------------------------------------------------------------
+-- Jobs: content-* jobs belong to no portal module (like work-*), so every
+-- team member may start them from the app; the jobs check rights themselves.
+-- ---------------------------------------------------------------------------
+
+create or replace function public.job_module(p_job_name text)
+returns text
+language sql
+immutable
+set search_path = ''
+as $$
+  select case
+    when p_job_name = 'claude-requests' then null
+    when p_job_name in ('claude-match', 'claude-screening') then 'recruitment'
+    when p_job_name ~ '^s[0-9]+-' or p_job_name like 'max-%' or p_job_name like 'claude-%' then 'sales'
+    when p_job_name like 'work-%' or p_job_name like 'clickup-%' then null
+    when p_job_name like 'content-%' then null
+    when p_job_name like 'academy-%' then 'academy'
+    else 'recruitment'
+  end;
+$$;

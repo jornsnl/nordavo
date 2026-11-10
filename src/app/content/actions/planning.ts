@@ -1,5 +1,6 @@
 "use server";
 
+import { sendContentMailSoon } from "@/lib/content/notify";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requireContentUser } from "@/lib/content/data";
@@ -18,6 +19,7 @@ const slot = z.string().regex(/^[a-z0-9]+(_[a-z0-9]+)*$/).max(60);
 
 function done(message?: string): ContentActionState {
   revalidatePath("/content", "layout");
+  sendContentMailSoon();
   return { ok: true, message };
 }
 

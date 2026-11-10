@@ -1,5 +1,6 @@
 "use server";
 
+import { sendContentMailSoon } from "@/lib/content/notify";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
@@ -31,6 +32,8 @@ function orNull(v: string) {
 function refresh(slug: string, postId?: string) {
   if (postId) revalidatePath(`/content/w/${slug}/posts/${postId}`, "layout");
   revalidatePath(`/content/w/${slug}`, "layout");
+  // A status change, suggestion or comment may have queued notifications.
+  sendContentMailSoon();
 }
 
 /** A new draft in the workspace, opened at once. */

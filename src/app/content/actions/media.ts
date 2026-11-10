@@ -1,5 +1,6 @@
 "use server";
 
+import { sendContentMailSoon } from "@/lib/content/notify";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
@@ -39,6 +40,8 @@ const id = z.guid();
 
 function refresh() {
   revalidatePath("/content", "layout");
+  // Image suggestions and briefs queue notifications.
+  sendContentMailSoon();
 }
 
 async function mayEditLibrary(workspaceId: string | null) {
