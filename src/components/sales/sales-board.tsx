@@ -9,16 +9,17 @@ import {
   useDroppable,
   type DragEndEvent,
 } from "@dnd-kit/core";
-import { CalendarClock, Clock, Phone, User } from "lucide-react";
+import { Briefcase, CalendarClock, Clock, PauseCircle, Phone, Send, User } from "lucide-react";
 import { columnUnderPointer, swallowClickAfterTouchDrag, useDragSensors } from "@/components/ui/dnd";
 import { Button } from "@/components/ui/button";
-import type { CompanyRow, ContactRow } from "@/lib/sales/rows";
+import { daysOpen, type CompanyRow, type CompanyVacancy, type ContactRow } from "@/lib/sales/rows";
 import { kinds, type AnyRow, type GridKind } from "./grid-kinds";
-import { LostReasonDialog } from "./lost-reason-dialog";
+import { LostReasonDialog, ParkDialog } from "./lost-reason-dialog";
 
 // The board of the sales tables (section 2.5): one column per status or
 // stage, a card per company (Leads, Pipeline) or contact (Contacts). Dragging
-// a card changes the status; Lost asks for a reason first.
+// a card changes the status. On the pipeline, Lost and Parked sit apart as
+// ways off it from any stage: Lost asks for a reason, Parked for a date.
 
 const PER_COLUMN = 60;
 
@@ -54,7 +55,25 @@ type CardData = {
   nextAction: string | null;
   nextActionDate: string | null;
   inColumnSince: string | null;
+  /** Pipeline only. */
+  stage?: string | null;
+  vacancies?: CompanyVacancy[];
+  profilesDueOn?: string | null;
+  parkedUntil?: string | null;
 };
+
+/** Days from today to a YYYY-MM-DD date; negative is in the past. */
+function daysUntil(date: string): number {
+  const today = new Date().toISOString().slice(0, 10);
+  return Math.round((new Date(`${date}T00:00:00Z`).getTime() - new Date(`${today}T00:00:00Z`).getTime()) / 86_400_000);
+}
+
+function dueText(date: string): { text: string; late: boolean; soon: boolean } {
+  const d = daysUntil(date);
+  if (d < 0) return { text: `Send profiles by ${date}, ${-d} ${-d === 1 ? "day" : "days"} late`, late: true, soon: false };
+  if (d === 0) return { text: `Send profiles today (${date})`, late: false, soon: true };
+  return { text: `Send profiles by ${date}, in ${d} ${d === 1 ? "day" : "days"}`, late: false, soon: d <= 3 };
+}
 
 function cardFor(kind: GridKind, row: AnyRow): CardData {
   const k = kinds[kind];
@@ -85,7 +104,41 @@ function cardFor(kind: GridKind, row: AnyRow): CardData {
     nextAction: c.next_action,
     nextActionDate: c.next_action_date,
     inColumnSince: kind === "pipeline" ? c.pipeline_stage_changed_at : c.lead_status_changed_at,
+    ...(kind === "pipeline"
+      ? { stage: c.pipeline_stage, vacancies: c.open_vacancies, profilesDueOn: c.profiles_due_on, parkedUntil: c.parked_until }
+      : {}),
   };
+}
+
+const VACANCIES_SHOWN = 3;
+
+function Vacancies({ list }: { list: CompanyVacancy[] }) {
+  if (list.length === 0) return null;
+  const oldest = daysOpen(list[0].openedAt);
+  return (
+    <div className="mt-2 rounded-lg bg-surface px-2 py-1.5 text-xs">
+      <p className="flex items-center gap-1.5 font-medium text-ink">
+        <Briefcase className="size-3.5 shrink-0" aria-hidden="true" />
+        {list.length} open {list.length === 1 ? "vacancy" : "vacancies"}
+        {oldest != null && <span className="font-normal text-muted">, oldest {oldest === 1 ? "1 day" : `${oldest} days`}</span>}
+      </p>
+      <ul className="mt-1 space-y-0.5">
+        {list.slice(0, VACANCIES_SHOWN).map((v) => (
+          <li key={v.id} className="flex justify-between gap-2">
+            <Link
+              href={`/dashboard/vacancies/${v.id}`}
+              className="truncate text-brand-700 hover:underline"
+              onPointerDown={(e) => e.stopPropagation()}
+            >
+              {v.title}
+            </Link>
+            <span className="shrink-0 text-muted tabular-nums">{daysOpen(v.openedAt) ?? 0}d</span>
+          </li>
+        ))}
+        {list.length > VACANCIES_SHOWN && <li className="text-muted">and {list.length - VACANCIES_SHOWN} more</li>}
+      </ul>
+    </div>
+  );
 }
 
 function Card({ card, dragging }: { card: CardData; dragging?: boolean }) {
@@ -129,7 +182,33 @@ function Card({ card, dragging }: { card: CardData; dragging?: boolean }) {
             </dd>
           </div>
         )}
+        {card.stage === "agreed_paid" && card.profilesDueOn && (() => {
+          const due = dueText(card.profilesDueOn);
+          return (
+            <div className={`flex items-center gap-1.5 ${due.late ? "font-semibold text-danger" : due.soon ? "text-amber-800" : "text-ink"}`}>
+              <Send className="size-3.5 shrink-0" aria-hidden="true" />
+              <dt className="sr-only">Send profiles on</dt>
+              <dd>{due.text}</dd>
+            </div>
+          );
+        })()}
+        {card.stage === "parked" && card.parkedUntil && (
+          <div className="flex items-center gap-1.5 text-ink">
+            <PauseCircle className="size-3.5 shrink-0" aria-hidden="true" />
+            <dt className="sr-only">Parked until</dt>
+            <dd>Get in touch again on {card.parkedUntil}</dd>
+          </div>
+        )}
       </dl>
+      {card.vacancies && <Vacancies list={card.vacancies} />}
+      {card.stage === "won" && (
+        <p className="mt-2 text-[11px] text-muted">
+          Onboarding goes on in{" "}
+          <Link href="/dashboard/placements" className="text-brand-700 hover:underline" onPointerDown={(e) => e.stopPropagation()}>
+            Placements
+          </Link>
+        </p>
+      )}
       {card.inColumnSince && <p className="mt-2 text-[11px] text-muted">In this column for {since(card.inColumnSince)}</p>}
     </div>
   );
@@ -147,30 +226,47 @@ function Draggable({ card }: { card: CardData }) {
 function Column({
   value,
   label,
+  description,
   cards,
+  exit = false,
 }: {
   value: string;
   label: string;
+  description?: string;
   cards: CardData[];
+  /** A way off the pipeline: dashed, with its cards folded away until asked. */
+  exit?: boolean;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: `col:${value}` });
   const [all, setAll] = useState(false);
-  const shown = all ? cards : cards.slice(0, PER_COLUMN);
+  const [open, setOpen] = useState(!exit);
+  const shown = !open ? [] : all ? cards : cards.slice(0, PER_COLUMN);
   return (
     <section
       ref={setNodeRef}
       aria-label={`${label}, ${cards.length}`}
-      className={`flex w-72 shrink-0 snap-start flex-col rounded-2xl border bg-surface ${isOver ? "border-brand-500 ring-4 ring-brand-100" : "border-border"}`}
+      className={`flex shrink-0 snap-start flex-col rounded-2xl border ${exit ? "w-60 border-dashed bg-white" : "w-72 bg-surface"} ${isOver ? "border-brand-500 ring-4 ring-brand-100" : "border-border"}`}
     >
-      <header className="flex items-center justify-between px-3 py-2.5">
-        <h3 className="text-sm font-semibold text-brand-900">{label}</h3>
-        <span className="rounded-full bg-white px-2 py-0.5 text-xs text-muted tabular-nums ring-1 ring-border">{cards.length}</span>
+      <header className="px-3 py-2.5">
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-semibold text-brand-900">{label}</h3>
+          <span className="rounded-full bg-white px-2 py-0.5 text-xs text-muted tabular-nums ring-1 ring-border">{cards.length}</span>
+        </div>
+        {description && <p className="mt-0.5 text-[11px] leading-snug text-muted">{description}</p>}
       </header>
       <ul className="flex min-h-24 flex-1 flex-col gap-2 overflow-y-auto px-2 pb-2" style={{ maxHeight: "calc(100dvh - 22rem)" }}>
+        {exit && cards.length > 0 && (
+          <li>
+            <Button size="sm" variant="ghost" className="w-full" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
+              {open ? "Hide" : `Show ${cards.length}`}
+            </Button>
+          </li>
+        )}
+        {exit && cards.length === 0 && <li className="px-1 text-xs text-muted">Drop a card here from any stage.</li>}
         {shown.map((card) => (
           <Draggable key={card.id} card={card} />
         ))}
-        {!all && cards.length > PER_COLUMN && (
+        {open && !all && cards.length > PER_COLUMN && (
           <li>
             <Button size="sm" variant="ghost" className="w-full" onClick={() => setAll(true)}>
               Show all {cards.length}
@@ -189,17 +285,18 @@ export function SalesBoard({
 }: {
   kind: GridKind;
   rows: AnyRow[];
-  /** extra is the lost reason when a company goes to Lost. */
-  onMove: (row: AnyRow, value: string, extra?: string) => void;
+  /** extra holds the lost reason or the parked date when a company goes there. */
+  onMove: (row: AnyRow, value: string, extra?: { lost_reason?: string; parked_until?: string }) => void;
 }) {
   const k = kinds[kind];
   const sensors = useDragSensors();
   const [activeId, setActiveId] = useState<string | null>(null);
   const [lost, setLost] = useState<AnyRow | null>(null);
+  const [parked, setParked] = useState<AnyRow | null>(null);
 
   const byId = useMemo(() => new Map(rows.map((r) => [r.id, r])), [rows]);
   const grouped = useMemo(() => {
-    const map = new Map<string, CardData[]>(k.board.columns.map((c) => [c.value, []]));
+    const map = new Map<string, CardData[]>([...k.board.columns, ...(k.board.exits ?? [])].map((c) => [c.value, []]));
     for (const row of rows) {
       const value = String((row as unknown as Record<string, unknown>)[k.board.key] ?? "");
       map.get(value)?.push(cardFor(kind, row));
@@ -219,6 +316,10 @@ export function SalesBoard({
       setLost(row);
       return;
     }
+    if (kind === "pipeline" && value === "parked") {
+      setParked(row);
+      return;
+    }
     onMove(row, value);
   };
 
@@ -236,8 +337,22 @@ export function SalesBoard({
       >
         <div className="snap-strip flex gap-3 pb-3">
           {k.board.columns.map((col) => (
-            <Column key={col.value} value={col.value} label={col.label} cards={grouped.get(col.value) ?? []} />
+            <Column key={col.value} value={col.value} label={col.label} description={col.description} cards={grouped.get(col.value) ?? []} />
           ))}
+          {k.board.exits && (
+            <div role="group" aria-label="Off the pipeline, from any stage" className="ml-2 flex shrink-0 gap-3 border-l border-border pl-5">
+              {k.board.exits.map((col) => (
+                <Column
+                  key={col.value}
+                  value={col.value}
+                  label={col.label}
+                  description={col.description}
+                  cards={grouped.get(col.value) ?? []}
+                  exit
+                />
+              ))}
+            </div>
+          )}
         </div>
         <DragOverlay>{active ? <Card card={cardFor(kind, active)} dragging /> : null}</DragOverlay>
       </DndContext>
@@ -246,8 +361,17 @@ export function SalesBoard({
         description={lost ? k.title(lost) : undefined}
         onCancel={() => setLost(null)}
         onConfirm={(reason) => {
-          if (lost) onMove(lost, "lost", reason);
+          if (lost) onMove(lost, "lost", { lost_reason: reason });
           setLost(null);
+        }}
+      />
+      <ParkDialog
+        open={Boolean(parked)}
+        description={parked ? k.title(parked) : undefined}
+        onCancel={() => setParked(null)}
+        onConfirm={(date) => {
+          if (parked) onMove(parked, "parked", { parked_until: date });
+          setParked(null);
         }}
       />
     </>

@@ -17,6 +17,14 @@ export type PrimaryContact = {
   linkedinUrl: string | null;
 };
 
+/** An open vacancy of a company, for the pipeline cards and table. */
+export type CompanyVacancy = {
+  id: string;
+  title: string;
+  /** The day it opened (YYYY-MM-DD). */
+  openedAt: string;
+};
+
 export type CompanyRow = {
   id: string;
   name: string;
@@ -41,6 +49,8 @@ export type CompanyRow = {
   pipeline_stage_changed_at: string | null;
   pipeline_entered_at: string | null;
   lost_reason: string | null;
+  parked_until: string | null;
+  profiles_due_on: string | null;
   owner_id: string | null;
   owner_name: string | null;
   partner_id: string | null;
@@ -57,7 +67,22 @@ export type CompanyRow = {
   signals_count: number;
   last_activity_at: string | null;
   last_activity: string | null;
+  /** Open vacancies, oldest first (the company's own and its client's). */
+  open_vacancies: CompanyVacancy[];
 };
+
+/** Whole days since a YYYY-MM-DD date, or null. */
+export function daysOpen(date: string | null | undefined, now = Date.now()): number | null {
+  if (!date) return null;
+  const ms = now - new Date(`${date.slice(0, 10)}T00:00:00Z`).getTime();
+  return Number.isFinite(ms) ? Math.max(0, Math.floor(ms / 86_400_000)) : null;
+}
+
+/** "Java developer (12d), Data engineer (3d)" for the table. */
+export function vacancySummary(list: CompanyVacancy[], now = Date.now()): string | null {
+  if (list.length === 0) return null;
+  return list.map((v) => `${v.title} (${daysOpen(v.openedAt, now) ?? 0}d)`).join(", ");
+}
 
 export type ContactRow = {
   id: string;
@@ -210,7 +235,7 @@ export const companyColumns: ColumnDef<CompanyRow>[] = [
   { key: "created_at", label: "Added", type: "datetime", width: 140, defaultVisible: false, get: (r) => r.created_at },
 ];
 
-/** The pipeline view of the same companies: only those that showed interest. */
+/** The pipeline view of the same companies: only the warm leads that need follow up. */
 export const pipelineColumns: ColumnDef<CompanyRow>[] = [
   companyColumns[0],
   { key: "pipeline_stage", label: "Stage", type: "select", field: "pipeline_stage", entity: "company", options: stageOptions, width: 170, defaultVisible: true, get: (r) => r.pipeline_stage, parse: choice(stageOptions) },
@@ -222,6 +247,11 @@ export const pipelineColumns: ColumnDef<CompanyRow>[] = [
   companyColumns[11],
   { key: "next_action_date", label: "Next action date", type: "date", field: "next_action_date", entity: "company", width: 130, defaultVisible: true, get: (r) => r.next_action_date, parse: date },
   { key: "owner_name", label: "Owner", type: "text", width: 140, defaultVisible: true, get: (r) => r.owner_name },
+  { key: "open_vacancies_count", label: "Open vacancies", type: "number", width: 110, defaultVisible: true, get: (r) => r.open_vacancies.length },
+  { key: "open_vacancies", label: "Roles (days open)", type: "text", width: 240, defaultVisible: true, get: (r) => vacancySummary(r.open_vacancies) },
+  { key: "oldest_vacancy_since", label: "Oldest vacancy since", type: "date", width: 140, defaultVisible: false, get: (r) => r.open_vacancies[0]?.openedAt ?? null },
+  { key: "profiles_due_on", label: "Send profiles on", type: "date", field: "profiles_due_on", entity: "company", width: 130, defaultVisible: true, get: (r) => r.profiles_due_on, parse: date },
+  { key: "parked_until", label: "Parked until", type: "date", field: "parked_until", entity: "company", width: 120, defaultVisible: true, get: (r) => r.parked_until, parse: date },
   { key: "lost_reason", label: "Lost reason", type: "text", field: "lost_reason", entity: "company", width: 200, defaultVisible: true, get: (r) => r.lost_reason, parse: text },
   { key: "pipeline_entered_at", label: "In pipeline since", type: "datetime", width: 140, defaultVisible: false, get: (r) => r.pipeline_entered_at },
   companyColumns[3],

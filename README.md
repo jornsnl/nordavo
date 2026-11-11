@@ -9,7 +9,7 @@ Het interne portaal van [Nordavo](https://nordavo.nl): de brug tussen Nederlands
 | Overzicht | `/dashboard` | Kerncijfers, salescijfers van deze week en de pipeline, vacatures die aandacht nodig hebben (belofte: 3 kandidaten in 3 weken), komende check-ins en garanties, mijn taken uit Work, recente activiteit |
 | Leads | `/dashboard/leads` | Elk bedrijf met leadstatus, in een tabel die werkt als een spreadsheet of als bord. Plus Replies to review (voorstellen van Claude) en de ICP review. Zie [docs/sales.md](docs/sales.md) |
 | Contacts | `/dashboard/contacts` | Alle contactpersonen met rol, status en beller, als tabel of bord. Een opgeslagen weergave kan een bellijst zijn. Verrijking voor Max onder Enrich |
-| Pipeline | `/dashboard/pipeline` | Bedrijven die interesse toonden, in 8 fases, als bord of tabel; fase 4 tot en met 7 volgen uit de werving |
+| Pipeline | `/dashboard/pipeline` | Warme leads in 9 fases (Contact tot Won) plus Lost en Parked, als bord of tabel met open vacatures per bedrijf; vacature, profielen, gesprekken en won volgen uit de werving |
 | Calls en Call lists | `/dashboard/calls`, `/dashboard/call-lists` | Belscherm met alle info en de uitkomstknoppen; bellijsten openzetten voor bellers. Externe bellers werken op `/caller`. Zie [docs/calls.md](docs/calls.md) |
 | Meetings | `/dashboard/meetings` | Afsprakenregister met goedkeuren, vergoedingen en maandoverzicht per beller |
 | Sequences en Partners | `/dashboard/sequences`, `/dashboard/partners` | Stappen over mail, LinkedIn en bellen met concepten van Claude; partners die leads aanbrengen |

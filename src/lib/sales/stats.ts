@@ -8,7 +8,7 @@ import type {
   PipelineStage,
   ReviewStatus,
 } from "@/lib/sales/database";
-import { leadStatuses, pipelineStages } from "@/lib/sales/labels";
+import { isOpenStage, leadStatuses, pipelineStages } from "@/lib/sales/labels";
 
 /**
  * Sales figures from the new data model: Activities (calls, reach, mails,
@@ -204,7 +204,7 @@ export function summarizePipeline(rows: PipelineFigureRow[], { from, to }: { fro
   for (const r of rows) {
     if (!r.pipeline_stage) continue;
     counts.set(r.pipeline_stage, (counts.get(r.pipeline_stage) ?? 0) + 1);
-    if (r.pipeline_stage !== "won" && r.pipeline_stage !== "lost") out.open += 1;
+    if (isOpenStage(r.pipeline_stage)) out.open += 1;
     if (inRange(r.pipeline_entered_at, from, to)) out.enteredInPeriod += 1;
     if (r.pipeline_stage === "won" && inRange(r.pipeline_stage_changed_at, from, to)) out.wonInPeriod += 1;
     if (r.pipeline_stage === "lost" && inRange(r.pipeline_stage_changed_at, from, to)) out.lostInPeriod += 1;

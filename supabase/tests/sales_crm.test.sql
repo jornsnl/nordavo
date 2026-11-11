@@ -286,7 +286,7 @@ do $$ begin
 end $$;
 
 -- ---------------------------------------------------------------------------
--- Stages 4 to 7 come from recruitment
+-- Stages 5, 7, 8 and 9 come from recruitment
 -- ---------------------------------------------------------------------------
 
 reset role;
@@ -294,8 +294,8 @@ insert into public.clients (id, name) values ('00000000-0000-0000-0000-000000000
 update public.companies set client_id = '00000000-0000-0000-0000-0000000005b1' where id = '00000000-0000-0000-0000-0000000005d1';
 insert into public.vacancies (id, client_id, title) values ('00000000-0000-0000-0000-0000000005b2', '00000000-0000-0000-0000-0000000005b1', 'Python developer');
 do $$ begin
-  if (select pipeline_stage from public.companies where id = '00000000-0000-0000-0000-0000000005d1') <> 'intake_done' then
-    raise exception 'FAIL: a vacancy should mean Intake done';
+  if (select pipeline_stage from public.companies where id = '00000000-0000-0000-0000-0000000005d1') <> 'vacancy_drafted' then
+    raise exception 'FAIL: a vacancy should mean Vacancy drafted';
   end if;
 end $$;
 insert into public.candidates (id, full_name) values ('00000000-0000-0000-0000-0000000005b3', 'Priya');

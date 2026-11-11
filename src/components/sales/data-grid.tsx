@@ -31,7 +31,7 @@ import { applyEdits, deleteView, saveView, setPositions, type Edit } from "./act
 import { CellEditor, CellView, displayText, editText } from "./cell";
 import { ColumnChooser, Chips, FilterEditor } from "./grid-toolbar";
 import { kinds, type AnyRow, type GridKind } from "./grid-kinds";
-import { LostReasonDialog } from "./lost-reason-dialog";
+import { LostReasonDialog, ParkDialog } from "./lost-reason-dialog";
 import { SalesBoard } from "./sales-board";
 import { AssignCallersDialog, type CallerOption } from "@/components/calls/assign-callers-dialog";
 
@@ -54,6 +54,14 @@ function lostRows(changes: Change[]): Change[] {
   );
 }
 
+/** The changes that park a company without a date to get in touch again. */
+function parkRows(changes: Change[]): Change[] {
+  if (changes.some((c) => c.column.field === "parked_until" && c.value)) return [];
+  return changes.filter(
+    (c) => c.column.field === "pipeline_stage" && c.value === "parked" && c.old !== "parked" && !(c.row as CompanyRow).parked_until,
+  );
+}
+
 /** Written next to the stage when a company goes to Lost from the table. */
 const lostReasonColumn: ColumnDef<AnyRow> = {
   key: "lost_reason",
@@ -62,6 +70,16 @@ const lostReasonColumn: ColumnDef<AnyRow> = {
   field: "lost_reason",
   entity: "company",
   get: (r) => (r as CompanyRow).lost_reason,
+};
+
+/** Written next to the stage when a company is parked from the table. */
+const parkedUntilColumn: ColumnDef<AnyRow> = {
+  key: "parked_until",
+  label: "Parked until",
+  type: "date",
+  field: "parked_until",
+  entity: "company",
+  get: (r) => (r as CompanyRow).parked_until,
 };
 
 function rowKey(row: AnyRow) {
@@ -223,19 +241,35 @@ export function SalesWorkspace({
     [k, kind],
   );
 
-  // Lost needs a reason (section 2.5): a cell, paste or bulk edit that sets
-  // the stage to Lost waits for the reason dialog, like the board does.
+  // Lost needs a reason and Parked a date: a cell, paste or bulk edit that
+  // sets either stage waits for its dialog, like the board does.
   const [lostChanges, setLostChanges] = useState<Change[] | null>(null);
+  const [parkChanges, setParkChanges] = useState<Change[] | null>(null);
   const commitChecked = useCallback(
     (changes: Change[]) => {
       if (lostRows(changes).length > 0) {
         setLostChanges(changes);
         return;
       }
+      if (parkRows(changes).length > 0) {
+        setParkChanges(changes);
+        return;
+      }
       commit(changes);
     },
     [commit],
   );
+  const confirmPark = (date: string) => {
+    const changes = parkChanges ?? [];
+    setParkChanges(null);
+    const dates: Change[] = parkRows(changes).map((c) => ({
+      row: c.row,
+      column: parkedUntilColumn,
+      value: date,
+      old: (c.row as CompanyRow).parked_until ?? null,
+    }));
+    commit([...dates, ...changes]);
+  };
   const confirmLost = (reason: string) => {
     const changes = lostChanges ?? [];
     setLostChanges(null);
@@ -245,7 +279,8 @@ export function SalesWorkspace({
       value: reason,
       old: (c.row as CompanyRow).lost_reason ?? null,
     }));
-    commit([...reasons, ...changes]);
+    // A bulk edit can lose some companies and park none; the rest still checks for Parked.
+    commitChecked([...reasons, ...changes]);
   };
 
   const undo = useCallback(() => {
@@ -547,9 +582,11 @@ export function SalesWorkspace({
         <SalesBoard kind={kind} rows={viewRows} onMove={(row, value, extra) => {
           const column = allColumns.find((c) => c.key === k.board.key)!;
           const changes: Change[] = [{ row, column, value, old: rawValue(row, column) }];
-          if (extra) {
-            const reason = allColumns.find((c) => c.key === "lost_reason");
-            if (reason) changes.unshift({ row, column: reason, value: extra, old: rawValue(row, reason) });
+          if (extra?.lost_reason) {
+            changes.unshift({ row, column: lostReasonColumn, value: extra.lost_reason, old: rawValue(row, lostReasonColumn) });
+          }
+          if (extra?.parked_until) {
+            changes.unshift({ row, column: parkedUntilColumn, value: extra.parked_until, old: rawValue(row, parkedUntilColumn) });
           }
           commit(changes);
         }} />
@@ -567,6 +604,20 @@ export function SalesWorkspace({
         }
         onCancel={() => setLostChanges(null)}
         onConfirm={confirmLost}
+      />
+
+      <ParkDialog
+        open={Boolean(parkChanges)}
+        description={
+          parkChanges
+            ? (() => {
+                const names = [...new Set(parkRows(parkChanges).map((c) => k.title(c.row)))];
+                return names.length === 1 ? names[0] : `${names.length} companies`;
+              })()
+            : undefined
+        }
+        onCancel={() => setParkChanges(null)}
+        onConfirm={confirmPark}
       />
 
       {saveAs && (

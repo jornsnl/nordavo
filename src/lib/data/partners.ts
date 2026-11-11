@@ -1,4 +1,5 @@
 import "server-only";
+import { isOpenStage } from "@/lib/sales/labels";
 import type { ActivityChannel, ActivityOutcome } from "@/lib/database.types";
 import { requireModule } from "@/lib/auth";
 import type { LeadStatus, PartnerStatus, PipelineStage } from "@/lib/sales/database";
@@ -53,7 +54,7 @@ export async function listPartners(options: { status?: PartnerStatus | "all" } =
       ownerName: p.owner_id ? (names.get(p.owner_id) ?? null) : null,
       lastContactAt: p.last_contact_at,
       leads: own.length,
-      inPipeline: own.filter((l) => l.pipeline_stage && l.pipeline_stage !== "won" && l.pipeline_stage !== "lost").length,
+      inPipeline: own.filter((l) => isOpenStage(l.pipeline_stage)).length,
       won: own.filter((l) => l.pipeline_stage === "won").length,
     };
   });

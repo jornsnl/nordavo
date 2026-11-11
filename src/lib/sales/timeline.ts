@@ -22,6 +22,8 @@ const fieldLabels: Record<string, string> = {
   lead_status: "Lead status",
   pipeline_stage: "Pipeline stage",
   lost_reason: "Lost reason",
+  parked_until: "Parked until",
+  profiles_due_on: "Send profiles on",
   owner_id: "Owner",
   partner_id: "Partner",
   next_action: "Next action",

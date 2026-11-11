@@ -11,7 +11,7 @@ import { SubmitButton } from "@/components/ui/submit-button";
 import { initialActionState, type ActionState } from "@/lib/action-state";
 import { activityChannels, activityOutcomes, optionFor } from "@/lib/labels";
 import type { ReplyToReview } from "@/lib/sales/replies";
-import { labelOf, leadStatuses, pipelineStages } from "@/lib/sales/labels";
+import { labelOf, leadStatuses, pipelineFlow, pipelineStages } from "@/lib/sales/labels";
 
 const replyOutcomes = ["reply_positief", "reply_neutraal", "reply_negatief", "afgemeld"] as const;
 
@@ -174,7 +174,8 @@ export function ReplyReviewCard({
             <Field label="Pipeline stage" htmlFor={`${id}-stage`} error={state.fieldErrors?.pipeline_stage}>
               <Select id={`${id}-stage`} name="pipeline_stage" value={stage} onChange={(e) => setStage(e.target.value)}>
                 <option value="">Keep as it is</option>
-                {pipelineStages.map((o) => (
+                {/* Parking needs a date: that is done on the lead page or the board. */}
+                {[...pipelineFlow, ...pipelineStages.filter((o) => o.value === "lost")].map((o) => (
                   <option key={o.value} value={o.value}>
                     {o.label}
                   </option>

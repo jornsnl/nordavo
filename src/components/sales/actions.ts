@@ -6,6 +6,8 @@ import { requireModule } from "@/lib/auth";
 import type { Json } from "@/lib/database.types";
 import { parseViewConfig, viewConfigToJson } from "@/lib/sales/grid";
 import { createClient } from "@/lib/supabase/server";
+import { searchCompanyOptions, type CompanyOption } from "@/lib/data/sequences";
+import type { PipelineStage } from "@/lib/sales/database";
 
 // Writes of the sales tables and boards. Every edit goes through
 // public.sales_update(), which only accepts whitelisted columns and logs each
@@ -29,6 +31,7 @@ const editSchema = z.object({
 /** Turns a database error into a sentence for the table's message bar. */
 function friendly(message: string): string {
   if (/companies_lost_needs_reason/.test(message)) return "Lost needs a reason.";
+  if (/companies_parked_needs_date/.test(message)) return "Parked needs a date to get in touch again.";
   if (/contacts_one_primary_per_company/.test(message)) return "A company has one primary contact.";
   if (/contacts_linkedin_url_key/.test(message)) return "Another contact already has this LinkedIn URL.";
   if (/companies_domain_key/.test(message)) return "Another company already has this domain.";
@@ -135,4 +138,34 @@ export async function setPositions(input: z.input<typeof positionsSchema>): Prom
   });
   if (error) return { ok: false, error: friendly(error.message) };
   return { ok: true, count: data ?? 0 };
+}
+
+/** Companies that can go into the pipeline, for the Add company picker. */
+export async function searchPipelineCandidates(query: string): Promise<CompanyOption[]> {
+  await requireModule("sales");
+  return searchCompanyOptions(typeof query === "string" ? query : "", 20, { notInPipeline: true });
+}
+
+export type AddToPipelineState = { ok?: boolean; error?: string; message?: string };
+
+const addSchema = z.object({
+  company_ids: z.array(uuid).min(1, "Pick at least one company.").max(200),
+  stage: z.enum(["contact", "interested"] satisfies PipelineStage[]),
+});
+
+/**
+ * Puts warm leads into the pipeline with one click, at Contact or
+ * Interested. Through sales_update, so it lands in the timeline.
+ */
+export async function addToPipeline(_prev: AddToPipelineState, formData: FormData): Promise<AddToPipelineState> {
+  await requireModule("sales");
+  const parsed = addSchema.safeParse({
+    company_ids: formData.getAll("company_ids").map(String),
+    stage: formData.get("stage"),
+  });
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Pick a company and a stage." };
+  const result = await applyEdits([{ entity: "company", ids: parsed.data.company_ids, fields: { pipeline_stage: parsed.data.stage } }]);
+  if (!result.ok) return { error: result.error };
+  const n = parsed.data.company_ids.length;
+  return { ok: true, message: n === 1 ? "Added to the pipeline." : `${n} companies added to the pipeline.` };
 }

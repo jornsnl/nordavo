@@ -15,16 +15,22 @@ export type LeadStatus =
   | "no_go"
   | "do_not_contact";
 
-/** Pipeline stage of a company that showed interest (section 2.8). */
+/**
+ * Pipeline stage of a warm lead: 9 stages in order, plus Lost (with a reason)
+ * and Parked (with a date to get in touch again), reachable from any stage.
+ */
 export type PipelineStage =
+  | "contact"
   | "interested"
   | "meeting_planned"
   | "meeting_held"
-  | "intake_done"
+  | "vacancy_drafted"
+  | "agreed_paid"
   | "profiles_sent"
   | "candidate_interviews"
   | "won"
-  | "lost";
+  | "lost"
+  | "parked";
 
 export type CompanyCategory = "development" | "data_bi" | "both";
 export type ContactRole = "main" | "extra" | "reserve";

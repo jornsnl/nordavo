@@ -1299,6 +1299,8 @@ export type Database = {
           pipeline_stage_changed_at: string | null;
           pipeline_entered_at: string | null;
           lost_reason: string | null;
+          parked_until: string | null;
+          profiles_due_on: string | null;
           owner_id: string | null;
           partner_id: string | null;
           next_action: string | null;
@@ -1344,6 +1346,8 @@ export type Database = {
           pipeline_stage_changed_at?: string | null;
           pipeline_entered_at?: string | null;
           lost_reason?: string | null;
+          parked_until?: string | null;
+          profiles_due_on?: string | null;
           owner_id?: string | null;
           partner_id?: string | null;
           next_action?: string | null;
@@ -1389,6 +1393,8 @@ export type Database = {
           pipeline_stage_changed_at?: string | null;
           pipeline_entered_at?: string | null;
           lost_reason?: string | null;
+          parked_until?: string | null;
+          profiles_due_on?: string | null;
           owner_id?: string | null;
           partner_id?: string | null;
           next_action?: string | null;

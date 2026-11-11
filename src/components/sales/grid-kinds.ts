@@ -11,7 +11,7 @@ import {
 } from "@/lib/sales/rows";
 import type { SortRule } from "@/lib/sales/grid";
 import { contactStatuses } from "@/lib/labels";
-import { leadStatuses, pipelineStages } from "@/lib/sales/labels";
+import { leadStatuses, pipelineExits, pipelineFlow } from "@/lib/sales/labels";
 
 // The three tables (Leads, Contacts with call lists, Pipeline) share one grid
 // and one board. Functions cannot cross from server to client components,
@@ -29,7 +29,13 @@ export type KindConfig = {
   title: (row: AnyRow) => string;
   /** The id an edit of a column of this entity goes to. */
   idFor: (row: AnyRow, entity: "company" | "contact") => string;
-  board: { field: string; key: string; columns: { value: string; label: string; tone: string }[] };
+  board: {
+    field: string;
+    key: string;
+    columns: { value: string; label: string; tone: string; description?: string }[];
+    /** Drop zones off to the side, reachable from every column (Lost, Parked). */
+    exits?: { value: string; label: string; tone: string; description?: string }[];
+  };
   noun: string;
 };
 
@@ -53,7 +59,7 @@ export const kinds: Record<GridKind, KindConfig> = {
     href: companyHref,
     title: (row) => (row as CompanyRow).name,
     idFor: (row) => row.id,
-    board: { field: "pipeline_stage", key: "pipeline_stage", columns: pipelineStages },
+    board: { field: "pipeline_stage", key: "pipeline_stage", columns: pipelineFlow, exits: pipelineExits },
     noun: "companies",
   },
   contacts: {
