@@ -5,17 +5,20 @@ import Link from "next/link";
 import { Star } from "lucide-react";
 import type { Json } from "@/lib/database.types";
 import type { CompanyCategory, LeadStatus, PipelineStage } from "@/lib/sales/database";
-import { companyCategories, companyPrios, leadStatuses, pipelineStages } from "@/lib/sales/labels";
+import { companyCategories, companyPrios, labelOf, leadStatuses, pipelineEntryStages, pipelineFlow, pipelineStages } from "@/lib/sales/labels";
 import { Button } from "@/components/ui/button";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { SearchSelect } from "@/components/ui/search-select";
 import { applyEdits } from "./actions";
+import { ParkDialog } from "./lost-reason-dialog";
 
 export type LeadSalesFields = {
   id: string;
   lead_status: LeadStatus;
   pipeline_stage: PipelineStage | null;
   lost_reason: string | null;
+  parked_until: string | null;
+  profiles_due_on: string | null;
   prio: number | null;
   category: CompanyCategory | null;
   owner_id: string | null;
@@ -59,6 +62,9 @@ export function LeadSalesPanel({
   const [pending, start] = useTransition();
   const [lostOpen, setLostOpen] = useState(false);
   const [lostReason, setLostReason] = useState(company.lost_reason ?? "");
+  const [parkOpen, setParkOpen] = useState(false);
+  const stage = values.pipeline_stage;
+  const offFlow = stage === "lost" || stage === "parked";
 
   const save = (fields: Partial<LeadSalesFields>, entity: "company" | "contact" = "company", id = company.id) => {
     const previous = values;
@@ -111,29 +117,89 @@ export function LeadSalesPanel({
               ))}
             </select>
           </label>
-          <label className="block">
-            <span className={label}>Pipeline stage</span>
-            <select
-              className={control}
-              value={values.pipeline_stage ?? ""}
-              onChange={(e) => {
-                const stage = (e.target.value || null) as PipelineStage | null;
-                if (stage === "lost") {
-                  setLostOpen(true);
-                  return;
-                }
-                save({ pipeline_stage: stage });
-              }}
-            >
-              <option value="">Not in the pipeline</option>
-              {pipelineStages.map((s, i) => (
-                <option key={s.value} value={s.value}>
-                  {i + 1}. {s.label}
-                </option>
-              ))}
-            </select>
-          </label>
-          {(lostOpen || values.pipeline_stage === "lost") && (
+          <div className="block">
+            <span className={label} id="lead-stage-label">
+              Pipeline stage
+            </span>
+            {stage === null ? (
+              <div className="mt-1 space-y-1.5">
+                <p className="text-sm text-muted">Not in the pipeline. Put a warm lead in with one click:</p>
+                <div className="flex flex-wrap gap-2">
+                  {pipelineEntryStages.map((s) => (
+                    <Button key={s} size="sm" variant={s === "interested" ? "primary" : "secondary"} disabled={pending} onClick={() => save({ pipeline_stage: s })}>
+                      Add at {labelOf(pipelineStages, s)}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <>
+                <select
+                  aria-labelledby="lead-stage-label"
+                  className={control}
+                  value={stage}
+                  onChange={(e) => {
+                    const next = (e.target.value || null) as PipelineStage | null;
+                    save({ pipeline_stage: next });
+                  }}
+                >
+                  <option value="">Not in the pipeline</option>
+                  {pipelineFlow.map((s, i) => (
+                    <option key={s.value} value={s.value}>
+                      {i + 1}. {s.label}
+                    </option>
+                  ))}
+                  {offFlow && <option value={stage}>{labelOf(pipelineStages, stage)}</option>}
+                </select>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {stage !== "parked" && (
+                    <Button size="sm" variant="secondary" disabled={pending} onClick={() => setParkOpen(true)}>
+                      Park
+                    </Button>
+                  )}
+                  {stage !== "lost" && (
+                    <Button size="sm" variant="secondary" disabled={pending} onClick={() => setLostOpen(true)}>
+                      Mark lost
+                    </Button>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+          {stage === "parked" && (
+            <label className="block">
+              <span className={label}>Parked until</span>
+              <input
+                key={values.parked_until ?? ""}
+                type="date"
+                required
+                defaultValue={values.parked_until ?? ""}
+                className={control}
+                onBlur={(e) => {
+                  const next = e.target.value;
+                  if (next && next !== values.parked_until) save({ parked_until: next });
+                }}
+              />
+              <span className="mt-1 block text-xs text-muted">On this date the company comes back as the next action.</span>
+            </label>
+          )}
+          {(stage === "agreed_paid" || values.profiles_due_on) && (
+            <label className="block">
+              <span className={label}>Send profiles on</span>
+              <input
+                key={values.profiles_due_on ?? ""}
+                type="date"
+                defaultValue={values.profiles_due_on ?? ""}
+                className={control}
+                onBlur={(e) => {
+                  const next = e.target.value || null;
+                  if (next !== values.profiles_due_on) save({ profiles_due_on: next });
+                }}
+              />
+              <span className="mt-1 block text-xs text-muted">Three weeks after the agreement unless you change it.</span>
+            </label>
+          )}
+          {(lostOpen || stage === "lost") && (
             <div className="sm:col-span-2">
               <label className="block">
                 <span className={label}>Lost reason</span>
@@ -258,6 +324,14 @@ export function LeadSalesPanel({
         {text("description", "What the company does", { long: true })}
         {text("opening_line", "Opening line", { long: true })}
         {text("source_note", "Source note", { long: true })}
+        <ParkDialog
+          open={parkOpen}
+          onCancel={() => setParkOpen(false)}
+          onConfirm={(date) => {
+            setParkOpen(false);
+            save({ pipeline_stage: "parked", parked_until: date });
+          }}
+        />
         {message && (
           <p role={message.tone === "error" ? "alert" : "status"} className={`text-sm ${message.tone === "error" ? "text-danger" : "text-emerald-700"}`}>
             {pending ? "Saving..." : message.text}

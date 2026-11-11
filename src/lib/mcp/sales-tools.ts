@@ -147,7 +147,7 @@ function name(first: string | null, last: string | null) {
 // ---------------------------------------------------------------------------
 
 const COMPANY_LIST_FIELDS =
-  "id, name, domain, city, sector, employees, prio, category, icp_decision, icp_score, lead_status, lead_status_changed_at, pipeline_stage, pipeline_stage_changed_at, lost_reason, owner_id, partner_id, next_action, next_action_date, pinned_at, manual_position, general_phone, sequence_paused_at" as const;
+  "id, name, domain, city, sector, employees, prio, category, icp_decision, icp_score, lead_status, lead_status_changed_at, pipeline_stage, pipeline_stage_changed_at, lost_reason, parked_until, profiles_due_on, owner_id, partner_id, next_action, next_action_date, pinned_at, manual_position, general_phone, sequence_paused_at" as const;
 
 function registerSalesReadTools(server: McpServer, ctx: McpToolContext) {
   const { db } = ctx;
@@ -162,7 +162,7 @@ function registerSalesReadTools(server: McpServer, ctx: McpToolContext) {
         "List sales companies (leads) with lead status, pipeline stage, prio, category, ICP verdict, owner and next action. Pinned first, then by prio. Filter on lead_status, pipeline_stage (or in_pipeline), prio, category, icp, text (name or domain) and has_phone (a contact or the company has a phone number).",
       inputSchema: {
         lead_status: z.array(leadStatus).max(8).optional().describe("One or more lead statuses."),
-        pipeline_stage: z.array(pipelineStage).max(8).optional().describe("One or more pipeline stages."),
+        pipeline_stage: z.array(pipelineStage).max(11).optional().describe("One or more pipeline stages."),
         in_pipeline: z.boolean().optional().describe("true: only companies in the pipeline; false: only companies not in it."),
         prio: z.array(z.number().int().min(1).max(5)).max(5).optional(),
         category: category.optional(),
@@ -256,7 +256,7 @@ function registerSalesReadTools(server: McpServer, ctx: McpToolContext) {
         await db
           .from("companies")
           .select(
-            "id, name, domain, website, city, sector, segment, employees, linkedin_url, general_phone, description, status, prio, category, icp_decision, icp_score, icp_reason, red_flags, opening_line, source, source_note, lead_status, lead_status_changed_at, pipeline_stage, pipeline_stage_changed_at, pipeline_entered_at, lost_reason, owner_id, partner_id, next_action, next_action_date, pinned_at, manual_position, sequence_paused_at, client_id, created_at",
+            "id, name, domain, website, city, sector, segment, employees, linkedin_url, general_phone, description, status, prio, category, icp_decision, icp_score, icp_reason, red_flags, opening_line, source, source_note, lead_status, lead_status_changed_at, pipeline_stage, pipeline_stage_changed_at, pipeline_entered_at, lost_reason, parked_until, profiles_due_on, owner_id, partner_id, next_action, next_action_date, pinned_at, manual_position, sequence_paused_at, client_id, created_at",
           )
           .eq("id", id)
           .maybeSingle(),
@@ -780,6 +780,8 @@ export const companyFieldsSchema = z
     lead_status: leadStatus.optional(),
     pipeline_stage: pipelineStage.nullable().optional().describe("null takes the company out of the pipeline."),
     lost_reason: z.string().trim().min(1).max(2000).optional().describe("Required with pipeline_stage lost."),
+    parked_until: dateSchema.optional().describe("Required with pipeline_stage parked: the day to get in touch again."),
+    profiles_due_on: dateSchema.nullable().optional().describe("The day the profiles go out (stage agreed_paid sets it three weeks ahead)."),
     prio: z.number().int().min(1).max(5).nullable().optional(),
     category: category.nullable().optional(),
     owner_id: idSchema.nullable().optional().describe("A team member (profile id)."),
@@ -794,6 +796,10 @@ export const companyFieldsSchema = z
   .refine((f) => f.pipeline_stage !== "lost" || Boolean(f.lost_reason), {
     message: "A company moved to lost needs a lost_reason.",
     path: ["lost_reason"],
+  })
+  .refine((f) => f.pipeline_stage !== "parked" || Boolean(f.parked_until), {
+    message: "A parked company needs parked_until, the day to get in touch again.",
+    path: ["parked_until"],
   });
 
 /** The p_fields of sales_update for a company. Pure, unit tested. */
@@ -870,7 +876,7 @@ function registerSalesWriteTools(server: McpServer, ctx: McpToolContext) {
     {
       title: "Update companies",
       description:
-        "Change lead status, pipeline stage (lost needs lost_reason), prio, category, owner, partner, next action, pin or manual position of one or more companies. Goes through sales_update: every change is logged in Activities with you and source claude. Only call when the user or a scheduled task asked for it.",
+        "Change lead status, pipeline stage (contact, interested, meeting_planned, meeting_held, vacancy_drafted, agreed_paid, profiles_sent, candidate_interviews, won; or off it: lost needs lost_reason, parked needs parked_until), the date to send profiles (profiles_due_on), prio, category, owner, partner, next action, pin or manual position of one or more companies. Goes through sales_update: every change is logged in Activities with you and source claude. Only call when the user or a scheduled task asked for it.",
       inputSchema: { ids: idsSchema, fields: companyFieldsSchema },
       annotations: WRITE,
     },
@@ -944,7 +950,7 @@ function registerSalesWriteTools(server: McpServer, ctx: McpToolContext) {
             classification: z.string().max(100).optional().describe("For example interested, not now, not interested, out of office, wrong person."),
             outcome: z.enum(["reply_positief", "reply_neutraal", "reply_negatief", "afgemeld"]).optional(),
             lead_status: leadStatus.optional(),
-            pipeline_stage: pipelineStage.optional(),
+            pipeline_stage: pipelineStage.exclude(["parked"]).optional(),
             lost_reason: z.string().max(2000).optional(),
             contact_status: contactStatus.optional(),
             reason: z.string().max(2000).optional().describe("Why, in one or two sentences."),

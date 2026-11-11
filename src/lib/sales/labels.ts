@@ -28,20 +28,41 @@ export const leadStatuses: Option<LeadStatus>[] = [
   { value: "do_not_contact", label: "Do not contact", tone: "danger" },
 ];
 
-/** The 8 stages of the pipeline (section 2.8). Lost needs a reason. */
-export const pipelineStages: Option<PipelineStage>[] = [
+/** The 9 stages of the pipeline, in order. */
+export const pipelineFlow: Option<PipelineStage>[] = [
+  { value: "contact", label: "Contact", tone: "neutral", description: "Two way contact, no clear interest yet" },
   { value: "interested", label: "Interested", tone: "brand" },
   { value: "meeting_planned", label: "Meeting planned", tone: "brand" },
   { value: "meeting_held", label: "Meeting held", tone: "accent" },
-  { value: "intake_done", label: "Intake done", tone: "accent" },
+  { value: "vacancy_drafted", label: "Vacancy drafted", tone: "accent", description: "Written with the client, or they sent one" },
+  { value: "agreed_paid", label: "Agreed + starter fee paid", tone: "accent", description: "With the date the profiles go out" },
   { value: "profiles_sent", label: "Profiles sent", tone: "accent" },
   { value: "candidate_interviews", label: "Candidate interviews", tone: "accent" },
-  { value: "won", label: "Won", tone: "success" },
-  { value: "lost", label: "Lost", tone: "danger" },
+  { value: "won", label: "Won", tone: "success", description: "A candidate is chosen; onboarding goes on in Placements" },
 ];
 
-/** Stages 4 to 7 follow from the recruitment data (vacancy, presented candidates, interviews, placement). */
-export const derivedPipelineStages: PipelineStage[] = ["intake_done", "profiles_sent", "candidate_interviews", "won"];
+/** Ways off the pipeline from any stage: Lost needs a reason, Parked a date to get in touch again. */
+export const pipelineExits: Option<PipelineStage>[] = [
+  { value: "lost", label: "Lost", tone: "danger", description: "Needs a reason" },
+  { value: "parked", label: "Parked", tone: "warning", description: "With a date to get in touch again" },
+];
+
+/** Every stage value: the flow, then the exits. */
+export const pipelineStages: Option<PipelineStage>[] = [...pipelineFlow, ...pipelineExits];
+
+/** The stages a company goes into the pipeline at with one click. */
+export const pipelineEntryStages: PipelineStage[] = ["contact", "interested"];
+
+/** Stages that follow from the recruitment data (vacancy, presented candidates, interviews, placement). */
+export const derivedPipelineStages: PipelineStage[] = ["vacancy_drafted", "profiles_sent", "candidate_interviews", "won"];
+
+/** Still being worked on: in the pipeline, not won, lost or parked. */
+export function isOpenStage(stage: PipelineStage | null | undefined): boolean {
+  return stage != null && stage !== "won" && stage !== "lost" && stage !== "parked";
+}
+
+/** Weeks from Agreed + starter fee paid to the profiles going out, by default (the database sets the date). */
+export const PROFILES_WEEKS = 3;
 
 export const companyCategories: Option<CompanyCategory>[] = [
   { value: "development", label: "Development", tone: "brand" },

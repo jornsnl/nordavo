@@ -198,8 +198,16 @@ export async function getSequence(id: string): Promise<SequenceDetail | null> {
 
 export type CompanyOption = { id: string; name: string; domain: string; leadStatus: LeadStatus; city: string | null };
 
-/** Companies for the picker: by name or domain, or the Ready ones without a query. */
-export async function searchCompanyOptions(query: string, limit = 20): Promise<CompanyOption[]> {
+/**
+ * Companies for the picker: by name or domain, or the Ready ones without a
+ * query. notInPipeline leaves out companies the pipeline already has (Lost
+ * and Parked ones can come back in).
+ */
+export async function searchCompanyOptions(
+  query: string,
+  limit = 20,
+  options: { notInPipeline?: boolean } = {},
+): Promise<CompanyOption[]> {
   await requireModule("sales");
   const supabase = await createClient();
   const cleaned = query.replace(/[,()"'*:%_\\]/g, " ").replace(/\s+/g, " ").trim().slice(0, 80);
@@ -211,7 +219,8 @@ export async function searchCompanyOptions(query: string, limit = 20): Promise<C
     .order("name")
     .limit(limit);
   if (cleaned.length >= 2) q = q.or(`name.ilike.%${cleaned}%,domain.ilike.%${cleaned}%`);
-  else q = q.eq("lead_status", "ready");
+  else if (!options.notInPipeline) q = q.eq("lead_status", "ready");
+  if (options.notInPipeline) q = q.or("pipeline_stage.is.null,pipeline_stage.in.(lost,parked)");
   const { data, error } = await q;
   if (error) throw new Error(`Could not search companies: ${error.message}`);
   return data.map((c) => ({ id: c.id, name: c.name, domain: c.domain, leadStatus: c.lead_status, city: c.city }));

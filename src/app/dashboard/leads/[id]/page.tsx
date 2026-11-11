@@ -150,6 +150,8 @@ async function LeadDetail({ params }: { params: Params }) {
               lead_status: company.lead_status,
               pipeline_stage: company.pipeline_stage,
               lost_reason: company.lost_reason,
+              parked_until: company.parked_until,
+              profiles_due_on: company.profiles_due_on,
               prio: company.prio,
               category: company.category,
               owner_id: company.owner_id,

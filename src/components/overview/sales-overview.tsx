@@ -1,3 +1,4 @@
+import { isOpenStage } from "@/lib/sales/labels";
 import Link from "next/link";
 import { BadgeCheck, CalendarCheck, MessageSquareText, Phone, PhoneCall } from "lucide-react";
 import { Card, CardHeader } from "@/components/ui/card";
@@ -19,7 +20,7 @@ export async function SalesOverview() {
   const figures = await loadSalesFigures(supabase, periodRange("deze-week"));
   const a = figures.activity;
   const m = figures.meetings;
-  const open = figures.pipeline.perStage.filter((s) => s.stage !== "won" && s.stage !== "lost");
+  const open = figures.pipeline.perStage.filter((s) => isOpenStage(s.stage));
   const max = Math.max(1, ...open.map((s) => s.count));
   const cards = [
     { label: "Calls", value: a.calls, icon: Phone, href: "/dashboard/report" },
@@ -58,7 +59,7 @@ export async function SalesOverview() {
         <Card>
           <CardHeader
             title="Open pipeline"
-            description={`${figures.pipeline.open} ${figures.pipeline.open === 1 ? "company" : "companies"} between Interested and Candidate interviews.`}
+            description={`${figures.pipeline.open} ${figures.pipeline.open === 1 ? "company" : "companies"} between Contact and Candidate interviews.`}
             actions={
               <Link href="/dashboard/pipeline" className={linkClass}>
                 Pipeline

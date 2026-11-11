@@ -108,16 +108,20 @@ test("summarizePipeline counts companies per stage and what moved in the period"
       { pipeline_stage: "meeting_planned", pipeline_entered_at: "2026-10-01T10:00:00Z", pipeline_stage_changed_at: "2026-11-04T10:00:00Z" },
       { pipeline_stage: "won", pipeline_entered_at: "2026-09-01T10:00:00Z", pipeline_stage_changed_at: "2026-11-05T10:00:00Z" },
       { pipeline_stage: "lost", pipeline_entered_at: "2026-09-01T10:00:00Z", pipeline_stage_changed_at: "2026-10-05T10:00:00Z" },
+      { pipeline_stage: "parked", pipeline_entered_at: "2026-09-01T10:00:00Z", pipeline_stage_changed_at: "2026-10-05T10:00:00Z" },
       { pipeline_stage: null, pipeline_entered_at: null, pipeline_stage_changed_at: null },
     ],
     period,
   );
+  // Parked is not open: it waits for its date.
   assert.equal(p.open, 2);
   assert.equal(p.enteredInPeriod, 1);
   assert.equal(p.wonInPeriod, 1);
   assert.equal(p.lostInPeriod, 0);
-  assert.equal(p.perStage.length, 8);
-  assert.deepEqual(p.perStage[0], { stage: "interested", label: "Interested", count: 1 });
+  assert.equal(p.perStage.length, 11);
+  assert.deepEqual(p.perStage[0], { stage: "contact", label: "Contact", count: 0 });
+  assert.deepEqual(p.perStage[1], { stage: "interested", label: "Interested", count: 1 });
+  assert.deepEqual(p.perStage.at(-1), { stage: "parked", label: "Parked", count: 1 });
 });
 
 test("figuresPerCaller splits external callers and team members", () => {

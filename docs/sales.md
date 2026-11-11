@@ -38,22 +38,38 @@ Een sequence starten zet het bedrijf op In sequence. Een geslaagd gesprek of een
 
 ## Pipeline
 
-Zodra een bedrijf interesse toont komt het in de pipeline. De acht fases:
+De pipeline is voor warme leads: bedrijven waarmee contact is geweest en die opvolging nodig hebben. De negen fases, in deze volgorde:
 
-1. **Interested**: een positieve reply (geaccepteerd) of "bereikt: geïnteresseerd" op het belscherm.
-2. **Meeting planned**: een meeting in het register, een Cal.com boeking of "meeting gepland" op het belscherm.
-3. **Meeting held**: de meeting is gehouden of goedgekeurd.
-4. **Intake done**: er is een vacature voor het bedrijf.
-5. **Profiles sent**: er zijn kandidaten voorgesteld.
-6. **Candidate interviews**: een klantgesprek met een kandidaat.
-7. **Won**: een plaatsing. Het bedrijf wordt dan klant.
-8. **Lost**: altijd met een reden.
+1. **Contact**: contact in twee richtingen, nog geen duidelijke interesse ("stuur maar info", "bel over een maand terug").
+2. **Interested**: een positieve reply (geaccepteerd) of "bereikt: geïnteresseerd" op het belscherm.
+3. **Meeting planned**: een meeting in het register, een Cal.com boeking of "meeting gepland" op het belscherm.
+4. **Meeting held**: de meeting is gehouden of goedgekeurd.
+5. **Vacancy drafted**: de vacature is samen met de klant opgesteld, of de klant leverde er zelf een aan. Volgt vanzelf zodra er een vacature voor het bedrijf is.
+6. **Agreed + starter fee paid**: met de hand, de portal ziet geen betalingen. Zet het veld **Send profiles on** (`profiles_due_on`) op drie weken later; het bord laat zien of dat gehaald wordt.
+7. **Profiles sent**: er zijn kandidaten voorgesteld.
+8. **Candidate interviews**: een klantgesprek met een kandidaat.
+9. **Won**: de klant koos een kandidaat (een plaatsing). Het bedrijf wordt klant; de onboarding loopt verder bij Placements.
+
+Vanuit elke fase:
+
+- **Lost**: altijd met een reden (`companies_lost_needs_reason`).
+- **Parked**: altijd met een datum om opnieuw contact op te nemen (`parked_until`, `companies_parked_needs_date`). Die datum wordt de volgende actie, zodat een klant die "nu even niet" zegt niet kwijtraakt.
+
+Op het bord staan Lost en Parked apart naast de fases. Elke kaart en de tabel tonen de open vacatures van het bedrijf: hoeveel, welke rollen (met link) en hoe lang ze al openstaan.
+
+In de pipeline zetten:
+
+- Op de leadpagina met één klik: **Add at Contact** of **Add at Interested**.
+- Op de pipelinepagina met **Add company**, voor één of meer bedrijven tegelijk.
+- Bij een reply in Replies via het veld Pipeline stage.
+- Vanzelf bij interesse: "bereikt: geïnteresseerd", een geboekte meeting of een positieve reply.
 
 Regels:
 
-- Fases 1 tot en met 3 komen uit Activities en Meetings, fases 4 tot en met 7 uit de recruitmentdata (triggers op vacatures, sollicitaties, interviews en plaatsingen).
-- De automatische regels zetten een bedrijf alleen vooruit, nooit terug. Een bedrijf op Lost komt weer binnen als er iets nieuws gebeurt.
-- Handmatig kan elke fase, ook terug; Lost vraagt altijd een reden (`companies_lost_needs_reason`).
+- Fases 2 tot en met 4 komen uit Activities en Meetings, fases 5, 7, 8 en 9 uit de recruitmentdata (triggers op vacatures, sollicitaties, interviews en plaatsingen).
+- De automatische regels zetten een bedrijf alleen vooruit, nooit terug. Een bedrijf op Lost of Parked komt weer binnen als er iets nieuws gebeurt.
+- Handmatig kan elke fase, ook terug.
+- De oude fase Intake done heet nu Vacancy drafted (migratie `20261122000000_pipeline_stages.sql`).
 - OnePageCRM is vervangen door deze pipeline; de sync (S9) is weg.
 
 ## Contacten

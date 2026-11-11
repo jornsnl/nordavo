@@ -1,7 +1,7 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/database.types";
-import type { CompanyRow, ContactRow, PrimaryContact } from "@/lib/sales/rows";
+import type { CompanyRow, CompanyVacancy, ContactRow, PrimaryContact } from "@/lib/sales/rows";
 import { parseViewConfig, type ViewConfig } from "@/lib/sales/grid";
 import type { SalesViewEntity } from "@/lib/sales/database";
 
@@ -47,6 +47,41 @@ export async function latestActivityByCompany(db: Db): Promise<Map<string, { at:
   return map;
 }
 
+/**
+ * Open vacancies per company, oldest first: the vacancies linked to the
+ * company itself and those of the client it became.
+ */
+export async function openVacanciesByCompany(
+  db: Db,
+  companies: { id: string; client_id: string | null }[],
+): Promise<Map<string, CompanyVacancy[]>> {
+  const out = new Map<string, CompanyVacancy[]>();
+  if (companies.length === 0) return out;
+  const rows = await all((from, to) =>
+    db
+      .from("vacancies")
+      .select("id, title, opened_at, company_id, client_id")
+      .eq("status", "open")
+      .eq("is_talent_pool", false)
+      .order("opened_at", { ascending: true })
+      .range(from, to),
+  10000);
+  const byClient = new Map<string, string[]>();
+  for (const c of companies) {
+    if (c.client_id) byClient.set(c.client_id, [...(byClient.get(c.client_id) ?? []), c.id]);
+  }
+  const known = new Set(companies.map((c) => c.id));
+  for (const v of rows) {
+    const owners = new Set<string>();
+    if (v.company_id && known.has(v.company_id)) owners.add(v.company_id);
+    for (const id of v.client_id ? (byClient.get(v.client_id) ?? []) : []) owners.add(id);
+    for (const id of owners) {
+      out.set(id, [...(out.get(id) ?? []), { id: v.id, title: v.title, openedAt: v.opened_at }]);
+    }
+  }
+  return out;
+}
+
 /** Every company with what the Leads and Pipeline tables show. */
 export async function loadCompanyRows(db: Db, options: { pipelineOnly?: boolean } = {}): Promise<CompanyRow[]> {
   const [companies, contacts, signals, latest, profiles, partners] = await Promise.all([
@@ -54,7 +89,7 @@ export async function loadCompanyRows(db: Db, options: { pipelineOnly?: boolean 
       let q = db
         .from("companies")
         .select(
-          "id, name, domain, website, prio, category, description, sector, employees, city, linkedin_url, general_phone, red_flags, opening_line, source_note, icp_decision, icp_score, lead_status, lead_status_changed_at, pipeline_stage, pipeline_stage_changed_at, pipeline_entered_at, lost_reason, owner_id, partner_id, next_action, next_action_date, pinned_at, manual_position, client_id, source, created_at",
+          "id, name, domain, website, prio, category, description, sector, employees, city, linkedin_url, general_phone, red_flags, opening_line, source_note, icp_decision, icp_score, lead_status, lead_status_changed_at, pipeline_stage, pipeline_stage_changed_at, pipeline_entered_at, lost_reason, parked_until, profiles_due_on, owner_id, partner_id, next_action, next_action_date, pinned_at, manual_position, client_id, source, created_at",
         )
         .order("created_at", { ascending: true })
         .range(from, to);
@@ -89,6 +124,8 @@ export async function loadCompanyRows(db: Db, options: { pipelineOnly?: boolean 
       });
     }
   }
+  // Only the pipeline shows vacancies; the Leads table stays as light as it was.
+  const vacancies = options.pipelineOnly ? await openVacanciesByCompany(db, companies) : new Map<string, CompanyVacancy[]>();
   const signalCount = new Map<string, number>();
   for (const s of signals) signalCount.set(s.company_id, (signalCount.get(s.company_id) ?? 0) + 1);
   const ownerName = new Map((profiles.data ?? []).map((p) => [p.id, p.full_name || p.email || null]));
@@ -104,6 +141,7 @@ export async function loadCompanyRows(db: Db, options: { pipelineOnly?: boolean 
     signals_count: signalCount.get(c.id) ?? 0,
     last_activity_at: latest.get(c.id)?.at ?? null,
     last_activity: latest.get(c.id)?.summary ?? null,
+    open_vacancies: vacancies.get(c.id) ?? [],
   }));
 }
 

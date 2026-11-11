@@ -58,7 +58,18 @@ const otherSchema = z
     outcome: z.enum(["reply_positief", "reply_neutraal", "reply_negatief", "afgemeld"], { error: "Choose what the reply means." }),
     lead_status: z.enum(["new", "review", "ready", "enrich", "in_sequence", "cooled_down", "no_go", "do_not_contact"]).optional(),
     pipeline_stage: z
-      .enum(["interested", "meeting_planned", "meeting_held", "intake_done", "profiles_sent", "candidate_interviews", "won", "lost"])
+      .enum([
+        "contact",
+        "interested",
+        "meeting_planned",
+        "meeting_held",
+        "vacancy_drafted",
+        "agreed_paid",
+        "profiles_sent",
+        "candidate_interviews",
+        "won",
+        "lost",
+      ])
       .optional(),
     lost_reason: z.string().max(2000, "Use at most 2000 characters.").optional(),
   })
