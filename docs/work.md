@@ -10,6 +10,8 @@ De interface is Engels (team in Nederland en Bangalore, freelancers overal). Tak
 
 | Onderdeel | Route | Wat het doet |
 | --- | --- | --- |
+| Add a task | `/work/add` | Eén veld met de focus: typen, Enter, klaar. Gaat naar je inbox, of kies een project. Ook offline, als snelkoppeling *Add task* op het beginscherm en in een smal zijpaneel (Sidepad) |
+| Inbox | `/work/projects/<inbox>` | Je eigen inbox, bovenaan de zijbalk. Wat je snel invoert of Claude zonder project aanmaakt, komt hier; verplaats het later naar een project |
 | My overview | `/work` | Over alle workspaces heen: *My tasks* (gegroepeerd op deadline: Overdue, Today, This week, Later, No date), *To review*, *Today and overdue*. Filters op workspace, project en status, prioriteit als gekleurde chips. Lijst of bord (*List*, *Board*). |
 | Workspace | `/work/w/<slug>` | Projecten van de workspace, nieuw project |
 | Project | `/work/projects/<id>` | Open taken gegroepeerd op deadline (met *Everything* ook Done en Cancelled), of een bord met een kolom per status. Filters op status en eigenaar, prioriteit als chips, nieuwe taak (teamleden kunnen meteen een record kiezen) |
@@ -60,7 +62,19 @@ Developers en kandidaten van de Academy (portaalrol `developer` of `candidate`) 
 
 De test [supabase/tests/work_guest_isolation.test.sql](../supabase/tests/work_guest_isolation.test.sql) zet in elke portaaltabel een rij en controleert dat een guest en een member van een workspace er geen enkele kunnen lezen, en alleen hun eigen workspace zien.
 
-Een workspace aanmaken kan alleen een beheerder van het Nordavo portaal (`profiles.role = 'admin'`), via **New workspace** in de sidebar. Die wordt de eerste admin.
+Een gedeelde workspace aanmaken kan alleen een beheerder van het Nordavo portaal (`profiles.role = 'admin'`), via **New workspace** in de sidebar. Die wordt de eerste admin.
+
+### Privé workspaces, inbox en archiveren (feedback Julius)
+
+Julius wil Todoist en Akiflow vervangen door Work: alle taken op één plek, zakelijk en privé. Migratie [20261121000000_work_personal.sql](../supabase/migrations/20261121000000_work_personal.sql), test [work_personal.test.sql](../supabase/tests/work_personal.test.sql).
+
+| Onderdeel | Wat |
+| --- | --- |
+| Privé workspace | Elk teamlid (portaalrol admin of member) maakt er zelf meerdere via **New private workspace** in de sidebar. Alleen de eigenaar zit erin: niemand anders kan worden uitgenodigd, toegevoegd, eigenaar of reviewer van een taak, ook niet via de API of de secret key (triggers op `work_members`, `work_project_members`, `work_invites`, `work_task_assignees` en `work_tasks`). Andere admins zien hem dus niet, want wat je in Work ziet volgt je lidmaatschap. Hij begint met een project *Tasks*. `work_workspaces.kind = 'private'`, `owner_id` |
+| Inbox | Iedere gebruiker met Work (ook gasten) heeft een eigen inbox: een privé workspace met één project, gemaakt bij het eerste gebruik (`work_ensure_inbox`). Snel invoeren op My overview en `/work/add` gaat standaard naar de inbox; via de MCP ook zonder project. `kind = 'inbox'` |
+| Sorteren | Een taak uit je inbox of een privé workspace verplaats je op de taakpagina (*Move to project*) naar elk project dat je kunt openen, ook in een andere workspace; subtaken gaan mee, eigenaren en reviewer zonder toegang tot het nieuwe project vallen weg (jij wordt reviewer). Een taak uit een gedeelde workspace blijft in zijn workspace, en niemand kan iets in de privé workspace van een ander zetten |
+| Archiveren | Een workspace admin archiveert onder Manage (*Archive workspace*). Hij verdwijnt uit de sidebar en My overview; projecten en taken blijven, en onder Manage zet je hem terug (*Restore workspace*). In het toegangslog als *Workspace archived* en *Workspace restored*. De inbox kan niet worden gearchiveerd |
+| Telefoon en Sidepad | `/work/add` heeft alleen het invoerveld (met de focus) en je inbox eronder, werkt offline en staat als *Add task* in de snelkoppelingen van de app op het beginscherm en in de tabbalk. In een smal venster, zoals de zijbalk van Sidepad, gebruikt Work de telefoonweergave met de tabbalk. Je blijft ingelogd: de sessie wordt bij elk verzoek ververst en loopt pas af als je uitlogt (Sidepad bewaart cookies zoals een gewone browser; log er één keer in) |
 
 ### Statussen en review
 
@@ -146,6 +160,8 @@ claude mcp add --transport http work https://<domein>/api/work/mcp --header "Aut
 ```
 
 Tools: `whoami`, `list_projects`, `list_tasks`, `get_task`, en met een schrijftoken `create_task`, `update_task`, `set_status`, `add_comment`.
+
+De MCP van het portaal (`/api/mcp`, [mcp.md](mcp.md)) kan sinds ronde twee ook een workspace of project kiezen (`list_work_projects`, `project_id` bij `create_task`, `update_task` en `list_tasks`), taken volledig aanpassen en reacties plaatsen. Zonder project en zonder record komt een taak in de inbox van de eigenaar van het token.
 
 ## Migratie uit ClickUp
 

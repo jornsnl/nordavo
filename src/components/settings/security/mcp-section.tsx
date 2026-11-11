@@ -8,7 +8,9 @@ import { McpSetupGuide } from "@/components/settings/security/mcp-setup-guide";
 import { McpTokenForm } from "@/components/settings/security/mcp-token-form";
 import { McpTokenList, type McpTokenRow } from "@/components/settings/security/mcp-token-list";
 import { McpOAuthList, type OAuthGrantRow } from "@/components/settings/security/mcp-oauth-list";
-import { createMcpToken, revokeMcpToken, revokeOAuthGrant } from "@/app/dashboard/settings/mcp-actions";
+import { createMcpToken, revokeMcpToken, revokeOAuthGrant, saveMcpModuleAccess } from "@/app/dashboard/settings/mcp-actions";
+import { McpRightsForm } from "@/components/settings/security/mcp-rights-form";
+import type { McpAccessLevels } from "@/lib/mcp/module-access";
 
 /**
  * Claude Code koppelen via MCP: personal tokens and setup instructions.
@@ -18,7 +20,7 @@ export async function McpSection() {
   const user = await getCurrentUser();
   if (!isStaff(user)) return null;
 
-  const [{ tokens, error }, grants] = await Promise.all([loadTokens(user.id), loadGrants(user.id)]);
+  const [{ tokens, error }, grants, levels] = await Promise.all([loadTokens(user.id), loadGrants(user.id), loadLevels()]);
 
   const endpoint = `${env.siteUrl().replace(/\/$/, "")}/api/mcp`;
   const enabled = hasAdminClient();
@@ -63,10 +65,26 @@ export async function McpSection() {
           <McpTokenForm action={createMcpToken} endpoint={endpoint} enabled={enabled} />
         </section>
 
+        {user.role === "admin" && (
+          <section aria-labelledby="mcp-rights-heading" className="space-y-3">
+            <h3 id="mcp-rights-heading" className="text-sm font-semibold text-brand-900">
+              What Claude may do per module
+            </h3>
+            <McpRightsForm action={saveMcpModuleAccess} levels={levels} />
+          </section>
+        )}
+
         <McpSetupGuide endpoint={endpoint} />
       </CardBody>
     </Card>
   );
+}
+
+/** Claude's rights per module (readable for the team, RLS). */
+async function loadLevels(): Promise<McpAccessLevels> {
+  const supabase = await createClient();
+  const { data } = await supabase.from("mcp_module_access").select("module, level");
+  return Object.fromEntries((data ?? []).map((row) => [row.module, row.level]));
 }
 
 /** The user's own tokens (RLS), with the status computed at request time. Never selects token_hash. */

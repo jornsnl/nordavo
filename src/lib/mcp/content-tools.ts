@@ -6,17 +6,23 @@ import type { ContentRole, ContentTextField } from "@/lib/content/database";
 import { locateOriginal } from "@/lib/content/text-match";
 import { linkedInText } from "@/lib/content/rules";
 import { check, fail, idSchema, ok, type McpDb, type McpToolContext } from "@/lib/mcp/shared";
+import { downloadDriveFile, hasGoogleDrive, safeFileName } from "@/lib/content/drive";
+import { allowedMediaType, driveFileId, fetchableLink, fileNameFrom, LINK_MAX_BYTES } from "@/lib/content/link-media";
 
 /**
  * Content module tools (docs/content.md) for the token owner's own Claude.
  * Reads follow the owner's rights in Content (content_api_role,
- * content_api_can_view_post: reviewers only see posts sent to review, ideas
- * are never exposed). Writes are suggestions only, through the
- * content_api_* functions: Claude never picks, approves, schedules or
- * publishes; a person decides on every suggestion in the portal.
+ * content_api_can_view_post, content_api_can_view_idea). Writes go through
+ * the content_api_* functions as the token owner with source claude, so
+ * the same rules, versions and activity log apply as in the app and every
+ * change of Claude is told apart (feedback Julius, 11 November 2026: within
+ * Content Claude may do everything itself). The suggest tools stay for when
+ * Claude wants a person to decide. Which tools are offered follows the
+ * level an admin set for Content (module-access.ts).
  */
 
 const READ_ONLY = { readOnlyHint: true, openWorldHint: false } as const;
+const WRITE = { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false } as const;
 const SUGGEST = { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false } as const;
 const SUGGESTION_NOTE =
   "Anything you write here is shown to the author or reviewer as a suggestion they accept or reject; you never pick, approve, schedule or publish.";
@@ -45,6 +51,60 @@ function errorText(error: { message: string }) {
   return error.message.replace(/^.*?ERROR:\s*/, "");
 }
 
+/** The private bucket of Content (CONTENT_BUCKET in content/data.ts, which needs next/navigation). */
+const CONTENT_BUCKET = "content";
+
+const POST_FIELDS_NOTE = "Option fields (channel, language, audience, theme, angle, format, priority, time_slot) take the option key of the workspace.";
+
+const postFieldsSchema = {
+  hook: z.string().max(3000).optional(),
+  body: z.string().max(10_000).optional(),
+  closing_question: z.string().max(3000).optional(),
+  first_comment: z.string().max(3000).optional(),
+  channel: z.string().max(60).optional(),
+  language: z.string().max(60).optional(),
+  audience: z.string().max(60).optional(),
+  theme: z.string().max(60).optional(),
+  angle: z.string().max(60).optional(),
+  format: z.string().max(60).optional(),
+  priority: z.string().max(60).optional(),
+  planned_date: z.union([z.iso.date(), z.literal("")]).optional().describe("YYYY-MM-DD."),
+  time_slot: z.string().max(60).optional(),
+  series_id: z.union([idSchema, z.literal("")]).optional(),
+  source_id: z.union([idSchema, z.literal("")]).optional(),
+  notes: z.string().max(10_000).optional(),
+  linkedin_url: z.union([z.url().max(2000), z.literal("")]).optional(),
+  published_at: z.iso.datetime({ offset: true }).optional().describe("When it went live (for a published post)."),
+};
+
+/** The fields Claude gave, for content_api_create_post and content_api_update_post. */
+export function postFields(fields: Record<string, unknown>): Record<string, unknown> {
+  return Object.fromEntries(Object.entries(fields).filter(([, v]) => v !== undefined));
+}
+
+/** Fetch a file from a link for the library: Drive through the service account, else plain https. */
+async function fetchMediaLink(link: string): Promise<{ bytes: ArrayBuffer; name: string; mime: string }> {
+  const driveId = driveFileId(link);
+  if (driveId && hasGoogleDrive()) {
+    const file = await downloadDriveFile(driveId);
+    if (!allowedMediaType(file.mimeType)) throw new Error("Only photos, videos and PDFs go in the library.");
+    if (file.bytes.byteLength > LINK_MAX_BYTES) throw new Error(`At most ${LINK_MAX_BYTES / 1024 / 1024} MB per file.`);
+    return { bytes: file.bytes, name: file.name, mime: file.mimeType };
+  }
+  const checked = fetchableLink(driveId ? `https://drive.google.com/uc?export=download&id=${driveId}` : link);
+  if (!checked.ok) throw new Error(checked.error);
+  const response = await fetch(checked.url, { redirect: "follow", signal: AbortSignal.timeout(30_000) });
+  const final = fetchableLink(response.url || checked.url.toString());
+  if (!final.ok) throw new Error(final.error);
+  if (!response.ok) throw new Error(`The link answered ${response.status}.`);
+  const mime = (response.headers.get("content-type") ?? "").split(";")[0].trim();
+  if (!allowedMediaType(mime)) throw new Error("Only photos, videos and PDFs go in the library (this link is not a file, or is not public).");
+  if (Number(response.headers.get("content-length") ?? 0) > LINK_MAX_BYTES) throw new Error(`At most ${LINK_MAX_BYTES / 1024 / 1024} MB per file.`);
+  const bytes = await response.arrayBuffer();
+  if (bytes.byteLength > LINK_MAX_BYTES) throw new Error(`At most ${LINK_MAX_BYTES / 1024 / 1024} MB per file.`);
+  return { bytes, name: fileNameFrom(link, response.headers.get("content-disposition"), mime), mime };
+}
+
 export function registerContentTools(server: McpServer, ctx: McpToolContext) {
   const { db, userId } = ctx;
   const postUrl = (slug: string, id: string) => `${ctx.siteUrl.replace(/\/$/, "")}/content/w/${slug}/posts/${id}`;
@@ -68,12 +128,13 @@ export function registerContentTools(server: McpServer, ctx: McpToolContext) {
       inputSchema: {
         workspace: z.string().min(1).max(60).describe("Workspace slug or id (content_list_workspaces)."),
         status: z.string().max(40).optional().describe("Only this status key, e.g. draft, in_review, approved, scheduled, published."),
+        archived: z.boolean().default(false).describe("Archived posts instead of the live ones."),
         limit: z.number().int().min(1).max(100).default(25),
         offset: z.number().int().min(0).max(10_000).default(0),
       },
       annotations: READ_ONLY,
     },
-    async ({ workspace, status, limit, offset }) => {
+    async ({ workspace, status, archived, limit, offset }) => {
       const ws = (await visibleWorkspaces(db, userId)).find((w) => w.slug === workspace || w.id === workspace);
       if (!ws) return fail("Workspace not found, or you have no access to it.");
       let query = db
@@ -84,7 +145,8 @@ export function registerContentTools(server: McpServer, ctx: McpToolContext) {
         .order("updated_at", { ascending: false })
         .range(offset, offset + limit - 1);
       if (status) query = query.eq("status", status);
-      if (ws.role === "reviewer") query = query.not("submitted_at", "is", null);
+      query = archived ? query.not("archived_at", "is", null) : query.is("archived_at", null);
+      if (ws.role === "reviewer") query = query.or(`submitted_at.not.is.null,created_by.eq.${userId}`);
       const rows = check(await query, "posts");
       return ok({
         workspace: { slug: ws.slug, role: ws.role },
@@ -144,6 +206,51 @@ export function registerContentTools(server: McpServer, ctx: McpToolContext) {
         open_image_suggestions: check(images, "image suggestions"),
         pending_text_suggestions: check(suggestions, "suggestions"),
         custom_fields: post.custom_fields,
+        linkedin_url: post.linkedin_url,
+        published_at: post.published_at,
+        archived: Boolean(post.archived_at),
+        notes: post.notes,
+      });
+    },
+  );
+
+  server.registerTool(
+    "content_list_ideas",
+    {
+      title: "Content ideas",
+      description: "Ideas of a content workspace (inbox, shortlist or archive), newest first, with tags, link and whether it became a post.",
+      inputSchema: {
+        workspace: z.string().min(1).max(60).describe("Workspace slug or id."),
+        view: z.enum(["inbox", "shortlist", "archive", "converted", "all"]).default("inbox"),
+        limit: z.number().int().min(1).max(100).default(25),
+        offset: z.number().int().min(0).max(10_000).default(0),
+      },
+      annotations: READ_ONLY,
+    },
+    async ({ workspace, view, limit, offset }) => {
+      const ws = (await visibleWorkspaces(db, userId)).find((w) => w.slug === workspace || w.id === workspace);
+      if (!ws) return fail("Workspace not found, or you have no access to it.");
+      let query = db
+        .from("content_ideas")
+        .select("id, text, tags, link, status, is_private, author_id, created_at")
+        .eq("workspace_id", ws.id)
+        .is("merged_into", null)
+        .order("created_at", { ascending: false })
+        .range(offset, offset + Math.min(500, limit * 4) - 1);
+      const statusFor = { inbox: "new", shortlist: "shortlisted", archive: "archived", converted: "converted" } as const;
+      if (view !== "all") query = query.eq("status", statusFor[view]);
+      const rows = check(await query, "ideas");
+      // Private ideas follow the rights of the token owner.
+      const visible = [];
+      for (const row of rows) {
+        const { data } = await db.rpc("content_api_can_view_idea", { p_idea: row.id, p_actor: userId });
+        if (data === true) visible.push(row);
+        if (visible.length >= limit) break;
+      }
+      return ok({
+        workspace: ws.slug,
+        ideas: visible.map(({ author_id, ...idea }) => ({ ...idea, mine: author_id === userId })),
+        url: `${ctx.siteUrl.replace(/\/$/, "")}/content/w/${ws.slug}/ideas`,
       });
     },
   );
@@ -311,4 +418,250 @@ export function registerContentTools(server: McpServer, ctx: McpToolContext) {
       return ok({ suggestion_id: data, note: "The author accepts or rejects it in the post editor." });
     },
   );
+
+  server.registerTool(
+    "content_add_idea",
+    {
+      title: "Add an idea",
+      description: "Add an idea or note for a next post to a content workspace (it stays apart from the posts until someone turns it into one).",
+      inputSchema: {
+        workspace: z.string().min(1).max(60).describe("Workspace slug or id."),
+        text: z.string().trim().min(1).max(5000),
+        tags: z.array(z.string().trim().min(1).max(40)).max(20).default([]),
+        link: z.url().max(2000).optional(),
+      },
+      annotations: WRITE,
+    },
+    async ({ workspace, text, tags, link }) => {
+      const ws = (await visibleWorkspaces(db, userId)).find((w) => w.slug === workspace || w.id === workspace);
+      if (!ws) return fail("Workspace not found, or you have no access to it.");
+      const { data, error } = await db.rpc("content_api_add_idea", { p_workspace: ws.id, p_text: text, p_tags: tags, p_link: link ?? null, p_actor: userId });
+      if (error) return fail(errorText(error));
+      return ok({ idea_id: data, url: `${ctx.siteUrl.replace(/\/$/, "")}/content/w/${ws.slug}/ideas` });
+    },
+  );
+
+  server.registerTool(
+    "content_ideas_to_post",
+    {
+      title: "Turn ideas into a post",
+      description: "Turn one or more ideas of one workspace into a draft post (the texts are combined), like Turn into post in the portal. The ideas become converted.",
+      inputSchema: { idea_ids: z.array(idSchema).min(1).max(10), title: z.string().trim().max(300).optional() },
+      annotations: WRITE,
+    },
+    async ({ idea_ids, title }) => {
+      const { data, error } = await db.rpc("content_api_ideas_to_post", { p_ideas: idea_ids, p_title: title ?? null, p_actor: userId });
+      if (error) return fail(errorText(error));
+      return ok({ post_id: data, url: await postLink(data) });
+    },
+  );
+
+  server.registerTool(
+    "content_create_post",
+    {
+      title: "Create a post",
+      description: `Create a post with every text field (title, hook, body, closing question, first comment), format, angle, theme, audience, language, priority, planned date, time slot, series and notes, in any status: draft, in_review, approved, scheduled or published. A post that already went live (for example from Airtable) gets status published with linkedin_url and published_at. The status rules of the portal apply (scheduled needs a date and time slot; published needs a LinkedIn URL). ${POST_FIELDS_NOTE}`,
+      inputSchema: {
+        workspace: z.string().min(1).max(60).describe("Workspace slug or id."),
+        ...postFieldsSchema,
+        title: z.string().trim().min(1).max(300),
+        status: z.string().regex(/^[a-z][a-z0-9_]*$/).max(40).default("draft"),
+      },
+      annotations: WRITE,
+    },
+    async ({ workspace, status, ...fields }) => {
+      const ws = (await visibleWorkspaces(db, userId)).find((w) => w.slug === workspace || w.id === workspace);
+      if (!ws) return fail("Workspace not found, or you have no access to it.");
+      const { data, error } = await db.rpc("content_api_create_post", {
+        p_workspace: ws.id,
+        p_fields: postFields(fields) as Json,
+        p_status: status,
+        p_actor: userId,
+      });
+      if (error) return fail(errorText(error));
+      const { data: row } = await db.from("content_posts").select("status").eq("id", data).single();
+      return ok({ post_id: data, status: row?.status ?? status, url: postUrl(ws.slug, data) });
+    },
+  );
+
+  server.registerTool(
+    "content_update_post",
+    {
+      title: "Change a post",
+      description: `Change any field of a post and, with status, move it along the flow (draft, in_review, changes_requested, approved, scheduled, published, measured, parked, rejected); the steps in between are taken for you when the flow needs them. Leave out what stays the same; an empty string clears a field. ${POST_FIELDS_NOTE}`,
+      inputSchema: {
+        post_id: idSchema,
+        ...postFieldsSchema,
+        title: z.string().trim().min(1).max(300).optional(),
+        status: z.string().regex(/^[a-z][a-z0-9_]*$/).max(40).optional(),
+      },
+      annotations: { ...WRITE, idempotentHint: true },
+    },
+    async ({ post_id, status, ...fields }) => {
+      if (!(await canViewPost(db, post_id, userId))) return fail("Post not found, or you have no access to it.");
+      const { error } = await db.rpc("content_api_update_post", {
+        p_post: post_id,
+        p_fields: postFields(fields) as Json,
+        p_status: status ?? null,
+        p_actor: userId,
+      });
+      if (error) return fail(errorText(error));
+      const { data: row } = await db.from("content_posts").select("status, version").eq("id", post_id).single();
+      return ok({ post_id, status: row?.status, version: row?.version, url: await postLink(post_id) });
+    },
+  );
+
+  server.registerTool(
+    "content_archive_post",
+    {
+      title: "Archive a post",
+      description: "Archive a post that is no longer needed (it leaves the lists, the calendar and the checks; nothing is deleted), or restore it with archived false.",
+      inputSchema: { post_id: idSchema, archived: z.boolean().default(true) },
+      annotations: { ...WRITE, idempotentHint: true },
+    },
+    async ({ post_id, archived }) => {
+      const { error } = await db.rpc("content_api_archive_post", { p_post: post_id, p_archived: archived, p_actor: userId });
+      if (error) return fail(errorText(error));
+      return ok({ post_id, archived });
+    },
+  );
+
+  server.registerTool(
+    "content_set_post_media",
+    {
+      title: "Choose media for a post",
+      description: "Choose the media of a post in this order (the first is the cover; carousels and documents keep the order). Replaces the current choice; an empty list removes all. Files come from the workspace library or the company library (content_list_media).",
+      inputSchema: { post_id: idSchema, media_ids: z.array(idSchema).max(20) },
+      annotations: { ...WRITE, idempotentHint: true },
+    },
+    async ({ post_id, media_ids }) => {
+      const { data, error } = await db.rpc("content_api_set_post_media", { p_post: post_id, p_media: media_ids, p_actor: userId });
+      if (error) return fail(errorText(error));
+      return ok({ post_id, chosen: data ?? media_ids.length });
+    },
+  );
+
+  server.registerTool(
+    "content_add_media",
+    {
+      title: "Add a file to the library",
+      description: `Put a photo, video or PDF in the media library of a workspace, or the company library (workspace omitted), from a link: a Google Drive link (the file or its folder must be shared with the portal's service account) or any public https link. At most ${LINK_MAX_BYTES / 1024 / 1024} MB. Give a description and tags right away.`,
+      inputSchema: {
+        workspace: z.string().min(1).max(60).optional().describe("Workspace slug or id; leave out for the company library."),
+        url: z.url().max(2000),
+        file_name: z.string().trim().min(1).max(200).optional(),
+        description: z.string().max(2000).optional(),
+        tags: z.array(z.string().min(1).max(40)).max(20).optional(),
+        people: z.array(z.string().min(1).max(80)).max(20).optional(),
+        setting: z.string().max(200).optional(),
+        mood: z.string().max(200).optional(),
+        folder: z.string().max(300).optional().describe("A folder name in the library, e.g. Photoshoot/Day 1."),
+      },
+      annotations: { ...WRITE, openWorldHint: true },
+    },
+    async ({ workspace, url, file_name, ...details }) => {
+      let wsId: string | null = null;
+      if (workspace) {
+        const ws = (await visibleWorkspaces(db, userId)).find((w) => w.slug === workspace || w.id === workspace);
+        if (!ws) return fail("Workspace not found, or you have no access to it.");
+        wsId = ws.id;
+      }
+      let file: { bytes: ArrayBuffer; name: string; mime: string };
+      try {
+        file = await fetchMediaLink(url);
+      } catch (error) {
+        return fail(error instanceof Error ? error.message : "The file could not be fetched.");
+      }
+      const name = file_name ?? file.name;
+      const path = `media/${wsId ?? "company"}/${crypto.randomUUID().slice(0, 8)}-${safeFileName(name)}`;
+      const { error: uploadError } = await db.storage.from(CONTENT_BUCKET).upload(path, file.bytes, { contentType: file.mime, upsert: false });
+      if (uploadError) return fail(`The file could not be stored: ${uploadError.message}`);
+      const { data, error } = await db.rpc("content_api_add_media", {
+        p_workspace: wsId,
+        p_path: path,
+        p_file_name: name,
+        p_mime: file.mime,
+        p_size: file.bytes.byteLength,
+        p_details: Object.fromEntries(Object.entries(details).filter(([, v]) => v !== undefined)) as Json,
+        p_source_url: url,
+        p_actor: userId,
+      });
+      if (error) {
+        await db.storage.from(CONTENT_BUCKET).remove([path]);
+        return fail(errorText(error));
+      }
+      return ok({ media_id: data, file_name: name, size_bytes: file.bytes.byteLength });
+    },
+  );
+
+  server.registerTool(
+    "content_describe_media",
+    {
+      title: "Describe a file",
+      description: "Write the description, tags and details (people, setting, mood, clothing, orientation, author in photo) of a library file directly. content_suggest_media_description proposes them instead.",
+      inputSchema: {
+        media_id: idSchema,
+        description: z.string().max(2000).optional(),
+        tags: z.array(z.string().min(1).max(40)).max(20).optional(),
+        people: z.array(z.string().min(1).max(80)).max(20).optional(),
+        setting: z.string().max(200).optional(),
+        mood: z.string().max(200).optional(),
+        clothing: z.string().max(200).optional(),
+        orientation: z.enum(["portrait", "landscape", "square"]).optional(),
+        author_in_photo: z.boolean().optional(),
+      },
+      annotations: { ...WRITE, idempotentHint: true },
+    },
+    async ({ media_id, ...fields }) => {
+      const details = Object.fromEntries(Object.entries(fields).filter(([, v]) => v !== undefined)) as Json;
+      if (Object.keys(details as object).length === 0) return fail("Give at least one field.");
+      const { error } = await db.rpc("content_api_describe_media", { p_media: media_id, p_details: details, p_actor: userId });
+      if (error) return fail(errorText(error));
+      return ok({ saved: true });
+    },
+  );
+
+  server.registerTool(
+    "content_record_results",
+    {
+      title: "Record results",
+      description:
+        "Record the results of a live post: impressions (reach), likes, comments and reposts, as often as you like, so you see how a post develops. With linkedin_url (and published_at) a post that is approved but not marked live yet becomes published. slot 48h or 7d also fills that measurement for the success threshold and Measured.",
+      inputSchema: {
+        post_id: idSchema,
+        impressions: z.number().int().min(0).optional(),
+        likes: z.number().int().min(0).default(0),
+        comments: z.number().int().min(0).default(0),
+        reposts: z.number().int().min(0).default(0),
+        measured_at: z.iso.datetime({ offset: true }).optional().describe("When you looked; default now."),
+        slot: z.enum(["48h", "7d"]).optional(),
+        linkedin_url: z.url().max(2000).optional(),
+        published_at: z.iso.datetime({ offset: true }).optional(),
+      },
+      annotations: WRITE,
+    },
+    async (input) => {
+      const { data, error } = await db.rpc("content_api_record_results", {
+        p_post: input.post_id,
+        p_measured_at: input.measured_at ?? null,
+        p_impressions: input.impressions ?? null,
+        p_likes: input.likes,
+        p_comments: input.comments,
+        p_reposts: input.reposts,
+        p_slot: input.slot ?? null,
+        p_linkedin_url: input.linkedin_url ?? null,
+        p_published_at: input.published_at ?? null,
+        p_actor: userId,
+      });
+      if (error) return fail(errorText(error));
+      return ok({ measurement_id: data, likes_and_comments: input.likes + input.comments });
+    },
+  );
+
+  async function postLink(postId: string) {
+    const { data: post } = await db.from("content_posts").select("workspace_id").eq("id", postId).maybeSingle();
+    if (!post) return null;
+    const { data: ws } = await db.from("content_workspaces").select("slug").eq("id", post.workspace_id).maybeSingle();
+    return ws ? postUrl(ws.slug, postId) : null;
+  }
 }

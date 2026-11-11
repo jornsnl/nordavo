@@ -296,6 +296,11 @@ export type SalesFunctions = {
     } & Actor,
     string
   >;
+  /** Status, fee and a note of a meeting from the MCP (20261121020000_mcp_claude_rights.sql). */
+  sales_update_meeting: Fn<
+    { p_meeting: string; p_status?: MeetingStatus | null; p_fee?: number | null; p_note?: string | null } & Actor,
+    MeetingRow
+  >;
   /** p_moved: the dragged row; the reorder is one activity on it (20261111000000_sales_gaps.sql). */
   sales_set_positions: Fn<
     { p_entity: "company" | "contact"; p_ids: string[]; p_positions: number[]; p_moved?: string | null } & Actor,

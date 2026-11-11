@@ -105,6 +105,8 @@ export const SALES_READ_TOOLS = [
 ] as const;
 
 export const SALES_WRITE_TOOLS = [
+  "add_company",
+  "add_contact",
   "close_list_for_callers",
   "create_meeting",
   "draft_sequence_text",
@@ -115,9 +117,15 @@ export const SALES_WRITE_TOOLS = [
   "start_sequence",
   "update_companies",
   "update_contacts",
+  "update_meeting",
   "update_sequence_tasks",
   "upsert_companies",
 ] as const;
+
+/** Where a lead added by hand through Claude came from (companies.source). */
+export const LEAD_ORIGINS = ["inbound", "linkedin", "partner", "network"] as const;
+export type LeadOrigin = (typeof LEAD_ORIGINS)[number];
+const originLabels: Record<LeadOrigin, string> = { inbound: "Inbound", linkedin: "LinkedIn", partner: "Partner", network: "Network" };
 
 /** Register the sales tools; write tools only for write tokens. */
 export function registerSalesTools(server: McpServer, ctx: McpToolContext) {
@@ -1013,6 +1021,109 @@ function registerSalesWriteTools(server: McpServer, ctx: McpToolContext) {
 
   // -------------------------------------------------------------------------
   server.registerTool(
+    "update_meeting",
+    {
+      title: "Update meeting",
+      description:
+        "After the call: set a meeting to held, approved, rejected, no_show or cancelled (or back to planned), with a reason or note, and/or fill in or change its fee. Approving, rejecting and the fee are for admins, as in the portal. The company moves along to the right stage like in the portal, and everything lands in Activities with you and source claude. See list_meetings for ids.",
+      inputSchema: {
+        meeting_id: idSchema,
+        status: meetingStatus.optional(),
+        fee: z.number().min(0).max(10_000).optional().describe("What the caller earns for this meeting, in euro."),
+        note: z.string().trim().max(2000).optional().describe("Reason or note, for example why it was rejected."),
+      },
+      annotations: { ...WRITE, idempotentHint: true },
+    },
+    async (input) => {
+      const blocked = guard();
+      if (blocked) return blocked;
+      if (input.status === undefined && input.fee === undefined && !input.note) return fail("Give a status, a fee or a note.");
+      const { data, error } = await db.rpc("sales_update_meeting", {
+        p_meeting: input.meeting_id,
+        p_status: input.status ?? null,
+        p_fee: input.fee ?? null,
+        p_note: input.note ?? null,
+        p_actor: actor,
+      });
+      if (error) return fail(`Could not update the meeting: ${error.message}`);
+      const row = data as unknown as { id: string; status: string; fee: number; company_id: string; notes: string | null } | null;
+      return ok({ meeting: row ? { id: row.id, status: row.status, fee: row.fee, notes: row.notes } : null, company_url: row ? recordUrl(ctx.siteUrl, "company", row.company_id) : null });
+    },
+  );
+
+  // -------------------------------------------------------------------------
+  server.registerTool(
+    "add_company",
+    {
+      title: "Add company (lead)",
+      description:
+        "Add one company that did not come from Apify or Prospeo: an inbound lead, a LinkedIn contact, a tip from a partner or someone from the network. Say where it came from (origin) and why (source_note). Matched on the normalized domain, then on the company LinkedIn page: a known company is filled in, never overwritten, and not added twice. Contacts can come along. Starts as lead status new.",
+      inputSchema: {
+        origin: z.enum(LEAD_ORIGINS).describe("Where the lead came from."),
+        source_note: z.string().trim().max(2000).optional().describe("Who referred it, which post, what was said."),
+        partner_id: idSchema.optional().describe("The partner who brought it (origin partner)."),
+        company: upsertCompanySchema,
+      },
+      annotations: WRITE,
+    },
+    async ({ origin, source_note, partner_id, company }) => {
+      const blocked = guard();
+      if (blocked) return blocked;
+      if (partner_id) {
+        const { data: partner } = await db.from("partners").select("id").eq("id", partner_id).maybeSingle();
+        if (!partner) return fail("Partner not found.");
+      }
+      try {
+        const result = await upsertSalesCompany(db, actor, origin, company);
+        // Origin, note and partner: on a new company, or filled in where empty.
+        const { data: row } = await db.from("companies").select("source, source_note, partner_id").eq("id", result.company_id).single();
+        const patch: Record<string, Json> = {};
+        if (source_note && !row?.source_note) patch.source_note = source_note;
+        if (partner_id && !row?.partner_id) patch.partner_id = partner_id;
+        if (Object.keys(patch).length) {
+          const { error } = await db.rpc("sales_update", { p_entity: "company", p_ids: [result.company_id], p_fields: patch, p_source: "claude", p_actor: actor });
+          if (error) return fail(`The company is saved, but not the note or partner: ${error.message}`);
+        }
+        return ok({ ...result, origin, url: recordUrl(ctx.siteUrl, "company", result.company_id) });
+      } catch (error) {
+        return fail(error instanceof Error ? error.message : String(error));
+      }
+    },
+  );
+
+  // -------------------------------------------------------------------------
+  server.registerTool(
+    "add_contact",
+    {
+      title: "Add contact to a company",
+      description:
+        "Add a contact person to a company that is already in the portal, with name, title, email, phone, LinkedIn, role (main, extra, reserve) and whether they are the primary contact. The same person is not added twice: the same LinkedIn profile anywhere, or the same email or name at this company, is filled in instead (never overwritten). Logged in Activities with you and source claude.",
+      inputSchema: {
+        company_id: idSchema,
+        first_name: z.string().trim().max(100).optional(),
+        last_name: z.string().trim().max(150).optional(),
+        full_name: z.string().trim().max(200).optional().describe("Instead of first and last name."),
+        title: z.string().trim().max(200).optional(),
+        email: z.email().max(320).optional(),
+        phone: z.string().trim().max(50).optional(),
+        linkedin_url: z.string().trim().max(500).optional(),
+        role: contactRole.optional(),
+        is_primary: z.boolean().optional(),
+        origin: z.enum(LEAD_ORIGINS).optional().describe("Where this contact came from."),
+      },
+      annotations: WRITE,
+    },
+    async (input) => {
+      const blocked = guard();
+      if (blocked) return blocked;
+      const result = await addSalesContact(db, actor, input);
+      if ("error" in result) return fail(result.error);
+      return ok({ ...result, url: recordUrl(ctx.siteUrl, "company", input.company_id) });
+    },
+  );
+
+  // -------------------------------------------------------------------------
+  server.registerTool(
     "open_list_for_callers",
     {
       title: "Open call list for callers",
@@ -1342,7 +1453,7 @@ function friendlyStartError(message: string) {
 type UpsertCompanyInput = z.infer<typeof upsertCompanySchema>;
 
 /** Match on domain, then LinkedIn; fill in missing fields through sales_update; add signals and people. */
-export async function upsertSalesCompany(db: McpDb, actor: string, source: "apify" | "prospeo", input: UpsertCompanyInput) {
+export async function upsertSalesCompany(db: McpDb, actor: string, source: "apify" | "prospeo" | LeadOrigin, input: UpsertCompanyInput) {
   const domain = normalizeDomain(input.domain);
   const linkedin = normalizeLinkedin(input.linkedin_url);
   const fields = "id, name, domain, website, city, sector, employees, linkedin_url, description, sources" as const;
@@ -1407,7 +1518,7 @@ export async function upsertSalesCompany(db: McpDb, actor: string, source: "apif
       p_contact: null,
       p_channel: "system",
       p_type: "system",
-      p_notes: `Added from ${source === "apify" ? "Apify" : "Prospeo"} by Claude`,
+      p_notes: `Added from ${source === "apify" ? "Apify" : source === "prospeo" ? "Prospeo" : originLabels[source]} by Claude`,
       p_source: "claude",
       p_actor: actor,
     });
@@ -1420,7 +1531,8 @@ export async function upsertSalesCompany(db: McpDb, actor: string, source: "apif
       company_domain: companyDomain,
       type: s.type,
       title: s.title,
-      source,
+      // Signals know apify, prospeo, linkedin; a lead by hand files its vacancies as "overig".
+      source: source === "apify" || source === "prospeo" || source === "linkedin" ? source : "overig",
       source_url: s.source_url ?? null,
       role_group: s.role_group ?? null,
       posted_at: s.posted_at ?? null,
@@ -1481,4 +1593,119 @@ export async function upsertSalesCompany(db: McpDb, actor: string, source: "apif
   }
 
   return { name: input.name, company_id: companyId, created, signals_new: signalsNew, contacts_new: contactsNew };
+}
+
+export type AddContactInput = {
+  company_id: string;
+  first_name?: string;
+  last_name?: string;
+  full_name?: string;
+  title?: string;
+  email?: string;
+  phone?: string;
+  linkedin_url?: string;
+  role?: "main" | "extra" | "reserve";
+  is_primary?: boolean;
+  origin?: LeadOrigin;
+};
+
+/**
+ * One contact on an existing company, without duplicates (the rules of the
+ * portal's Add contact): the same LinkedIn profile anywhere, else the same
+ * email at this company, else the same name at this company, is the same
+ * person and only gets its empty fields filled in.
+ */
+export async function addSalesContact(db: McpDb, actor: string, input: AddContactInput): Promise<
+  { error: string } | { contact_id: string; created: boolean; filled_in: string[] }
+> {
+  const { data: company } = await db.from("companies").select("id").eq("id", input.company_id).maybeSingle();
+  if (!company) return { error: "Company not found. Add it first with add_company." };
+  const split = input.full_name ? splitName(input.full_name) : { first: null, last: null };
+  const first = input.first_name?.trim() || split.first;
+  const last = input.last_name?.trim() || split.last;
+  const linkedin = normalizeLinkedin(input.linkedin_url);
+  const email = normalizeEmail(input.email);
+  const phone = normalizePhone(input.phone);
+  if (input.linkedin_url && !linkedin) return { error: "That is not a LinkedIn profile URL." };
+  if (input.phone && !phone) return { error: "That is not a valid phone number." };
+  if (!first && !last && !email && !linkedin) return { error: "Give at least a name, an email or a LinkedIn profile." };
+
+  const fields = "id, company_id, first_name, last_name, title, email, phone, linkedin_url, role, is_primary" as const;
+  let found = linkedin ? check(await db.from("contacts").select(fields).eq("linkedin_url", linkedin).limit(1).maybeSingle(), "contact") : null;
+  if ((!found || Array.isArray(found)) && email) {
+    found = check(await db.from("contacts").select(fields).eq("company_id", input.company_id).eq("email", email).limit(1).maybeSingle(), "contact");
+  }
+  if ((!found || Array.isArray(found)) && first && !email && !linkedin) {
+    found = check(
+      await db.from("contacts").select(fields).eq("company_id", input.company_id).eq("first_name", first).eq("last_name", last ?? "").limit(1).maybeSingle(),
+      "contact",
+    );
+  }
+
+  const source = input.origin ?? "claude";
+  if (found && !Array.isArray(found)) {
+    if (found.company_id !== input.company_id) {
+      return { error: `This LinkedIn profile is already a contact at another company (contact ${found.id}).` };
+    }
+    const patch: Record<string, Json> = {};
+    if (!found.first_name && first) patch.first_name = first;
+    if (!found.last_name && last) patch.last_name = last;
+    if (!found.title && input.title) patch.title = input.title;
+    if (!found.email && email) patch.email = email;
+    if (!found.phone && phone) {
+      patch.phone = phone;
+      patch.phone_type = phoneTypeFor(phone);
+    }
+    if (!found.linkedin_url && linkedin) patch.linkedin_url = linkedin;
+    if (input.role && input.role !== found.role) patch.role = input.role;
+    if (input.is_primary !== undefined && input.is_primary !== found.is_primary) patch.is_primary = input.is_primary;
+    if (Object.keys(patch).length) {
+      const { error } = await db.rpc("sales_update", { p_entity: "contact", p_ids: [found.id], p_fields: patch, p_source: "claude", p_actor: actor });
+      if (error) return { error: `Could not update the contact: ${error.message}` };
+    }
+    return { contact_id: found.id, created: false, filled_in: Object.keys(patch) };
+  }
+
+  const now = new Date().toISOString();
+  const { data, error } = await db
+    .from("contacts")
+    .insert({
+      company_id: input.company_id,
+      first_name: first,
+      last_name: last,
+      title: input.title ?? null,
+      linkedin_url: linkedin,
+      role: input.role ?? "main",
+      ...(email ? { email, email_source: source, email_found_at: now, email_status: "unknown" as const } : {}),
+      ...(phone ? { phone, phone_type: phoneTypeFor(phone), phone_source: source, phone_found_at: now } : {}),
+      status: "new",
+      source,
+      sources: [source],
+    })
+    .select("id")
+    .single();
+  if (error || !data) {
+    if (error?.code === "23505") return { error: "This person is already a contact." };
+    return { error: `Could not add the contact: ${error?.message ?? "unknown error"}` };
+  }
+  if (input.is_primary) {
+    const { error: primaryError } = await db.rpc("sales_update", {
+      p_entity: "contact",
+      p_ids: [data.id],
+      p_fields: { is_primary: true },
+      p_source: "claude",
+      p_actor: actor,
+    });
+    if (primaryError) return { error: `The contact was added, but not made primary: ${primaryError.message}` };
+  }
+  await db.rpc("sales_log_activity", {
+    p_company: input.company_id,
+    p_contact: data.id,
+    p_channel: "system",
+    p_type: "system",
+    p_notes: `Contact added by Claude${input.origin ? ` (${originLabels[input.origin]})` : ""}`,
+    p_source: "claude",
+    p_actor: actor,
+  });
+  return { contact_id: data.id, created: true, filled_in: [] };
 }

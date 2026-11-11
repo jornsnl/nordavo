@@ -10,7 +10,12 @@ import { pdfFileName } from "./text";
  * p_export). Clients get the watermark on every page. 404 when not allowed,
  * also for a client whose permission was withdrawn.
  */
-export async function wspPdfResponse(access: WspAccess, expect?: "client" | "staff" | "person"): Promise<NextResponse> {
+export async function wspPdfResponse(
+  access: WspAccess,
+  expect?: "client" | "staff" | "person",
+  /** Staff sending the profile to a client or prospect: the watermark of that share, with the client intro. */
+  forShare?: { name: string; sharedAt: string } | null,
+): Promise<NextResponse> {
   const report = await loadReport(access, true);
   if (!report || (expect && report.audience !== expect)) return new NextResponse("Not found", { status: 404 });
   const bytes = await buildReportPdf({
@@ -19,7 +24,12 @@ export async function wspPdfResponse(access: WspAccess, expect?: "client" | "sta
     completedAt: report.completedAt,
     results: report.results,
     audience: report.audience,
-    watermark: report.audience === "client" && report.share ? { clientName: report.share.clientName, consentedAt: report.share.consentedAt } : null,
+    watermark:
+      report.audience === "client" && report.share
+        ? { clientName: report.share.clientName, consentedAt: report.share.consentedAt }
+        : forShare
+          ? { clientName: forShare.name, consentedAt: forShare.sharedAt }
+          : null,
   });
   return new NextResponse(Buffer.from(bytes), {
     headers: {

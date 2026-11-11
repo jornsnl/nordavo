@@ -37,6 +37,8 @@ export type TaskListFilters = {
   due?: "overdue" | "today" | "week" | "none";
   entity_type?: LinkableType;
   entity_id?: string;
+  workspace_id?: string;
+  project_id?: string;
   limit: number;
   offset: number;
 };
@@ -70,6 +72,8 @@ export async function listWorkTasks(db: McpDb, userId: string, siteUrl: string, 
     p_entity_id: f.entity_id ?? null,
     p_limit: f.limit + 1,
     p_offset: f.offset,
+    p_workspace: f.workspace_id ?? null,
+    p_project: f.project_id ?? null,
   });
   if (error) throw new Error(`Could not load tasks: ${error.message}`);
   const rows = (data ?? []) as WorkTaskRow[];
@@ -82,10 +86,12 @@ export async function shapeWorkTasks(db: McpDb, rows: WorkTaskRow[], siteUrl: st
   const ids = rows.map((r) => r.id);
   if (ids.length === 0) return [];
   const projectIds = [...new Set(rows.map((r) => r.project_id))];
-  const [assignees, links, projects] = await Promise.all([
+  const workspaceIds = [...new Set(rows.map((r) => r.workspace_id))];
+  const [assignees, links, projects, workspaces] = await Promise.all([
     db.from("work_task_assignees").select("task_id, user_id").in("task_id", ids),
     db.from("work_task_links").select("task_id, entity_type, entity_id").in("task_id", ids),
     db.from("work_projects").select("id, name").in("id", projectIds),
+    db.from("work_workspaces").select("id, name, kind").in("id", workspaceIds),
   ]);
   const owners = check(assignees, "task owners");
   const linkRows = check(links, "linked records");
@@ -101,6 +107,7 @@ export async function shapeWorkTasks(db: McpDb, rows: WorkTaskRow[], siteUrl: st
   ]);
   const names = new Map(check(people, "people").map((p) => [p.id, personName(p)]));
   const projectName = new Map(check(projects, "projects").map((p) => [p.id, p.name]));
+  const workspaceOf = new Map(check(workspaces, "workspaces").map((w) => [w.id, w]));
   const linkOf = new Map(linkRows.map((l) => [l.task_id, l]));
   const base = siteUrl.replace(/\/$/, "");
   const now = Date.now();
@@ -118,7 +125,16 @@ export async function shapeWorkTasks(db: McpDb, rows: WorkTaskRow[], siteUrl: st
       overdue: Boolean(t.due_at && OPEN.includes(t.status) && new Date(t.due_at).getTime() < now),
       owners: owners.filter((a) => a.task_id === t.id).map((a) => ({ id: a.user_id, name: names.get(a.user_id) ?? null })),
       reviewer: t.reviewer_id ? { id: t.reviewer_id, name: names.get(t.reviewer_id) ?? null } : null,
+      workspace: {
+        id: t.workspace_id,
+        name: workspaceOf.get(t.workspace_id)?.name ?? null,
+        kind: workspaceOf.get(t.workspace_id)?.kind ?? "shared",
+      },
       project: { id: t.project_id, name: projectName.get(t.project_id) ?? null },
+      task_type: t.task_type,
+      labels: t.labels,
+      start_on: t.start_on,
+      estimate_minutes: t.estimate_minutes,
       linked: link
         ? {
             type: link.entity_type,
@@ -185,4 +201,54 @@ export async function linkedWorkTasks(db: McpDb, entityType: string, entityId: s
     const t = l.task as { id: string; title: string; external_source: string | null; external_id: string | null } | null;
     return t ? [{ id: t.id, title: t.title, oldId: t.external_source === "portal_tasks" ? t.external_id : null }] : [];
   });
+}
+
+/** The token owner's inbox project (made the first time), or null. */
+export async function inboxProject(db: McpDb, userId: string): Promise<string | null> {
+  const { data, error } = await db.rpc("work_ensure_inbox", { p_actor: userId });
+  if (error) return null;
+  return data ?? null;
+}
+
+/** Workspaces and projects the token owner can put tasks in, the inbox first. */
+export async function listWorkProjects(db: McpDb, userId: string, siteUrl: string, includeArchived = false) {
+  const inbox = await inboxProject(db, userId);
+  const { data, error } = await db.rpc("work_api_visible_projects", { p_user: userId });
+  if (error) throw new Error(`Could not load projects: ${error.message}`);
+  const projects = (data ?? []) as { id: string; workspace_id: string; name: string; visibility: string; archived_at: string | null }[];
+  const workspaceIds = [...new Set(projects.map((p) => p.workspace_id))];
+  const [workspaces, open] = await Promise.all([
+    workspaceIds.length
+      ? db.from("work_workspaces").select("id, name, slug, kind, archived_at").in("id", workspaceIds)
+      : Promise.resolve({ data: [], error: null }),
+    projects.length
+      ? db.from("work_tasks").select("project_id").in("project_id", projects.map((p) => p.id)).in("status", OPEN).is("archived_at", null).is("parent_id", null)
+      : Promise.resolve({ data: [], error: null }),
+  ]);
+  const counts = new Map<string, number>();
+  for (const row of check(open, "open tasks") as { project_id: string }[]) counts.set(row.project_id, (counts.get(row.project_id) ?? 0) + 1);
+  const base = siteUrl.replace(/\/$/, "");
+  const rank = { inbox: 0, private: 1, shared: 2 } as const;
+  const list = (check(workspaces, "workspaces") as { id: string; name: string; slug: string; kind: keyof typeof rank; archived_at: string | null }[])
+    .filter((w) => includeArchived || !w.archived_at)
+    .sort((a, b) => rank[a.kind] - rank[b.kind] || a.name.localeCompare(b.name))
+    .map((w) => ({
+      id: w.id,
+      name: w.name,
+      kind: w.kind,
+      archived: Boolean(w.archived_at),
+      url: `${base}/work/w/${w.slug}`,
+      projects: projects
+        .filter((p) => p.workspace_id === w.id && (includeArchived || !p.archived_at))
+        .map((p) => ({
+          id: p.id,
+          name: p.name,
+          is_inbox: p.id === inbox,
+          private: p.visibility === "private",
+          archived: Boolean(p.archived_at),
+          open_tasks: counts.get(p.id) ?? 0,
+          url: `${base}/work/projects/${p.id}`,
+        })),
+    }));
+  return { inbox_project_id: inbox, workspaces: list };
 }

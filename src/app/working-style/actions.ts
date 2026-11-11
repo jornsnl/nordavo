@@ -2,7 +2,6 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { getCurrentUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { sendWspMailAfter } from "@/lib/wsp/after";
 import type { WspAccess } from "@/lib/wsp/data";
@@ -107,35 +106,42 @@ export async function deleteMyWsp(access: WspAccess): Promise<WspActionResult> {
   return { ok: true };
 }
 
-const shareSchema = z.object({ assessmentId: z.guid(), clientId: z.guid(), share: z.boolean() });
+const viaSchema = z.enum(["questionnaire", "report", "academy"]);
 
 /**
- * Give or withdraw permission for one client, from the own account only.
- * RLS on wsp_shares makes sure consented_by is the signed-in person.
+ * The one general permission (feedback Julius): "Yes, share". Through the
+ * personal link or the own account; the database checks which person it is.
  */
-export async function setWspShare(input: z.infer<typeof shareSchema>): Promise<WspActionResult> {
-  const parsed = shareSchema.safeParse(input);
-  if (!parsed.success) return { ok: false, error: "Something went wrong. Please try again." };
-  const user = await getCurrentUser();
+export async function giveWspConsent(access: WspAccess, via: z.infer<typeof viaSchema>): Promise<WspActionResult> {
+  const parsed = accessSchema.safeParse(access);
+  const where = viaSchema.safeParse(via);
+  if (!parsed.success || !where.success) return { ok: false, error: "This link is not valid." };
   const supabase = await createClient();
-  const { assessmentId, clientId, share } = parsed.data;
-  if (share) {
-    const { error } = await supabase
-      .from("wsp_shares")
-      .insert({ assessment_id: assessmentId, client_id: clientId, consented_by: user.id });
-    if (error) return { ok: false, error: "Your permission could not be saved. Only you can share your own profile, from your own account." };
-  } else {
-    const { data, error } = await supabase
-      .from("wsp_shares")
-      .update({ revoked_by: user.id })
-      .eq("assessment_id", assessmentId)
-      .eq("client_id", clientId)
-      .is("revoked_at", null)
-      .select("id");
-    if (error || !data?.length) return { ok: false, error: "Your permission could not be withdrawn. Please try again." };
-    sendWspMailAfter([assessmentId]);
-  }
-  revalidatePath("/academy/working-style");
-  revalidatePath(`/academy/working-style/${assessmentId}`);
+  const { error } = await supabase.rpc("wsp_give_consent", { ...rpcAccess(parsed.data), p_via: where.data });
+  if (error) return { ok: false, error: message(error) };
+  revalidate(parsed.data);
+  return { ok: true };
+}
+
+/** "Not now": nothing changes; the portal asks once more after the general term. */
+export async function declineWspConsent(access: WspAccess): Promise<WspActionResult> {
+  const parsed = accessSchema.safeParse(access);
+  if (!parsed.success) return { ok: false, error: "This link is not valid." };
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("wsp_decline_consent", rpcAccess(parsed.data));
+  if (error) return { ok: false, error: message(error) };
+  revalidate(parsed.data);
+  return { ok: true };
+}
+
+/** Withdraw: nothing new is shared and every active share ends (clients get the withdrawal mail). */
+export async function withdrawWspConsent(access: WspAccess): Promise<WspActionResult> {
+  const parsed = accessSchema.safeParse(access);
+  if (!parsed.success) return { ok: false, error: "This link is not valid." };
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("wsp_withdraw_consent", rpcAccess(parsed.data));
+  if (error) return { ok: false, error: message(error) };
+  sendWspMailAfter("assessmentId" in parsed.data ? [parsed.data.assessmentId] : undefined);
+  revalidate(parsed.data);
   return { ok: true };
 }

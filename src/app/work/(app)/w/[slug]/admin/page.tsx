@@ -9,6 +9,7 @@ import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { ListSkeleton } from "@/components/ui/skeleton";
 import { ConfirmButton, DeactivateButton, InviteForm, MemberRoleForm, WorkspaceNameForm } from "@/components/work/people-admin";
 import {
+  archiveWorkspaceAction,
   deactivateMemberAction,
   inviteAction,
   reactivateMemberAction,
@@ -45,6 +46,7 @@ async function Admin({ params }: { params: Promise<{ slug: string }> }) {
   const inactive = members.filter((m) => m.deactivatedAt);
   const handover = active.filter((m) => m.role !== "guest").map((m) => ({ id: m.id, name: m.name }));
   const ws = { id: workspace.id, name: workspace.name };
+  const isPrivate = workspace.kind !== "shared";
 
   return (
     <>
@@ -58,7 +60,11 @@ async function Admin({ params }: { params: Promise<{ slug: string }> }) {
       <PageHeader
         eyebrow="Manage"
         title={workspace.name}
-        description="Members, guests, roles and access. Every change lands in the access log below."
+        description={
+          isPrivate
+            ? "Your private workspace: only you can see it, other admins included. Nobody can be invited."
+            : "Members, guests, roles and access. Every change lands in the access log below."
+        }
         actions={
           <>
             <a href={`/work/w/${slug}/export?format=json`} className={buttonClasses({ variant: "secondary" })}>
@@ -74,6 +80,16 @@ async function Admin({ params }: { params: Promise<{ slug: string }> }) {
       />
 
       <div className="space-y-5">
+        {workspace.archived && (
+          <div className="flex flex-col gap-3 rounded-2xl border border-amber-600/25 bg-amber-50 text-amber-900 px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between">
+            <p>
+              <strong className="font-semibold">This workspace is archived.</strong> It is hidden from the sidebar and My overview. Its projects and
+              tasks are kept.
+            </p>
+            <ConfirmButton run={archiveWorkspaceAction.bind(null, workspace.id, false)} label="Restore workspace" icon={false} />
+          </div>
+        )}
+        {!isPrivate && (
         <Card>
           <CardHeader title={`People (${active.length})`} description="Admins manage everything; members see open projects; guests only their projects." />
           <ul className="divide-y divide-border">
@@ -112,6 +128,7 @@ async function Admin({ params }: { params: Promise<{ slug: string }> }) {
             ))}
           </ul>
         </Card>
+        )}
 
         {inactive.length > 0 && (
           <Card>
@@ -131,6 +148,7 @@ async function Admin({ params }: { params: Promise<{ slug: string }> }) {
         )}
 
         <div className="grid gap-5 xl:grid-cols-2">
+          {!isPrivate && (
           <Card>
             <CardHeader title="Invite" description="The mail has a link that lands in the workspace, or straight in the project." />
             <CardBody className="space-y-4">
@@ -154,12 +172,24 @@ async function Admin({ params }: { params: Promise<{ slug: string }> }) {
               )}
             </CardBody>
           </Card>
+          )}
 
           <Card>
             <CardHeader title="Workspace" />
             <CardBody>
               <WorkspaceNameForm action={renameWorkspaceAction.bind(null, workspace.id)} name={workspace.name} />
               <p className="mt-4 text-xs text-muted">Web address: /work/w/{workspace.slug}</p>
+              {workspace.kind !== "inbox" && !workspace.archived && (
+                <div className="mt-5 flex flex-col gap-2 border-t border-border pt-4 sm:flex-row sm:items-center sm:justify-between">
+                  <p className="text-xs text-muted">Archive to hide it from the sidebar and My overview. Nothing is deleted; you can restore it here.</p>
+                  <ConfirmButton
+                    run={archiveWorkspaceAction.bind(null, workspace.id, true)}
+                    label="Archive workspace"
+                    icon={false}
+                    confirm={`Archive ${workspace.name}? It disappears from the list for everyone in it. You can restore it under Manage.`}
+                  />
+                </div>
+              )}
             </CardBody>
           </Card>
         </div>

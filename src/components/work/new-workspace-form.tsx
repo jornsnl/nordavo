@@ -14,7 +14,7 @@ function slugify(value: string) {
     .slice(0, 40);
 }
 
-export function NewWorkspaceForm({ action }: { action: WorkAction }) {
+export function NewWorkspaceForm({ action, kind = "shared" }: { action: WorkAction; kind?: "shared" | "private" }) {
   const { state, formAction, pending, errors } = useWorkAction(action);
   const [slug, setSlug] = useState("");
   const [touched, setTouched] = useState(false);
@@ -36,10 +36,14 @@ export function NewWorkspaceForm({ action }: { action: WorkAction }) {
           }}
         />
       </Field>
-      <p className="text-xs text-muted">You become the first admin. Invite the others from Manage.</p>
+      <p className="text-xs text-muted">
+        {kind === "private"
+          ? "It starts with a project called Tasks. Nobody can be invited; if the address is taken, a number is added."
+          : "You become the first admin. Invite the others from Manage."}
+      </p>
       <div className="flex justify-end max-sm:*:w-full">
         <PendingSubmit pending={pending} pendingLabel="Creating">
-          Create workspace
+          {kind === "private" ? "Create private workspace" : "Create workspace"}
         </PendingSubmit>
       </div>
     </form>

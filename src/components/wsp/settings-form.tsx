@@ -23,7 +23,11 @@ const terms: { key: keyof Numbers; label: string; hint: string }[] = [
   { key: "invite_valid_days", label: "Link valid (days)", hint: "Standard 14." },
   { key: "reminder_after_days", label: "Reminder after (days)", hint: "One reminder when not started. Standard 3." },
   { key: "reuse_months", label: "Reuse a completed profile (months)", hint: "No new invitation within this time. Standard 12." },
-  { key: "permission_request_days", label: "Ask for permission at most every (days)", hint: "Per client. Standard 7." },
+  {
+    key: "permission_request_days",
+    label: "Ask for permission at most every (days)",
+    hint: "One general permission per person, not per client. Also the wait before the portal asks once more after Not now. Standard 7.",
+  },
   { key: "candidate_retention_days", label: "Candidates: delete after the application ends (days)", hint: "Standard 28." },
   { key: "talent_pool_retention_days", label: "Talent pool consent: delete after the questionnaire (days)", hint: "Standard 365." },
   { key: "developer_retention_days", label: "Developers: delete after the placement ends (days)", hint: "Standard 28." },
@@ -54,6 +58,7 @@ export function WspSettingsForm({ settings, stages }: { settings: WspSettingsRow
             candidate_retention_days: number("candidate_retention_days"),
             talent_pool_retention_days: number("talent_pool_retention_days"),
             developer_retention_days: number("developer_retention_days"),
+            retention_enabled: form.get("retention_enabled") === "on",
           });
           setResult(r);
           router.refresh();
@@ -99,6 +104,15 @@ export function WspSettingsForm({ settings, stages }: { settings: WspSettingsRow
           </Field>
         ))}
       </div>
+      <label className="flex items-start gap-3 text-sm text-ink">
+        <input type="checkbox" name="retention_enabled" defaultChecked={settings.retention_enabled} className="mt-0.5 size-4 accent-brand-700" />
+        <span>
+          <span className="font-medium">Delete profiles after the terms above</span>
+          <span className="block text-xs text-muted">
+            Off (for now): the data is kept and the daily job deletes nothing. People and staff can still delete a profile by hand.
+          </span>
+        </span>
+      </label>
       {result && (result.ok ? <p role="status" className="text-sm text-emerald-700">{result.message}</p> : <p role="alert" className="text-sm text-danger">{result.error}</p>)}
       <Button type="submit" disabled={pending}>
         {pending && <LoaderCircle className="animate-spin" aria-hidden="true" />}

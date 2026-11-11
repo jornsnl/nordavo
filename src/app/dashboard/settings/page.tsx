@@ -3,6 +3,7 @@ import { Suspense } from "react";
 import Link from "next/link";
 import { getCurrentUser, hasModule } from "@/lib/auth";
 import { getOwnProfile, listClientOptions, listProfiles } from "@/lib/data/users";
+import { createClient } from "@/lib/supabase/server";
 import { formatDate } from "@/lib/format";
 import { optionFor, profileRoles } from "@/lib/labels";
 import { effectiveModules, portalModules } from "@/lib/modules";
@@ -217,7 +218,7 @@ async function UsersSection() {
   const user = await getCurrentUser();
   if (user.role !== "admin") return null;
 
-  const [allProfiles, clients] = await Promise.all([listProfiles(), listClientOptions()]);
+  const [allProfiles, clients, contentWorkspaces] = await Promise.all([listProfiles(), listClientOptions(), listContentWorkspaceOptions()]);
   // External callers are managed in the Callers tab.
   const profiles = allProfiles.filter((profile) => profile.role !== "caller");
   const canInvite = hasAdminClient();
@@ -273,7 +274,7 @@ async function UsersSection() {
                     {profile.role === "client"
                       ? (profile.client?.name ?? "Not linked")
                       : profile.role === "external"
-                        ? "Work only"
+                        ? "Work and Content only"
                         : "Nordavo"}
                     {" · 2FA "}
                     {mfaOn === undefined ? "unknown" : mfaOn ? "on" : "off"}
@@ -356,7 +357,7 @@ async function UsersSection() {
                     {profile.role === "client"
                       ? (profile.client?.name ?? <span className="text-danger">Not linked</span>)
                       : profile.role === "external"
-                        ? "Work only"
+                        ? "Work and Content only"
                         : "Nordavo"}
                   </TD>
                   <TD>
@@ -410,11 +411,18 @@ async function UsersSection() {
           description="The user gets an email with a link to set a password."
         />
         <CardBody className="py-5">
-          <InviteForm action={inviteUser} clients={clients} enabled={canInvite} />
+          <InviteForm action={inviteUser} clients={clients} contentWorkspaces={contentWorkspaces} enabled={canInvite} />
         </CardBody>
       </Card>
     </>
   );
+}
+
+/** Content workspaces for "Content only" invites (admins see them all). */
+async function listContentWorkspaceOptions(): Promise<{ id: string; name: string }[]> {
+  const supabase = await createClient();
+  const { data } = await supabase.from("content_workspaces").select("id, name").is("archived_at", null).order("name");
+  return data ?? [];
 }
 
 function ResetMfaButton({ userId, name }: { userId: string; name: string }) {

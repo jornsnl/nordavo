@@ -28,6 +28,8 @@ export type WspSettingsRow = {
   reminder_after_days: number;
   reuse_months: number;
   permission_request_days: number;
+  /** Delete by the retention terms (20261121030000; off: keep the data for now). */
+  retention_enabled: boolean;
   candidate_retention_days: number;
   talent_pool_retention_days: number;
   developer_retention_days: number;
@@ -95,21 +97,44 @@ export type WspResultRow = {
 
 export type WspFlagRow = { id: string; assessment_id: string; flag_type: string; details: Json; created_at: string };
 
+/** Who received a profile (20261121030000: staff share on one general permission). */
 export type WspShareRow = {
   id: string;
   assessment_id: string;
-  client_id: string;
+  /** A client: shown in their portal (channel portal) or sent as a PDF. */
+  client_id: string | null;
+  /** A prospect (sales company): always a PDF or the anonymous profile. */
+  company_id: string | null;
+  channel: "portal" | "pdf" | "anonymous_profile";
+  /** When it was shared. */
   consented_at: string;
-  consented_by: string;
+  /** The person, for the per-client shares from before; null for staff shares. */
+  consented_by: string | null;
+  shared_by: string | null;
+  consent_id: string | null;
   consent_text_version: string;
   revoked_at: string | null;
   revoked_by: string | null;
 };
 
+/** One general permission of a person to share their profile with companies Nordavo introduces them to. */
+export type WspConsentRow = {
+  id: string;
+  person_id: string;
+  consented_at: string;
+  consented_by: string | null;
+  via: "questionnaire" | "report" | "academy";
+  consent_text_version: string;
+  revoked_at: string | null;
+  revoked_by: string | null;
+};
+
+export type WspConsentPromptRow = { person_id: string; declined_at: string; declined_again_at: string | null };
+
 export type WspPermissionRequestRow = {
   id: string;
   assessment_id: string;
-  client_id: string;
+  client_id: string | null;
   requested_by: string | null;
   requested_at: string;
 };
@@ -145,8 +170,10 @@ export type WspTables = {
   wsp_answers: Table<WspAnswerRow, "assessment_id" | "item_id" | "answer" | "page_number">;
   wsp_results: Table<WspResultRow, "assessment_id" | "dimension" | "mean_score" | "score_0_100" | "band">;
   wsp_flags: Table<WspFlagRow, "assessment_id" | "flag_type">;
-  wsp_shares: Table<WspShareRow, "assessment_id" | "client_id" | "consented_by">;
-  wsp_permission_requests: Table<WspPermissionRequestRow, "assessment_id" | "client_id">;
+  wsp_shares: Table<WspShareRow, "assessment_id">;
+  wsp_consents: Table<WspConsentRow, "person_id" | "via">;
+  wsp_consent_prompts: Table<WspConsentPromptRow, "person_id">;
+  wsp_permission_requests: Table<WspPermissionRequestRow, "assessment_id">;
   wsp_audit_log: Table<WspAuditRow, "actor_role" | "action">;
   wsp_outbox: Table<WspOutboxRow, "kind">;
 };
@@ -161,7 +188,13 @@ export type WspFunctions = {
   wsp_send: Fn<{ p_person: string; p_vacancy?: string | null; p_client?: string | null }, string>;
   wsp_resend: Fn<{ p_assessment: string }, string>;
   wsp_link: Fn<{ p_assessment: string; p_vacancy?: string | null; p_client?: string | null }, boolean>;
-  wsp_request_permission: Fn<{ p_assessment: string; p_client: string }, string>;
+  wsp_request_permission: Fn<{ p_assessment: string; p_client?: string | null }, string>;
+  wsp_consent_state: Fn<{ p_token?: string | null; p_assessment?: string | null }, Json>;
+  wsp_give_consent: Fn<{ p_token?: string | null; p_assessment?: string | null; p_via?: string }, string>;
+  wsp_decline_consent: Fn<{ p_token?: string | null; p_assessment?: string | null }, undefined>;
+  wsp_withdraw_consent: Fn<{ p_token?: string | null; p_assessment?: string | null }, number>;
+  wsp_share: Fn<{ p_assessment: string; p_client?: string | null; p_company?: string | null; p_channel?: string }, string>;
+  wsp_staff_consent: Fn<{ p_person: string }, Json>;
   wsp_questionnaire: Fn<{ p_token?: string | null; p_assessment?: string | null }, Json>;
   wsp_accept_intro: Fn<{ p_token?: string | null; p_assessment?: string | null }, undefined>;
   wsp_save_answer: Fn<

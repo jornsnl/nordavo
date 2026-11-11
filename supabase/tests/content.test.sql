@@ -91,7 +91,8 @@ select pg_temp.check((select count(*) from public.content_ideas) = 0, 'floris ca
 reset role;
 select pg_temp.act('sabine.c@example.nl');
 set role authenticated;
-select pg_temp.check((select count(*) from public.content_ideas) = 0, 'reviewer cannot see ideas');
+-- Since 20261121010000 the reviewer sees the ideas of the workspaces she reviews.
+select pg_temp.check((select count(*) from public.content_ideas) = 1, 'reviewer sees the ideas');
 select pg_temp.fails($$insert into public.content_ideas (workspace_id, text) select id, 'x' from public.content_workspaces where slug = 'julius'$$, 'reviewer adds an idea');
 reset role;
 select pg_temp.act('viewer.c@nordavo.nl');
@@ -130,9 +131,11 @@ select pg_temp.check((select count(*) from public.content_notifications n join a
 select pg_temp.act('sabine.c@example.nl');
 set role authenticated;
 select pg_temp.check((select count(*) from public.content_posts) = 1, 'reviewer sees post in review');
--- She cannot edit the text, nor approve.
-select pg_temp.fails(format($$update public.content_posts set body = 'Changed' where id = %L$$, (select id from t_post)), 'reviewer edits text');
-select pg_temp.fails(format($$update public.content_posts set status = 'approved' where id = %L$$, (select id from t_post)), 'reviewer approves');
+-- She edits the text directly (20261121010000): a new version in her name.
+update public.content_posts set first_comment = 'Link in the comments' where id = (select id from t_post);
+select pg_temp.check((select first_comment from public.content_posts where id = (select id from t_post)) = 'Link in the comments', 'reviewer edits text');
+select pg_temp.check((select edited_by from public.content_post_versions where post_id = (select id from t_post) order by version desc limit 1)
+  = '00000000-0000-0000-0000-0000000c0003', 'the version names the reviewer');
 -- She suggests a change instead.
 insert into public.content_suggestions (post_id, field, start_offset, original_text, replacement_text, base_version)
 values ((select id from t_post), 'hook', 5, 'Dutch companies', 'Dutch scale-ups', 0);
@@ -247,6 +250,80 @@ select pg_temp.act('julius.c@nordavo.nl');
 set role authenticated;
 select pg_temp.fails($$select public.content_api_role(null, null)$$, 'api function for a signed-in user');
 reset role;
+
+-- ---------------------------------------------------------------------------
+-- Round two (20261121010000): the reviewer works on her own, Claude writes
+-- ---------------------------------------------------------------------------
+
+-- The whole test is one transaction: forget the actor the API calls above set.
+select set_config('content.actor', '', true), set_config('content.source', '', true);
+
+-- Sabine turns an idea of Julius into a post, edits it, sends it to review and approves it.
+insert into public.content_ideas (id, workspace_id, author_id, text)
+select '00000000-0000-0000-0000-0000000ce002', id, '00000000-0000-0000-0000-0000000c0001', 'Three myths about remote developers'
+from public.content_workspaces where slug = 'julius';
+select pg_temp.act('sabine.c@example.nl');
+set role authenticated;
+create temp table t_rpost on commit drop as
+  select public.content_ideas_to_post(array['00000000-0000-0000-0000-0000000ce002']::uuid[], 'Remote myths') as id;
+grant select on t_rpost to authenticated, service_role;
+select pg_temp.check((select author_id from public.content_posts where id = (select id from t_rpost)) = '00000000-0000-0000-0000-0000000c0001',
+  'a post by the reviewer belongs to the workspace owner');
+select pg_temp.check((select count(*) from public.content_posts where id = (select id from t_rpost)) = 1, 'the reviewer sees the draft she made');
+update public.content_posts set hook = 'Myth one: they are cheap.', status = 'in_review' where id = (select id from t_rpost);
+update public.content_posts set status = 'approved' where id = (select id from t_rpost);
+select pg_temp.check((select approved_by from public.content_posts where id = (select id from t_rpost)) = '00000000-0000-0000-0000-0000000c0003', 'reviewer approves');
+update public.content_posts set hook = 'Myth one: they are only cheap.' where id = (select id from t_rpost);
+select pg_temp.check((select status from public.content_posts where id = (select id from t_rpost)) = 'approved', 'a small fix by the reviewer keeps the approval');
+-- Where an admin has to approve, she cannot, and her edit sends it back.
+update public.content_posts set hook = 'Polished' where title = 'First post';
+select pg_temp.check((select status from public.content_posts where title = 'First post') = 'changes_requested', 'with admin approval required an edit sends it back');
+select pg_temp.fails($$update public.content_posts set status = 'in_review' where title = 'First post'; update public.content_posts set status = 'approved' where title = 'First post'$$, 'reviewer approves where an admin must');
+reset role;
+select pg_temp.check((select count(*) from public.content_activity
+  where post_id = (select id from t_rpost) and actor_id = '00000000-0000-0000-0000-0000000c0003' and source = 'user' and action = 'post_edited') >= 1,
+  'her edits are in the activity log');
+
+-- Claude: a post that is already live (from Airtable), results twice, media, an idea, archiving.
+select set_config('request.jwt.claims', '{"role": "service_role"}', false);
+set role service_role;
+create temp table t_cpost on commit drop as
+  select public.content_api_create_post(
+    (select id from public.content_workspaces where slug = 'julius'),
+    jsonb_build_object('title', 'From Airtable', 'hook', 'We placed our first developer.', 'body', 'Here is how.', 'format', 'text',
+      'linkedin_url', 'https://www.linkedin.com/feed/update/urn:li:activity:2', 'published_at', '2026-10-01T08:30:00+02:00',
+      'planned_date', '2026-10-01', 'time_slot', 't0830'),
+    'published', '00000000-0000-0000-0000-0000000c0001') as id;
+grant select on t_cpost to authenticated, service_role;
+select pg_temp.check((select status from public.content_posts where id = (select id from t_cpost)) = 'published', 'claude creates a published post');
+select pg_temp.check((select published_at from public.content_posts where id = (select id from t_cpost)) = '2026-10-01T08:30:00+02:00'::timestamptz,
+  'with its publication date');
+select public.content_api_record_results((select id from t_cpost), now() - interval '1 day', 900, 12, 3, 1, null, null, null, '00000000-0000-0000-0000-0000000c0001');
+select public.content_api_record_results((select id from t_cpost), now(), 1500, 21, 5, 2, '7d', null, null, '00000000-0000-0000-0000-0000000c0001');
+select pg_temp.check((select count(*) from public.content_measurements where post_id = (select id from t_cpost)) = 2, 'results more than once');
+select pg_temp.check((select likes from public.content_results where post_id = (select id from t_cpost) and measured_after = '7d') = 21, 'the 7 day slot is filled');
+insert into public.content_media (id, workspace_id, storage_path, file_name, mime_type)
+select '00000000-0000-0000-0000-0000000cd001', id, 'media/' || id || '/a.jpg', 'a.jpg', 'image/jpeg' from public.content_workspaces where slug = 'julius';
+insert into public.content_media (id, workspace_id, storage_path, file_name, mime_type)
+values ('00000000-0000-0000-0000-0000000cd002', null, 'media/company/b.jpg', 'b.jpg', 'image/jpeg');
+select public.content_api_set_post_media((select id from t_rpost), array['00000000-0000-0000-0000-0000000cd002', '00000000-0000-0000-0000-0000000cd001']::uuid[], '00000000-0000-0000-0000-0000000c0001');
+select pg_temp.check((select array_agg(media_id order by position) from public.content_post_media where post_id = (select id from t_rpost))
+  = array['00000000-0000-0000-0000-0000000cd002', '00000000-0000-0000-0000-0000000cd001']::uuid[], 'claude picks media in order');
+select pg_temp.fails($$select public.content_api_add_media(null, 'media/other/x.jpg', 'x.jpg', 'image/jpeg', 10, '{}', null, '00000000-0000-0000-0000-0000000c0001')$$, 'a file outside its library folder');
+select public.content_api_add_media(null, 'media/company/shoot-1.jpg', 'shoot-1.jpg', 'image/jpeg', 10, '{"description": "Julius at the office", "tags": ["Office", "julius"]}', 'https://drive.google.com/x', '00000000-0000-0000-0000-0000000c0001');
+select pg_temp.check((select tags from public.content_media where storage_path = 'media/company/shoot-1.jpg') = array['julius', 'office'], 'library file with tags');
+select public.content_api_add_idea((select id from public.content_workspaces where slug = 'julius'), 'A post about the Bangalore office', array['india'], null, '00000000-0000-0000-0000-0000000c0001');
+select pg_temp.check((select count(*) from public.content_ideas where text = 'A post about the Bangalore office') = 1, 'claude adds an idea');
+select public.content_api_update_post((select id from t_rpost), '{"theme": "india"}', null, '00000000-0000-0000-0000-0000000c0001');
+select public.content_api_archive_post((select id from t_cpost), true, '00000000-0000-0000-0000-0000000c0001');
+select pg_temp.check((select archived_at is not null from public.content_posts where id = (select id from t_cpost)), 'claude archives a post');
+select pg_temp.fails($$select public.content_api_create_post((select id from public.content_workspaces where slug = 'julius'), '{"title": "x"}', 'draft', '00000000-0000-0000-0000-0000000c0005')$$, 'claude for an outsider creates');
+reset role;
+select set_config('content.actor', '', true), set_config('content.source', '', true);
+select pg_temp.check((select count(*) from public.content_activity where source = 'claude' and post_id = (select id from t_cpost)) >= 3, 'claude changes are logged as claude');
+select pg_temp.check((select source from public.content_post_versions where post_id = (select id from t_cpost) order by version limit 1) = 'claude', 'versions name claude');
+select pg_temp.check((select bool_and(source = 'claude') from public.content_status_log where post_id = (select id from t_cpost)), 'status log names claude');
+select pg_temp.check((select count(*) from public.content_activity where source = 'claude' and post_id = (select id from t_rpost) and action = 'media_added') = 2, 'chosen media logged');
 
 -- Hourly checks queue notifications and are idempotent.
 select set_config('request.jwt.claims', '{"role": "service_role"}', false);

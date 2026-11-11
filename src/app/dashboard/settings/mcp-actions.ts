@@ -3,7 +3,8 @@
 import { refresh } from "next/cache";
 import { z } from "zod";
 import { type ActionState, GENERIC_ERROR, fieldErrorsFrom, formValues } from "@/lib/action-state";
-import { requireStaff } from "@/lib/auth";
+import { requireAdmin, requireStaff } from "@/lib/auth";
+import { mcpModules, mcpWriteLevels, type McpWriteLevel } from "@/lib/mcp/module-access";
 import { generateMcpToken } from "@/lib/mcp/tokens";
 import { createClient } from "@/lib/supabase/server";
 
@@ -122,4 +123,24 @@ export async function revokeOAuthGrant(grantId: string): Promise<ActionState> {
 
   refresh();
   return { ok: true, message: "App disconnected." };
+}
+
+/** Claude's rights per module (admins): read, drafts and suggestions, or full write. */
+export async function saveMcpModuleAccess(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  await requireAdmin();
+  const levels = new Set(mcpWriteLevels.map((l) => l.value));
+  const rows: { module: string; level: McpWriteLevel }[] = [];
+  for (const m of mcpModules) {
+    const value = formData.get(`level_${m.value}`);
+    if (typeof value !== "string" || !levels.has(value as McpWriteLevel)) return { error: `Choose a level for ${m.label}.` };
+    rows.push({ module: m.value, level: value as McpWriteLevel });
+  }
+  const supabase = await createClient();
+  const { error } = await supabase.from("mcp_module_access").upsert(rows, { onConflict: "module" });
+  if (error) {
+    console.error("saveMcpModuleAccess", error.code, error.message);
+    return { error: error.code === "42P01" ? "Run the migration 20261121020000_mcp_claude_rights.sql first." : GENERIC_ERROR };
+  }
+  refresh();
+  return { ok: true, message: "Saved. Claude gets the new rights on its next request." };
 }

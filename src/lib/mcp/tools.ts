@@ -21,7 +21,7 @@ import {
   type McpToolContext,
 } from "@/lib/mcp/shared";
 import { registerWriteTools } from "@/lib/mcp/write-tools";
-import { linkedWorkTasks, listWorkTasks, workTaskActivity } from "@/lib/mcp/work-tasks";
+import { inboxProject, linkedWorkTasks, listWorkProjects, listWorkTasks, workTaskActivity } from "@/lib/mcp/work-tasks";
 import { talentPoolTop } from "@/lib/screening/talent-search";
 
 const READ_ONLY = { readOnlyHint: true, openWorldHint: false } as const;
@@ -679,11 +679,26 @@ function registerReadTools(server: McpServer, ctx: McpToolContext) {
 
   // -------------------------------------------------------------------------
   server.registerTool(
+    "list_work_projects",
+    {
+      title: "Work workspaces and projects",
+      description:
+        "The Work workspaces and projects you can put tasks in: your inbox, your private workspaces and the shared ones (Nordavo, KG), with their open task count. Use a project id in create_task, update_task (to move a task) and list_tasks.",
+      inputSchema: {
+        include_archived: z.boolean().default(false).describe("Also archived projects and workspaces."),
+      },
+      annotations: READ_ONLY,
+    },
+    async ({ include_archived }) => ok(await listWorkProjects(db, ctx.userId, ctx.siteUrl, include_archived)),
+  );
+
+  // -------------------------------------------------------------------------
+  server.registerTool(
     "list_tasks",
     {
       title: "Tasks",
       description:
-        "List the Work tasks you can open, earliest deadline first, with owners, reviewer, project and the linked record (client, lead/company, vacancy, candidate, application or placement). Filter on your own tasks (mine), status, due window or a linked record (entity_type with entity_id). due_at is UTC; due_date is the day in Europe/Amsterdam.",
+        "List the Work tasks you can open, earliest deadline first, with owners, reviewer, workspace, project and the linked record (client, lead/company, vacancy, candidate, application or placement). Filter on your own tasks (mine), status, due window, a workspace or project (list_work_projects; inbox for your inbox) or a linked record (entity_type with entity_id). due_at is UTC; due_date is the day in Europe/Amsterdam.",
       inputSchema: {
         mine: z.boolean().default(false).describe("Only tasks the token owner is an owner of."),
         status: z
@@ -696,14 +711,33 @@ function registerReadTools(server: McpServer, ctx: McpToolContext) {
           .describe("overdue = deadline passed and still open, today, week = today up to 7 days ahead, none = no deadline."),
         entity_type: z.enum(linkableTypes).optional().describe("Only tasks linked to this record type (requires entity_id)."),
         entity_id: idSchema.optional(),
+        workspace_id: idSchema.optional().describe("Only tasks in this workspace (list_work_projects)."),
+        project_id: z
+          .union([idSchema, z.literal("inbox")])
+          .optional()
+          .describe("Only tasks in this project, or inbox for the token owner's inbox."),
         limit: limitSchema,
         offset: offsetSchema,
       },
       annotations: READ_ONLY,
     },
-    async ({ mine, status, due, entity_type, entity_id, limit, offset }) => {
+    async ({ mine, status, due, entity_type, entity_id, workspace_id, project_id, limit, offset }) => {
       if (Boolean(entity_type) !== Boolean(entity_id)) return fail("Give entity_type and entity_id together.");
-      return ok(await listWorkTasks(db, ctx.userId, ctx.siteUrl, { mine, status, due, entity_type, entity_id, limit, offset }));
+      const project = project_id === "inbox" ? await inboxProject(db, ctx.userId) : project_id;
+      if (project_id === "inbox" && !project) return fail("Your inbox could not be opened.");
+      return ok(
+        await listWorkTasks(db, ctx.userId, ctx.siteUrl, {
+          mine,
+          status,
+          due,
+          entity_type,
+          entity_id,
+          workspace_id,
+          project_id: project ?? undefined,
+          limit,
+          offset,
+        }),
+      );
     },
   );
 

@@ -16,10 +16,11 @@ import { NextIdeaPrompt } from "@/components/content/post/next-idea";
 import { PostMediaPanel } from "@/components/content/media/post-media-panel";
 import { PublishPanel } from "@/components/content/publish/publish-panel";
 import { PostResultsPanel } from "@/components/content/publish/post-results-panel";
+import { ArchivePostButton } from "@/components/content/post/archive-post-button";
 import { activeOptions, getContentWorkspace, requireContentUser, statusLabel } from "@/lib/content/data";
 import { getPostDetail, listSeriesChoices, mediaChoices, relationChoices } from "@/lib/content/posts";
 import { listSourceChoices } from "@/lib/content/ideas";
-import { statusMoves } from "@/lib/content/rules";
+import { activityText, statusMoves } from "@/lib/content/rules";
 import { formatDateTime } from "@/lib/format";
 
 export const metadata: Metadata = { title: "Post" };
@@ -57,8 +58,10 @@ async function Post({ params }: { params: Promise<{ slug: string; id: string }> 
 
   const role = workspace.role;
   const isAuthor = post.author_id === user.id;
-  const canEdit = role === "admin" || role === "author";
-  const canSuggest = role === "reviewer" || (canEdit && !isAuthor);
+  // The reviewer edits directly (feedback Julius); she can still switch to suggestions.
+  const canEdit = role === "admin" || role === "author" || role === "reviewer";
+  const canSuggest = canEdit && !isAuthor;
+  const archived = Boolean(post.archived_at);
   const canDecide = role === "admin" || (role === "author" && isAuthor);
   const locked = post.status === "published" || post.status === "measured";
   const moves = statusMoves({
@@ -103,12 +106,22 @@ async function Post({ params }: { params: Promise<{ slug: string; id: string }> 
         }
         description={[detail.author ? `By ${detail.author.name}` : null, `Version ${post.version}`].filter(Boolean).join(" · ")}
         actions={
-          <ButtonLink href={`/content/w/${slug}/posts/${id}/versions`} variant="secondary">
-            <History aria-hidden="true" />
-            Versions
-          </ButtonLink>
+          <>
+            <ButtonLink href={`/content/w/${slug}/posts/${id}/versions`} variant="secondary">
+              <History aria-hidden="true" />
+              Versions
+            </ButtonLink>
+            {canEdit && <ArchivePostButton slug={slug} postId={id} archived={archived} />}
+          </>
         }
       />
+
+      {archived && (
+        <p className="mb-6 rounded-2xl border border-amber-600/25 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          <strong className="font-semibold">This post is archived.</strong> It is left out of the lists, the calendar and the checks. Restore it to
+          work on it again.
+        </p>
+      )}
 
       <div className="mb-6">
         <StatusBar slug={slug} postId={id} moves={moves} />
@@ -268,6 +281,31 @@ async function Post({ params }: { params: Promise<{ slug: string; id: string }> 
               </ol>
             </details>
           </Card>
+
+          {detail.activity.length > 0 && (
+            <Card>
+              <details>
+                <summary className="cursor-pointer px-4 py-3.5 font-display text-base font-semibold text-brand-900 sm:px-5">
+                  Activity ({detail.activity.length})
+                </summary>
+                <ol className="space-y-2 px-4 pb-4 text-sm sm:px-5">
+                  {detail.activity.map((entry) => (
+                    <li key={entry.id} className="flex flex-col">
+                      <span className="text-ink">
+                        {activityText(entry.action, entry.details, (key) => statusLabel(workspace, key))}
+                        {entry.source === "claude" && (
+                          <span className="ml-1.5 rounded-full bg-accent-100 px-1.5 py-0.5 text-[11px] font-medium text-accent-600">Claude</span>
+                        )}
+                      </span>
+                      <span className="text-xs text-muted">
+                        {entry.actorName} · {formatDateTime(entry.created_at)}
+                      </span>
+                    </li>
+                  ))}
+                </ol>
+              </details>
+            </Card>
+          )}
         </div>
       </div>
     </>

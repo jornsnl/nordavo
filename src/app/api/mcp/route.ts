@@ -2,7 +2,8 @@ import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/
 import { connection } from "next/server";
 import { env } from "@/lib/env";
 import { oauthUrls } from "@/lib/mcp/oauth";
-import { createNordavoMcpServer } from "@/lib/mcp/server";
+import { ALL_WRITE, createNordavoMcpServer } from "@/lib/mcp/server";
+import type { McpAccessLevels } from "@/lib/mcp/module-access";
 import { authenticateMcpToken, mcpAuthErrorMessage } from "@/lib/mcp/tokens";
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -35,7 +36,7 @@ export async function POST(request: Request) {
     });
   }
 
-  const server = createNordavoMcpServer(auth.context, db, env.siteUrl());
+  const server = createNordavoMcpServer(auth.context, db, env.siteUrl(), await loadMcpLevels(db));
   const transport = new WebStandardStreamableHTTPServerTransport({
     sessionIdGenerator: undefined,
     enableJsonResponse: true,
@@ -52,6 +53,16 @@ export async function POST(request: Request) {
   } finally {
     await server.close().catch(() => {});
   }
+}
+
+/** Claude's rights per module (Settings, Claude); as before when the table is not there yet. */
+async function loadMcpLevels(db: NonNullable<ReturnType<typeof createAdminClient>>): Promise<McpAccessLevels> {
+  const { data, error } = await db.from("mcp_module_access").select("module, level");
+  if (error) {
+    console.error("[mcp] rights per module:", error.message);
+    return ALL_WRITE;
+  }
+  return Object.fromEntries(data.map((row) => [row.module, row.level]));
 }
 
 export async function GET() {

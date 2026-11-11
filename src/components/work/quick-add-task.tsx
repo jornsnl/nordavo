@@ -19,14 +19,19 @@ export function QuickAddTask({
   projects,
   user,
   defaultProjectId,
+  autoFocus = false,
 }: {
   projects: QuickAddProject[];
   user: { id: string; name: string; email: string | null };
   defaultProjectId?: string;
+  /** The capture page: the field has the focus as soon as it opens. */
+  autoFocus?: boolean;
 }) {
   const inputId = useId();
   const input = useRef<HTMLInputElement>(null);
-  const [projectId, setProjectId] = useState(defaultProjectId ?? projects[0]?.id ?? "");
+  const [projectId, setProjectId] = useState(
+    defaultProjectId && projects.some((p) => p.id === defaultProjectId) ? defaultProjectId : (projects[0]?.id ?? ""),
+  );
   const [busy, setBusy] = useState(false);
   if (projects.length === 0) return null;
 
@@ -107,6 +112,7 @@ export function QuickAddTask({
         placeholder="Add a task"
         enterKeyHint="done"
         autoComplete="off"
+        autoFocus={autoFocus}
         className="min-w-0 flex-1 rounded-xl bg-transparent px-2.5 py-2 text-sm outline-none placeholder:text-muted/70"
       />
       <button

@@ -208,11 +208,13 @@ function blockedReason({
   if (role !== "admin") {
     if (!offTrack && !transitions.some((t) => t.from === post.status && t.to === to.key)) return "not_next";
     if (!to.allowedRoles.includes(role as ContentMemberRole)) {
-      return to.key === "approved" ? "Only the author can approve" : `Only ${to.allowedRoles.join(" or ") || "an admin"} can set this`;
+      return to.key === "approved"
+        ? `Only the ${to.allowedRoles.join(" or ") || "admin"} can approve`
+        : `Only ${to.allowedRoles.join(" or ") || "an admin"} can set this`;
     }
   }
   if (to.key === "approved") {
-    if (role === "reviewer") return "Reviewers cannot approve";
+    // The reviewer approves too (feedback Julius); with admin approval required only an admin does.
     if (role === "author" && post.authorId !== userId) return "Only the author can approve";
     if (adminApprovalRequired && role !== "admin") return "Needs approval from an admin";
   }
@@ -557,4 +559,69 @@ export function reuseWarning(usedOn: string[], today: string, months: number): s
   const limit = new Date(Date.UTC(y, m - 1 - months, d)).toISOString().slice(0, 10);
   const recent = usedOn.filter((day) => day >= limit).sort().reverse();
   return recent.length ? `Used on ${recent[0]}, within the last ${months} months` : null;
+}
+
+// ---------------------------------------------------------------------------
+// Activity log
+// ---------------------------------------------------------------------------
+
+const fieldNames: Record<string, string> = {
+  title: "title",
+  hook: "hook",
+  body: "body",
+  closing_question: "closing question",
+  first_comment: "first comment",
+  planned_date: "date",
+  time_slot: "time slot",
+  series_id: "series",
+  source_id: "source",
+  linkedin_url: "LinkedIn URL",
+  custom_fields: "extra fields",
+  image_brief: "image brief",
+  published_at: "publication date",
+  author_id: "author",
+};
+
+/** One line of the activity log of a post, idea or file, in plain English. */
+export function activityText(action: string, details: unknown, status: (key: string) => string = (k) => k): string {
+  const d = (details && typeof details === "object" ? details : {}) as Record<string, unknown>;
+  switch (action) {
+    case "post_created":
+      return "Created the post";
+    case "post_edited": {
+      const fields = Array.isArray(d.fields) ? d.fields.map((f) => fieldNames[String(f)] ?? String(f).replace(/_/g, " ")) : [];
+      return fields.length ? `Changed the ${fields.join(", ")}` : "Edited the post";
+    }
+    case "status_changed":
+      return `${status(String(d.from ?? ""))} → ${status(String(d.to ?? ""))}`;
+    case "post_archived":
+      return "Archived the post";
+    case "post_restored":
+      return "Restored the post";
+    case "media_added":
+      return "Added media";
+    case "media_removed":
+      return "Removed media";
+    case "media_reordered":
+      return "Changed the order of the media";
+    case "results_entered": {
+      const parts = [
+        typeof d.impressions === "number" ? `${d.impressions} impressions` : null,
+        `${Number(d.likes ?? 0)} likes`,
+        `${Number(d.comments ?? 0)} comments`,
+        `${Number(d.reposts ?? 0)} reposts`,
+      ].filter(Boolean);
+      return `Results${d.slot ? ` after ${d.slot === "48h" ? "48 hours" : "7 days"}` : ""}: ${parts.join(", ")}`;
+    }
+    case "idea_created":
+      return "Added the idea";
+    case "idea_edited":
+      return "Edited the idea";
+    case "file_added":
+      return "Added the file";
+    case "file_described":
+      return "Described the file";
+    default:
+      return action.replace(/_/g, " ").replace(/^./, (c) => c.toUpperCase());
+  }
 }

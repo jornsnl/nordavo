@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requireAdmin, requireStaff } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { sendWspMailAfter } from "@/lib/wsp/after";
 
 // Staff actions on the Working Style Profile. The database checks the role
@@ -18,7 +19,7 @@ const optionalId = z.guid().nullable().optional();
 
 function fail(error: { message?: string } | null): WspStaffResult {
   const text = error?.message ?? "";
-  if (/^(The |This |There |Only |Permission |Assessment |Candidate |Vacancy )/.test(text)) return { ok: false, error: text.replace(/\.$/, "") + "." };
+  if (/^(The |This |There |Only |Permission |Assessment |Candidate |Vacancy |Choose |Unknown |No )/.test(text)) return { ok: false, error: text.replace(/\.$/, "") + "." };
   return { ok: false, error: "Something went wrong. Please try again." };
 }
 
@@ -74,15 +75,45 @@ export async function resendWspInvite(candidateId: string, assessmentId: string)
   return { ok: true, message: "A new link was sent (valid for 14 days)." };
 }
 
-export async function requestWspPermission(candidateId: string, assessmentId: string, clientId: string): Promise<WspStaffResult> {
-  await requireStaff();
-  if (!id.safeParse(assessmentId).success || !id.safeParse(clientId).success) return { ok: false, error: "Client not found." };
+/** Ask for the one general permission: at most once per term per person (Settings, Working style). */
+export async function requestWspPermission(candidateId: string, assessmentId: string, clientId?: string | null): Promise<WspStaffResult> {
+  if (!id.safeParse(candidateId).success || !id.safeParse(assessmentId).success || (clientId && !id.safeParse(clientId).success)) {
+    return { ok: false, error: "Something went wrong." };
+  }
   const supabase = await createClient();
-  const { error } = await supabase.rpc("wsp_request_permission", { p_assessment: assessmentId, p_client: clientId });
+  const { error } = await supabase.rpc("wsp_request_permission", { p_assessment: assessmentId, p_client: clientId ?? null });
   if (error) return fail(error);
   sendWspMailAfter([assessmentId]);
   refresh(candidateId, assessmentId);
-  return { ok: true, message: "Permission asked. Nothing is shared unless they tick the box themselves." };
+  return { ok: true };
+}
+
+const shareSchema = z.object({
+  candidateId: z.guid(),
+  assessmentId: z.guid(),
+  clientId: z.guid().nullable(),
+  companyId: z.guid().nullable(),
+  channel: z.enum(["portal", "pdf", "anonymous_profile"]),
+});
+
+/**
+ * Share the profile with a client (client portal or PDF) or a prospect (PDF
+ * or with the anonymous profile). Only with the person's permission; the
+ * database checks it and logs with whom, by whom and when.
+ */
+export async function shareWspProfile(input: z.infer<typeof shareSchema>): Promise<WspStaffResult & { shareId?: string }> {
+  const parsed = shareSchema.safeParse(input);
+  if (!parsed.success || Boolean(parsed.data.clientId) === Boolean(parsed.data.companyId)) return { ok: false, error: "Choose a client or a prospect." };
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("wsp_share", {
+    p_assessment: parsed.data.assessmentId,
+    p_client: parsed.data.clientId,
+    p_company: parsed.data.companyId,
+    p_channel: parsed.data.channel,
+  });
+  if (error) return fail(error);
+  refresh(parsed.data.candidateId, parsed.data.assessmentId);
+  return { ok: true, shareId: data ?? undefined };
 }
 
 export async function linkWspClient(candidateId: string, assessmentId: string, vacancyId: string | null, clientId: string | null): Promise<WspStaffResult> {
@@ -133,6 +164,7 @@ const settingsSchema = z.object({
   candidate_retention_days: z.number().int().min(0).max(3650),
   talent_pool_retention_days: z.number().int().min(0).max(3650),
   developer_retention_days: z.number().int().min(0).max(3650),
+  retention_enabled: z.boolean(),
 });
 
 /** System settings, admins only (Settings, Working style). */
@@ -145,4 +177,26 @@ export async function saveWspSettings(input: z.infer<typeof settingsSchema>): Pr
   if (error) return fail(error);
   revalidatePath("/dashboard/settings/working-style");
   return { ok: true, message: "Settings saved." };
+}
+
+/**
+ * Prospects (sales companies) by name or domain, to share a profile with.
+ * Recruitment staff may not read the sales CRM, so this returns only id and
+ * name, after the database said this user is Working Style staff.
+ */
+export async function searchWspProspects(query: string): Promise<{ id: string; name: string; domain: string | null }[]> {
+  const supabase = await createClient();
+  const { data: staff } = await supabase.rpc("wsp_is_staff");
+  if (staff !== true) return [];
+  const q = query.trim().replace(/[%_,()]/g, " ").trim().slice(0, 80);
+  if (q.length < 2) return [];
+  const admin = createAdminClient();
+  if (!admin) return [];
+  const { data } = await admin
+    .from("companies")
+    .select("id, name, domain")
+    .or(`name.ilike.%${q}%,domain.ilike.%${q}%`)
+    .order("name")
+    .limit(10);
+  return (data ?? []).map((c) => ({ id: c.id, name: c.name, domain: c.domain?.startsWith("nodomain:") ? null : c.domain }));
 }

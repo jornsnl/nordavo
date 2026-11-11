@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { check, formatNeedsMedia, peopleById, type ContentWorkspace, type Person } from "@/lib/content/data";
 import type {
+  ContentActivityRow,
   ContentCommentRow,
   ContentPostRow,
   ContentPostVersionRow,
@@ -17,7 +18,7 @@ import type { CustomValue, PostForRules } from "@/lib/content/rules";
  * log). RLS decides: reviewers only get posts that were sent to review.
  */
 
-export type PostFilters = { status?: string; series?: string; q?: string };
+export type PostFilters = { status?: string; series?: string; q?: string; /** Only archived posts instead of the live ones. */ archived?: boolean };
 
 export type PostListItem = {
   id: string;
@@ -49,6 +50,7 @@ export async function listPosts(workspace: ContentWorkspace, filters: PostFilter
     .order("planned_date", { ascending: true, nullsFirst: false })
     .order("updated_at", { ascending: false })
     .limit(500);
+  query = filters.archived ? query.not("archived_at", "is", null) : query.is("archived_at", null);
   if (filters.status) query = query.eq("status", filters.status);
   if (filters.series) query = query.eq("series_id", filters.series);
   const pattern = likePattern(filters.q);
@@ -88,6 +90,8 @@ export type PostDetail = {
   suggestions: SuggestionItem[];
   comments: CommentItem[];
   log: StatusLogItem[];
+  /** The activity log of the post (20261121010000): every change, with Claude marked. */
+  activity: (ContentActivityRow & { actorName: string })[];
   ideas: { id: string; text: string }[];
   rules: PostForRules;
 };
@@ -99,14 +103,16 @@ export async function getPostDetail(workspace: ContentWorkspace, id: string): Pr
   if (error) throw new Error(`Loading the post failed: ${error.message}`);
   if (!post) notFound();
 
-  const [suggestions, comments, log, links, media, results] = await Promise.all([
+  const [suggestions, comments, log, links, media, results, activity] = await Promise.all([
     supabase.from("content_suggestions").select("*").eq("post_id", id).eq("status", "pending").order("start_offset"),
     supabase.from("content_comments").select("*").eq("post_id", id).order("created_at"),
     supabase.from("content_status_log").select("*").eq("post_id", id).order("created_at", { ascending: false }),
     supabase.from("content_idea_posts").select("idea_id").eq("post_id", id),
     supabase.from("content_post_media").select("media_id").eq("post_id", id),
     supabase.from("content_results").select("measured_after").eq("post_id", id),
+    supabase.from("content_activity").select("*").eq("post_id", id).order("created_at", { ascending: false }).limit(60),
   ]);
+  const activityRows = check(activity, "activity");
   const suggestionRows = check(suggestions, "suggestions");
   const commentRows = check(comments, "comments");
   const logRows = check(log, "status log");
@@ -120,6 +126,7 @@ export async function getPostDetail(workspace: ContentWorkspace, id: string): Pr
     ...suggestionRows.map((s) => s.author_id),
     ...commentRows.map((c) => c.author_id),
     ...logRows.map((l) => l.actor_id),
+    ...activityRows.map((a) => a.actor_id),
   ]);
   const name = (uid: string | null, fallback = "Someone") => (uid && people.get(uid)?.name) || fallback;
 
@@ -134,7 +141,8 @@ export async function getPostDetail(workspace: ContentWorkspace, id: string): Pr
       authorName: name(c.author_id),
       replies: commentRows.filter((r) => r.parent_id === c.id).map((r) => ({ ...r, authorName: name(r.author_id) })),
     })),
-    log: logRows.map((l) => ({ ...l, actorName: name(l.actor_id, "System") })),
+    log: logRows.map((l) => ({ ...l, actorName: byLine(l.source, name(l.actor_id, "System")) })),
+    activity: activityRows.map((a) => ({ ...a, actorName: byLine(a.source, name(a.actor_id, "System")) })),
     ideas,
     rules: {
       status: post.status,
@@ -151,6 +159,11 @@ export async function getPostDetail(workspace: ContentWorkspace, id: string): Pr
   };
 }
 
+/** "Claude (for Julius)" for what Claude did with someone's token; the name otherwise. */
+export function byLine(source: string | null | undefined, actorName: string): string {
+  return source === "claude" ? `Claude (for ${actorName})` : actorName;
+}
+
 export type VersionItem = ContentPostVersionRow & { editorName: string };
 
 export async function listVersions(workspace: ContentWorkspace, postId: string): Promise<{ title: string; versions: VersionItem[] }> {
@@ -165,7 +178,7 @@ export async function listVersions(workspace: ContentWorkspace, postId: string):
   const people = await peopleById(rows.map((r) => r.edited_by));
   return {
     title: post.title,
-    versions: rows.map((r) => ({ ...r, editorName: (r.edited_by && people.get(r.edited_by)?.name) || "System" })),
+    versions: rows.map((r) => ({ ...r, editorName: byLine(r.source, (r.edited_by && people.get(r.edited_by)?.name) || "System") })),
   };
 }
 

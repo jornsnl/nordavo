@@ -39,16 +39,19 @@ async function Posts({
   const workspace = await getContentWorkspace(slug);
   const filters = { status: one(query.status), series: one(query.series), q: one(query.q) };
   const board = query.view === "board";
+  const archived = query.view === "archived";
   const [posts, series] = await Promise.all([
-    listPosts(workspace, filters),
+    listPosts(workspace, { ...filters, archived }),
     workspace.modules.series ? listSeriesChoices(workspace.id) : Promise.resolve([]),
   ]);
-  const canCreate = workspace.role === "author" || workspace.role === "admin";
+  const canCreate = workspace.role === "author" || workspace.role === "admin" || workspace.role === "reviewer";
   const base = `/content/w/${slug}/posts`;
   const keep = new URLSearchParams(Object.entries(filters).filter((e): e is [string, string] => Boolean(e[1])));
   const listHref = keep.size ? `${base}?${keep}` : base;
   const boardParams = new URLSearchParams(keep);
   boardParams.set("view", "board");
+  const archivedParams = new URLSearchParams(keep);
+  archivedParams.set("view", "archived");
 
   return (
     <>
@@ -57,14 +60,14 @@ async function Posts({
         title="Posts"
         description={
           workspace.role === "reviewer"
-            ? "Posts that were sent to review. Drafts stay with the author."
+            ? "Posts that were sent to review, and the ones you started. Drafts of the author stay with the author."
             : "Every post moves through one flow that only ends when it is live and measured."
         }
         actions={canCreate && <NewPostButton slug={slug} />}
       />
 
       <form method="get" className="mb-4 flex flex-wrap items-end gap-2" role="search">
-        {board && <input type="hidden" name="view" value="board" />}
+        {(board || archived) && <input type="hidden" name="view" value={board ? "board" : "archived"} />}
         <Input name="q" type="search" placeholder="Search title and text" defaultValue={filters.q ?? ""} className="w-full sm:w-64" aria-label="Search posts" />
         <Select name="status" defaultValue={filters.status ?? ""} aria-label="Status" className="w-full sm:w-48">
           <option value="">All statuses</option>
@@ -95,14 +98,25 @@ async function Posts({
         <PageTabs
           label="View"
           tabs={[
-            { label: "List", href: listHref, active: !board },
+            { label: "List", href: listHref, active: !board && !archived },
             { label: "Board", href: `${base}?${boardParams}`, active: board },
+            { label: "Archived", href: `${base}?${archivedParams}`, active: archived },
           ]}
         />
       </div>
 
       {posts.length === 0 ? (
-        <EmptyState icon={FileText} title="No posts" description={canCreate ? "Start a post, or turn an idea into one." : "Nothing matches, or nothing was sent to review yet."} />
+        <EmptyState
+          icon={FileText}
+          title={archived ? "No archived posts" : "No posts"}
+          description={
+            archived
+              ? "Posts you archive land here. Nothing is deleted."
+              : canCreate
+                ? "Start a post, or turn an idea into one."
+                : "Nothing matches, or nothing was sent to review yet."
+          }
+        />
       ) : board ? (
         <Board workspace={workspace} posts={posts} />
       ) : (

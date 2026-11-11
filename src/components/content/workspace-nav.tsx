@@ -9,7 +9,7 @@ export function workspaceSections(workspace: Pick<ContentWorkspaceItem, "slug" |
   const base = `/content/w/${workspace.slug}`;
   const sections = [
     { label: "Home", href: base },
-    workspace.modules.ideas && workspace.role !== "reviewer" ? { label: "Ideas", href: `${base}/ideas` } : null,
+    workspace.modules.ideas ? { label: "Ideas", href: `${base}/ideas` } : null,
     { label: "Posts", href: `${base}/posts` },
     { label: "Calendar", href: `${base}/calendar` },
     workspace.modules.media ? { label: "Media", href: `${base}/media` } : null,

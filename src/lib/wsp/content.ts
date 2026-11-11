@@ -6,7 +6,8 @@
 // that both are the same. Pure, no AI anywhere.
 
 export const INSTRUMENT_VERSION = "nordavo-wsp-v1";
-export const CONSENT_TEXT_VERSION = "nordavo-wsp-consent-v1";
+/** v2: one general permission instead of one per client (20261121030000, feedback Julius). */
+export const CONSENT_TEXT_VERSION = "nordavo-wsp-consent-v2";
 
 export type Dimension = "E" | "A" | "C" | "S" | "O";
 export type ItemDimension = Dimension | "check";
@@ -155,9 +156,9 @@ export const INTRO_SECTIONS: readonly { heading: string; bullets: readonly strin
     heading: "What happens with your results",
     bullets: [
       "You see your own report first, and you can download it as a PDF.",
-      "Your profile is never shared with a client company unless you tick the box for that company yourself. You can withdraw your permission at any time.",
+      "Nordavo shares your profile with companies we introduce you to for a placement, only if you say yes to that. You can withdraw this at any time.",
       "This is not a pass or fail test, and it is never the only basis for a decision.",
-      `We keep your results for 4 weeks after your application process ends, or up to 1 year if you agreed to stay in our talent pool. You can delete your profile yourself at any time. Read our privacy statement ${PRIVACY_PLACEHOLDER}.`,
+      `Read our privacy statement ${PRIVACY_PLACEHOLDER}.`,
     ],
   },
 ];
@@ -344,7 +345,25 @@ export const DIMENSION_TEXTS: readonly DimensionText[] = [
 // Toestemming, mail, PDF
 // ---------------------------------------------------------------------------
 
-/** [client name] is filled in by consentText(). */
+/**
+ * The one question about sharing (v2), on the last screen of the
+ * questionnaire, on the report and in the Academy. Nothing is ticked
+ * beforehand and nothing depends on the answer.
+ */
+export const CONSENT_QUESTION =
+  "May Nordavo share your Working Style Profile with companies we introduce you to for a placement?";
+export const CONSENT_BENEFIT =
+  "It helps those companies understand how you work best, so you can start off on the right foot together.";
+export const CONSENT_YES = "Yes, share";
+export const CONSENT_NOT_NOW = "Not now";
+export const CONSENT_GIVEN =
+  "You agreed that Nordavo may share your Working Style Profile with companies we introduce you to for a placement. You can withdraw this at any time.";
+export const CONSENT_NOT_GIVEN = "Your profile is not shared with any company.";
+export const CONSENT_WITHDRAW = "Withdraw permission";
+export const CONSENT_WITHDRAW_CONFIRM =
+  "Withdraw your permission? Nordavo will not share your profile any more, and companies that see it in their portal lose access straight away.";
+
+/** v1, per client (before 20261121030000). Kept for the shares people gave that way. [client name] is filled in by consentText(). */
 export const CONSENT_TEXT_TEMPLATE =
   "I agree that [client name] can view and download my Working Style Profile. I can withdraw this at any time.";
 

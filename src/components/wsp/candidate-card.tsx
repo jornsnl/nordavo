@@ -7,11 +7,13 @@ import { getCandidateWsp } from "@/lib/wsp/data";
 import { formatWspDate } from "@/lib/wsp/text";
 import { REASON_LABELS, STATUS_LABELS } from "@/lib/wsp/view";
 import { WspPersonSettings, WspResendButton, WspSendButton } from "./staff-controls";
+import { WspStaffSharing } from "./staff-sharing";
 
 /**
  * Working Style Profile on the candidate page (also on the Academy person
  * page and the placement page for developers): the person setting, "Send
- * working style profile" and the questionnaires with their status. No
+ * working style profile", the questionnaires with their status, and the
+ * one general permission with who received the profile and sharing it. No
  * scores here: they are only in the report (open a questionnaire). Hidden
  * when the system setting is off or for people outside recruitment and the
  * Academy team.
@@ -78,6 +80,15 @@ export async function WspCandidateCard({ candidateId, title = "Working style pro
               </li>
             ))}
           </ul>
+        )}
+
+        {wsp.assessments.some((a) => a.status === "completed") && (
+          <WspStaffSharing
+            candidateId={candidateId}
+            consent={wsp.consent}
+            assessments={wsp.assessments.filter((a) => a.status === "completed").map((a) => ({ id: a.id, completedAt: a.completed_at }))}
+            clients={wsp.clients}
+          />
         )}
       </CardBody>
     </Card>

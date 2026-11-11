@@ -45,6 +45,10 @@ Zonder `ANTHROPIC_API_KEY` werken DOCX en eenvoudige PDF's gewoon. Andere PDF's 
 
 **Read CV** op de kandidaat leest het geüploade CV opnieuw in `cv_text` (de matching las tot nu toe alleen geplakte tekst).
 
+**CV's uit het sollicitatieformulier** (feedback Julius, 11 november 2026): bij kandidaten uit LinkedIn en Naukri komt het CV pas binnen via het formulier. Direct na het insturen (na het antwoord aan de kandidaat, met `after()`) wordt het CV op dezelfde manier gelezen (`readFormCv` in `src/lib/screening/cv-read.ts`): DOCX en eenvoudige PDF's in code, andere PDF's door Claude (met `ANTHROPIC_API_KEY` direct, anders als verzoek voor `claude-requests`). De job `cv-read` (elk uur, [.github/workflows/cv-jobs.yml](../.github/workflows/cv-jobs.yml), of `npm run job -- cv-read --limit=100`) haalt de CV's in die al een bestand maar nog geen tekst hebben, oudste eerst.
+
+De tekst wordt zo compact mogelijk opgeslagen, zonder inhoud te verliezen (`compactCvText`): spaties en tabs samengevoegd, regels getrimd, hoogstens één lege regel achter elkaar en paginanummers weg. Zo kosten scoren en matchen zo min mogelijk tokens.
+
 ## Aantallen per bron
 
 De kaart *Applicants and screening* op de vacature toont het aantal sollicitanten per bron en per herkomst (gesolliciteerd of headhunted), met hoeveel er nog actief zijn. Het rapport per fase (hoe ver elke groep komt) hoort bij de rapportage.

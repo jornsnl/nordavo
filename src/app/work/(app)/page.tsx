@@ -8,10 +8,12 @@ import { FilterBar, type FilterDef } from "@/components/work/filter-bar";
 import { PageTabs } from "@/components/work/page-tabs";
 import { LiveTasks } from "@/components/work/live-task-lists";
 import { QuickAddTask } from "@/components/work/quick-add-task";
+import { quickAddProjects } from "@/lib/work/quick-add";
 import type { TaskView } from "@/lib/offline/overlay";
 import { PriorityChips, ViewToggle } from "@/components/work/view-controls";
 import {
   countReviews,
+  getInboxProjectId,
   listLabels,
   listMyWorkspaces,
   listOverview,
@@ -79,6 +81,8 @@ async function Overview({ searchParams }: { searchParams: Promise<Search> }) {
   const params = await searchParams;
   const { tab, view, filters } = parse(params);
   const user = await requireWorkUser();
+  // The inbox first, so a quick add without a choice lands there.
+  const inboxProjectId = await getInboxProjectId();
   const [workspaces, reviewCount, tasks, labels] = await Promise.all([
     listMyWorkspaces(),
     countReviews(),
@@ -142,7 +146,8 @@ async function Overview({ searchParams }: { searchParams: Promise<Search> }) {
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+      {/* Tabs and filters each on their own row, so neither is squeezed. */}
+      <div className="flex flex-col gap-3">
         <PageTabs
           label="Overview"
           tabs={[
@@ -160,14 +165,9 @@ async function Overview({ searchParams }: { searchParams: Promise<Search> }) {
 
       {tab === "mine" && (
         <QuickAddTask
-          projects={projects
-            .filter((p) => !p.archived && (!filters.project || p.id === filters.project))
-            .map((p) => {
-              const w = workspaces.find((ws) => ws.id === p.workspaceId);
-              return { id: p.id, name: p.name, workspace: { id: p.workspaceId, name: w?.name ?? "", slug: w?.slug ?? "" } };
-            })}
+          projects={quickAddProjects(projects, workspaces, inboxProjectId).filter((p) => !filters.project || p.id === filters.project)}
           user={{ id: user.id, name: user.name, email: user.email }}
-          defaultProjectId={filters.project}
+          defaultProjectId={filters.project ?? inboxProjectId ?? undefined}
         />
       )}
 

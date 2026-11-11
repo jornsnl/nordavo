@@ -2,11 +2,13 @@
 
 import { createHash } from "node:crypto";
 import { headers } from "next/headers";
+import { after } from "next/server";
 import type { ApplyState } from "@/components/forms/form-renderer";
 import { HONEYPOT_FIELD, mapAnswers, parseSubmission } from "@/lib/forms/answers";
 import { resolvePublicForm, TOKEN_RE } from "@/lib/forms/public";
 import { ATTACHMENTS_BUCKET, buildStoragePath } from "@/lib/storage";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { readFormCv } from "@/lib/screening/cv-read";
 
 /**
  * Public submission of an application form. No session: everything runs
@@ -112,6 +114,19 @@ export async function submitApplication(token: string, prev: ApplyState, formDat
       console.error(`[apply] cv not recorded: ${attached.error.message}`);
       return { error: "Your answers are saved, but the file could not be stored. Please submit once more.", values, attempt };
     }
+  }
+
+  // Read the CV into text right away (feedback Julius: the CVs of LinkedIn and
+  // Naukri candidates only come in through this form), after the answer is
+  // sent so the candidate does not wait. The job cv-read catches up on what fails.
+  if (parsed.files.length > 0) {
+    after(async () => {
+      try {
+        await readFormCv(db, result.candidate_id);
+      } catch (cause) {
+        console.error(`[apply] cv not read: ${cause instanceof Error ? cause.message : cause}`);
+      }
+    });
   }
 
   return { ok: true, attempt };

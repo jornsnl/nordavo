@@ -285,6 +285,31 @@ export async function readStoredCv(db: Db, candidateId: string): Promise<{ statu
 }
 
 /**
+ * A CV that came in through the application form: read it into cv_text
+ * unless the candidate already has text. Returns what happened, or null
+ * when there was nothing to read.
+ */
+export async function readFormCv(db: Db, candidateId: string) {
+  const { data: candidate } = await db.from("candidates").select("cv_path, cv_text_status, has_cv_text").eq("id", candidateId).maybeSingle();
+  if (!candidate?.cv_path || candidate.has_cv_text || candidate.cv_text_status === "read") return null;
+  return readStoredCv(db, candidateId);
+}
+
+/** Candidates with a CV file but no text yet (form uploads before this existed, failed reads), oldest first. */
+export async function cvsToRead(db: Db, limit: number) {
+  const { data, error } = await db
+    .from("candidates")
+    .select("id")
+    .not("cv_path", "is", null)
+    .eq("has_cv_text", false)
+    .or("cv_text_status.is.null,cv_text_status.eq.pending")
+    .order("created_at", { ascending: true })
+    .limit(limit);
+  if (error) throw new Error(`Could not load the CVs to read: ${error.message}`);
+  return data.map((c) => c.id);
+}
+
+/**
  * Without the API key Claude reads CVs through the MCP (claude-requests):
  * the fields from text read in code (cv_fields), or a PDF the portal could
  * not read (cv_read, text and fields).

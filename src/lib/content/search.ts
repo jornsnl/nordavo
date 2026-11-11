@@ -49,6 +49,7 @@ export async function searchContent(query: string): Promise<{ ideas: SearchHit[]
       .from("content_posts")
       .select("id, workspace_id, title, hook, body, status")
       .in("workspace_id", ids)
+      .is("archived_at", null)
       .or(postFilter)
       .order("updated_at", { ascending: false })
       .limit(50),

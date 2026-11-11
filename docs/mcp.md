@@ -97,7 +97,8 @@ Lijsten geven standaard 25 en maximaal 100 rijen, met `offset` om te bladeren. R
 | `list_vacancies` / `get_vacancy` | Vacatures (standaard open en on hold) met dagen open en pipeline-omvang; detail met profiel en pipeline per fase, scores en klantbeslissing |
 | `list_candidates` / `get_candidate` | Kandidaten (zoeken op naam, functie en skills); detail met skills, sollicitaties, plaatsingen en notities |
 | `list_placements` | Plaatsingen (standaard actief en opgezegd) met tarief, garantie en volgende check-in |
-| `list_tasks` | Work taken die de eigenaar van het token mag openen, op deadline, met eigenaren, reviewer, project, het gekoppelde record (`linked`: type, id, naam, link) en een link naar de taak in Work. Filters `mine` (eigenaar), `status` (`open` is `todo`, `in_progress` of `review`; verder `todo`, `in_progress`, `review`, `done`, `cancelled`, `all`), `due` (`overdue`, `today`, `week`, `none`) en een gekoppeld record (`entity_type` met `entity_id`). `due_at` is UTC, `due_date` de dag in Europe/Amsterdam. `has_more` zegt of er een volgende pagina is |
+| `list_tasks` | Work taken die de eigenaar van het token mag openen, op deadline, met eigenaren, reviewer, workspace, project, type, labels, startdatum, schatting, het gekoppelde record (`linked`: type, id, naam, link) en een link naar de taak in Work. Filters `mine` (eigenaar), `status` (`open` is `todo`, `in_progress` of `review`; verder `todo`, `in_progress`, `review`, `done`, `cancelled`, `all`), `due` (`overdue`, `today`, `week`, `none`), `workspace_id`, `project_id` (of `inbox`) en een gekoppeld record (`entity_type` met `entity_id`). `due_at` is UTC, `due_date` de dag in Europe/Amsterdam. `has_more` zegt of er een volgende pagina is |
+| `list_work_projects` | De workspaces en projecten waar de eigenaar taken in kan zetten: eerst de inbox, dan de privé workspaces, dan de gedeelde (Nordavo, KG), met het aantal open taken |
 | `get_activity` | Activiteitenlog van één record (inclusief pipeline en het log van de gekoppelde Work taken) of van het hele portaal; met `entity_type` `task` het log van één Work taak |
 | `talent_pool_top` | De beste kandidaten uit de talentpool voor een profiel in vrije tekst of een vacature, met reden, skills, projectervaring en woonplaats (zie [recruitment-screening.md](./recruitment-screening.md)) |
 
@@ -120,8 +121,10 @@ Lijsten geven standaard 25 en maximaal 100 rijen, met `offset` om te bladeren. R
 
 | Tool | Wat het doet |
 | --- | --- |
-| `create_task` | Work taak aanmaken in het afgeschermde project *Portal records*, optioneel gekoppeld aan een record (`entity_type`: `client`, `company` (lead), `vacancy`, `candidate`, `application` of `placement`, met `entity_id`). Prioriteit `low`, `normal`, `high` of `urgent`; `due_date` wordt 17:00 Amsterdamse tijd. De eigenaar van het token wordt reviewer en, zonder `assignee_id`, ook eigenaar |
+| `create_task` | Work taak aanmaken in een gekozen project (`project_id`, ook een privé workspace, of `inbox`). Zonder project: met een record (`entity_type`: `client`, `company` (lead), `vacancy`, `candidate`, `application` of `placement`, met `entity_id`) in het afgeschermde project *Portal records*, anders in de inbox van de eigenaar van het token. Prioriteit `low`, `normal`, `high` of `urgent`; `due_date` wordt 17:00 Amsterdamse tijd (of een exacte `due_at`). Ook eigenaren (`assignee_ids`), reviewer, type, labels, startdatum en schatting. Standaard is de eigenaar van het token reviewer en eigenaar |
+| `update_task` | Een bestaande taak aanpassen: titel, omschrijving, deadline, eigenaren (vervangt ze), reviewer, prioriteit, type, labels, startdatum, schatting, en verplaatsen naar een ander project (`project_id`; uit de inbox of een privé workspace ook naar een andere workspace). Gaat via `work_update_task`, `work_set_assignees` en `work_move_task`, dus met de rechten en het takenlog van Work |
 | `update_task_status` | Status van een Work taak zetten: `todo`, `in_progress`, `review` of `done`. De reviewregels van Work gelden: Done alleen door de reviewer of een admin, Review alleen met een reviewer, terug van Review of Done alleen met `comment` |
+| `add_task_comment` | Een reactie op een taak, met @vermeldingen (`mention_ids`), via `work_add_comment` |
 | `add_note` | Notitie toevoegen aan een klant, vacature, kandidaat, sollicitatie, plaatsing of GTM bedrijf |
 
 ### Sales schrijven (tokens met *Lezen en schrijven*, eigenaar met de module Sales)
@@ -132,6 +135,9 @@ Lijsten geven standaard 25 en maximaal 100 rijen, met `offset` om te bladeren. R
 | `update_contacts` | Status, rol, primair, functie, telefoon, mail, LinkedIn, terugbeldatum, beller en notitie van een of meer contacten |
 | `log_activity` | Een contactmoment of reply, bijvoorbeeld uit Instantly of Seleqt, met `external_id` tegen dubbelen. Met `review` en een `suggestion` wacht een reply op Julius |
 | `create_meeting` | Een meeting, bijvoorbeeld een Cal.com boeking, met de booking uid als `external_id` |
+| `update_meeting` | Na het gesprek: status (`held`, `approved`, `rejected`, `no_show`, `cancelled`, of terug naar `planned`) met een reden of notitie, en de fee. Goedkeuren, afkeuren en de fee alleen als de eigenaar admin is, net als in het portaal. Het bedrijf gaat mee naar de juiste fase (`meetings_after_change`), de notitie staat op de meeting en op de activity van de statuswijziging, met bron `claude` (`sales_update_meeting`) |
+| `add_company` | Eén bedrijf dat niet uit Apify of Prospeo komt, met de herkomst (`origin`: `inbound`, `linkedin`, `partner`, `network`), een `source_note` en eventueel de `partner_id`. Ontdubbeld zoals `upsert_companies`; contacten kunnen mee |
+| `add_contact` | Een contact aan een bestaand bedrijf: naam, functie, mail, telefoon, LinkedIn, rol (`main`, `extra`, `reserve`) en hoofdcontactpersoon. Dezelfde LinkedIn (overal), of hetzelfde mailadres of dezelfde naam bij dit bedrijf, is dezelfde persoon: die wordt aangevuld, nooit overschreven |
 | `open_list_for_callers` / `close_list_for_callers` | Een bellijst open of dicht zetten voor bellers, met einddatum en volgorde. Alleen als de eigenaar van het token admin is |
 | `upsert_companies` | Nieuwe bedrijven met vacatures en beslissers uit Apify of Prospeo. Ontdubbeld op genormaliseerd domein, daarna op de LinkedIn pagina; bekende bedrijven worden aangevuld, nooit overschreven |
 | `set_icp_verdict` | ICP-oordeel, score, reden, prio, categorie en openingszin; de leadstatus volgt (Ready, Review of No go) |
@@ -164,6 +170,30 @@ Het portaal roept hiervoor geen Claude API aan (geen `ANTHROPIC_API_KEY` nodig):
 | `complete_ai_request` | Een verzoek beantwoorden. Het portaal controleert het antwoord en past het toe; weigert het, dan blijft het verzoek open met de reden. Met `give_up_reason` sluit Claude een verzoek dat niet kan |
 
 Schrijftools worden voor een leestoken niet eens aangeboden (ze staan niet in `tools/list`), en elke schrijftool controleert de rechten nog een keer. Er is bewust niets om te verwijderen; `close_list_for_callers` haalt alleen de toegang van bellers tot een lijst weg.
+
+### Content (elk token; schrijven met *Lezen en schrijven*)
+
+Lezen: `content_list_workspaces`, `content_list_posts` (ook `archived`), `content_get_post`, `content_list_media`, `content_list_ideas`.
+
+| Tool | Wat het doet |
+| --- | --- |
+| `content_create_post` | Post met alle tekstvelden (titel, hook, body, slotvraag, eerste reactie), format, hoek, thema, doelgroep, taal, prioriteit, geplande datum, tijdslot, serie en notities, in elke status. Een post die al live stond (Airtable) krijgt `published` met `linkedin_url` en `published_at`. De tussenstappen van de flow worden vanzelf gezet, de regels blijven gelden |
+| `content_update_post` | Elk veld en de status van een post |
+| `content_archive_post` | Archiveren (of terugzetten met `archived: false`); verwijderen kan niet |
+| `content_set_post_media` | Media van een post in deze volgorde (vervangt de keuze) |
+| `content_add_media` | Een foto, video of PDF in de bibliotheek van een workspace of het bedrijf, vanaf een link: Google Drive (gedeeld met het service account) of een publieke https link, hoogstens 20 MB, met beschrijving en tags |
+| `content_describe_media` | Beschrijving en tags van een bestand direct schrijven |
+| `content_record_results` | Bereik, likes, reacties en reposts, zo vaak als je wilt (`content_measurements`); met `slot` `48h` of `7d` ook de vaste meting. Met `linkedin_url` (en `published_at`) wordt een goedgekeurde post Published |
+| `content_add_idea`, `content_ideas_to_post` | Een idee toevoegen; ideeën omzetten naar een post |
+| `content_suggest_*` | Blijven bestaan voor als Claude iets juist wil voorleggen |
+
+Alles wat Claude in Content wijzigt, staat in het activiteitenlog van Content (`content_activity`) met bron `claude` en de naam van de eigenaar van het token, en in de versies en het statuslog als *Claude (voor Julius)*.
+
+### Wat Claude per module mag (admin)
+
+Onder Instellingen, *Connect Claude (MCP)*, *What Claude may do per module* kiest een admin per module: **Read only** (geen schrijftools), **Drafts and suggestions** (alleen tools die een concept of suggestie maken, zoals `draft_sequence_text`, `content_suggest_*` en `content_add_idea`) of **Full write**. Tabel `mcp_module_access` (migratie `20261121020000_mcp_claude_rights.sql`); een module zonder regel is *Drafts and suggestions*. Work, Sales, Recruitment, Notes, Content en Academy staan na de migratie op Full write, dus er verandert niets tot een admin het aanpast. Tools die niet mogen, staan niet in `tools/list` (`gateTools` in `src/lib/mcp/module-access.ts`); het token kan nooit meer dan de eigenaar zelf. Niet afgeschermd: `log_job_run` (boekhouding van de geplande taken) en `complete_ai_request` (een verzoek dat iemand in het portaal klaarzette; het portaal controleert het antwoord).
+
+**Regel voor nieuwe modules.** Elke nieuwe module komt meteen met MCP tools om te lezen, als concept aan te maken en te suggereren. Zet elke schrijftool in `WRITE_TOOLS` in `src/lib/mcp/module-access.ts` met de module en de soort (`suggest` of `write`); de test in `tests/mcp.test.ts` faalt anders. Welke schrijfrechten Claude krijgt, bepaalt de admin in Instellingen.
 
 **Sales en Activities.** De sales tools schrijven met de secret key en `p_actor` = de eigenaar van het token, via de functies van de database (`sales_update`, `sales_log_activity`, `sales_save_meeting`, `sales_start_sequence`, `sales_pause`). Die controleren dat de eigenaar de module Sales heeft, en elke wijziging komt in Activities op naam van de eigenaar met bron `claude` (of de bron van de data, zoals `instantly` bij een reply). Bedrijven en contacten worden alleen via `sales_update` gewijzigd. Een eigenaar zonder de module Sales krijgt de sales tools niet.
 

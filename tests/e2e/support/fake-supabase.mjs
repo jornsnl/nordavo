@@ -80,7 +80,7 @@ function seed() {
         modules: null,
       },
     ],
-    work_workspaces: [{ id: WORKSPACE_ID, name: "Nordavo", slug: "nordavo", created_at: now() }],
+    work_workspaces: [{ id: WORKSPACE_ID, name: "Nordavo", slug: "nordavo", kind: "shared", owner_id: null, archived_at: null, created_at: now() }],
     work_members: [{ workspace_id: WORKSPACE_ID, user_id: USER_ID, role: "admin", deactivated_at: null, created_at: now() }],
     work_projects: [
       {
@@ -414,6 +414,26 @@ function findTask(id) {
 }
 
 const rpcs = {
+  // The inbox of the user (20261121000000_work_personal.sql): made once, returns its project.
+  work_ensure_inbox() {
+    let workspace = db.work_workspaces.find((w) => w.kind === "inbox" && w.owner_id === USER_ID);
+    if (!workspace) {
+      workspace = { id: randomUUID(), name: "Inbox", slug: "inbox-e2e", kind: "inbox", owner_id: USER_ID, archived_at: null, created_at: now() };
+      db.work_workspaces.push(workspace);
+      db.work_members.push({ workspace_id: workspace.id, user_id: USER_ID, role: "admin", deactivated_at: null, created_at: now() });
+      db.work_projects.push({
+        id: randomUUID(),
+        workspace_id: workspace.id,
+        name: "Inbox",
+        description: null,
+        visibility: "private",
+        archived_at: null,
+        created_at: now(),
+        created_by: USER_ID,
+      });
+    }
+    return db.work_projects.find((p) => p.workspace_id === workspace.id && !p.archived_at).id;
+  },
   work_create_task(args) {
     const project = db.work_projects.find((p) => p.id === args.p_project);
     if (!project) throw new DbError("Project not found", "P0002");

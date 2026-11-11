@@ -2661,6 +2661,13 @@ export type Database = {
         };
         Relationships: [];
       };
+      /** Claude's rights per module (20261121020000_mcp_claude_rights.sql). */
+      mcp_module_access: {
+        Row: { module: string; level: "read" | "suggest" | "write"; updated_by: string | null; updated_at: string };
+        Insert: { module: string; level: "read" | "suggest" | "write"; updated_by?: string | null; updated_at?: string };
+        Update: { level?: "read" | "suggest" | "write"; updated_by?: string | null; updated_at?: string };
+        Relationships: [];
+      };
       custom_field_definitions: {
         Row: {
           id: string;

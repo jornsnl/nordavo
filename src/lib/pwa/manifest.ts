@@ -28,6 +28,7 @@ export const manifest: MetadataRoute.Manifest = {
   theme_color: "#ffffff",
   categories: ["business", "productivity"],
   shortcuts: [
+    { name: "Add a task", short_name: "Add task", url: "/work/add", icons: icon },
     { name: "Overview", short_name: "Overview", url: "/dashboard", icons: icon },
     { name: "My tasks", short_name: "Tasks", url: "/work", icons: icon },
     { name: "Quick log", short_name: "Log", url: "/work/log", icons: icon },

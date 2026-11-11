@@ -195,6 +195,18 @@ export async function listFolderRecursive(folderId: string, rootName: string): P
   return result;
 }
 
+/** One file from Drive with the service account (the file or its folder must be shared with it). */
+export async function downloadDriveFile(fileId: string): Promise<{ bytes: ArrayBuffer; name: string; mimeType: string }> {
+  const token = await accessToken();
+  const meta = await fetch(`${DRIVE_API}/${encodeURIComponent(fileId)}?fields=name,mimeType,size&supportsAllDrives=true`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!meta.ok) throw new Error(`This Drive file cannot be opened (${meta.status}). Share it with ${driveServiceEmail() ?? "the service account"}.`);
+  const info = (await meta.json()) as { name?: string; mimeType?: string; size?: string };
+  if (Number(info.size ?? 0) > DRIVE_MAX_BYTES) throw new Error("This file is too large.");
+  return { bytes: await download(fileId), name: info.name ?? "file", mimeType: info.mimeType ?? "application/octet-stream" };
+}
+
 async function download(fileId: string): Promise<ArrayBuffer> {
   const token = await accessToken();
   const response = await fetch(`${DRIVE_API}/${encodeURIComponent(fileId)}?alt=media&supportsAllDrives=true`, {

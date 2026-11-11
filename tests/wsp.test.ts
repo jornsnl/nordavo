@@ -263,6 +263,30 @@ test("filling in names, intro per role, consent, mail, watermark, file name", ()
   assert.equal(pdfFileName("José Müller-Smit", "2026-11-09T23:30:00Z"), "working-style-profile_jose-muller-smit_2026-11-10.pdf");
 });
 
+test("the intro no longer talks about retention, the talent pool or deleting, and tells the new way of sharing", () => {
+  const all = INTRO_SECTIONS.flatMap((section) => section.bullets).join(" ");
+  assert.ok(!/4 weeks|talent pool|delete your profile|1 year/i.test(all));
+  assert.ok(all.includes("Nordavo shares your profile with companies we introduce you to for a placement, only if you say yes to that."));
+});
+
+test("one general permission: what staff may do", async () => {
+  const { mayRequestPermission, parseConsentState, parseStaffConsent, shareBlockedReason } = await import("@/lib/wsp/consent");
+  const state = parseConsentState({
+    consented: true,
+    consented_at: "2026-11-10T09:00:00Z",
+    may_ask: false,
+    recipients: [{ id: "s1", assessment_id: "a1", name: "KG", kind: "client", channel: "portal", shared_at: "2026-11-10T10:00:00Z" }],
+  });
+  assert.equal(state?.recipients[0].name, "KG");
+  assert.equal(shareBlockedReason(state, true), null);
+  assert.match(shareBlockedReason({ consented: false }, true) ?? "", /No permission/);
+  assert.match(shareBlockedReason(state, false) ?? "", /not completed/);
+  const none = parseStaffConsent({ consented: false, request_days: 7, last_request_at: "2026-11-09T10:00:00Z", recipients: [] });
+  assert.equal(mayRequestPermission(none, new Date("2026-11-11T10:00:00Z")).ok, false, "asked two days ago");
+  assert.equal(mayRequestPermission(none, new Date("2026-11-20T10:00:00Z")).ok, true, "after the term");
+  assert.equal(mayRequestPermission(parseStaffConsent({ consented: true, recipients: [] }), new Date()).ok, false);
+});
+
 test("privacy link: placeholder replaced only by an http(s) address from the env", () => {
   const last = INTRO_SECTIONS[2].bullets[3];
   const parts = splitPrivacy(last);
@@ -447,9 +471,12 @@ test("mail: invitation with the personal link, developers read it is optional", 
   const candidate = inviteMail({ name: "Asha", url, expiresAt: "2026-11-23T10:00:00Z", developer: false });
   assert.ok(!candidate.text.includes(DEVELOPER_INTRO_SENTENCE));
   assert.ok(reminderMail({ name: "Asha", url, expiresAt: "2026-11-23T10:00:00Z" }).subject.startsWith("Reminder"));
-  const ask = permissionMail({ name: "Asha", clientName: "KG <b>", url });
-  assert.ok(ask.text.includes("Nothing is shared unless you tick the box for KG <b> yourself"));
-  assert.ok(!ask.html.includes("KG <b>"), "names are escaped in html");
+  // One general permission (20261121030000): no client in the question any more.
+  const ask = permissionMail({ name: "Asha <b>", url });
+  assert.ok(ask.text.includes("Nothing is shared unless you say yes"));
+  assert.ok(ask.text.includes("companies we introduce you to"));
+  assert.ok(!ask.html.includes("Asha <b>"), "names are escaped in html");
+  assert.ok(candidate.text.includes("Only if you say yes"), "the invitation tells the new way of sharing");
   const done = completedMail({ name: "Asha", flags: ["too_fast"], url });
   assert.match(done.subject, /interpret with caution/);
   assert.match(completedMail({ name: "Asha", flags: [], url }).text, /No quality flags/);
