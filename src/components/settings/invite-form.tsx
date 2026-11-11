@@ -13,16 +13,19 @@ import { PendingSubmit, submitWithoutReset } from "@/components/placements/form-
 export function InviteForm({
   action,
   clients,
+  contentWorkspaces = [],
   enabled,
 }: {
   action: (state: ActionState, formData: FormData) => Promise<ActionState>;
   clients: { id: string; name: string }[];
+  /** For a Content only account (the reviewer). */
+  contentWorkspaces?: { id: string; name: string }[];
   /** False when SUPABASE_SECRET_KEY is missing on the server. */
   enabled: boolean;
 }) {
   const [state, formAction, pending] = useActionState(action, initialActionState);
   const formRef = useRef<HTMLFormElement>(null);
-  const [role, setRole] = useState<ProfileRole>("member");
+  const [role, setRole] = useState<ProfileRole | "content">("member");
   const errors = state.fieldErrors ?? {};
   const describedBy = (name: string) => (errors[name] ? `invite_${name}-error` : undefined);
 
@@ -79,7 +82,7 @@ export function InviteForm({
             name="role"
             value={role}
             disabled={!enabled}
-            onChange={(e) => setRole(e.target.value as ProfileRole)}
+            onChange={(e) => setRole(e.target.value as ProfileRole | "content")}
           >
             {/* External callers are invited under Callers. */}
             {profileRoles
@@ -89,8 +92,48 @@ export function InviteForm({
                   {option.label}
                 </option>
               ))}
+            <option value="content">Content only (reviewer)</option>
           </Select>
         </Field>
+        {role === "content" && (
+          <fieldset className="space-y-3 sm:col-span-2">
+            <legend className="text-sm font-medium text-ink">Content workspaces</legend>
+            <p className="text-xs text-muted">
+              This account only sees Content and its own Work inbox: no sales, candidates or clients. Pick the workspaces and the role in them.
+            </p>
+            {contentWorkspaces.length === 0 ? (
+              <p className="text-sm text-muted">There is no Content workspace yet. Make one under Content first.</p>
+            ) : (
+              <div className="flex flex-wrap gap-x-4 gap-y-2">
+                {contentWorkspaces.map((ws) => (
+                  <label key={ws.id} className="inline-flex items-center gap-1.5 text-sm text-ink pointer-coarse:min-h-11">
+                    <input
+                      type="checkbox"
+                      name="content_workspaces"
+                      value={ws.id}
+                      defaultChecked={contentWorkspaces.length === 1}
+                      disabled={!enabled}
+                      className="size-4 rounded border-border accent-brand-600"
+                    />
+                    {ws.name}
+                  </label>
+                ))}
+              </div>
+            )}
+            {errors.content_workspaces && (
+              <p id="invite_content_workspaces-error" className="text-xs text-danger">
+                {errors.content_workspaces}
+              </p>
+            )}
+            <Field label="Role in Content" htmlFor="invite_content_role">
+              <Select id="invite_content_role" name="content_role" defaultValue="reviewer" disabled={!enabled} className="sm:w-60">
+                <option value="reviewer">Reviewer: edits, approves, schedules, publishes</option>
+                <option value="viewer">Viewer: reads only</option>
+                <option value="author">Author: writes their own posts</option>
+              </Select>
+            </Field>
+          </fieldset>
+        )}
         {role === "client" && (
           <Field
             label="Client"

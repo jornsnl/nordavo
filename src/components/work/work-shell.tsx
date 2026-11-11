@@ -3,7 +3,7 @@
 import { Suspense, useCallback, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CheckCheck, ClipboardList, Inbox, Megaphone, Menu, NotebookPen, Search, Settings, X, type LucideIcon } from "lucide-react";
+import { CheckCheck, ClipboardList, Megaphone, Menu, NotebookPen, Plus, Search, Settings, X, type LucideIcon } from "lucide-react";
 import { LogoMark } from "@/components/brand/logo";
 import { TabBar, TabButton, type TabItem } from "@/components/ui/tab-bar";
 import { useDrawer } from "@/components/ui/use-drawer";
@@ -12,17 +12,18 @@ import { SyncIndicator } from "@/components/offline/sync-indicator";
 import { SyncRuntime } from "@/components/offline/sync-runtime";
 
 /** Kept on the device ahead of time, so they open without a connection. */
-const OFFLINE_PAGES = ["/work", "/work?view=board", "/work/log"];
+const OFFLINE_PAGES = ["/work", "/work/add", "/work?view=board", "/work/log"];
 
 const tabs: TabItem[] = [
   { label: "My tasks", href: "/work", icon: ClipboardList, match: (path) => path === "/work" },
+  { label: "Add", href: "/work/add", icon: Plus },
   { label: "Review", href: "/work?tab=review", icon: CheckCheck, match: () => false },
-  { label: "Log", href: "/work/log", icon: NotebookPen },
   { label: "Search", href: "/work/search", icon: Search },
 ];
 
 const links: { label: string; href: string; icon: LucideIcon }[] = [
-  { label: "My overview", href: "/work", icon: Inbox },
+  { label: "Add a task", href: "/work/add", icon: Plus },
+  { label: "My overview", href: "/work", icon: ClipboardList },
   { label: "Quick log", href: "/work/log", icon: NotebookPen },
   { label: "Search", href: "/work/search", icon: Search },
   { label: "Content", href: "/content", icon: Megaphone },

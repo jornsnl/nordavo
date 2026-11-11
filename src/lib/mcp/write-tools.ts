@@ -12,7 +12,27 @@ import {
   type McpToolContext,
 } from "@/lib/mcp/shared";
 import { MAX_BULK_MOVE, moveTargets } from "@/lib/recruitment/pipeline";
-import { amsterdamDueAt, shapeWorkTasks } from "@/lib/mcp/work-tasks";
+import { amsterdamDueAt, inboxProject, shapeWorkTasks } from "@/lib/mcp/work-tasks";
+import type { Json } from "@/lib/database.types";
+import { workTaskTypes as taskTypeOptions } from "@/lib/work/labels";
+import type { WorkTaskType } from "@/lib/work/database";
+
+const workTaskTypes = taskTypeOptions.map((t) => t.value) as [WorkTaskType, ...WorkTaskType[]];
+
+/** Type, labels, start date and estimate from a tool input, for work_update_task. */
+export function planningFields(input: {
+  task_type?: string | null;
+  labels?: string[];
+  start_on?: string | null;
+  estimate_minutes?: number | null;
+}): Record<string, unknown> {
+  const fields: Record<string, unknown> = {};
+  if (input.task_type !== undefined) fields.task_type = input.task_type ?? "";
+  if (input.labels !== undefined) fields.labels = input.labels;
+  if (input.start_on !== undefined) fields.start_on = input.start_on ?? "";
+  if (input.estimate_minutes !== undefined) fields.estimate_minutes = input.estimate_minutes ?? "";
+  return fields;
+}
 
 /** Staff only: tasks are never assigned to client portal users. */
 async function isStaffMember(db: McpDb, userId: string) {
@@ -110,27 +130,46 @@ export function registerWriteTools(server: McpServer, ctx: McpToolContext) {
     {
       title: "Create task",
       description:
-        "Create a Work task, optionally linked to a record (client, lead/company, vacancy, candidate, application or placement). It lands in the private Work project Portal records of the Nordavo team. The token owner becomes the reviewer and, unless assignee_id is given, the owner. Only call after the user asked for it.",
+        "Create a Work task. Pick the project with project_id (list_work_projects shows them, private workspaces and the inbox included). Without project_id: a task linked to a record (client, lead/company, vacancy, candidate, application or placement) goes to the private project Portal records of the Nordavo team, any other task to the token owner's inbox. The token owner is the reviewer unless reviewer_id is given, and the owner unless assignee_ids is given. Only call after the user asked for it.",
       inputSchema: {
         title: z.string().trim().min(1).max(300),
-        description: z.string().max(5000).optional(),
+        description: z.string().max(5000).optional().describe("Markdown."),
+        project_id: z.union([idSchema, z.literal("inbox")]).optional().describe("The project (list_work_projects), or inbox."),
         priority: z.enum(["low", "normal", "high", "urgent"]).default("normal"),
         due_date: z.iso.date().optional().describe("YYYY-MM-DD; the deadline becomes 17:00 Europe/Amsterdam that day."),
-        assignee_id: idSchema.optional().describe("Team member (profile id). Default: the token owner."),
+        due_at: z.iso.datetime({ offset: true }).optional().describe("Or an exact deadline (ISO 8601)."),
+        assignee_id: idSchema.optional().describe("One owner (profile id). Default: the token owner."),
+        assignee_ids: z.array(idSchema).max(10).optional().describe("Or several owners."),
+        reviewer_id: idSchema.optional().describe("Who approves the task. Default: the token owner."),
+        task_type: z.enum(workTaskTypes).optional(),
+        labels: z.array(z.string().trim().min(1).max(40)).max(20).optional(),
+        start_on: z.iso.date().optional(),
+        estimate_minutes: z.number().int().min(0).max(10_000).optional(),
         entity_type: z.enum(linkableTypes).optional().describe("Type of the linked record (requires entity_id)."),
         entity_id: idSchema.optional(),
       },
       annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
     },
-    async ({ title, description, priority, due_date, assignee_id, entity_type, entity_id }) => {
+    async (input) => {
       if (ctx.access !== "write") return denied();
+      const { title, description, priority, due_date, due_at, entity_type, entity_id } = input;
       if (Boolean(entity_type) !== Boolean(entity_id)) return fail("Give entity_type and entity_id together.");
       if (entity_type && entity_id && !(await recordExists(db, entity_type, entity_id))) {
         return fail("The linked record does not exist.");
       }
-      const assignee = assignee_id ?? ctx.userId;
-      if (assignee !== ctx.userId && !(await isStaffMember(db, assignee))) {
-        return fail("assignee_id is not a Nordavo team member.");
+      const owners = [...new Set(input.assignee_ids?.length ? input.assignee_ids : [input.assignee_id ?? ctx.userId])];
+      for (const owner of owners) {
+        if (owner !== ctx.userId && !(await isStaffMember(db, owner))) return fail(`${owner} is not a Nordavo team member.`);
+      }
+
+      let project: string | null = null;
+      if (input.project_id === "inbox" || (!input.project_id && !entity_type)) {
+        project = await inboxProject(db, ctx.userId);
+        if (!project) return fail("Your inbox could not be opened.");
+      } else if (input.project_id) {
+        const { data: visible } = await db.rpc("work_api_can_view_project", { p_project: input.project_id, p_user: ctx.userId });
+        if (!visible) return fail("Project not found. See list_work_projects.");
+        project = input.project_id;
       }
 
       // work_create_record_task checks the module of the record and acts as the token owner.
@@ -140,15 +179,105 @@ export function registerWriteTools(server: McpServer, ctx: McpToolContext) {
         p_title: title,
         p_description: description?.trim() || null,
         p_priority: priority,
-        p_due_at: due_date ? amsterdamDueAt(due_date) : null,
-        p_assignees: [assignee],
+        p_due_at: due_at ?? (due_date ? amsterdamDueAt(due_date) : null),
+        p_assignees: owners,
+        p_project: project,
         p_actor: ctx.userId,
       });
       if (error || !taskId) return fail(`Could not create task: ${error?.message ?? "no id returned"}`);
 
+      const extra = planningFields(input);
+      if (Object.keys(extra).length) {
+        const { error: updateError } = await db.rpc("work_update_task", { p_task: taskId, p_fields: extra as Json, p_actor: ctx.userId });
+        if (updateError) return fail(`The task was created (${taskId}), but not all fields were saved: ${updateError.message}`);
+      }
+
       const { data: row } = await db.from("work_tasks").select("*").eq("id", taskId).single();
       const [created] = row ? await shapeWorkTasks(db, [row], ctx.siteUrl) : [];
       return ok({ created: created ?? { id: taskId }, url: recordUrl(ctx.siteUrl, "task", taskId) });
+    },
+  );
+
+  // -------------------------------------------------------------------------
+  server.registerTool(
+    "update_task",
+    {
+      title: "Change task",
+      description:
+        "Change a Work task: title, description, deadline, owners (replaces them), reviewer, priority, type, labels, start date, estimate, or move it to another project (project_id; from the inbox or a private workspace also to another workspace). Leave out what stays the same; null clears a deadline, start date, type or estimate. Status goes through update_task_status. Only call after the user asked for it.",
+      inputSchema: {
+        id: idSchema.describe("Task id."),
+        title: z.string().trim().min(1).max(300).optional(),
+        description: z.string().max(5000).nullable().optional().describe("Markdown; null clears it."),
+        priority: z.enum(["low", "normal", "high", "urgent"]).optional(),
+        due_date: z.iso.date().nullable().optional().describe("YYYY-MM-DD (17:00 Amsterdam), or null to clear."),
+        due_at: z.iso.datetime({ offset: true }).optional().describe("Or an exact deadline."),
+        assignee_ids: z.array(idSchema).max(10).optional().describe("The new owners (replaces the list)."),
+        reviewer_id: idSchema.nullable().optional(),
+        task_type: z.enum(workTaskTypes).nullable().optional(),
+        labels: z.array(z.string().trim().min(1).max(40)).max(20).optional().describe("Replaces the labels."),
+        start_on: z.iso.date().nullable().optional(),
+        estimate_minutes: z.number().int().min(0).max(10_000).nullable().optional(),
+        project_id: z.union([idSchema, z.literal("inbox")]).optional().describe("Move to this project (subtasks move along)."),
+      },
+      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+    },
+    async (input) => {
+      if (ctx.access !== "write") return denied();
+      const { data: visible } = await db.rpc("work_api_can_view_task", { p_task: input.id, p_user: ctx.userId });
+      if (!visible) return fail("Task not found.");
+
+      if (input.project_id) {
+        const target = input.project_id === "inbox" ? await inboxProject(db, ctx.userId) : input.project_id;
+        if (!target) return fail("Your inbox could not be opened.");
+        const { error } = await db.rpc("work_move_task", { p_task: input.id, p_project: target, p_actor: ctx.userId });
+        if (error) return fail(`Could not move the task: ${error.message}`);
+      }
+      const fields: Record<string, unknown> = planningFields(input);
+      if (input.title !== undefined) fields.title = input.title;
+      if (input.description !== undefined) fields.description = input.description ?? "";
+      if (input.priority !== undefined) fields.priority = input.priority;
+      if (input.due_at !== undefined) fields.due_at = input.due_at;
+      else if (input.due_date !== undefined) fields.due_at = input.due_date ? amsterdamDueAt(input.due_date) : null;
+      if (input.reviewer_id !== undefined) fields.reviewer_id = input.reviewer_id ?? "";
+      if (Object.keys(fields).length) {
+        const { error } = await db.rpc("work_update_task", { p_task: input.id, p_fields: fields as Json, p_actor: ctx.userId });
+        if (error) return fail(`Could not update the task: ${error.message}`);
+      }
+      if (input.assignee_ids) {
+        for (const owner of input.assignee_ids) {
+          if (owner !== ctx.userId && !(await isStaffMember(db, owner))) return fail(`${owner} is not a Nordavo team member.`);
+        }
+        const { error } = await db.rpc("work_set_assignees", { p_task: input.id, p_users: [...new Set(input.assignee_ids)], p_actor: ctx.userId });
+        if (error) return fail(`Could not change the owners: ${error.message}`);
+      }
+      const { data: row } = await db.from("work_tasks").select("*").eq("id", input.id).single();
+      const [updated] = row ? await shapeWorkTasks(db, [row], ctx.siteUrl) : [];
+      return ok({ updated: updated ?? { id: input.id } });
+    },
+  );
+
+  // -------------------------------------------------------------------------
+  server.registerTool(
+    "add_task_comment",
+    {
+      title: "Comment on task",
+      description:
+        "Place a comment on a Work task, as the token owner. Mention people with mention_ids (they get a notification). Only call after the user asked for it.",
+      inputSchema: {
+        id: idSchema.describe("Task id."),
+        body: z.string().trim().min(1).max(10_000).describe("The comment (Markdown)."),
+        mention_ids: z.array(idSchema).max(20).optional(),
+      },
+      annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+    },
+    async ({ id, body, mention_ids }) => {
+      if (ctx.access !== "write") return denied();
+      const { data: visible } = await db.rpc("work_api_can_view_task", { p_task: id, p_user: ctx.userId });
+      if (!visible) return fail("Task not found.");
+      const { data, error } = await db.rpc("work_add_comment", { p_task: id, p_body: body, p_mentions: mention_ids ?? [], p_actor: ctx.userId });
+      if (error) return fail(`Could not add the comment: ${error.message}`);
+      return ok({ comment_id: data, url: recordUrl(ctx.siteUrl, "task", id) });
     },
   );
 

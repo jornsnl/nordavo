@@ -4,6 +4,8 @@ Content staat op `/content`, naast Work. Het vervangt de Airtable van Julius, wa
 
 In Content is een idee iets anders dan een post, en gaat elke post door één flow die pas eindigt als hij live staat en gemeten is. Elke medewerker heeft een eigen workspace (Julius, Floris, later anderen). Inloggen, gebruikers en accounts zijn dezelfde als in het portaal en Work.
 
+**Ronde twee (feedback Julius, 11 november 2026, migratie [20261121010000_content_reviewer_claude.sql](../supabase/migrations/20261121010000_content_reviewer_claude.sql)):** de reviewer (Sabine) past de tekst direct aan, keurt zelf goed, kan na goedkeuring nog kleine dingen verbeteren zonder dat de post terugvalt, ziet de ideeën en werkt ze uit tot post. Claude mag binnen Content alles zelf, en alles wat iemand wijzigt staat in een activiteitenlog met de bron (persoon of Claude). Posts kunnen worden gearchiveerd. Sabine nodig je uit met de rol *Content only (reviewer)* onder Instellingen, Invite user: een account met alleen Content en een eigen Work inbox, geen sales, kandidaten of klanten.
+
 De interface is Engels, net als Work. Posts zelf mogen Nederlands of Engels zijn. De oorspronkelijke brief staat als feedbacktaak in Athmium; de punten onder "Done when" staan als test in [supabase/tests/content.test.sql](../supabase/tests/content.test.sql).
 
 ## Wat zit erin
@@ -15,8 +17,8 @@ De interface is Engels, net als Work. Posts zelf mogen Nederlands of Engels zijn
 | My to do | `/content/review` | Voor de reviewer in één scherm over alle gekoppelde workspaces: in review, klaar om in te plannen, geen URL op de geplande datum, resultaten die nodig zijn, beeldbriefs |
 | Workspace | `/content/w/<slug>` | Buffermeter, deze week op schema of niet, waarschuwing voor morgen, snel een idee toevoegen |
 | Ideas | `/content/w/<slug>/ideas` | Inbox, Shortlist en Archive; shortlisten, samenvoegen, archiveren, *Turn into post* |
-| Posts | `/content/w/<slug>/posts` | Alle posts met status, datum en tijdslot |
-| Post | `/content/w/<slug>/posts/<id>` | Editor met alle velden, LinkedIn preview (mobiel en desktop, met de *see more* afkap), tekenteller, suggesties, opmerkingen op een stuk tekst, statusknoppen, media, beeldsuggesties en beeldbrief, publiceerpaneel, resultaten |
+| Posts | `/content/w/<slug>/posts` | Alle posts met status, datum en tijdslot; tab *Archived* voor gearchiveerde posts |
+| Post | `/content/w/<slug>/posts/<id>` | Editor met alle velden, LinkedIn preview (mobiel en desktop, met de *see more* afkap), tekenteller, suggesties, opmerkingen op een stuk tekst, statusknoppen, media, beeldsuggesties en beeldbrief, publiceerpaneel, resultaten, archiveren, statusgeschiedenis en activiteitenlog (met een label *Claude* voor wat Claude deed) |
 | Versies | `/content/w/<slug>/posts/<id>/versions` | Volledige versiegeschiedenis met vergelijken en terugzetten |
 | Calendar | `/content/w/<slug>/calendar` | Week en maand, een post slepen naar een andere dag |
 | Media | `/content/w/<slug>/media` en `/content/library` | Mediabibliotheek van de workspace en de gedeelde bedrijfsbibliotheek, met Google Drive sync, filters en *Used in* |
@@ -37,19 +39,19 @@ Content staat in het menu van Work en van het portaal. Wie niet is ingelogd gaat
 | --- | --- | --- |
 | Admin | Portaalbeheerder (`profiles.role = 'admin'`), bijvoorbeeld Julius | Ziet en beheert alle workspaces, maakt workspaces, beheert mensen, heeft het overzicht van alle workspaces |
 | Author | Eigenaar van de workspace | Schrijft en keurt de eigen posts goed, beheert de instellingen van de workspace |
-| Reviewer | Bijvoorbeeld Sabine, aan meerdere workspaces gekoppeld | Reviewt, stelt tekstwijzigingen voor, kiest media, plant in, publiceert en vult resultaten in. Keurt nooit goed. Ziet posts pas vanaf de eerste keer *In review*, en nooit ideeën |
+| Reviewer | Bijvoorbeeld Sabine, aan meerdere workspaces gekoppeld | Past tekst en velden direct aan (of stelt voor, met de schakelaar), keurt goed, kiest media, plant in, publiceert en vult resultaten in. Ziet posts vanaf de eerste keer *In review* en de posts die ze zelf begon, en alle ideeën van de workspace; maakt van een idee een post. Met *Admin approval required* keurt alleen een admin goed |
 | Viewer | | Alleen lezen |
 
-- Ideeën zijn standaard privé voor de author (en admins).
+- Ideeën zijn standaard privé voor de author (en admins en de reviewer).
 - Per workspace staat de instelling *Admin approval required* voor nieuwe medewerkers: dan keurt alleen een admin goed.
 - Klanten, bellers, developers en kandidaten hebben geen Content. Teamleden en Work accounts (`external`, zoals een freelance reviewer) wel, als ze in een workspace zitten.
 
 Hoe het is afgedwongen staat in [20261120000000_content.sql](../supabase/migrations/20261120000000_content.sql):
 
 - **Lezen** gaat via row level security, met de regels één keer in het schema `content_private`.
-- **Schrijven** gaat ook via RLS (per rol), en de triggers op `content_posts` dwingen de statusflow en de veldregels af voor iedereen, ook voor admins en de API. Een reviewer kan de tekst niet wijzigen, alleen voorstellen.
+- **Schrijven** gaat ook via RLS (per rol), en de triggers op `content_posts` dwingen de statusflow en de veldregels af voor iedereen, ook voor admins en de API. Een post die de reviewer maakt, is van de eigenaar van de workspace.
 - **Bestanden** staan in de private bucket `content` en gaan alleen via korte ondertekende links, voor wie de rij mag zien.
-- **Claude** schrijft via de `content_api_*` functies en schrijft alleen suggesties.
+- **Claude** schrijft via de `content_api_*` functies als de eigenaar van het token, met bron `claude`.
 
 ## Statusflow
 
@@ -57,19 +59,21 @@ Draft → In review → Changes requested → Approved → Scheduled → Publish
 
 | Regel | Waar |
 | --- | --- |
-| Alleen de author (of een admin) zet een post op Approved | trigger |
+| De author, de reviewer of een admin zet een post op Approved; met *Admin approval required* alleen een admin | trigger |
 | Scheduled vraagt Approved, een datum, een tijdslot, en gekozen media als het format dat nodig heeft | trigger |
 | Published vraagt goedkeuring en een LinkedIn URL | trigger |
 | Measured vraagt de resultaten na 7 dagen | trigger |
-| Wijzigt iemand anders dan de author de tekst na Approved, dan gaat de post terug naar Changes requested | trigger |
-| Elke statuswijziging wordt gelogd: wie, wanneer, van, naar | `content_status_log` |
+| Wijzigt iemand anders dan de author of de reviewer de tekst na Approved, dan gaat de post terug naar Changes requested. De reviewer valt alleen terug als een admin moet goedkeuren | trigger |
+| Elke statuswijziging wordt gelogd: wie, wanneer, van, naar, en of het Claude was | `content_status_log` (kolom `source`) |
+| Elke wijziging van een post, idee, gekozen media, bestand of resultaat staat in het activiteitenlog, met wie en de bron | `content_activity` |
+| Archiveren haalt een post uit de lijsten, de kalender en de controles; verwijderen kan niet | `archived_at` |
 
 Labels, volgorde, wie welke status mag zetten, extra statussen en welke status op welke volgt (de flow) staan in Settings, Statuses and flow. De regels hierboven blijven op de ingebouwde statussen gelden. Admins zijn niet aan de flow gebonden, wel aan de regels.
 
 ## Editor en review
 
 - Eén tekst per post (hook, body, slotvraag en eerste reactie), met volledige versiegeschiedenis en vergelijken.
-- De reviewer bewerkt in suggestiemodus: haar wijzigingen worden losse suggesties die de author per stuk of allemaal tegelijk accepteert of afwijst.
+- De reviewer bewerkt de tekst direct; elke opslag is een versie op haar naam, dus onder *Versions* zie je achteraf precies wat ze veranderde (vergelijken en terugzetten). Wie liever voorstelt, zet de schakelaar op *Suggest changes*: die wijzigingen worden losse suggesties die de author per stuk of allemaal tegelijk accepteert of afwijst.
 - Opmerkingen op een geselecteerd stuk tekst, met antwoorden en afhandelen. Feedback staat nooit in de tekst zelf.
 - LinkedIn preview voor mobiel en desktop met de *see more* afkap (ongeveer 140 en 210 tekens of 3 regels), en een tekenteller tegen de limiet van 3000.
 
@@ -111,7 +115,7 @@ Er is bewust geen LinkedIn koppeling. De reviewer plant zelf in of post zelf in 
 1. Goedgekeurde posts staan in *Ready to schedule* met datum en tijdslot.
 2. Het publiceerpaneel heeft *Copy text* (precies zoals op LinkedIn, met de regeleinden), *Download media* (de gekozen media in de juiste volgorde) en *Copy first comment*, plus een korte checklist.
 3. Na inplannen in LinkedIn zet de reviewer de post op Scheduled; staat hij live, dan plakt ze de URL en gaat hij naar Published.
-4. Na 48 uur en na 7 dagen vult ze vertoningen, likes, reacties en reposts in, op één scherm voor alle open metingen. Per workspace geldt een succesdrempel (Julius: minstens 20 likes plus reacties): groen of rood per post.
+4. Na 48 uur en na 7 dagen vult ze vertoningen, likes, reacties en reposts in, op één scherm voor alle open metingen. Per workspace geldt een succesdrempel (Julius: minstens 20 likes plus reacties): groen of rood per post. Claude kan daarnaast zo vaak als nodig een meting vastleggen (`content_measurements`), zodat je ziet hoe een post zich ontwikkelt.
 
 ## Google Drive
 
@@ -124,20 +128,18 @@ De mediabibliotheek importeert en synchroniseert een map in Google Drive, bijvoo
 
 ## Claude
 
-Julius' eigen Claude werkt via de bestaande MCP server (`/api/mcp`, zie [mcp.md](mcp.md)) met de rechten die het token van de eigenaar in Content heeft. Alles wat Claude schrijft verschijnt als suggestie; Claude kiest, keurt goed, plant in of publiceert nooit.
+Julius' eigen Claude werkt via de bestaande MCP server (`/api/mcp`, zie [mcp.md](mcp.md)) met de rechten die het token van de eigenaar in Content heeft. Binnen Content mag Claude alles zelf (feedback Julius): posts aanmaken (ook al gepubliceerde, uit Airtable), alle velden en de status aanpassen, archiveren, media kiezen en in volgorde zetten, foto's in de bibliotheek zetten (ook vanaf een Google Drive link), resultaten vastleggen en ideeën toevoegen en lezen. De suggesties blijven bestaan voor als Claude iets juist wil voorleggen. Hoe ver Claude mag schrijven stelt een admin in per module (Instellingen, *What Claude may do per module*; Content staat op Full write).
+
+Alles wat Claude wijzigt staat in het activiteitenlog van de post met het label *Claude*, en in de versies en het statuslog als *Claude (voor Julius)*, los van wat Sabine of Julius zelf deden.
 
 | Tool | Wat |
 | --- | --- |
-| `content_list_workspaces` | Workspaces met je rol |
-| `content_list_posts` | Posts van een workspace (een reviewer ziet alleen posts die in review zijn geweest) |
-| `content_get_post` | Velden, tekst, gekozen media, open beeld en tekstsuggesties |
-| `content_list_media` | Media van een workspace of de bedrijfsbibliotheek, filters op zonder beschrijving en nog niet gebruikt |
-| `content_suggest_media_description` | Beschrijving, tags, mensen, setting, sfeer, kleding en oriëntatie als suggestie (schrijftoken) |
-| `content_suggest_images` | Tot 3 beeldsuggesties per post met reden en score 1 tot 5 (schrijftoken) |
-| `content_suggest_image_brief` | Beeldbrief als er geen passende foto is; alleen een lege brief of een eigen eerdere (schrijftoken) |
-| `content_suggest_text` | Een tekstwijziging: Claude geeft de exacte originele tekst en de vervanging, het portaal zoekt de plek (schrijftoken) |
-
-Ideeën zijn niet via Claude te lezen.
+| `content_list_workspaces`, `content_list_posts`, `content_get_post`, `content_list_media`, `content_list_ideas` | Lezen |
+| `content_create_post`, `content_update_post`, `content_archive_post` | Posts met alle velden en de status |
+| `content_set_post_media`, `content_add_media`, `content_describe_media` | Media op een post en in de bibliotheek |
+| `content_record_results` | Link, publicatiedatum, bereik, likes, reacties en reposts, meerdere keren per post |
+| `content_add_idea`, `content_ideas_to_post` | Ideeën |
+| `content_suggest_media_description`, `content_suggest_images`, `content_suggest_image_brief`, `content_suggest_text` | Suggesties die een persoon beoordeelt |
 
 ## Jobs
 

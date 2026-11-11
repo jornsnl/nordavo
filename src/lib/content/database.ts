@@ -201,6 +201,9 @@ export type ContentPostRow = {
   created_by: string | null;
   created_at: string;
   updated_at: string;
+  /** Archived posts leave the lists; nothing is deleted (20261121010000). */
+  archived_at: string | null;
+  archived_by: string | null;
 };
 
 export type ContentIdeaRow = {
@@ -234,6 +237,7 @@ export type ContentPostVersionRow = {
   first_comment: string;
   edited_by: string | null;
   created_at: string;
+  source: "user" | "claude";
 };
 
 export type ContentSuggestionRow = {
@@ -276,10 +280,13 @@ export type ContentStatusLogRow = {
   actor_id: string | null;
   actor_role: string | null;
   created_at: string;
+  source: "user" | "claude";
 };
 
 export type ContentMediaRow = {
   id: string;
+  /** Where a file put in by Claude came from (20261121010000). */
+  source_url: string | null;
   workspace_id: string | null;
   storage_path: string;
   file_name: string;
@@ -314,6 +321,34 @@ export type ContentPostMediaRow = {
   media_id: string;
   position: number;
   added_by: string | null;
+  created_at: string;
+};
+
+/** Results as often as wanted (20261121010000); the 48h and 7d slots stay in content_results. */
+export type ContentMeasurementRow = {
+  id: number;
+  post_id: string;
+  measured_at: string;
+  impressions: number | null;
+  likes: number;
+  comments: number;
+  reposts: number;
+  entered_by: string | null;
+  source: "user" | "claude";
+  created_at: string;
+};
+
+/** The activity log of Content: who changed what, and whether it was Claude. */
+export type ContentActivityRow = {
+  id: number;
+  workspace_id: string | null;
+  post_id: string | null;
+  idea_id: string | null;
+  media_id: string | null;
+  action: string;
+  details: Json;
+  actor_id: string | null;
+  source: "user" | "claude" | "system";
   created_at: string;
 };
 
@@ -412,6 +447,8 @@ export type ContentTables = {
   content_image_suggestions: Table<ContentImageSuggestionRow, "post_id" | "media_id">;
   content_drive_folders: Table<ContentDriveFolderRow, "folder_id">;
   content_results: Table<ContentResultRow, "post_id" | "measured_after">;
+  content_measurements: Table<ContentMeasurementRow, "post_id">;
+  content_activity: Table<ContentActivityRow, "action">;
   content_notifications: Table<ContentNotificationRow, "user_id" | "kind" | "message">;
   content_notification_prefs: Table<ContentNotificationPrefRow, "user_id" | "kind">;
   content_events: Table<ContentEventRow, "kind" | "entity">;
@@ -448,6 +485,42 @@ export type ContentFunctions = {
   content_api_suggest_media: Fn<{ p_media: string; p_suggestion: Json; p_actor: string }, undefined>;
   content_api_suggest_images: Fn<{ p_post: string; p_items: Json; p_actor: string }, number>;
   content_api_suggest_image_brief: Fn<{ p_post: string; p_brief: Json; p_actor: string }, undefined>;
+  content_api_can_view_idea: Fn<{ p_idea: string; p_actor: string }, boolean>;
+  content_api_create_post: Fn<{ p_workspace: string; p_fields: Json; p_status: string | null; p_actor: string }, string>;
+  content_api_update_post: Fn<{ p_post: string; p_fields: Json; p_status: string | null; p_actor: string }, undefined>;
+  content_api_archive_post: Fn<{ p_post: string; p_archived: boolean; p_actor: string }, undefined>;
+  content_api_set_post_media: Fn<{ p_post: string; p_media: string[]; p_actor: string }, number>;
+  content_api_add_media: Fn<
+    {
+      p_workspace: string | null;
+      p_path: string;
+      p_file_name: string;
+      p_mime: string | null;
+      p_size: number | null;
+      p_details: Json;
+      p_source_url: string | null;
+      p_actor: string;
+    },
+    string
+  >;
+  content_api_describe_media: Fn<{ p_media: string; p_details: Json; p_actor: string }, undefined>;
+  content_api_record_results: Fn<
+    {
+      p_post: string;
+      p_measured_at: string | null;
+      p_impressions: number | null;
+      p_likes: number;
+      p_comments: number;
+      p_reposts: number;
+      p_slot: ContentMeasuredAfter | null;
+      p_linkedin_url: string | null;
+      p_published_at: string | null;
+      p_actor: string;
+    },
+    number
+  >;
+  content_api_add_idea: Fn<{ p_workspace: string; p_text: string; p_tags: string[]; p_link: string | null; p_actor: string }, string>;
+  content_api_ideas_to_post: Fn<{ p_ideas: string[]; p_title: string | null; p_actor: string }, string>;
   content_api_suggest_text: Fn<
     {
       p_post: string;

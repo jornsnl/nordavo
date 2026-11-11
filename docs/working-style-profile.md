@@ -4,7 +4,7 @@ Een korte Big Five vragenlijst voor kandidaten en geplaatste developers: 50 stel
 
 **Het is geen selectietool.** Geen voldoende of onvoldoende, geen ranking, geen automatische beslissingen. Scoring, teksten, weergave en PDF zijn volledig regelgebaseerd: nergens AI (anders valt het onder de EU AI Act als hoog risico systeem).
 
-Gebouwd naar de opdracht van Julius (vier delen in Athmium, 9 november 2026). Alle stellingen en teksten staan letterlijk in `src/lib/wsp/content.ts`; de stellingen ook in de migratie, een test vergelijkt beide. Een wijziging in tekst of scoring is een nieuwe instrumentversie, nooit een aanpassing van `nordavo-wsp-v1`.
+Gebouwd naar de opdracht van Julius (vier delen in Athmium, 9 november 2026). Sinds 11 november 2026 (feedback Julius, migratie `20261121030000_wsp_general_consent.sql`) is er **één algemene toestemming** in plaats van een vinkje per opdrachtgever, en deelt Nordavo het profiel; zie [Toestemming en delen](#toestemming-en-delen-sinds-ronde-twee). De tekst over bewaartermijnen, de talentpool en verwijderen staat niet meer in de vragenlijst, en de data blijft voorlopig bewaard: de dagelijkse job verwijdert pas weer als een admin *Delete profiles after the terms above* aanzet. Alle stellingen en teksten staan letterlijk in `src/lib/wsp/content.ts`; de stellingen ook in de migratie, een test vergelijkt beide. Een wijziging in tekst of scoring is een nieuwe instrumentversie, nooit een aanpassing van `nordavo-wsp-v1`.
 
 | Onderdeel | Waar |
 | --- | --- |
@@ -106,7 +106,23 @@ Kop met voornaam en achternaam, rol of vacature (de laatst gekoppelde vacature; 
 
 Scores staan alleen in het rapport, de PDF en de staffweergave van een afname. Niet in kandidatenlijsten, kanbanborden, zoekresultaten, de talentpool of het overzicht, en niet in de MCP-tools; geen enkele andere functie, view of pagina leest de `wsp_*` resultaten (beide tests controleren dat). Nergens wordt op deze scores gefilterd of gesorteerd.
 
-## Toestemming voor delen
+## Toestemming en delen (sinds ronde twee)
+
+| Onderdeel | Hoe |
+| --- | --- |
+| De vraag | "May Nordavo share your Working Style Profile with companies we introduce you to for a placement?", met één zin wat het oplevert, een grote knop **Yes, share** en een kleine link **Not now**. Niets is vooraf aangevinkt en niets hangt ervan af. Niet gekoppeld aan een klant of vacature (`wsp_consents`, tekstversie `nordavo-wsp-consent-v2`) |
+| Waar | Op het eindscherm van de test: eerst kort het eigen resultaat (vijf scores), daaronder de vraag, daaronder het volledige rapport. Werkt ook via de persoonlijke link, zonder account. Daarna op het rapport en in de Academy (`/academy/working-style`) |
+| Nu niet | Gewoon door. Het portaal vraagt het hooguit nog één keer, na de algemene termijn uit Settings (*Ask for permission at most every (days)*, nu per persoon en niet meer per klant). `wsp_consent_prompts` |
+| Academy | Toestemming geven of intrekken, en de lijst van bedrijven die het profiel ontvingen, met wanneer en hoe (klantportaal, PDF, met het anonieme profiel) |
+| Delen door staff | Kaart Working style profile op de kandidaat (en de afname): *Permission to share* (ja sinds wanneer, niet gegeven, Not now, ingetrokken), *Shared with* en *Share the profile*: met een klant (in het klantportaal of als PDF) of een prospect uit Sales (als PDF, of met het anonieme profiel). Zonder toestemming staat de knop uit, met de reden. De PDF voor een ontvanger heeft hun naam en de datum in het watermerk op elke pagina (`.../pdf?share=<id>`). `wsp_share` |
+| Log | Elke keer delen in het auditlog (`shared`): met wie (`to`), door wie en wanneer; ook opnieuw delen met een klant die het al had. Geven, Not now en intrekken als `consent_given`, `consent_declined`, `consent_withdrawn` |
+| Intrekken | Daarna kan er niets nieuws gedeeld worden, en alle actieve shares eindigen: klanten zien het profiel niet meer in hun portaal en hun contactpersoon krijgt de intrekkingsmail. Ook de shares van voor ronde twee (per klant) eindigen zo |
+| Vragen | *Ask for permission* door staff (mail en melding in de Academy), hooguit één keer per termijn per persoon. Bij de start van een plaatsing vraagt het systeem het zelf als er nog geen toestemming is |
+| Teksten | Intro van de test, uitnodigingsmail en verzoekmail beschrijven de nieuwe werkwijze: Nordavo deelt het profiel met bedrijven waar we je voorstellen, alleen als je ja zegt, en je kunt dat altijd intrekken. De privacyverklaring zelf (`NEXT_PUBLIC_PRIVACY_URL`) staat buiten het portaal en moet dezelfde werkwijze noemen |
+
+De rest van dit document beschrijft de eerste versie; waar het hierboven anders staat, geldt het bovenstaande.
+
+## Toestemming voor delen (eerste versie, tot ronde twee)
 
 * Alleen de persoon zelf, vanuit het eigen account: de policy "Person shares own profile" op `wsp_shares` eist `consented_by = auth.uid()`, dat de afname van de ingelogde persoon is, afgerond, en dat de opdrachtgever eraan gekoppeld is. Staff, admins, klanten en de persoonlijke link (zonder account) kunnen geen share maken.
 * Onder het rapport en op "My working style profile": per gekoppelde opdrachtgever het vinkje met de exacte tekst "I agree that [client name] can view and download my Working Style Profile. I can withdraw this at any time.", de status en de datum. Het vinkje staat nooit standaard aan: er bestaat pas een share als de persoon hem zelf aanvinkt.

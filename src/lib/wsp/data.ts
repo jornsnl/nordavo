@@ -3,6 +3,7 @@ import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
 import type { WspAssessmentRow, WspMode, WspSettingsRow } from "./database";
 import { parseQuestionnaire, parseReport, type QuestionnaireData, type ReportData } from "./report";
+import { parseConsentState, parseStaffConsent, type WspConsentState, type WspStaffConsent } from "./consent";
 
 // Reads of the Working Style Profile, always with the signed-in user's
 // session (or none, for the personal link): the database decides what each
@@ -41,6 +42,22 @@ export async function loadReport(access: WspAccess, exportPdf = false): Promise<
   });
   if (error) return null;
   return parseReport(data);
+}
+
+/** The one general permission, for the person (personal link or own account). */
+export async function loadConsentState(access: WspAccess): Promise<WspConsentState | null> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("wsp_consent_state", args(access));
+  if (error) return null;
+  return parseConsentState(data);
+}
+
+/** The permission and who received the profile, for staff. */
+export async function loadStaffConsent(personId: string): Promise<WspStaffConsent | null> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("wsp_staff_consent", { p_person: personId });
+  if (error) return null;
+  return parseStaffConsent(data);
 }
 
 // ---------------------------------------------------------------------------
@@ -97,6 +114,7 @@ export type StaffAssessmentSummary = Pick<
 
 export type CandidateWsp = {
   enabled: boolean;
+  consent: WspStaffConsent | null;
   mode: WspMode;
   talentPoolConsentAt: string | null;
   assessments: StaffAssessmentSummary[];
@@ -137,8 +155,10 @@ export async function getCandidateWsp(candidateId: string): Promise<CandidateWsp
   const name = new Map((linkClients ?? []).map((c) => [c.id, c.name]));
   const raw = candidate as unknown as { wsp_mode?: WspMode; talent_pool_consent_at?: string | null };
   const now = Date.now();
+  const consent = await loadStaffConsent(candidateId);
   return {
     enabled: enabled === true,
+    consent,
     mode: raw.wsp_mode ?? "follow_vacancy",
     talentPoolConsentAt: raw.talent_pool_consent_at ?? null,
     assessments: (rows ?? []).map((row) => ({
@@ -172,6 +192,7 @@ export type StaffAssessment = {
   answers: { position: number; code: string; statement: string; dimension: string; key: string | null; answer: number | null; page: number; pageMs: number | null }[];
   audit: { id: number; action: string; actor_role: string; actor: string | null; actorName: string | null; details: unknown; created_at: string }[];
   clients: { id: string; name: string }[];
+  consent: WspStaffConsent | null;
 };
 
 /** The staff view of one assessment: report (client intro), flags, raw answers, consent per client, audit log. */
@@ -216,6 +237,7 @@ export async function getStaffAssessment(assessmentId: string): Promise<StaffAss
     }),
     audit: (audit ?? []).map((a) => ({ ...a, actorName: a.actor ? (actorName.get(a.actor) ?? null) : null })),
     clients: clients ?? [],
+    consent: await loadStaffConsent(assessment.person_id),
   };
 }
 

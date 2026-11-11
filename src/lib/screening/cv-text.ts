@@ -90,6 +90,23 @@ export function heuristicFields(text: string, fileName: string): HeuristicFields
 
 /** CV text as stored: trimmed to the column limit. */
 export function storableCvText(text: string | null | undefined) {
-  const t = (text ?? "").replace(/\u0000/g, "").trim();
+  const t = compactCvText((text ?? "").replace(/\u0000/g, ""));
   return t ? t.slice(0, MAX_CV_TEXT) : null;
+}
+
+/**
+ * The CV text with as few tokens as possible and nothing of its content
+ * lost (feedback Julius: CV's token-efficiënt omzetten naar tekst): spaces
+ * and tabs collapse, lines are trimmed, at most one empty line in a row,
+ * and page numbers ("Page 2 of 3", "- 2 -", "2/3") go.
+ */
+export function compactCvText(text: string): string {
+  const kept: string[] = [];
+  for (const raw of text.replace(/\r\n?/g, "\n").replace(/[\u00a0\u2000-\u200b\u202f\u205f\u3000]/g, " ").split("\n")) {
+    const line = raw.replace(/[ \t\f\v]+/g, " ").trim();
+    if (/^(page\s*\d+(\s*(of|\/)\s*\d+)?|-\s*\d+\s*-|\d+\s*\/\s*\d+)$/i.test(line)) continue;
+    if (!line && (kept.length === 0 || kept[kept.length - 1] === "")) continue;
+    kept.push(line);
+  }
+  return kept.join("\n").trim();
 }

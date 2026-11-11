@@ -153,7 +153,8 @@ async function Project({ params, searchParams }: { params: Promise<{ id: string 
         </div>
       )}
 
-      <div className="mb-5 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+      {/* Tabs and filters each on their own row, so neither is squeezed. */}
+      <div className="mb-5 flex flex-col gap-3">
         <PageTabs
           label="Finished tasks"
           tabs={[

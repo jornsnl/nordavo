@@ -1,8 +1,8 @@
 -- Nordavo Working Style Profile (supabase/migrations/20261116000000_wsp_core.sql,
 -- 20261116010000_wsp_flow.sql): scoring test cases, quality flags,
 -- settings on three levels, automatic and manual invitations, the
--- questionnaire through the personal link, the report per role, sharing
--- only by the person (RLS), withdrawing with the mail, permission requests,
+-- questionnaire through the personal link, the report per role, one general
+-- permission and sharing by staff (20261121030000), withdrawing with the mail, permission requests,
 -- placements, reminders, deleting, retention and the audit log. Every
 -- acceptance criterion of part 4 that lives in the database is here.
 -- One transaction, rolled back at the end.
@@ -415,63 +415,93 @@ select pg_temp.check((select count(*) from public.wsp_client_reports()) = 0, 'cl
 reset role;
 
 -- ---------------------------------------------------------------------------
--- 8. Sharing: only the person, from their own account.
+-- 8. Sharing (20261121030000): one general permission of the person, then
+--    staff share with a client or a prospect. Never by default.
 -- ---------------------------------------------------------------------------
-select pg_temp.check((select count(*) from public.wsp_shares) = 0, 'nothing is shared by default (the box is never ticked)');
+select pg_temp.check((select count(*) from public.wsp_shares) = 0, 'nothing is shared by default');
+insert into public.companies (id, name, domain) values ('00000000-0000-0000-0000-0000000e6001', 'Prospect BV', 'prospect-wsp.nl');
 
-select pg_temp.act('rec.wsp@nordavo.nl');
+-- Direct writes are closed for everyone, also the person and admins.
+select pg_temp.act('ravi.wsp@example.in');
 set role authenticated;
 select pg_temp.check(pg_temp.fails(format($$insert into public.wsp_shares (assessment_id, client_id, consented_by) values (%L, %L, %L)$$,
   pg_temp.aid('00000000-0000-0000-0000-0000000e3001'), '00000000-0000-0000-0000-0000000e1001', '00000000-0000-0000-0000-0000000e0006')),
-  'staff cannot consent on behalf of the person');
-select pg_temp.check(pg_temp.fails(format($$insert into public.wsp_shares (assessment_id, client_id, consented_by) values (%L, %L, %L)$$,
-  pg_temp.aid('00000000-0000-0000-0000-0000000e3001'), '00000000-0000-0000-0000-0000000e1001', '00000000-0000-0000-0000-0000000e0002')),
-  'staff cannot consent as themselves');
+  'no direct share rows, also not by the person');
+select pg_temp.check(pg_temp.fails(format($$insert into public.wsp_consents (person_id, via) values (%L, 'academy')$$, '00000000-0000-0000-0000-0000000e3001')),
+  'no direct consent rows');
 reset role;
 select pg_temp.act('admin.wsp@nordavo.nl');
 set role authenticated;
 select pg_temp.check(pg_temp.fails(format($$insert into public.wsp_shares (assessment_id, client_id, consented_by) values (%L, %L, %L)$$,
   pg_temp.aid('00000000-0000-0000-0000-0000000e3001'), '00000000-0000-0000-0000-0000000e1001', '00000000-0000-0000-0000-0000000e0001')),
-  'admins cannot consent either');
+  'admins cannot write share rows');
+-- Without permission staff cannot share, and cannot give it for the person.
+select pg_temp.check(pg_temp.fails(format($$select public.wsp_share(%L, %L)$$, pg_temp.aid('00000000-0000-0000-0000-0000000e3001'), '00000000-0000-0000-0000-0000000e1001')),
+  'no share without permission');
+select pg_temp.check(pg_temp.fails(format($$select public.wsp_give_consent(null, %L, 'academy')$$, pg_temp.aid('00000000-0000-0000-0000-0000000e3001'))),
+  'staff cannot give permission for the person');
 reset role;
-select pg_temp.act('boss.wsp@kg.nl');
-set role authenticated;
-select pg_temp.check(pg_temp.fails(format($$insert into public.wsp_shares (assessment_id, client_id, consented_by) values (%L, %L, %L)$$,
-  pg_temp.aid('00000000-0000-0000-0000-0000000e3001'), '00000000-0000-0000-0000-0000000e1001', '00000000-0000-0000-0000-0000000e0004')),
-  'the client cannot share it with itself');
-reset role;
-select pg_temp.act('mina.wsp@example.in');
-set role authenticated;
-select pg_temp.check(pg_temp.fails(format($$insert into public.wsp_shares (assessment_id, client_id, consented_by) values (%L, %L, %L)$$,
-  pg_temp.aid('00000000-0000-0000-0000-0000000e3001'), '00000000-0000-0000-0000-0000000e1001', '00000000-0000-0000-0000-0000000e0008')),
-  'another candidate cannot share it');
-reset role;
+
+-- The last screen through the personal link: Not now, then asked once more after the term.
 select pg_temp.anon();
 set role anon;
-select pg_temp.check(pg_temp.fails(format($$insert into public.wsp_shares (assessment_id, client_id, consented_by) values (%L, %L, %L)$$,
-  pg_temp.aid('00000000-0000-0000-0000-0000000e3001'), '00000000-0000-0000-0000-0000000e1001', '00000000-0000-0000-0000-0000000e0006')),
-  'not signed out (the personal link cannot share)');
+select pg_temp.check((public.wsp_consent_state(pg_temp.token('00000000-0000-0000-0000-0000000e3001')) ->> 'may_ask')::boolean, 'asked on the last screen');
+select public.wsp_decline_consent(pg_temp.token('00000000-0000-0000-0000-0000000e3001'));
+select pg_temp.check(not (public.wsp_consent_state(pg_temp.token('00000000-0000-0000-0000-0000000e3001')) ->> 'may_ask')::boolean, 'not again right away');
+reset role;
+update public.wsp_consent_prompts set declined_at = now() - interval '8 days' where person_id = '00000000-0000-0000-0000-0000000e3001';
+select pg_temp.anon();
+set role anon;
+select pg_temp.check((public.wsp_consent_state(pg_temp.token('00000000-0000-0000-0000-0000000e3001')) ->> 'may_ask')::boolean, 'asked once more after the term');
+select public.wsp_decline_consent(pg_temp.token('00000000-0000-0000-0000-0000000e3001'));
+select pg_temp.check(not (public.wsp_consent_state(pg_temp.token('00000000-0000-0000-0000-0000000e3001')) ->> 'may_ask')::boolean, 'and then never again by itself');
+reset role;
+select pg_temp.check((select count(*) from public.wsp_audit_log where action = 'consent_declined' and actor_role = 'person_link') = 2, 'not now logged');
+
+-- Someone else cannot say yes for Ravi.
+select pg_temp.act('mina.wsp@example.in');
+set role authenticated;
+select pg_temp.check(pg_temp.fails(format($$select public.wsp_give_consent(null, %L, 'academy')$$, pg_temp.aid('00000000-0000-0000-0000-0000000e3001'))),
+  'another candidate cannot give permission');
 reset role;
 
+-- Ravi says yes in the Academy.
 select pg_temp.act('ravi.wsp@example.in');
 set role authenticated;
-select pg_temp.check(pg_temp.fails(format($$insert into public.wsp_shares (assessment_id, client_id, consented_by) values (%L, %L, %L)$$,
-  pg_temp.aid('00000000-0000-0000-0000-0000000e3001'), '00000000-0000-0000-0000-0000000e1002', '00000000-0000-0000-0000-0000000e0006')),
-  'not with a client that is not linked');
-insert into public.wsp_shares (assessment_id, client_id, consented_by, consented_at)
-values (pg_temp.aid('00000000-0000-0000-0000-0000000e3001'), '00000000-0000-0000-0000-0000000e1001', '00000000-0000-0000-0000-0000000e0006', now() - interval '1 year');
-select pg_temp.check((public.wsp_report(pg_temp.aid('00000000-0000-0000-0000-0000000e3001')) -> 'clients' -> 0 ->> 'status') = 'shared', 'shared');
+select public.wsp_give_consent(null, pg_temp.aid('00000000-0000-0000-0000-0000000e3001'), 'academy');
+select pg_temp.check((public.wsp_consent_state(null, pg_temp.aid('00000000-0000-0000-0000-0000000e3001')) ->> 'consented')::boolean, 'permission given');
+select pg_temp.check((select count(*) from public.wsp_consents) = 1, 'the person reads their permission');
 reset role;
-select pg_temp.check((select consented_at > now() - interval '1 minute' and consent_text_version = 'nordavo-wsp-consent-v1' from public.wsp_shares),
-  'consent time and text version set by the database');
-select pg_temp.check((select actor = '00000000-0000-0000-0000-0000000e0006' and actor_role = 'person' from public.wsp_audit_log where action = 'shared'), 'share logged');
+select pg_temp.check((select consented_by = '00000000-0000-0000-0000-0000000e0006' and via = 'academy' and consent_text_version = 'nordavo-wsp-consent-v2'
+  from public.wsp_consents where person_id = '00000000-0000-0000-0000-0000000e3001'), 'who, where and which text');
+select pg_temp.check((select count(*) from public.wsp_shares) = 0, 'permission alone shares nothing');
 
--- Staff cannot withdraw either.
+-- Staff share: with KG in the client portal, and as a PDF with a prospect.
+select pg_temp.act('sales.wsp@nordavo.nl');
+set role authenticated;
+select pg_temp.check(pg_temp.fails(format($$select public.wsp_share(%L, %L)$$, pg_temp.aid('00000000-0000-0000-0000-0000000e3001'), '00000000-0000-0000-0000-0000000e1001')),
+  'sales without recruitment cannot share');
+reset role;
 select pg_temp.act('rec.wsp@nordavo.nl');
 set role authenticated;
+select public.wsp_share(pg_temp.aid('00000000-0000-0000-0000-0000000e3001'), '00000000-0000-0000-0000-0000000e1001', null, 'portal');
+select public.wsp_share(pg_temp.aid('00000000-0000-0000-0000-0000000e3001'), null, '00000000-0000-0000-0000-0000000e6001', 'pdf');
+select pg_temp.check(pg_temp.fails(format($$select public.wsp_share(%L, null, %L, 'portal')$$, pg_temp.aid('00000000-0000-0000-0000-0000000e3001'), '00000000-0000-0000-0000-0000000e6001')),
+  'a prospect has no client portal');
+select pg_temp.check(jsonb_array_length(public.wsp_staff_consent('00000000-0000-0000-0000-0000000e3001') -> 'recipients') = 2, 'staff see with whom');
+-- Staff cannot end a share by hand either.
 update public.wsp_shares set revoked_by = '00000000-0000-0000-0000-0000000e0002';
 reset role;
-select pg_temp.check((select revoked_at is null from public.wsp_shares), 'staff cannot change a share');
+select pg_temp.check((select bool_and(revoked_at is null) from public.wsp_shares), 'staff cannot change a share');
+select pg_temp.check((select count(*) from public.wsp_audit_log where action = 'shared' and actor = '00000000-0000-0000-0000-0000000e0002'
+  and details ->> 'to' in ('KG', 'Prospect BV')) = 2, 'every share logged: with whom, by whom, when');
+select pg_temp.check((select shared_by = '00000000-0000-0000-0000-0000000e0002' and consent_id is not null from public.wsp_shares where client_id is not null),
+  'the share names who shared it and on which permission');
+select pg_temp.act('ravi.wsp@example.in');
+set role authenticated;
+select pg_temp.check(jsonb_array_length(public.wsp_consent_state(null, pg_temp.aid('00000000-0000-0000-0000-0000000e3001')) -> 'recipients') = 2,
+  'the person sees which companies received it');
+reset role;
 
 -- The client sees the report, without answers or flags, and every view is logged.
 select pg_temp.act('boss.wsp@kg.nl');
@@ -483,6 +513,7 @@ select pg_temp.check((select count(*) from public.wsp_results) = 5, 'results wit
 select pg_temp.check((select count(*) from public.wsp_answers) = 0, 'never raw answers');
 select pg_temp.check((select count(*) from public.wsp_flags) = 0, 'never flags');
 select pg_temp.check((select count(*) from public.wsp_shares) = 0, 'no share rows');
+select pg_temp.check((select count(*) from public.wsp_consents) = 0, 'no permission rows');
 select pg_temp.check((select count(*) from public.wsp_client_reports()) = 1, 'listed for the client');
 select public.wsp_report(pg_temp.aid('00000000-0000-0000-0000-0000000e3001'), null, true);
 reset role;
@@ -513,25 +544,31 @@ reset role;
 select pg_temp.check((select count(*) from public.wsp_audit_log where action = 'exported' and details ->> 'role' = 'person_link' and actor is null) = 1, 'download by link logged');
 select pg_temp.check((select count(*) from public.wsp_audit_log where action = 'exported' and details ->> 'role' = 'staff' and actor = '00000000-0000-0000-0000-0000000e0002') = 1, 'staff download logged');
 
--- Withdrawing: the client loses access at once, the mail goes out.
+-- Withdrawing: nothing new can be shared, the client loses access at once, the mail goes out.
 select pg_temp.act('ravi.wsp@example.in');
 set role authenticated;
-update public.wsp_shares set revoked_by = '00000000-0000-0000-0000-0000000e0006';
-select pg_temp.check((public.wsp_report(pg_temp.aid('00000000-0000-0000-0000-0000000e3001')) -> 'clients' -> 0 ->> 'status') = 'withdrawn', 'withdrawn');
+select pg_temp.check(public.wsp_withdraw_consent(null, pg_temp.aid('00000000-0000-0000-0000-0000000e3001')) = 2, 'both shares end');
+select pg_temp.check(not (public.wsp_consent_state(null, pg_temp.aid('00000000-0000-0000-0000-0000000e3001')) ->> 'consented')::boolean, 'withdrawn');
 reset role;
-select pg_temp.check((select revoked_at is not null from public.wsp_shares), 'revoked_at set');
+select pg_temp.check((select bool_and(revoked_at is not null) from public.wsp_shares), 'revoked_at set');
 select pg_temp.act('boss.wsp@kg.nl');
 set role authenticated;
 select pg_temp.check(public.wsp_report(pg_temp.aid('00000000-0000-0000-0000-0000000e3001')) is null, 'after withdrawing: no report');
 select pg_temp.check(public.wsp_report(pg_temp.aid('00000000-0000-0000-0000-0000000e3001'), null, true) is null, 'after withdrawing: no PDF');
 select pg_temp.check((select count(*) from public.wsp_results) = 0, 'after withdrawing: no results');
+select pg_temp.check((select count(*) from public.wsp_client_reports()) = 0, 'after withdrawing: not listed');
 reset role;
 select pg_temp.check((select payload ->> 'full_name' = 'Ravi Kumar' and client_id = '00000000-0000-0000-0000-0000000e1001'
-  from public.wsp_outbox where kind = 'withdrawn'), 'withdrawal mail to the client queued');
-select pg_temp.check((select count(*) from public.wsp_audit_log where action = 'revoked' and actor = '00000000-0000-0000-0000-0000000e0006') = 1, 'withdrawal logged');
+  from public.wsp_outbox where kind = 'withdrawn'), 'withdrawal mail to the client queued (not for the prospect)');
+select pg_temp.check((select count(*) from public.wsp_audit_log where action = 'consent_withdrawn' and actor = '00000000-0000-0000-0000-0000000e0006') = 1, 'withdrawal logged');
+select pg_temp.act('rec.wsp@nordavo.nl');
+set role authenticated;
+select pg_temp.check(pg_temp.fails(format($$select public.wsp_share(%L, %L)$$, pg_temp.aid('00000000-0000-0000-0000-0000000e3001'), '00000000-0000-0000-0000-0000000e1001')),
+  'nothing new after withdrawing');
+reset role;
 
 -- ---------------------------------------------------------------------------
--- 9. Ask for permission: staff, at most once per client per 7 days.
+-- 9. Ask for permission: staff, at most once per term per person (no longer per client).
 -- ---------------------------------------------------------------------------
 select pg_temp.act('rec.wsp@nordavo.nl');
 set role authenticated;
@@ -539,7 +576,7 @@ select pg_temp.check(public.wsp_request_permission(pg_temp.aid('00000000-0000-00
 select pg_temp.check(pg_temp.fails(format($$select public.wsp_request_permission(%L, %L)$$, pg_temp.aid('00000000-0000-0000-0000-0000000e3001'), '00000000-0000-0000-0000-0000000e1001')),
   'not again within 7 days');
 select pg_temp.check(pg_temp.fails(format($$select public.wsp_request_permission(%L, %L)$$, pg_temp.aid('00000000-0000-0000-0000-0000000e3001'), '00000000-0000-0000-0000-0000000e1002')),
-  'only for a linked client');
+  'not for another client either: the term is per person');
 reset role;
 select pg_temp.check((select count(*) from public.wsp_outbox where kind = 'permission_request') = 1, 'permission mail queued');
 select pg_temp.check((select count(*) from public.academy_notifications where profile_id = '00000000-0000-0000-0000-0000000e0006' and kind = 'wsp_permission_request'
@@ -548,7 +585,7 @@ select pg_temp.check((select count(*) from public.wsp_shares where revoked_at is
 update public.wsp_permission_requests set requested_at = now() - interval '8 days';
 select pg_temp.act('rec.wsp@nordavo.nl');
 set role authenticated;
-select pg_temp.check(public.wsp_request_permission(pg_temp.aid('00000000-0000-0000-0000-0000000e3001'), '00000000-0000-0000-0000-0000000e1001') = 'requested', 'again after 7 days');
+select pg_temp.check(public.wsp_request_permission(pg_temp.aid('00000000-0000-0000-0000-0000000e3001')) = 'requested', 'again after 7 days, without a client');
 reset role;
 
 -- ---------------------------------------------------------------------------
@@ -634,8 +671,11 @@ select pg_temp.check((select count(*) from public.wsp_audit_log where action = '
 -- ---------------------------------------------------------------------------
 select pg_temp.act('ravi.wsp@example.in');
 set role authenticated;
-insert into public.wsp_shares (assessment_id, client_id, consented_by)
-values (pg_temp.aid('00000000-0000-0000-0000-0000000e3001'), '00000000-0000-0000-0000-0000000e1002', '00000000-0000-0000-0000-0000000e0006');
+select public.wsp_give_consent(null, pg_temp.aid('00000000-0000-0000-0000-0000000e3001'), 'academy');
+reset role;
+select pg_temp.act('rec.wsp@nordavo.nl');
+set role authenticated;
+select public.wsp_share(pg_temp.aid('00000000-0000-0000-0000-0000000e3001'), '00000000-0000-0000-0000-0000000e1002', null, 'portal');
 reset role;
 create temp table gone as select pg_temp.aid('00000000-0000-0000-0000-0000000e3001') as id, pg_temp.token('00000000-0000-0000-0000-0000000e3001') as token;
 grant select on gone to authenticated, anon;
@@ -670,6 +710,13 @@ set role authenticated;
 select public.wsp_set_person('00000000-0000-0000-0000-0000000e3007', null, true);
 reset role;
 select pg_temp.check((select count(*) from public.wsp_audit_log where action = 'settings_changed' and details ->> 'field' = 'talent_pool_consent') = 1, 'talent pool consent change logged');
+-- Since 20261121030000 the data is kept until an admin switches retention on.
+select pg_temp.check((public.wsp_run_daily() ->> 'deleted')::integer = 0, 'retention off: nothing deleted');
+select pg_temp.check(pg_temp.count_for('00000000-0000-0000-0000-0000000e3004') = 1, 'retention off: Always Person kept');
+select pg_temp.act('admin.wsp@nordavo.nl');
+set role authenticated;
+select public.wsp_update_settings('{"retention_enabled": true}');
+reset role;
 -- A running placement: kept.
 select pg_temp.check((public.wsp_run_daily() ->> 'deleted')::integer >= 1, 'the daily job deletes what is due');
 select pg_temp.check(pg_temp.count_for('00000000-0000-0000-0000-0000000e3004') = 0, 'Always Person (rejected 30 days ago) deleted');

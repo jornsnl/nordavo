@@ -44,7 +44,9 @@ export type WorkAccessAction =
   | "expiry_changed"
   | "expired"
   | "deactivated"
-  | "reactivated";
+  | "reactivated"
+  | "archived"
+  | "restored";
 
 type Rel = {
   foreignKeyName: string;
@@ -78,6 +80,9 @@ type To<Name extends string, Column extends string, Relation extends string> = {
   referencedColumns: ["id"];
 };
 
+/** shared: an organisation; private: one person's own; inbox: where quick capture lands (20261121000000). */
+export type WorkWorkspaceKind = "shared" | "private" | "inbox";
+
 export type WorkWorkspaceRow = {
   id: string;
   name: string;
@@ -85,6 +90,10 @@ export type WorkWorkspaceRow = {
   created_by: string | null;
   created_at: string;
   updated_at: string;
+  kind: WorkWorkspaceKind;
+  owner_id: string | null;
+  archived_at: string | null;
+  archived_by: string | null;
 };
 
 export type WorkMemberRow = {
@@ -403,6 +412,9 @@ export type WorkFunctions = {
   work_can_view_task: Fn<{ p_task: string }, boolean>;
   work_create_workspace: Fn<{ p_name: string; p_slug: string }, string>;
   work_rename_workspace: Fn<{ p_workspace: string; p_name: string } & Actor, undefined>;
+  work_create_private_workspace: Fn<{ p_name: string; p_slug?: string | null } & Actor, string>;
+  work_ensure_inbox: Fn<Actor, string>;
+  work_archive_workspace: Fn<{ p_workspace: string; p_archived: boolean } & Actor, undefined>;
   work_set_member: Fn<
     { p_workspace: string; p_user: string; p_role: WorkRole; p_access_expires_at: string | null } & Actor,
     undefined
@@ -517,6 +529,8 @@ export type WorkFunctions = {
       p_entity_id?: string | null;
       p_limit?: number;
       p_offset?: number;
+      p_workspace?: string | null;
+      p_project?: string | null;
     },
     WorkTaskRow[]
   >;

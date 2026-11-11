@@ -123,6 +123,8 @@ export const accessActions: Record<WorkAccessAction, string> = {
   expired: "Access expired",
   deactivated: "Deactivated",
   reactivated: "Reactivated",
+  archived: "Workspace archived",
+  restored: "Workspace restored",
 };
 
 export function workOption<T extends string>(options: Option<T>[], value: T): Option<T> {

@@ -10,6 +10,7 @@ import type {
   WorkStatus,
   WorkTaskType,
   WorkVisibility,
+  WorkWorkspaceKind,
 } from "@/lib/work/database";
 import { openStatuses, priorityRank } from "@/lib/work/labels";
 import { dayIn, localInputToUtc, safeTimeZone } from "@/lib/work/time";
@@ -71,24 +72,44 @@ function check<T>(result: { data: T; error: { message: string } | null }, what: 
 // Workspaces
 // ---------------------------------------------------------------------------
 
-export type WorkspaceItem = { id: string; name: string; slug: string; role: WorkRole };
+export type WorkspaceItem = {
+  id: string;
+  name: string;
+  slug: string;
+  role: WorkRole;
+  /** shared (an organisation), private (only you) or inbox (your quick capture). */
+  kind: WorkWorkspaceKind;
+  archived: boolean;
+};
 
-/** Workspaces the user has active access to, with their role in each. */
-export const listMyWorkspaces = cache(async (): Promise<WorkspaceItem[]> => {
+/** Your inbox first, then your private workspaces, then the shared ones. */
+const kindRank: Record<WorkWorkspaceKind, number> = { inbox: 0, private: 1, shared: 2 };
+
+const loadMyWorkspaces = cache(async (): Promise<WorkspaceItem[]> => {
   const user = await requireWorkUser();
   const supabase = await createClient();
   const [workspaces, members] = await Promise.all([
-    supabase.from("work_workspaces").select("id, name, slug").order("name"),
+    supabase.from("work_workspaces").select("id, name, slug, kind, archived_at").order("name"),
     supabase.from("work_members").select("workspace_id, role").eq("user_id", user.id).is("deactivated_at", null),
   ]);
   const roles = new Map(check(members, "memberships").map((m) => [m.workspace_id, m.role]));
   return check(workspaces, "workspaces")
     .filter((w) => roles.has(w.id))
-    .map((w) => ({ ...w, role: roles.get(w.id)! }));
+    .map((w) => ({ id: w.id, name: w.name, slug: w.slug, kind: w.kind ?? "shared", archived: Boolean(w.archived_at), role: roles.get(w.id)! }))
+    .sort((a, b) => kindRank[a.kind] - kindRank[b.kind] || a.name.localeCompare(b.name));
+});
+
+/**
+ * Workspaces the user has active access to, with their role in each.
+ * Archived workspaces are left out (they only open under Manage and by link).
+ */
+export const listMyWorkspaces = cache(async ({ includeArchived = false }: { includeArchived?: boolean } = {}): Promise<WorkspaceItem[]> => {
+  const all = await loadMyWorkspaces();
+  return includeArchived ? all : all.filter((w) => !w.archived);
 });
 
 export const getWorkspace = cache(async (slug: string): Promise<WorkspaceItem> => {
-  const workspaces = await listMyWorkspaces();
+  const workspaces = await listMyWorkspaces({ includeArchived: true });
   const workspace = workspaces.find((w) => w.slug === slug);
   if (!workspace) notFound();
   return workspace;
@@ -100,11 +121,33 @@ export async function requireWorkspaceAdmin(slug: string): Promise<WorkspaceItem
   return workspace;
 }
 
-/** Portal admins may start a new workspace. */
+/** Portal admins may start a new shared workspace. */
 export async function canCreateWorkspace() {
   const user = await requireWorkUser();
   return user.role === "admin";
 }
+
+/** The Nordavo team (portal admins and members) may make private workspaces. */
+export async function canCreatePrivateWorkspace() {
+  const user = await requireWorkUser();
+  return user.role === "admin" || user.role === "member";
+}
+
+/**
+ * The project of the user's inbox, made the first time (work_ensure_inbox).
+ * Quick capture lands here when no project is chosen. Null when the
+ * database refuses (an account without Work).
+ */
+export const getInboxProjectId = cache(async (): Promise<string | null> => {
+  await requireWorkUser();
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("work_ensure_inbox", {});
+  if (error) {
+    console.error(`[work] inbox: ${error.message}`);
+    return null;
+  }
+  return data ?? null;
+});
 
 // ---------------------------------------------------------------------------
 // Projects
@@ -167,6 +210,19 @@ export async function listProjects(workspaceId: string, { includeArchived = fals
   }));
 }
 
+/**
+ * Every open project the user can add tasks to, for sorting a task out of
+ * the inbox or a private workspace. Names say the workspace ("Nordavo › Hiring").
+ */
+export async function listMoveTargets(): Promise<ProjectItem[]> {
+  const workspaces = await listMyWorkspaces();
+  const lists = await Promise.all(workspaces.map((w) => listProjects(w.id)));
+  const several = workspaces.length > 1;
+  return lists.flatMap((projects, i) =>
+    projects.filter((p) => !p.archived).map((p) => ({ ...p, name: several ? `${workspaces[i].name} › ${p.name}` : p.name })),
+  );
+}
+
 export type ProjectDetail = ProjectItem & { workspace: WorkspaceItem; canManage: boolean };
 
 export async function getProject(projectId: string): Promise<ProjectDetail> {
@@ -178,7 +234,7 @@ export async function getProject(projectId: string): Promise<ProjectDetail> {
     .eq("id", projectId)
     .maybeSingle();
   if (!project) notFound();
-  const workspace = (await listMyWorkspaces()).find((w) => w.id === project.workspace_id);
+  const workspace = (await listMyWorkspaces({ includeArchived: true })).find((w) => w.id === project.workspace_id);
   if (!workspace) notFound();
   const { data: membership } = await supabase
     .from("work_project_members")
@@ -406,6 +462,11 @@ export async function listOverview(tab: OverviewTab, filters: TaskFilters): Prom
           .eq("mine.user_id", user.id);
 
   query = query.is("archived_at", null);
+  // Archived workspaces leave My overview; their tasks stay where they are.
+  const archived = (await listMyWorkspaces({ includeArchived: true })).filter((w) => w.archived).map((w) => w.id);
+  if (archived.length && !(filters.workspace && archived.includes(filters.workspace))) {
+    query = query.not("workspace_id", "in", `(${archived.join(",")})`);
+  }
   if (filters.workspace) query = query.eq("workspace_id", filters.workspace);
   if (filters.project) query = query.eq("project_id", filters.project);
   if (filters.priority) query = query.eq("priority", filters.priority);
@@ -584,7 +645,7 @@ export async function getTask(taskId: string): Promise<TaskDetail> {
     .eq("id", taskId)
     .maybeSingle();
   if (!task) notFound();
-  const workspace = (await listMyWorkspaces()).find((w) => w.id === task.workspace_id);
+  const workspace = (await listMyWorkspaces({ includeArchived: true })).find((w) => w.id === task.workspace_id);
   if (!workspace) notFound();
 
   const [subtaskRows, comments, attachments, activity] = await Promise.all([

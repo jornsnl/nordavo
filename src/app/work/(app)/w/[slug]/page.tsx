@@ -35,13 +35,22 @@ async function Workspace({ params }: { params: Promise<{ slug: string }> }) {
         title={
           <span className="flex flex-wrap items-center gap-3">
             {workspace.name}
-            <Badge tone={role.tone}>You: {role.label}</Badge>
+            {workspace.kind === "shared" ? (
+              <Badge tone={role.tone}>You: {role.label}</Badge>
+            ) : (
+              <Badge tone="neutral">
+                <Lock className="size-3" aria-hidden="true" /> {workspace.kind === "inbox" ? "Your inbox" : "Private"}
+              </Badge>
+            )}
+            {workspace.archived && <Badge tone="warning">Archived</Badge>}
           </span>
         }
         description={
-          workspace.role === "guest"
-            ? "You see the projects you were added to."
-            : "Open projects are visible to every member; private ones only to the people in them."
+          workspace.kind !== "shared"
+            ? "Only you can see this workspace, other admins included."
+            : workspace.role === "guest"
+              ? "You see the projects you were added to."
+              : "Open projects are visible to every member; private ones only to the people in them."
         }
         actions={
           <>

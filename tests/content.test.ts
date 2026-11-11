@@ -30,7 +30,7 @@ const statuses: StatusDef[] = [
   { key: "draft", label: "Draft", position: 10, isCore: true, allowedRoles: ["author"] },
   { key: "in_review", label: "In review", position: 20, isCore: true, allowedRoles: ["author", "reviewer"] },
   { key: "changes_requested", label: "Changes requested", position: 30, isCore: true, allowedRoles: ["author", "reviewer"] },
-  { key: "approved", label: "Approved", position: 40, isCore: true, allowedRoles: ["author"] },
+  { key: "approved", label: "Approved", position: 40, isCore: true, allowedRoles: ["author", "reviewer"] },
   { key: "scheduled", label: "Scheduled", position: 50, isCore: true, allowedRoles: ["author", "reviewer"] },
   { key: "published", label: "Published", position: 60, isCore: true, allowedRoles: ["author", "reviewer"] },
   { key: "measured", label: "Measured", position: 70, isCore: true, allowedRoles: ["author", "reviewer"] },
@@ -64,9 +64,10 @@ function moves(post: Partial<PostForRules>, role: "admin" | "author" | "reviewer
   return statusMoves({ post: { ...basePost, ...post }, role, userId, statuses, transitions, adminApprovalRequired });
 }
 
-test("status moves: the reviewer never approves, the author does", () => {
+test("status moves: the reviewer and the author approve, unless an admin has to", () => {
   const reviewer = moves({}, "reviewer", "sabine");
-  assert.ok(!reviewer.some((m) => m.to.key === "approved" && m.allowed), "reviewer cannot approve");
+  assert.ok(reviewer.some((m) => m.to.key === "approved" && m.allowed), "reviewer approves (feedback Julius)");
+  assert.equal(moves({}, "reviewer", "sabine", true).find((m) => m.to.key === "approved")?.reason, "Needs approval from an admin");
   assert.ok(reviewer.some((m) => m.to.key === "changes_requested" && m.allowed));
   assert.ok(!reviewer.some((m) => m.to.key === "parked" && m.allowed), "parking is for the author");
 
@@ -209,4 +210,12 @@ test("settings: modules, options, tags, briefs, extra fields and reuse", () => {
   assert.equal(reuseWarning(["2026-08-01"], "2026-11-10", 6), "Used on 2026-08-01, within the last 6 months");
   assert.equal(reuseWarning(["2025-01-01"], "2026-11-10", 6), null);
   assert.equal(reuseWarning(["2026-08-01"], "2026-11-10", 0), null);
+});
+
+test("activity log lines name what changed", async () => {
+  const { activityText } = await import("@/lib/content/rules");
+  assert.equal(activityText("post_edited", { fields: ["hook", "first_comment"] }), "Changed the hook, first comment");
+  assert.equal(activityText("status_changed", { from: "in_review", to: "approved" }, (k) => k.toUpperCase()), "IN_REVIEW → APPROVED");
+  assert.equal(activityText("results_entered", { likes: 12, comments: 3, reposts: 0, slot: "7d" }), "Results after 7 days: 12 likes, 3 comments, 0 reposts");
+  assert.equal(activityText("something_new", {}), "Something new");
 });

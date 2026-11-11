@@ -37,15 +37,19 @@ export function FilterBar({ filters, basePath }: { filters: FilterDef[]; basePat
 
   return (
     // On phones the filters share one row: equal parts while they fit, sideways scrolling when there are
-    // more (with type and label up to five), so each keeps a readable width.
+    // more (with type and label up to five), so each keeps a readable width. From sm up every filter has
+    // the same fixed width and they wrap onto a next line instead of squeezing into each other (feedback
+    // Julius: the four filters of My overview ran over each other).
     <div
-      className={`flex min-w-0 items-center gap-2 sm:flex-wrap sm:*:flex-none ${
-        filters.length > 3 ? "snap-strip scrollbar-none -mx-4 px-4 *:w-40 *:shrink-0 sm:mx-0 sm:px-0" : "*:min-w-0 *:flex-1"
+      className={`flex min-w-0 items-center gap-2 sm:flex-wrap ${
+        filters.length > 3
+          ? "snap-strip scrollbar-none -mx-4 px-4 max-sm:*:w-40 max-sm:*:shrink-0 sm:mx-0 sm:overflow-visible sm:px-0"
+          : "max-sm:*:min-w-0 max-sm:*:flex-1"
       }`}
     >
       {filters.map((filter) =>
         filter.searchable || filter.options.length > SEARCH_FROM ? (
-          <div key={filter.name} className="min-w-0 sm:w-56">
+          <div key={filter.name} className="min-w-0 sm:w-52 sm:flex-none">
             <SearchSelect
               value={params.get(filter.name) || null}
               onChange={(value) => change(filter.name, value ?? "")}
@@ -56,22 +60,22 @@ export function FilterBar({ filters, basePath }: { filters: FilterDef[]; basePat
             />
           </div>
         ) : (
-        <label key={filter.name} className="min-w-0 sm:w-44">
-          <span className="sr-only">{filter.label}</span>
-          <Select
-            value={params.get(filter.name) ?? ""}
-            onChange={(e) => change(filter.name, e.target.value)}
-            className="w-full py-2"
-            aria-label={filter.label}
-          >
-            <option value="">{filter.all}</option>
-            {filter.options.map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
-              </option>
-            ))}
-          </Select>
-        </label>
+          <label key={filter.name} className="min-w-0 sm:w-52 sm:flex-none">
+            <span className="sr-only">{filter.label}</span>
+            <Select
+              value={params.get(filter.name) ?? ""}
+              onChange={(e) => change(filter.name, e.target.value)}
+              className="w-full truncate py-2"
+              aria-label={filter.label}
+            >
+              <option value="">{filter.all}</option>
+              {filter.options.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </Select>
+          </label>
         ),
       )}
     </div>

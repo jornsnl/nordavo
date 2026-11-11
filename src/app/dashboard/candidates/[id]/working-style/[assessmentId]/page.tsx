@@ -9,8 +9,8 @@ import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { ListSkeleton } from "@/components/ui/skeleton";
 import { TBody, TD, TH, THead, TR, Table } from "@/components/ui/table";
 import { WspReportView } from "@/components/wsp/report-view";
+import { WspStaffSharing } from "@/components/wsp/staff-sharing";
 import {
-  WspAskPermissionButton,
   WspDeleteAssessmentButton,
   WspLinkForm,
   WspResendButton,
@@ -20,7 +20,7 @@ import { requireStaff } from "@/lib/auth";
 import { ANSWER_OPTIONS, CAUTION_BANNER } from "@/lib/wsp/content";
 import { getStaffAssessment } from "@/lib/wsp/data";
 import { flagReason } from "@/lib/wsp/scoring";
-import { SHARE_STATUS_LABELS, formatWspDate } from "@/lib/wsp/text";
+import { formatWspDate } from "@/lib/wsp/text";
 import { REASON_LABELS, STATUS_LABELS } from "@/lib/wsp/view";
 
 export const metadata: Metadata = { title: "Working style profile" };
@@ -45,7 +45,7 @@ async function Detail({ params }: { params: Promise<{ id: string; assessmentId: 
   if (!/^[0-9a-f-]{36}$/.test(assessmentId)) notFound();
   const data = await getStaffAssessment(assessmentId);
   if (!data || data.candidate.id !== id) notFound();
-  const { assessment, candidate, report, flags, answers, audit, clients, expired } = data;
+  const { assessment, candidate, report, flags, answers, audit, clients, expired, consent } = data;
   const open = assessment.status === "invited" || assessment.status === "started";
   const label = (value: number | null) => ANSWER_OPTIONS.find((o) => o.value === value)?.label ?? "No answer";
   const pageTimes = new Map<number, number>();
@@ -148,27 +148,20 @@ async function Detail({ params }: { params: Promise<{ id: string; assessmentId: 
 
         <div className="min-w-0 space-y-6">
           <Card>
-            <CardHeader title="Sharing per client" description="Only the person can share or withdraw, from their own account. You can ask, at most once per client per 7 days." />
+            <CardHeader
+              title="Sharing"
+              description="One permission of the person for every company we introduce them to. With it, share the profile here; every share is in the audit log."
+            />
             <CardBody className="space-y-4">
-              {report && report.clients.length > 0 ? (
-                <ul className="space-y-3">
-                  {report.clients.map((c) => (
-                    <li key={c.clientId} className="space-y-1 text-sm">
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="font-medium text-ink">{c.name}</span>
-                        <Badge tone={c.status === "shared" ? "success" : c.status === "withdrawn" ? "warning" : "neutral"}>{SHARE_STATUS_LABELS[c.status]}</Badge>
-                      </div>
-                      <p className="text-xs text-muted">
-                        {c.consentedAt && `Shared since ${formatWspDate(c.consentedAt)}. `}
-                        {c.status === "withdrawn" && c.revokedAt && `Withdrawn on ${formatWspDate(c.revokedAt)}. `}
-                        {c.requestedAt && `Last asked ${formatWspDate(c.requestedAt)}.`}
-                      </p>
-                      {c.status !== "shared" && <WspAskPermissionButton candidateId={id} assessmentId={assessment.id} clientId={c.clientId} />}
-                    </li>
-                  ))}
-                </ul>
+              {report ? (
+                <WspStaffSharing
+                  candidateId={id}
+                  consent={consent}
+                  assessments={[{ id: assessment.id, completedAt: assessment.completed_at }]}
+                  clients={clients}
+                />
               ) : (
-                <p className="text-sm text-muted">{report ? "No client linked yet." : "Sharing is possible once the questionnaire is completed."}</p>
+                <p className="text-sm text-muted">Sharing is possible once the questionnaire is completed.</p>
               )}
               <WspLinkForm candidateId={id} assessmentId={assessment.id} clients={clients} />
             </CardBody>

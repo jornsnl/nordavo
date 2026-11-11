@@ -1,0 +1,31 @@
+name: CV jobs
+
+# Reads uploaded CVs without text into text (docs/recruitment-screening.md).
+# New applications are read right after the form is sent; this catches up.
+# Calls the running app, so its own ANTHROPIC_API_KEY (if any) is used.
+on:
+  schedule:
+    - cron: "41 * * * *"
+  workflow_dispatch:
+    inputs:
+      params:
+        description: 'Optional JSON params, e.g. {"limit":"100"}'
+        required: false
+
+concurrency:
+  group: cv-read
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Call the app for cv-read
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          SITE_URL: ${{ secrets.NEXT_PUBLIC_SITE_URL }}
+          PARAMS: ${{ github.event.inputs.params || '{}' }}
+        run: |
+          curl -fsS -X POST -H "Authorization: Bearer $CRON_SECRET" -H "Content-Type: application/json" \
+            -d "{\"params\": $PARAMS}" "$SITE_URL/api/jobs/cv-read"

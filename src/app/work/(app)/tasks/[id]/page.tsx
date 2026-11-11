@@ -33,7 +33,16 @@ import {
   uploadFileAction,
 } from "@/app/work/actions";
 import { setTaskRecordAction } from "@/app/work/record-actions";
-import { getTask, listLabels, listProjectPeople, listProjects, requireWorkUser, type ActivityItem, type Person } from "@/lib/work/data";
+import {
+  getTask,
+  listLabels,
+  listMoveTargets,
+  listProjectPeople,
+  listProjects,
+  requireWorkUser,
+  type ActivityItem,
+  type Person,
+} from "@/lib/work/data";
 import { formatEstimate, workOption, workPriorities, workStatuses, workTaskTypeLabel } from "@/lib/work/labels";
 import { formatAgo, formatDateTimeIn, utcToLocalInput } from "@/lib/work/time";
 
@@ -59,9 +68,11 @@ async function TaskDetailView({ params }: { params: Promise<{ id: string }> }) {
   const user = await requireWorkUser();
   const task = await getTask(id);
   const tz = user.timeZone;
+  // From your inbox or a private workspace a task can move to any project you can open (sorting).
+  const sortable = task.workspace.kind !== "shared";
   const [people, projects, labelSuggestions] = await Promise.all([
     listProjectPeople(task.project.id),
-    task.workspace.role === "guest" ? Promise.resolve([]) : listProjects(task.workspace.id),
+    sortable ? listMoveTargets() : task.workspace.role === "guest" ? Promise.resolve([]) : listProjects(task.workspace.id),
     listLabels({ projectId: task.project.id }),
   ]);
   const peopleOptions = people.map((p) => ({ id: p.id, name: p.name, role: p.role }));

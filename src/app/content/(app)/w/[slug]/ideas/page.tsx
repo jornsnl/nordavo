@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
-import { notFound } from "next/navigation";
 import { Lightbulb } from "lucide-react";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { EmptyState } from "@/components/dashboard/empty-state";
@@ -37,8 +36,7 @@ async function Ideas({
   const [{ slug }, query, user] = await Promise.all([params, searchParams, requireContentUser()]);
   const workspace = await getContentWorkspace(slug);
   requireModule(workspace, "ideas");
-  // Reviewers never see ideas (RLS hides them as well).
-  if (workspace.role === "reviewer") notFound();
+  // Reviewers see the ideas of the workspaces they review and work them out into posts (feedback Julius).
   const view = parseIdeaView(typeof query.view === "string" ? query.view : undefined);
   const [ideas, counts, sources] = await Promise.all([
     listIdeas(workspace, user.id, view),
@@ -53,7 +51,11 @@ async function Ideas({
       <PageHeader
         eyebrow={workspace.name}
         title="Ideas"
-        description="Loose thoughts, kept apart from real posts. Private to you unless you share them."
+        description={
+          workspace.role === "reviewer"
+            ? "The ideas of this workspace. Turn one into a post to work it out."
+            : "Loose thoughts, kept apart from real posts. Private to you (and your reviewer) unless you share them."
+        }
         actions={
           canCapture && (
             <ButtonLink href="/content/capture">
@@ -80,8 +82,8 @@ async function Ideas({
           slug={slug}
           view={view}
           ideas={ideas}
-          isAdmin={workspace.role === "admin"}
-          canCreatePosts={canCapture}
+          isAdmin={workspace.role === "admin" || workspace.role === "reviewer"}
+          canCreatePosts={canCapture || workspace.role === "reviewer"}
           sources={sources}
           fields={workspace.fields.idea.filter((f) => !f.archived)}
         />

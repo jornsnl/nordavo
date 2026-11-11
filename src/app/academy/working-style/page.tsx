@@ -4,19 +4,19 @@ import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { ListSkeleton } from "@/components/ui/skeleton";
 import { Message } from "@/components/wsp/person-view";
-import { WspSharePanel } from "@/components/wsp/share-panel";
+import { WspConsentPanel } from "@/components/wsp/share-panel";
 import { requireAcademyUser } from "@/lib/academy/auth";
 import { PAGE_TITLE_MY_PROFILE } from "@/lib/wsp/content";
-import { isWspEnabled, listMyAssessments } from "@/lib/wsp/data";
+import { isWspEnabled, listMyAssessments, loadConsentState } from "@/lib/wsp/data";
 import { formatWspDate } from "@/lib/wsp/text";
 import { STATUS_LABELS } from "@/lib/wsp/view";
 
 export const metadata: Metadata = { title: "My working style profile" };
 
 /**
- * "My working style profile" (part 4): every questionnaire of the person,
- * the report, and per linked client a box to share (never ticked by
- * default), with the status and the date of consent.
+ * "My working style profile": every questionnaire of the person and the
+ * one general permission to share (feedback Julius): give or withdraw it,
+ * and see which companies received the profile and when.
  */
 export default function Page() {
   return (
@@ -36,6 +36,9 @@ async function Overview() {
   if (assessments.length === 0) {
     return <Message title="Nothing here yet" text="When Nordavo invites you to the Working Style Profile, you find it here." />;
   }
+  // The permission is one per person; any questionnaire of theirs opens it.
+  const latest = assessments.find((a) => a.status === "completed") ?? assessments[0];
+  const consent = await loadConsentState({ assessmentId: latest.id });
   return (
     <>
       <ul className="space-y-3">
@@ -59,14 +62,7 @@ async function Overview() {
           </li>
         ))}
       </ul>
-      {assessments
-        .filter((a) => a.report)
-        .map((a) => (
-          <div key={`share-${a.id}`} className="space-y-1">
-            <p className="text-xs font-medium text-academy-blue-800">Report of {formatWspDate(a.completed_at)}</p>
-            <WspSharePanel assessmentId={a.id} clients={a.report!.clients} canShare={a.report!.canShare} signInHref="/login?next=/academy/working-style" />
-          </div>
-        ))}
+      {consent && latest && <WspConsentPanel access={{ assessmentId: latest.id }} state={consent} via="academy" />}
     </>
   );
 }

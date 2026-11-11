@@ -14,6 +14,7 @@ import { clickupImport, workDaily, workNotify } from "./work";
 import { contentNotify, contentWeekly } from "./content";
 import { contentDriveSync } from "./content-drive";
 import { formsReminders } from "./forms-reminders";
+import { cvRead } from "./cv-read";
 import { academyPlacements, academyRituals } from "./academy-placements";
 import { academyAtsSync, academyReminders, academyRetention } from "./academy-ats";
 import { academyTaskReminders } from "./academy-tasks";
@@ -47,6 +48,7 @@ export const jobs: Record<string, Job> = Object.fromEntries(
   contentWeekly,
   contentDriveSync,
   formsReminders,
+  cvRead,
   academyRituals,
   academyPlacements,
   academyAtsSync,

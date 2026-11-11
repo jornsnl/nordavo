@@ -42,7 +42,7 @@ export function inviteMail({ name, url, expiresAt, developer, siteUrl }: {
     `Hi ${first},`,
     "Nordavo invites you to complete your Working Style Profile: 52 short statements, about 10 minutes. It helps you understand how you like to work, and helps the companies you work with understand how to get the best out of you.",
     ...(developer ? ["This is optional. Not completing it has no consequences for your role."] : []),
-    "You always see your own report first. Your profile is never shared with a client company unless you tick the box for that company yourself.",
+    "You always see your own report first. At the end we ask whether Nordavo may share your profile with companies we introduce you to for a placement. Only if you say yes, and you can withdraw this at any time.",
     `The link is personal and works until ${formatWspDate(expiresAt)}.`,
   ];
   return {
@@ -67,16 +67,17 @@ export function reminderMail({ name, url, expiresAt, siteUrl }: { name: string; 
   };
 }
 
-/** "Ask for permission": the person decides on the sharing page. */
-export function permissionMail({ name, clientName, url, siteUrl }: { name: string; clientName: string; url: string; siteUrl?: string }): Mail {
+/** "Ask for permission": one general question; the person decides on their profile page. */
+export function permissionMail({ name, url, siteUrl }: { name: string; clientName?: string; url: string; siteUrl?: string }): Mail {
   const first = splitName(name).first || "there";
   const paragraphs = [
     `Hi ${first},`,
-    `${clientName} would like to see your Working Style Profile. Nothing is shared unless you tick the box for ${clientName} yourself, and you can withdraw your permission at any time.`,
+    "May Nordavo share your Working Style Profile with companies we introduce you to for a placement? It helps them understand how you work best.",
+    "Nothing is shared unless you say yes, and you can withdraw your permission at any time.",
   ];
   return {
-    subject: `May ${clientName} see your Working Style Profile?`,
-    html: layout({ title: "A request to share your profile", preheader: `${clientName} would like to see your profile.`, paragraphs, action: "Open my working style profile", url, footerNote: PERSON_FOOTER, siteUrl }),
+    subject: "May we share your Working Style Profile?",
+    html: layout({ title: "A question about your profile", preheader: "Nothing is shared unless you say yes.", paragraphs, action: "Open my working style profile", url, footerNote: PERSON_FOOTER, siteUrl }),
     text: [...paragraphs, "", url, "", "Kind regards,", "Nordavo"].join("\n"),
   };
 }

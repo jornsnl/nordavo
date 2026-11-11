@@ -4,6 +4,7 @@ import { createHash } from "node:crypto";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { createNordavoMcpServer } from "@/lib/mcp/server";
+import { toolAllowed, UNGATED_WRITE_TOOLS, WRITE_TOOLS as GATED_TOOLS, type McpAccessLevels } from "@/lib/mcp/module-access";
 import { SALES_READ_TOOLS, SALES_WRITE_TOOLS } from "@/lib/mcp/sales-tools";
 import { JOB_RUN_TOOLS } from "@/lib/mcp/job-run-tool";
 import { RECRUITMENT_AI_READ_TOOLS, RECRUITMENT_AI_WRITE_TOOLS } from "@/lib/mcp/recruitment-ai-tools";
@@ -176,7 +177,7 @@ test("authenticateMcpToken rejects missing, unknown, revoked, expired and client
 // tools/list for read and write tokens, in process
 // ---------------------------------------------------------------------------
 
-async function listToolNames(access: "read" | "write") {
+async function listToolNames(access: "read" | "write", levels?: McpAccessLevels) {
   const ctx: McpTokenContext = {
     tokenId: "00000000-0000-4000-8000-000000000001",
     tokenName: "Test",
@@ -186,7 +187,7 @@ async function listToolNames(access: "read" | "write") {
     email: "julius@nordavo.nl",
     role: "member",
   };
-  const server = createNordavoMcpServer(ctx, {} as McpDb, "https://portal.nordavo.nl");
+  const server = createNordavoMcpServer(ctx, {} as McpDb, "https://portal.nordavo.nl", levels);
   const client = new Client({ name: "test", version: "1.0.0" });
   const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
   await Promise.all([server.connect(serverTransport), client.connect(clientTransport)]);
@@ -211,13 +212,25 @@ const READ_TOOLS = [
   "list_placements",
   "list_tasks",
   "list_vacancies",
+  "list_work_projects",
   "search",
   "talent_pool_top",
   "whoami",
 ];
-const WRITE_TOOLS = ["add_note", "create_task", "mark_topper", "move_candidates", "update_task_status"];
-const CONTENT_READ_TOOLS = ["content_get_post", "content_list_media", "content_list_posts", "content_list_workspaces"];
-const CONTENT_WRITE_TOOLS = ["content_suggest_image_brief", "content_suggest_images", "content_suggest_media_description", "content_suggest_text"];
+const WRITE_TOOLS = ["add_note", "add_task_comment", "create_task", "mark_topper", "move_candidates", "update_task", "update_task_status"];
+const CONTENT_READ_TOOLS = ["content_get_post", "content_list_ideas", "content_list_media", "content_list_posts", "content_list_workspaces"];
+const CONTENT_SUGGEST_TOOLS = ["content_add_idea", "content_suggest_image_brief", "content_suggest_images", "content_suggest_media_description", "content_suggest_text"];
+const CONTENT_WRITE_TOOLS = [
+  ...CONTENT_SUGGEST_TOOLS,
+  "content_add_media",
+  "content_archive_post",
+  "content_create_post",
+  "content_describe_media",
+  "content_ideas_to_post",
+  "content_record_results",
+  "content_set_post_media",
+  "content_update_post",
+];
 
 test("a read token only gets read tools", async () => {
   const { names, tools, whoami, instructions } = await listToolNames("read");
@@ -252,4 +265,34 @@ test("a write token also gets the write tools", async () => {
       ]),
     ].sort(),
   );
+});
+
+// ---------------------------------------------------------------------------
+// Claude's rights per module (Settings, Claude)
+// ---------------------------------------------------------------------------
+
+test("every write tool has a module and a kind", async () => {
+  const { names, tools } = await listToolNames("write");
+  const writers = tools.filter((t) => t.annotations?.readOnlyHint !== true).map((t) => t.name);
+  for (const name of writers) {
+    assert.ok(name in GATED_TOOLS || (UNGATED_WRITE_TOOLS as readonly string[]).includes(name), `${name} is not in module-access.ts`);
+  }
+  for (const name of Object.keys(GATED_TOOLS)) assert.ok(names.includes(name), `${name} is in module-access.ts but not registered`);
+});
+
+test("rights per module: read hides the module's write tools, suggest keeps the suggestions", async () => {
+  const all = Object.fromEntries(["work", "sales", "recruitment", "records", "content", "academy"].map((m) => [m, "write" as const]));
+  const { names } = await listToolNames("write", { ...all, content: "suggest", work: "read" });
+  for (const tool of CONTENT_SUGGEST_TOOLS) assert.ok(names.includes(tool), `${tool} stays with suggest`);
+  for (const tool of ["content_create_post", "content_update_post", "content_record_results"]) assert.ok(!names.includes(tool), `${tool} needs write`);
+  for (const tool of ["create_task", "update_task", "add_task_comment", "update_task_status"]) assert.ok(!names.includes(tool), `${tool} is off with read`);
+  assert.ok(names.includes("list_tasks") && names.includes("list_work_projects"), "reading Work stays");
+  assert.ok(names.includes("add_company"), "other modules keep their rights");
+});
+
+test("a module without a setting is drafts and suggestions", () => {
+  assert.equal(toolAllowed("draft_sequence_text", {}), true);
+  assert.equal(toolAllowed("update_companies", {}), false);
+  assert.equal(toolAllowed("update_companies", { sales: "write" }), true);
+  assert.equal(toolAllowed("whoami", { sales: "read" }), true);
 });

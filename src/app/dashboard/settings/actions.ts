@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import type { ProfileRole } from "@/lib/database.types";
 import {
   type ActionState,
   GENERIC_ERROR,
@@ -75,8 +76,10 @@ export async function changePassword(
 const roleSchema = z
   .object({
     user_id: z.guid({ error: "User not found" }),
-    role: z.enum(["admin", "member", "client", "external"], { error: "Choose a role" }),
+    // "content": a Content only account (for example the reviewer): portal role external, so only Work and Content.
+    role: z.enum(["admin", "member", "client", "external", "content"], { error: "Choose a role" }),
     client_id: z.guid({ error: "Choose a client" }).optional(),
+    content_role: z.enum(["reviewer", "viewer", "author"]).optional(),
   })
   .refine((v) => v.role !== "client" || v.client_id, {
     error: "Choose the client this account belongs to",
@@ -117,8 +120,10 @@ const inviteSchema = z
       .string({ error: "Enter a name" })
       .min(2, { error: "Enter a name" })
       .max(120, { error: "At most 120 characters" }),
-    role: z.enum(["admin", "member", "client", "external"], { error: "Choose a role" }),
+    // "content": a Content only account (for example the reviewer): portal role external, so only Work and Content.
+    role: z.enum(["admin", "member", "client", "external", "content"], { error: "Choose a role" }),
     client_id: z.guid({ error: "Choose a client" }).optional(),
+    content_role: z.enum(["reviewer", "viewer", "author"]).optional(),
   })
   .refine((v) => v.role !== "client" || v.client_id, {
     error: "Choose the client this account belongs to",
@@ -143,9 +148,15 @@ export async function inviteUser(
     };
   }
 
-  const { email, full_name, role, client_id } = parsed.data;
+  const { email, full_name, client_id } = parsed.data;
+  const contentOnly = parsed.data.role === "content";
+  const role: ProfileRole = parsed.data.role === "content" ? "external" : parsed.data.role;
   // Members get the ticked modules (2.5); unticked boxes are not sent.
   const modules = formData.getAll("modules").filter(isPortalModule);
+  const contentWorkspaces = formData.getAll("content_workspaces").filter((v): v is string => typeof v === "string" && z.guid().safeParse(v).success);
+  if (contentOnly && contentWorkspaces.length === 0) {
+    return { error: "Check the highlighted fields.", fieldErrors: { content_workspaces: "Pick at least one Content workspace" } };
+  }
   const { data, error } = await admin.auth.admin.inviteUserByEmail(email.toLowerCase(), {
     data: { full_name },
     redirectTo: `${env.siteUrl()}/auth/confirm?next=/auth/password`,
@@ -181,8 +192,29 @@ export async function inviteUser(
     };
   }
 
+  if (contentOnly) {
+    const { error: memberError } = await admin.from("content_members").upsert(
+      contentWorkspaces.map((workspace_id) => ({
+        workspace_id,
+        user_id: data.user.id,
+        role: parsed.data.content_role ?? "reviewer",
+      })),
+      { onConflict: "workspace_id,user_id" },
+    );
+    if (memberError) {
+      console.error("inviteUser content", memberError.code, memberError.message);
+      revalidatePath("/dashboard/settings");
+      return {
+        error: `The invite was sent to ${email}, but the Content workspaces were not saved. Add the person under Content, the workspace, Settings, People.`,
+      };
+    }
+  }
+
   revalidatePath("/dashboard/settings");
-  return { ok: true, message: `Invite sent to ${email}.` };
+  return {
+    ok: true,
+    message: contentOnly ? `Invite sent to ${email}. They only see Content (and their own Work inbox).` : `Invite sent to ${email}.`,
+  };
 }
 
 const modulesSchema = z.object({ user_id: z.guid({ error: "User not found" }) });

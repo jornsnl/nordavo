@@ -6,7 +6,6 @@ import { LoaderCircle, Send } from "lucide-react";
 import {
   deleteWspAssessment,
   linkWspClient,
-  requestWspPermission,
   resendWspInvite,
   sendWspInvite,
   setVacancyWsp,
@@ -16,7 +15,7 @@ import {
 } from "@/app/dashboard/candidates/[id]/working-style/actions";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/field";
-import { ASK_PERMISSION_BUTTON, PERSON_MODE_LABELS, SEND_BUTTON, VACANCY_SENTENCE } from "@/lib/wsp/content";
+import { PERSON_MODE_LABELS, SEND_BUTTON, VACANCY_SENTENCE } from "@/lib/wsp/content";
 import type { WspMode } from "@/lib/wsp/database";
 
 function useAction() {
@@ -158,10 +157,6 @@ export function WspActionButton({
 
 export function WspResendButton({ candidateId, assessmentId, label = "Send again" }: { candidateId: string; assessmentId: string; label?: string }) {
   return <WspActionButton action={() => resendWspInvite(candidateId, assessmentId)}>{label}</WspActionButton>;
-}
-
-export function WspAskPermissionButton({ candidateId, assessmentId, clientId }: { candidateId: string; assessmentId: string; clientId: string }) {
-  return <WspActionButton action={() => requestWspPermission(candidateId, assessmentId, clientId)}>{ASK_PERMISSION_BUTTON}</WspActionButton>;
 }
 
 export function WspDeleteAssessmentButton({ candidateId, assessmentId }: { candidateId: string; assessmentId: string }) {

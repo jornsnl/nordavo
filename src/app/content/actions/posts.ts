@@ -150,6 +150,22 @@ function rawText(formData: FormData, name: string) {
   return typeof v === "string" ? v.replace(/\r\n/g, "\n").replace(/\s+$/, "") : "";
 }
 
+/** Archive a post (it leaves every list, nothing is deleted) or bring it back. */
+export async function archivePostAction(slug: string, postId: string, archived: boolean): Promise<ContentActionState> {
+  await requireContentUser();
+  if (!id.safeParse(postId).success) return { error: "Post not found." };
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("content_posts")
+    .update({ archived_at: archived ? new Date().toISOString() : null })
+    .eq("id", postId)
+    .select("id");
+  if (error) return { error: contentErrorMessage(error) };
+  if (!data?.length) return { error: "You cannot change this post." };
+  refresh(slug, postId);
+  return { ok: true, message: archived ? "Archived. Find it under Posts, Archived." : "Restored." };
+}
+
 /** Move a post to another status. The database checks the flow and the rules. */
 export async function setPostStatusAction(slug: string, postId: string, status: string): Promise<ContentActionState> {
   await requireContentUser();

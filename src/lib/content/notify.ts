@@ -153,6 +153,7 @@ export async function sendWeeklySummaries(db: Db, now: Date = new Date()): Promi
       .from("content_posts")
       .select("id, workspace_id, title, status, planned_date, time_slot, format, submitted_at")
       .in("workspace_id", ids)
+      .is("archived_at", null)
       .gte("planned_date", start)
       .lt("planned_date", end)
       .not("status", "in", "(parked,rejected)")

@@ -98,6 +98,28 @@ export async function createWorkspaceAction(_prev: WorkActionState, formData: Fo
   redirect(`/work/w/${parsed.data.slug}`);
 }
 
+/** A private workspace: only you, also hidden from other admins. */
+export async function createPrivateWorkspaceAction(_prev: WorkActionState, formData: FormData): Promise<WorkActionState> {
+  await requireWorkUser();
+  const parsed = workspaceSchema.safeParse(formValues(formData));
+  if (!parsed.success) return invalid(parsed.error);
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("work_create_private_workspace", { p_name: parsed.data.name, p_slug: parsed.data.slug });
+  if (error) return { error: workErrorMessage(error) };
+  const { data: row } = await supabase.from("work_workspaces").select("slug").eq("id", data).maybeSingle();
+  revalidatePath("/work", "layout");
+  redirect(`/work/w/${row?.slug ?? parsed.data.slug}`);
+}
+
+/** Archive or restore a workspace (workspace admins). Archived ones leave the sidebar and My overview. */
+export async function archiveWorkspaceAction(workspaceId: string, archived: boolean): Promise<{ error?: string } | void> {
+  await requireWorkUser();
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("work_archive_workspace", { p_workspace: workspaceId, p_archived: archived });
+  if (error) return { error: workErrorMessage(error) };
+  revalidatePath("/work", "layout");
+}
+
 export async function renameWorkspaceAction(workspaceId: string, _prev: WorkActionState, formData: FormData): Promise<WorkActionState> {
   await requireWorkUser();
   const parsed = workspaceSchema.pick({ name: true }).safeParse(formValues(formData));

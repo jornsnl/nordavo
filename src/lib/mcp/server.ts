@@ -10,11 +10,15 @@ import { registerRecruitmentAiTools } from "@/lib/mcp/recruitment-ai-tools";
 import { registerAiRequestTools } from "@/lib/mcp/ai-request-tools";
 import { registerContentTools } from "@/lib/mcp/content-tools";
 import { effectiveModules, portalModules } from "@/lib/modules";
+import { gateTools, levelSummary, mcpModules, type McpAccessLevels } from "@/lib/mcp/module-access";
+
+/** Without the table (migration not run yet): every module as before, fully writable. */
+export const ALL_WRITE: McpAccessLevels = Object.fromEntries(mcpModules.map((m) => [m.value, "write"]));
 
 export const MCP_SERVER_NAME = "nordavo";
 export const MCP_SERVER_VERSION = "1.0.0";
 
-function instructions(ctx: McpTokenContext) {
+function instructions(ctx: McpTokenContext, levels: McpAccessLevels) {
   const lines = [
     "Nordavo is a Dutch recruitment portal that places Indian tech talent at Dutch companies.",
     "Records: clients (with contact persons), vacancies (with a pipeline of applications per stage: sourced, techstack_check, fill_out, video_review, technical_test, interview, matched (presented to the client), client_interview, final_screening, placed, and apart from the flow parked and rejected; a vacancy belongs to a client, a GTM prospect or the talent pool, which has no client yet and no three-week clock), candidates, placements (30-day guarantee, monthly check-ins), tasks, notes and an activity log. The GTM side has companies (prospects), contacts and hiring signals.",
@@ -30,7 +34,9 @@ function instructions(ctx: McpTokenContext) {
   }
   if (ctx.access === "write") {
     lines.push(
-      "Write tools (create_task, update_task_status, add_note, move_candidates, mark_topper) change shared data the whole team sees. Only call them when the user asked for that specific change, never speculatively or in a loop.",
+      "Write tools change shared data the whole team sees. Only call them when the user asked for that specific change, never speculatively or in a loop.",
+      `What an admin allows you per module: ${levelSummary(levels)}. Tools you may not use are not offered.`,
+      "Work: list_work_projects shows the workspaces and projects you can use, private ones and your inbox included. create_task without project_id or a record goes to the token owner's inbox.",
     );
   }
   if (modules.includes("recruitment")) {
@@ -44,18 +50,20 @@ function instructions(ctx: McpTokenContext) {
     );
   }
   lines.push(
-    "LinkedIn content (content_* tools): workspaces per employee with ideas, posts, media and results. Read posts and media, and help with suggestions only (media descriptions, image suggestions, image briefs, text changes): you never pick, approve, schedule or publish, a person decides on every suggestion.",
+    "LinkedIn content (content_* tools): workspaces per employee with ideas, posts, media and results. With full write rights you create and change posts (also their status), pick media, add files to the library, record results and add ideas yourself; everything you change is logged with you (Claude) as the source. The content_suggest_* tools stay for when you want a person to decide.",
   );
   lines.push("Candidate and contact details are personal data: use them for the task at hand and do not copy them elsewhere unasked.");
   return lines.join("\n");
 }
 
 /** A fresh server per request: the endpoint is stateless. */
-export function createNordavoMcpServer(ctx: McpTokenContext, db: McpDb, siteUrl: string): McpServer {
-  const server = new McpServer(
+export function createNordavoMcpServer(ctx: McpTokenContext, db: McpDb, siteUrl: string, levels: McpAccessLevels = ALL_WRITE): McpServer {
+  const real = new McpServer(
     { name: MCP_SERVER_NAME, version: MCP_SERVER_VERSION },
-    { instructions: instructions(ctx), capabilities: { tools: {} } },
+    { instructions: instructions(ctx, levels), capabilities: { tools: {} } },
   );
+  // Write tools an admin did not allow for their module are never registered.
+  const server = gateTools(real, levels);
   // The db is the secret key client: scope it to the owner's modules (2.5).
   const scoped = scopeDbToModules(db, effectiveModules(ctx.role, ctx.modules));
   registerTools(server, { ...ctx, db: scoped, siteUrl });
@@ -65,5 +73,5 @@ export function createNordavoMcpServer(ctx: McpTokenContext, db: McpDb, siteUrl:
   registerJobRunTool(server, { ...ctx, db: scoped, siteUrl });
   // Content has its own rights (content_api_*), independent of the portal modules.
   registerContentTools(server, { ...ctx, db, siteUrl });
-  return server;
+  return real;
 }
