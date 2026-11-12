@@ -14,13 +14,13 @@ import { checkbox, mergeCustomFields, readCustomFields, text } from "@/lib/conte
 import { fieldDefFrom, imageBriefFields, isDay, parseTags } from "@/lib/content/rules";
 import { parseMediaSuggestion } from "@/lib/content/media-utils";
 import {
-  DRIVE_SETUP_HELP,
+  driveSetupError,
   extractFolderId,
   folderName,
-  hasGoogleDrive,
   safeFileName,
   summaryText,
   syncDriveFolder,
+  testDriveConnection,
 } from "@/lib/content/drive";
 import type { ContentImageBrief, ContentMediaRow } from "@/lib/content/database";
 import type { Json } from "@/lib/database.types";
@@ -389,7 +389,8 @@ export async function addDriveFolderAction(workspaceId: string | null, _prev: Co
   if (!(await mayManageFolder(workspaceId))) return { error: "You cannot link folders to this library." };
   const folderId = extractFolderId(text(formData, "folder", 2000));
   if (!folderId) return { error: "Check the highlighted fields.", fieldErrors: { folder: "Paste the link of a Google Drive folder" } };
-  if (!hasGoogleDrive()) return { error: DRIVE_SETUP_HELP };
+  const setupError = driveSetupError();
+  if (setupError) return { error: setupError };
 
   let name: string;
   try {
@@ -423,7 +424,8 @@ export async function removeDriveFolderAction(folderRowId: string): Promise<Cont
 export async function syncDriveFolderAction(folderRowId: string): Promise<ContentActionState> {
   await requireContentUser();
   if (!id.safeParse(folderRowId).success) return { error: "Folder not found." };
-  if (!hasGoogleDrive()) return { error: DRIVE_SETUP_HELP };
+  const setupError = driveSetupError();
+  if (setupError) return { error: setupError };
   const supabase = await createClient();
   // RLS: only who may see the library finds the row.
   const { data: folder } = await supabase
@@ -442,3 +444,10 @@ export async function syncDriveFolderAction(folderRowId: string): Promise<Conten
   }
 }
 
+/** Test the Google Drive key: a token for the service account and one small Drive request. */
+export async function testDriveConnectionAction(): Promise<ContentActionState> {
+  await requireContentUser();
+  const result = await testDriveConnection();
+  if (!result.ok) return { error: result.error };
+  return { ok: true, message: `Connected to Google Drive as ${result.email}. Share folders with this address as viewer.` };
+}

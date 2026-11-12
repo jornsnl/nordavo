@@ -4,7 +4,9 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, Building2, KanbanSquare, Pencil } from "lucide-react";
 import { EntityExtras } from "@/components/entity/entity-extras";
-import { CustomFieldsCard } from "@/components/custom-fields/custom-fields-card";
+import { RecordLayout } from "@/components/custom-fields/record-layout";
+import { getRecordLayout } from "@/lib/custom-fields/data";
+import { applyFieldLayout, blockLabel, coreField, findBlock } from "@/lib/custom-fields/layout";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { ConfirmDeleteButton } from "@/components/clients/confirm-delete-button";
 import { DaysOpen } from "@/components/vacancies/days-open";
@@ -30,6 +32,10 @@ import { getVacancy, getVacancyPipelineSummary, listCompanyOptions, PRESENTED_TA
 import { formatCurrency, formatDate } from "@/lib/format";
 import { optionFor, seniorities, talentStages, vacancyStatuses } from "@/lib/labels";
 import { TALENT_POOL_LABEL } from "@/lib/talent/talent-pool";
+import { istToNl } from "@/lib/recruitment/vacancy-time";
+import { Markdown } from "@/components/work/markdown";
+import { JobFileUpload } from "@/components/vacancies/job-file-upload";
+import { listJobFiles } from "@/lib/data/vacancies";
 import { deleteVacancyAction, linkTalentPoolVacancyAction } from "../actions";
 
 // Claude calls (matching, opening lines) run inside server actions on this page.
@@ -41,7 +47,7 @@ export const metadata: Metadata = {
 
 type Params = Promise<{ id: string }>;
 
-export default function Page({ params }: PageProps<"/dashboard/vacancies/[id]">) {
+export default function Page({ params, searchParams }: PageProps<"/dashboard/vacancies/[id]">) {
   return (
     <>
       <Link
@@ -52,19 +58,29 @@ export default function Page({ params }: PageProps<"/dashboard/vacancies/[id]">)
         All vacancies
       </Link>
       <Suspense fallback={<DetailSkeleton />}>
-        <VacancyDetail params={params} />
+        <VacancyDetail params={params} searchParams={searchParams} />
       </Suspense>
     </>
   );
 }
 
-async function VacancyDetail({ params }: { params: Params }) {
+async function VacancyDetail({
+  params,
+  searchParams,
+}: {
+  params: Params;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const { id } = await params;
   const vacancy = await getVacancy(id);
   if (!vacancy) notFound();
 
-  const summary = await getVacancyPipelineSummary(vacancy.id);
+  const [summary, layout] = await Promise.all([getVacancyPipelineSummary(vacancy.id), getRecordLayout("vacancy")]);
+  const stackField = coreField(findBlock(layout, "details"), "stack", "Stack");
   const status = optionFor(vacancyStatuses, vacancy.status);
+  const startTime = istToNl(vacancy.start_time_ist);
+  const jobFiles = await listJobFiles(vacancy.id);
+  const jobFileFailed = (await searchParams).job_file === "failed";
   const seniority = optionFor(seniorities, vacancy.seniority);
   const stage = optionFor(talentStages, vacancy.talent_stage);
   const searchBrief = readSearchBrief(vacancy.search_brief);
@@ -129,98 +145,138 @@ async function VacancyDetail({ params }: { params: Params }) {
         }
       />
 
-      <div className="grid grid-cols-1 gap-4 sm:gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
-        <div className="min-w-0 space-y-4 sm:space-y-6">
-          {vacancy.is_talent_pool && (
+      <RecordLayout
+        entity="vacancy"
+        recordId={vacancy.id}
+        layout={layout}
+        blocks={{
+          link_client: vacancy.is_talent_pool && (
             <Suspense fallback={<ListSkeleton rows={2} />}>
               <LinkClient vacancyId={vacancy.id} />
             </Suspense>
-          )}
-          <TimelineCard vacancy={vacancy} leadTime={vacancy.leadTime} />
-          <RequirementsCard vacancy={vacancy} />
-          <Suspense fallback={<ListSkeleton rows={4} />}>
-            <MatchesSection vacancyId={vacancy.id} hasRequirements={hasRequirements} />
-          </Suspense>
-          {(searchBrief || hasRequirements) && (
+          ),
+          timeline: <TimelineCard vacancy={vacancy} leadTime={vacancy.leadTime} />,
+          requirements: <RequirementsCard vacancy={vacancy} />,
+          matches: (
+            <Suspense fallback={<ListSkeleton rows={4} />}>
+              <MatchesSection vacancyId={vacancy.id} hasRequirements={hasRequirements} />
+            </Suspense>
+          ),
+          search_brief: (searchBrief || hasRequirements) && (
             <SearchBriefCard vacancyId={vacancy.id} brief={searchBrief} canGenerate={hasClaude() && hasRequirements} />
-          )}
-
-          <PipelineSummary vacancyId={vacancy.id} summary={summary} target={PRESENTED_TARGET} />
-          <ParkVacancyCard vacancyId={vacancy.id} status={vacancy.status} parkReason={vacancy.park_reason} parkedAt={vacancy.parked_at} />
-          <VacancyFormCard vacancyId={vacancy.id} />
-          <Suspense fallback={null}>
-            <WspVacancyCard vacancyId={vacancy.id} />
-          </Suspense>
-          <Suspense fallback={<ListSkeleton rows={3} />}>
-            <ScreeningCard vacancyId={vacancy.id} />
-          </Suspense>
-
-          <Card>
-            <CardHeader title="Details" />
-            <CardBody>
-              <DetailList
-                items={[
-                  vacancy.is_talent_pool
-                    ? { label: "Client", value: TALENT_POOL_LABEL }
-                    : vacancy.client || !vacancy.company
-                      ? { label: "Client", value: vacancy.client?.name }
-                      : { label: "Prospect", value: vacancy.company.name },
-                  { label: "Source", value: sourceLabel(vacancy.source) },
-                  ...(vacancy.onepage_deal_id ? [{ label: "Old OnePageCRM deal", value: vacancy.onepage_deal_id }] : []),
-                  { label: "Seniority", value: seniority.label },
-                  { label: "Monthly budget", value: formatCurrency(vacancy.monthly_budget, "Not filled in") },
-                  {
-                    label: "Desired start",
-                    value: formatDate(vacancy.desired_start_date, "Not filled in"),
-                  },
-                  { label: "Opened on", value: formatDate(vacancy.opened_at) },
-                  ...(vacancy.closed_at ? [{ label: "Closed on", value: formatDate(vacancy.closed_at) }] : []),
-                  {
-                    label: "Owner",
-                    value: vacancy.owner ? vacancy.owner.full_name || vacancy.owner.email : null,
-                  },
-                ]}
-              />
-              <div className="mt-6 border-t border-border pt-4">
-                <h3 className="text-xs font-medium tracking-wide text-muted uppercase">Stack</h3>
-                {vacancy.stack.length > 0 ? (
-                  <ul className="mt-2 flex flex-wrap gap-1.5">
-                    {vacancy.stack.map((item, i) => (
-                      <li key={`${item}-${i}`}>
-                        <Badge tone="brand">{item}</Badge>
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="mt-1 text-sm text-muted">No stack filled in yet.</p>
+          ),
+          pipeline: <PipelineSummary vacancyId={vacancy.id} summary={summary} target={PRESENTED_TARGET} />,
+          park: (
+            <ParkVacancyCard
+              vacancyId={vacancy.id}
+              status={vacancy.status}
+              parkReason={vacancy.park_reason}
+              parkedAt={vacancy.parked_at}
+              holds={vacancy.holds}
+              hasCompany={Boolean(vacancy.company_id || vacancy.client_id)}
+            />
+          ),
+          form: <VacancyFormCard vacancyId={vacancy.id} />,
+          wsp: (
+            <Suspense fallback={null}>
+              <WspVacancyCard vacancyId={vacancy.id} />
+            </Suspense>
+          ),
+          screening: (
+            <Suspense fallback={<ListSkeleton rows={3} />}>
+              <ScreeningCard vacancyId={vacancy.id} />
+            </Suspense>
+          ),
+          details: (
+            <Card>
+              <CardHeader title={blockLabel(layout, "details")} />
+              <CardBody>
+                <DetailList
+                  items={applyFieldLayout(findBlock(layout, "details"), [
+                    vacancy.is_talent_pool
+                      ? { key: "client", label: "Client", value: TALENT_POOL_LABEL }
+                      : vacancy.client || !vacancy.company
+                        ? { key: "client", label: "Client", value: vacancy.client?.name }
+                        : { key: "client", label: "Prospect", value: vacancy.company.name },
+                    { key: "source", label: "Source", value: sourceLabel(vacancy.source) },
+                    ...(vacancy.onepage_deal_id ? [{ key: "onepage_deal", label: "Old OnePageCRM deal", value: vacancy.onepage_deal_id }] : []),
+                    { key: "seniority", label: "Seniority", value: seniority.label },
+                    { key: "monthly_budget", label: "Monthly budget", value: formatCurrency(vacancy.monthly_budget, "Not filled in") },
+                    {
+                      key: "desired_start",
+                      label: "Desired start",
+                      value: formatDate(vacancy.desired_start_date, "Not filled in"),
+                    },
+                    {
+                      key: "start_time",
+                      label: "Start time",
+                      value: startTime ? `${startTime.ist} IST: ${startTime.winter} NL in winter, ${startTime.summer} NL in summer` : vacancy.timezone_overlap,
+                    },
+                    {
+                      key: "presentation_deadline",
+                      label: "Present top 3 to 5 by",
+                      value: vacancy.presentation_deadline ? formatDate(vacancy.presentation_deadline) : null,
+                    },
+                    {
+                      key: "flow_deadline",
+                      label: "Flow deadline",
+                      value: vacancy.flowDeadline
+                        ? `${formatDate(vacancy.flowDeadline.date)}${vacancy.flowDeadline.source === "three_weeks" ? " (opened plus three weeks)" : ""}`
+                        : null,
+                    },
+                    { key: "opened_on", label: "Opened on", value: formatDate(vacancy.opened_at) },
+                    ...(vacancy.holdSummary.total > 0
+                      ? [{ key: "on_hold", label: "Days on hold", value: `${vacancy.holdSummary.total} (not counted as open)` }]
+                      : []),
+                    ...(vacancy.closed_at ? [{ key: "closed_on", label: "Closed on", value: formatDate(vacancy.closed_at) }] : []),
+                    {
+                      key: "owner",
+                      label: "Owner",
+                      value: vacancy.owner ? vacancy.owner.full_name || vacancy.owner.email : null,
+                    },
+                  ])}
+                />
+                {!stackField.hidden && (
+                  <div className="mt-6 border-t border-border pt-4">
+                    <h3 className="text-xs font-medium tracking-wide text-muted uppercase">{stackField.label}</h3>
+                    {vacancy.stack.length > 0 ? (
+                      <ul className="mt-2 flex flex-wrap gap-1.5">
+                        {vacancy.stack.map((item, i) => (
+                          <li key={`${item}-${i}`}>
+                            <Badge tone="brand">{item}</Badge>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="mt-1 text-sm text-muted">No stack filled in yet.</p>
+                    )}
+                  </div>
                 )}
-              </div>
-            </CardBody>
-          </Card>
-
-          <Card>
-            <CardHeader title="Job profile" />
-            <CardBody>
-              {vacancy.description ? (
-                <p className="max-w-prose text-sm leading-relaxed whitespace-pre-line text-ink">
-                  {vacancy.description}
-                </p>
-              ) : (
-                <p className="text-sm text-muted">
-                  No job profile yet. Ask the client for a job description and add it here.
-                </p>
-              )}
-            </CardBody>
-          </Card>
-        </div>
-
-        <div className="min-w-0 space-y-4 sm:space-y-6">
-          <CustomFieldsCard entity="vacancy" recordId={vacancy.id} />
-          <Suspense fallback={<ListSkeleton rows={3} />}>
-            <EntityExtras entityType="vacancy" entityId={vacancy.id} />
-          </Suspense>
-        </div>
-      </div>
+              </CardBody>
+            </Card>
+          ),
+          job_profile: (
+            <Card>
+              <CardHeader title={blockLabel(layout, "job_profile")} />
+              <CardBody>
+                <JobFileUpload vacancyId={vacancy.id} files={jobFiles} failed={jobFileFailed} />
+                {vacancy.description ? (
+                  <Markdown text={vacancy.description} className="mt-4 max-w-prose" />
+                ) : (
+                  <p className="text-sm text-muted">
+                    No job profile yet. Ask the client for a job description and add it here.
+                  </p>
+                )}
+              </CardBody>
+            </Card>
+          ),
+          extras: (
+            <Suspense fallback={<ListSkeleton rows={3} />}>
+              <EntityExtras entityType="vacancy" entityId={vacancy.id} />
+            </Suspense>
+          ),
+        }}
+      />
     </>
   );
 }

@@ -31,6 +31,9 @@ export function CustomFieldsEditor({
   onFieldAdded,
   headingLevel = "h2",
   framed = true,
+  title = "Custom fields",
+  blockKey,
+  blocks,
 }: {
   entity: CustomFieldEntity;
   recordId: string;
@@ -41,6 +44,12 @@ export function CustomFieldsEditor({
   headingLevel?: "h2" | "h3";
   /** Card look (pages) or a lighter section (inside a modal). */
   framed?: boolean;
+  /** Name of the block (page layouts). */
+  title?: string;
+  /** Block a field added here goes in (page layouts); the default block when left out. */
+  blockKey?: string;
+  /** Blocks a new field can go in, for the form. */
+  blocks?: { key: string; label: string }[];
 }) {
   const router = useRouter();
   const [values, setValues] = useState(initialValues);
@@ -82,9 +91,9 @@ export function CustomFieldsEditor({
       <header className={`flex flex-wrap items-center justify-between gap-2 ${framed ? "border-b border-border px-4 py-3.5 sm:px-5 sm:py-4" : "px-4 pt-4"}`}>
         <div className="min-w-0">
           <Heading id={headingId} className={`font-display font-semibold text-brand-900 ${framed ? "text-base" : "text-sm"}`}>
-            Custom fields
+            {title}
           </Heading>
-          {framed && <p className="mt-0.5 text-sm text-muted">Extra fields your team added.</p>}
+          {framed && !blockKey && <p className="mt-0.5 text-sm text-muted">Extra fields your team added.</p>}
         </div>
         <div className="flex items-center gap-1">
           {!editing && definitions.length > 0 && (
@@ -104,7 +113,7 @@ export function CustomFieldsEditor({
         {!editing && state.ok && state.message && <FormMessage success={state.message} />}
         {definitions.length === 0 ? (
           <p className="text-sm text-muted">
-            No custom fields yet. Add one here, or manage them under{" "}
+            {blockKey && blockKey !== "custom" ? "No fields in this block yet." : "No custom fields yet."} Add one here, or manage them under{" "}
             <Link href="/dashboard/settings#custom-fields" className="font-medium text-brand-700 underline-offset-4 hover:underline">
               Settings
             </Link>
@@ -165,7 +174,7 @@ export function CustomFieldsEditor({
       </div>
 
       <Modal open={adding} onClose={() => setAdding(false)} title="Add a field" description="For every record of this type. Manage all fields under Settings.">
-        {adding && <DefinitionForm action={createCustomField} entity={entity} onDone={added} />}
+        {adding && <DefinitionForm action={createCustomField} entity={entity} blockKey={blockKey} blocks={blocks} onDone={added} />}
       </Modal>
     </section>
   );

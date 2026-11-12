@@ -51,6 +51,7 @@ export function effectiveModules(role: ProfileRole, stored: readonly string[] | 
 /** Dashboard routes that belong to a module. Routes not listed are for every team member. */
 const routeModules: [prefix: string, module: PortalModule][] = [
   ["/dashboard/leads", "sales"],
+  ["/dashboard/inbox", "sales"],
   ["/dashboard/contacts", "sales"],
   ["/dashboard/pipeline", "sales"],
   ["/dashboard/calls", "sales"],
@@ -62,6 +63,7 @@ const routeModules: [prefix: string, module: PortalModule][] = [
   ["/dashboard/vacancies", "recruitment"],
   ["/dashboard/candidates", "recruitment"],
   ["/dashboard/placements", "recruitment"],
+  ["/dashboard/agenda", "recruitment"],
   ["/dashboard/clients", "clients"],
   ["/dashboard/report", "report"],
   ["/dashboard/academy", "academy"],
@@ -100,6 +102,7 @@ export function jobModule(jobName: string): PortalModule | null {
 export function moduleForEntity(entityType: string | null | undefined): PortalModule | null {
   switch (entityType) {
     case "company":
+    case "partner":
       return "sales";
     case "client":
       return "clients";

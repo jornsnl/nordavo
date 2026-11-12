@@ -1,5 +1,7 @@
 import "server-only";
-import { requireStaff } from "@/lib/auth";
+import { getCurrentUser, isStaff, requireStaff } from "@/lib/auth";
+import { pageEntries, searchPages } from "@/lib/search/pages";
+import { navSections } from "@/components/dashboard/nav-items";
 import { entityTypes } from "@/lib/labels";
 import { createClient } from "@/lib/supabase/server";
 
@@ -8,15 +10,15 @@ export const searchableTypes = ["company", "client", "vacancy", "candidate", "pl
 export type SearchableType = (typeof searchableTypes)[number];
 
 export type RecordHit = {
-  /** "task" is a Work task, found by the command palette only. */
-  type: SearchableType | "task";
+  /** "task" (a Work task), "contact" and "page" are found by the command palette only. */
+  type: SearchableType | "task" | "contact" | "page";
   id: string;
   label: string;
   sublabel: string | null;
   href: string;
 };
 
-export type SearchGroups = Record<SearchableType | "task", RecordHit[]>;
+export type SearchGroups = Record<SearchableType | "task" | "contact" | "page", RecordHit[]>;
 
 /** A resolved link to any record that tasks, notes or the activity log point at. */
 export type RecordLink = { label: string; sublabel: string | null; href: string | null };
@@ -147,19 +149,91 @@ async function searchWorkTasks(query: string, limit: number): Promise<RecordHit[
   }));
 }
 
-export const emptySearchGroups: SearchGroups = { company: [], client: [], vacancy: [], candidate: [], placement: [], task: [] };
+export const emptySearchGroups: SearchGroups = {
+  page: [],
+  company: [],
+  contact: [],
+  client: [],
+  vacancy: [],
+  candidate: [],
+  placement: [],
+  task: [],
+};
 
-/** Global search for the command palette: a few hits per record type, and Work tasks. */
-export async function searchEverything(query: string, perGroup = 5): Promise<SearchGroups> {
-  await requireStaff();
+type FuzzyRow = { kind: string; id: string; parent_id: string | null; label: string | null; sublabel: string | null; score: number };
+
+/** Turns the rows of portal_search into hits per group, best first. */
+export function groupFuzzyRows(rows: FuzzyRow[], perGroup: number): Pick<SearchGroups, "company" | "contact" | "client" | "vacancy" | "candidate"> {
+  const out: Pick<SearchGroups, "company" | "contact" | "client" | "vacancy" | "candidate"> = {
+    company: [],
+    contact: [],
+    client: [],
+    vacancy: [],
+    candidate: [],
+  };
+  const sorted = [...rows].filter((r) => r.label).sort((a, b) => b.score - a.score);
+  for (const row of sorted) {
+    let hit: RecordHit | null = null;
+    const label = row.label as string;
+    if (row.kind === "company") hit = { type: "company", id: row.id, label, sublabel: row.sublabel, href: entityTypes.company.href(row.id) };
+    else if (row.kind === "client") hit = { type: "client", id: row.id, label, sublabel: row.sublabel, href: entityTypes.client.href(row.id) };
+    else if (row.kind === "vacancy") hit = { type: "vacancy", id: row.id, label, sublabel: row.sublabel, href: entityTypes.vacancy.href(row.id) };
+    else if (row.kind === "candidate") hit = { type: "candidate", id: row.id, label, sublabel: row.sublabel, href: entityTypes.candidate.href(row.id) };
+    // A sales contact opens its lead, a client contact its client.
+    else if (row.kind === "contact" && row.parent_id)
+      hit = { type: "contact", id: row.id, label, sublabel: row.sublabel, href: entityTypes.company.href(row.parent_id) };
+    else if (row.kind === "client_contact" && row.parent_id)
+      hit = { type: "contact", id: row.id, label, sublabel: row.sublabel, href: entityTypes.client.href(row.parent_id) };
+    if (!hit) continue;
+    const list = out[hit.type as keyof typeof out];
+    if (list.length < perGroup) list.push(hit);
+  }
+  return out;
+}
+
+/**
+ * Leads, contacts, clients, vacancies and candidates through portal_search:
+ * forgiving of typos (pg_trgm), with row level security as the caller.
+ * Before that migration runs it falls back to the plain "contains" search.
+ */
+async function searchRecordsFuzzy(query: string, perGroup: number) {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("portal_search", { p_query: query.trim().slice(0, 80), p_limit: perGroup });
+  if (!error) return groupFuzzyRows(data ?? [], perGroup);
+  console.error("[search] portal_search:", error.message);
   const pattern = searchPattern(query);
-  if (!pattern) return emptySearchGroups;
+  if (!pattern) return { company: [], contact: [], client: [], vacancy: [], candidate: [] };
+  const [company, client, vacancy, candidate] = await Promise.all(
+    (["company", "client", "vacancy", "candidate"] as const).map((type) => searchType(type, pattern, perGroup)),
+  );
+  return { company, contact: [], client, vacancy, candidate };
+}
 
-  const [[company, client, vacancy, candidate, placement], task] = await Promise.all([
-    Promise.all(searchableTypes.map((type) => searchType(type, pattern, perGroup))),
+/**
+ * Global search for the command palette: pages, a few hits per record type,
+ * and Work tasks. People without the portal (Work guests) get pages and
+ * tasks only.
+ */
+export async function searchEverything(query: string, perGroup = 5): Promise<SearchGroups> {
+  const user = await getCurrentUser();
+  const staff = isStaff(user);
+  const page = searchPages(query, pageEntries({ staff, modules: staff ? user.modules : [], sections: navSections })).map((p) => ({
+    type: "page" as const,
+    id: p.href,
+    label: p.label,
+    sublabel: p.section,
+    href: p.href,
+  }));
+  const pattern = searchPattern(query);
+  if (!pattern) return { ...emptySearchGroups, page };
+  if (!staff) return { ...emptySearchGroups, page, task: await searchWorkTasks(query, perGroup) };
+
+  const [records, placement, task] = await Promise.all([
+    searchRecordsFuzzy(query, perGroup),
+    searchType("placement", pattern, perGroup),
     searchWorkTasks(query, perGroup),
   ]);
-  return { company, client, vacancy, candidate, placement, task };
+  return { page, ...records, placement, task };
 }
 
 /** Search one record type, for the record picker on tasks. */
@@ -188,6 +262,7 @@ export async function resolveRecords(
 
   const idsOf = (type: string) => [...new Set(refs.filter((r) => r.type === type).map((r) => r.id))];
   const companyIds = idsOf("company");
+  const partnerIds = idsOf("partner");
   const clientIds = idsOf("client");
   const vacancyIds = idsOf("vacancy");
   const candidateIds = idsOf("candidate");
@@ -196,6 +271,20 @@ export async function resolveRecords(
   const taskIds = idsOf("task");
 
   await Promise.all([
+    partnerIds.length > 0 &&
+      supabase
+        .from("partners")
+        .select("id, name, company_name")
+        .in("id", partnerIds)
+        .then(({ data }) => {
+          for (const p of data ?? []) {
+            result.set(recordKey("partner", p.id), {
+              label: p.name,
+              sublabel: p.company_name,
+              href: entityTypes.partner.href(p.id),
+            });
+          }
+        }),
     companyIds.length > 0 &&
       supabase
         .from("companies")

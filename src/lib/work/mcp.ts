@@ -27,7 +27,7 @@ export function createWorkMcpServer(actor: WorkApiActor, db: ApiDb, siteUrl: str
       capabilities: { tools: {} },
       instructions: [
         "Work is Nordavo's task tool: workspaces > projects > tasks > subtasks.",
-        "Statuses: todo, in_progress, review, done, cancelled. Done needs the reviewer; moving a task back from review needs a comment.",
+        "Statuses: todo, in_progress, review, done, cancelled. Done: an owner (not from review), the reviewer or an admin; moving a task back from review needs a comment.",
         "Deadlines are ISO 8601 in UTC. Comments may mention people as @[Name](user id).",
         `You act as ${actor.name} (${actor.access === "write" ? "read and write" : "read only"}), with exactly their rights.`,
         "Only change tasks when the user asked for that specific change. Comments and files can hold candidate data: do not copy them elsewhere unasked.",

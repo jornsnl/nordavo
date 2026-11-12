@@ -53,12 +53,20 @@ export function AddContactButton({ companyName, action }: { companyName: string;
               </Field>
               <Field label="Tier" htmlFor="tier" error={e.tier}>
                 <Select id="tier" name="tier" defaultValue="">
-                  <option value="">No tier</option>
+                  <option value="">From the job title</option>
                   {TIERS.map((t) => (
                     <option key={t.value} value={t.value}>
                       {t.label}
                     </option>
                   ))}
+                </Select>
+              </Field>
+              <Field label="Role" htmlFor="role" hint="One main contact per company; a new main moves the old one to backup." error={e.role}>
+                <Select id="role" name="role" defaultValue="">
+                  <option value="">Next free role (main, backup, extra)</option>
+                  <option value="main">Main</option>
+                  <option value="reserve">Backup</option>
+                  <option value="extra">Extra</option>
                 </Select>
               </Field>
               <Field label="Email" htmlFor="email" error={e.email}>

@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { ActivityChannel, ActivityOutcome, Database } from "@/lib/database.types";
-import { normalizeDomain, normalizeEmail, normalizeLinkedin, splitName } from "./normalize";
+import { cleanLinkedinUrl, normalizeDomain, normalizeEmail, normalizeLinkedin, splitName } from "./normalize";
 import { parseEmployeeCount } from "./signals";
 import { upsertCompany, upsertContact } from "./upsert";
 
@@ -266,7 +266,7 @@ export async function importLeadRows(
           employees: parseEmployeeCount(cell(row, mapping.employees)),
           sector: cell(row, mapping.sector),
           city: cell(row, mapping.city),
-          linkedin_url: normalizeLinkedin(cell(row, mapping.company_linkedin)),
+          linkedin_url: cleanLinkedinUrl(cell(row, mapping.company_linkedin)),
         },
         sourceName,
       );
@@ -281,8 +281,9 @@ export async function importLeadRows(
         firstName = split.first;
         lastName = split.last;
       }
-      const personLinkedin = normalizeLinkedin(cell(row, mapping.person_linkedin));
-      const linkedin = personLinkedin?.startsWith("linkedin.com/in/") ? personLinkedin : null;
+      // Kept as given (case matters for Apify links); upsertContact matches on the lowercase key.
+      const personLinkedin = cell(row, mapping.person_linkedin);
+      const linkedin = normalizeLinkedin(personLinkedin)?.startsWith("linkedin.com/in/") ? cleanLinkedinUrl(personLinkedin) : null;
 
       let contactId: string | null = null;
       if (firstName || lastName || linkedin || normalizeEmail(email)) {

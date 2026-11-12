@@ -1,4 +1,5 @@
 import "server-only";
+import { daysOpenWithoutHolds } from "@/lib/recruitment/vacancy-time";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import type { ApplicationStage, Json } from "@/lib/database.types";
@@ -23,6 +24,7 @@ import {
 import { registerWriteTools } from "@/lib/mcp/write-tools";
 import { inboxProject, linkedWorkTasks, listWorkProjects, listWorkTasks, workTaskActivity } from "@/lib/mcp/work-tasks";
 import { talentPoolTop } from "@/lib/screening/talent-search";
+import { customFieldReader } from "@/lib/mcp/custom-field-tools";
 
 const READ_ONLY = { readOnlyHint: true, openWorldHint: false } as const;
 
@@ -102,6 +104,8 @@ export function registerTools(server: McpServer, ctx: McpToolContext) {
 function registerReadTools(server: McpServer, ctx: McpToolContext) {
   const { db } = ctx;
   const url = (type: string, id: string) => recordUrl(ctx.siteUrl, type, id);
+  // Custom fields of every record type, loaded once per request.
+  const cf = customFieldReader(db);
 
   // -------------------------------------------------------------------------
   server.registerTool(
@@ -265,7 +269,7 @@ function registerReadTools(server: McpServer, ctx: McpToolContext) {
     async ({ query, status, limit, offset }) => {
       let q = db
         .from("clients")
-        .select("id, name, status, city, industry, website, owner:profiles!clients_owner_id_fkey(full_name, email), vacancies(status)", {
+        .select("id, name, status, city, industry, website, custom_fields, owner:profiles!clients_owner_id_fkey(full_name, email), vacancies(status)", {
           count: "exact",
         })
         .order("name")
@@ -275,6 +279,7 @@ function registerReadTools(server: McpServer, ctx: McpToolContext) {
       if (status) q = q.eq("status", status);
       const r = await q;
       const rows = check(r, "clients");
+      const fields = await cf.compactFor("client");
       return ok({
         total: r.count,
         clients: rows.map((c) => ({
@@ -286,6 +291,7 @@ function registerReadTools(server: McpServer, ctx: McpToolContext) {
           website: c.website,
           owner: personName(c.owner),
           open_vacancies: c.vacancies.filter((v) => v.status === "open").length,
+          custom_fields: fields(c.custom_fields),
         })),
       });
     },
@@ -303,7 +309,7 @@ function registerReadTools(server: McpServer, ctx: McpToolContext) {
       const client = check(
         await db
           .from("clients")
-          .select("id, name, status, city, industry, website, notes, created_at, owner:profiles!clients_owner_id_fkey(full_name, email)")
+          .select("id, name, status, city, industry, website, notes, created_at, custom_fields, owner:profiles!clients_owner_id_fkey(full_name, email)")
           .eq("id", id)
           .maybeSingle(),
         "client",
@@ -326,15 +332,17 @@ function registerReadTools(server: McpServer, ctx: McpToolContext) {
           .limit(100),
         db
           .from("placements")
-          .select("id, status, start_date, end_date, monthly_rate, candidate:candidates(id, full_name), vacancy:vacancies(title)")
+          .select("id, status, start_date, end_date, monthly_rate, custom_fields, candidate:candidates(id, full_name), vacancy:vacancies(title)")
           .eq("client_id", id)
           .order("start_date", { ascending: false })
           .limit(100),
         latestNotes(ctx, "client", id),
       ]);
 
+      const placementFields = await cf.compactFor("placement");
       return ok({
         ...client,
+        custom_fields: await cf.full("client", client.custom_fields),
         owner: personName(client.owner),
         notes: clip(client.notes),
         url: url("client", client.id),
@@ -356,6 +364,7 @@ function registerReadTools(server: McpServer, ctx: McpToolContext) {
           start_date: p.start_date,
           end_date: p.end_date,
           monthly_rate: p.monthly_rate,
+          custom_fields: placementFields(p.custom_fields),
         })),
         recent_notes: notes,
       });
@@ -386,7 +395,7 @@ function registerReadTools(server: McpServer, ctx: McpToolContext) {
       let q = db
         .from("vacancies")
         .select(
-          "id, title, status, seniority, stack, opened_at, closed_at, talent_stage, client_id, company_id, is_talent_pool, client:clients(name), company:companies(name), applications(stage)",
+          "id, title, status, seniority, stack, opened_at, closed_at, talent_stage, client_id, company_id, is_talent_pool, custom_fields, client:clients(name), company:companies(name), applications(stage)",
           { count: "exact" },
         )
         .in("status", status && status.length > 0 ? status : ["open", "on_hold"])
@@ -397,6 +406,7 @@ function registerReadTools(server: McpServer, ctx: McpToolContext) {
       if (client_id) q = q.eq("client_id", client_id);
       if (talent_pool !== undefined) q = q.eq("is_talent_pool", talent_pool);
       const r = await q;
+      const fields = await cf.compactFor("vacancy");
       return ok({
         total: r.count,
         vacancies: check(r, "vacancies").map((v) => ({
@@ -414,6 +424,7 @@ function registerReadTools(server: McpServer, ctx: McpToolContext) {
           opened_at: v.opened_at,
           days_open: v.is_talent_pool ? null : daysSince(v.opened_at, v.closed_at ?? new Date()),
           in_pipeline: v.applications.filter((a) => a.stage !== "rejected").length,
+          custom_fields: fields(v.custom_fields),
         })),
       });
     },
@@ -424,7 +435,7 @@ function registerReadTools(server: McpServer, ctx: McpToolContext) {
     {
       title: "Vacancy",
       description:
-        "One vacancy with its profile (description, stack, must-haves, budget) and the pipeline grouped per stage (sourced, techstack_check, fill_out, video_review, technical_test, interview, matched, client_interview, final_screening, placed; apart from the flow parked and rejected, with the stage they left and the reason). Each card has application and candidate ids, origin (applied or headhunted), source, form status, CV score and verdict, video, test and interview scores, planned interview, shortlist, topper and background check status, and client decision. A talent pool vacancy (is_talent_pool) has no client yet and no three-week clock (days_open null). A parked vacancy has status on_hold with park_reason.",
+        "One vacancy with its profile (description, stack, must-haves, budget) and the pipeline grouped per stage (sourced, techstack_check, fill_out, video_review, technical_test, interview, matched, client_interview, final_screening, placed; apart from the flow parked and rejected, with the stage they left and the reason). Each card has application and candidate ids, origin (applied or headhunted), source, form status, CV score and verdict, video, test and interview scores, planned interview, shortlist, topper and background check status, and client decision. A talent pool vacancy (is_talent_pool) has no client yet and no three-week clock (days_open null). A vacancy on hold has status on_hold with park_reason; holds lists every on hold period, which days_open leaves out. presentation_deadline is the date to present the top 3 to 5 candidates; start_time_ist the desired daily start time in India.",
       inputSchema: { id: idSchema },
       annotations: READ_ONLY,
     },
@@ -433,7 +444,7 @@ function registerReadTools(server: McpServer, ctx: McpToolContext) {
         await db
           .from("vacancies")
           .select(
-            "id, title, status, seniority, description, stack, must_haves, nice_to_haves, monthly_budget, budget_min, budget_max, hours, timezone_overlap, desired_start_date, opened_at, closed_at, park_reason, parked_at, talent_stage, is_talent_pool, intake_at, profiles_sent_at, first_interview_at, client:clients(id, name), company:companies(id, name, domain), owner:profiles!vacancies_owner_id_fkey(full_name, email)",
+            "id, title, status, seniority, description, stack, must_haves, nice_to_haves, monthly_budget, budget_min, budget_max, hours, timezone_overlap, desired_start_date, presentation_deadline, start_time_ist, opened_at, closed_at, park_reason, parked_at, talent_stage, is_talent_pool, intake_at, profiles_sent_at, first_interview_at, custom_fields, client:clients(id, name), company:companies(id, name, domain), owner:profiles!vacancies_owner_id_fkey(full_name, email), holds:vacancy_holds(started_on, ended_on, reason)",
           )
           .eq("id", id)
           .maybeSingle(),
@@ -445,7 +456,7 @@ function registerReadTools(server: McpServer, ctx: McpToolContext) {
         db
           .from("applications")
           .select(
-            `id, stage, position, technical_score, english_score, client_decision, client_feedback, rejection_reason, presented_at, updated_at, ${APPLICATION_PIPELINE_FIELDS}, candidate:candidates(id, full_name, current_title, years_experience, is_topper)`,
+            `id, stage, position, technical_score, english_score, client_decision, client_feedback, rejection_reason, presented_at, updated_at, custom_fields, ${APPLICATION_PIPELINE_FIELDS}, candidate:candidates(id, full_name, current_title, years_experience, is_topper)`,
           )
           .eq("vacancy_id", id)
           .order("position")
@@ -453,6 +464,7 @@ function registerReadTools(server: McpServer, ctx: McpToolContext) {
         latestNotes(ctx, "vacancy", id),
       ]);
       const rows = check(applications, "pipeline");
+      const applicationFields = await cf.compactFor("application");
       const pipeline = applicationStages.map((s) => {
         const inStage = rows.filter((a) => a.stage === s.value);
         return {
@@ -473,15 +485,18 @@ function registerReadTools(server: McpServer, ctx: McpToolContext) {
             client_feedback: clip(a.client_feedback, 500),
             rejection_reason: clip(a.rejection_reason, 300),
             presented_at: a.presented_at,
+            custom_fields: applicationFields(a.custom_fields),
           })),
         };
       });
 
       return ok({
         ...vacancy,
+        custom_fields: await cf.full("vacancy", vacancy.custom_fields),
         description: clip(vacancy.description, 4000),
         owner: personName(vacancy.owner),
-        days_open: vacancy.is_talent_pool ? null : daysSince(vacancy.opened_at, vacancy.closed_at ?? new Date()),
+        // Days on hold (holds) do not count as open.
+        days_open: vacancy.is_talent_pool ? null : daysOpenWithoutHolds(vacancy, vacancy.holds),
         url: url("vacancy", vacancy.id),
         pipeline,
         recent_notes: notes,
@@ -508,7 +523,7 @@ function registerReadTools(server: McpServer, ctx: McpToolContext) {
     },
     async ({ query, status, skill, toppers_only, limit, offset }) => {
       const columns =
-        "id, full_name, current_title, years_experience, skills, status, location, origin, source, is_topper, topper_reason, applications(stage)";
+        "id, full_name, current_title, years_experience, skills, status, location, origin, source, is_topper, topper_reason, custom_fields, applications(stage)";
       const term = query?.trim().toLowerCase();
       const skillKey = skill?.trim().toLowerCase();
 
@@ -533,10 +548,12 @@ function registerReadTools(server: McpServer, ctx: McpToolContext) {
         total = rows.length;
         rows = rows.slice(offset, offset + limit);
       }
+      const fields = await cf.compactFor("candidate");
       return ok({
         total,
         candidates: rows.map(({ applications, ...c }) => ({
           ...c,
+          custom_fields: fields(c.custom_fields),
           active_applications: applications.filter((a) => !["placed", "parked", "rejected"].includes(a.stage)).length,
         })),
       });
@@ -557,7 +574,7 @@ function registerReadTools(server: McpServer, ctx: McpToolContext) {
         await db
           .from("candidates")
           .select(
-            "id, full_name, email, phone, location, current_title, years_experience, skills, linkedin_url, video_url, cv_path, summary, status, park_reason, parked_at, origin, source, is_topper, topper_reason, topper_at, created_at, owner:profiles!candidates_owner_id_fkey(full_name, email)",
+            "id, full_name, email, phone, location, current_title, years_experience, skills, linkedin_url, video_url, cv_path, summary, status, park_reason, parked_at, origin, source, is_topper, topper_reason, topper_at, created_at, custom_fields, owner:profiles!candidates_owner_id_fkey(full_name, email)",
           )
           .eq("id", id)
           .maybeSingle(),
@@ -569,14 +586,14 @@ function registerReadTools(server: McpServer, ctx: McpToolContext) {
         db
           .from("applications")
           .select(
-            `id, stage, technical_score, english_score, assessment_notes, client_decision, client_feedback, rejection_reason, presented_at, updated_at, ${APPLICATION_PIPELINE_FIELDS}, vacancy:vacancies(id, title, status, client:clients(name))`,
+            `id, stage, technical_score, english_score, assessment_notes, client_decision, client_feedback, rejection_reason, presented_at, updated_at, custom_fields, ${APPLICATION_PIPELINE_FIELDS}, vacancy:vacancies(id, title, status, client:clients(name))`,
           )
           .eq("candidate_id", id)
           .order("updated_at", { ascending: false })
           .limit(100),
         db
           .from("placements")
-          .select("id, status, start_date, end_date, monthly_rate, guarantee_until, next_checkin_at, client:clients(id, name)")
+          .select("id, status, start_date, end_date, monthly_rate, guarantee_until, next_checkin_at, custom_fields, client:clients(id, name)")
           .eq("candidate_id", id)
           .order("start_date", { ascending: false })
           .limit(50),
@@ -584,8 +601,10 @@ function registerReadTools(server: McpServer, ctx: McpToolContext) {
       ]);
 
       const { cv_path, owner, summary, ...rest } = candidate;
+      const [applicationFields, placementFields] = await Promise.all([cf.compactFor("application"), cf.compactFor("placement")]);
       return ok({
         ...rest,
+        custom_fields: await cf.full("candidate", candidate.custom_fields),
         summary: clip(summary),
         has_cv: Boolean(cv_path),
         owner: personName(owner),
@@ -606,6 +625,7 @@ function registerReadTools(server: McpServer, ctx: McpToolContext) {
           rejection_reason: clip(a.rejection_reason, 300),
           presented_at: a.presented_at,
           updated_at: a.updated_at,
+          custom_fields: applicationFields(a.custom_fields),
         })),
         placements: check(placements, "placements").map((p) => ({
           id: p.id,
@@ -617,6 +637,7 @@ function registerReadTools(server: McpServer, ctx: McpToolContext) {
           monthly_rate: p.monthly_rate,
           guarantee_until: p.guarantee_until,
           next_checkin_at: p.next_checkin_at,
+          custom_fields: placementFields(p.custom_fields),
         })),
         recent_notes: notes,
       });
@@ -643,7 +664,7 @@ function registerReadTools(server: McpServer, ctx: McpToolContext) {
       let q = db
         .from("placements")
         .select(
-          "id, status, start_date, end_date, monthly_rate, guarantee_until, next_checkin_at, notice_given_at, client:clients(id, name), candidate:candidates(id, full_name), vacancy:vacancies(id, title)",
+          "id, status, start_date, end_date, monthly_rate, guarantee_until, next_checkin_at, notice_given_at, custom_fields, client:clients(id, name), candidate:candidates(id, full_name), vacancy:vacancies(id, title)",
           { count: "exact" },
         )
         .in("status", status && status.length > 0 ? status : ["active", "notice"])
@@ -652,6 +673,7 @@ function registerReadTools(server: McpServer, ctx: McpToolContext) {
       if (client_id) q = q.eq("client_id", client_id);
       if (candidate_id) q = q.eq("candidate_id", candidate_id);
       const r = await q;
+      const fields = await cf.compactFor("placement");
       return ok({
         total: r.count,
         placements: check(r, "placements").map((p) => ({
@@ -669,6 +691,7 @@ function registerReadTools(server: McpServer, ctx: McpToolContext) {
           guarantee_until: p.guarantee_until,
           next_checkin_at: p.next_checkin_at,
           notice_given_at: p.notice_given_at,
+          custom_fields: fields(p.custom_fields),
           url: url("placement", p.id),
         })),
       });

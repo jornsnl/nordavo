@@ -62,6 +62,9 @@ async function EditVacancyForm({ params }: { params: Promise<{ id: string }> }) 
         status: vacancy.status,
         monthly_budget: vacancy.monthly_budget,
         desired_start_date: vacancy.desired_start_date,
+        presentation_deadline: vacancy.presentation_deadline,
+        start_time_ist: vacancy.start_time_ist,
+        park_reason: vacancy.park_reason,
         owner_id: vacancy.owner_id,
       }}
       clients={clients}

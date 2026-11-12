@@ -11,6 +11,8 @@ import {
   type CandidateImportMapping,
   type DedupeKeys,
 } from "@/lib/screening/candidate-csv";
+import { findNameMatches, type NameMatch } from "@/lib/screening/duplicates";
+import { nameKey } from "@/lib/recruitment/candidate-fields";
 
 /**
  * Import candidates into one vacancy (2.6.1, 2.18): every row becomes a
@@ -29,7 +31,14 @@ export type CandidateImportReport = {
   skipped: { row: number; reason: string }[];
 };
 
-export type BatchOptions = { vacancyId: string; source: CandidateSource; origin: CandidateOrigin };
+export type BatchOptions = {
+  /** Null: import into the candidate list only, without a pipeline. */
+  vacancyId: string | null;
+  source: CandidateSource;
+  origin: CandidateOrigin;
+  /** Skip rows without a contact match whose name matches an existing candidate. */
+  skipNameMatches?: boolean;
+};
 
 type Existing = Pick<
   Candidate,
@@ -67,18 +76,20 @@ async function sourcedBase(db: Db, vacancyId: string) {
 export async function addToPipeline(db: Db, options: BatchOptions, candidateIds: string[]): Promise<{ added: Set<string>; already: Set<string> }> {
   const unique = [...new Set(candidateIds)];
   if (unique.length === 0) return { added: new Set(), already: new Set() };
+  const vacancyId = options.vacancyId;
+  if (!vacancyId) return { added: new Set(unique), already: new Set() };
   const { data: existing, error: loadError } = await db
     .from("applications")
     .select("candidate_id")
-    .eq("vacancy_id", options.vacancyId)
+    .eq("vacancy_id", vacancyId)
     .in("candidate_id", unique);
   if (loadError) throw new Error(`Could not read the pipeline: ${loadError.message}`);
   const already = new Set((existing ?? []).map((a) => a.candidate_id));
   const toAdd = unique.filter((id) => !already.has(id));
   if (toAdd.length === 0) return { added: new Set(), already };
-  const base = await sourcedBase(db, options.vacancyId);
+  const base = await sourcedBase(db, vacancyId);
   const rows: TablesInsert<"applications">[] = toAdd.map((candidateId, i) => ({
-    vacancy_id: options.vacancyId,
+    vacancy_id: vacancyId,
     candidate_id: candidateId,
     stage: "sourced",
     position: base + 1024 * (i + 1),
@@ -130,6 +141,7 @@ export async function importCandidateRows(
   });
 
   const existing = await findExistingCandidates(db, drafts.map((d) => d.keys));
+  const byName = options.skipNameMatches ? await findNameMatches(db, drafts.map((d) => d.draft.full_name)) : new Map<string, NameMatch[]>();
   const byId = new Map(existing.map((c) => [c.id, c]));
   const index = new CandidateIndex(existing);
   // Also dedupe within the file: the second row with the same email points at the first.
@@ -141,6 +153,11 @@ export async function importCandidateRows(
     const hit = index.find(d.keys);
     if (hit) {
       resolved.push({ i: d.i, candidateId: hit.id, draft: d.draft, existing: true });
+      continue;
+    }
+    const sameName = byName.get(nameKey(d.draft.full_name) ?? "");
+    if (sameName && sameName.length > 0) {
+      report.skipped.push({ row: rowNumber(d.i), reason: `Same name as an existing candidate (${sameName[0].full_name}); not imported` });
       continue;
     }
     const inFile = fileIndex.find(d.keys);
@@ -192,6 +209,7 @@ export async function importCandidateRows(
     }
     counted.add(id);
     if (!r.existing) report.created += 1;
+    else if (!options.vacancyId) report.matched += 1;
     else if (added.has(id)) report.matched += 1;
     else if (already.has(id)) report.skipped.push({ row: rowNumber(r.i), reason: "Already in this vacancy" });
   }

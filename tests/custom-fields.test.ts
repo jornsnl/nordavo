@@ -30,6 +30,7 @@ function def(fieldType: CustomFieldType, extra: Partial<CustomFieldDefinition> =
     position: 0,
     showInList: true,
     archivedAt: null,
+    blockKey: "custom",
     ...extra,
   };
 }
@@ -156,7 +157,8 @@ test("validateDefinition checks name, type and options", () => {
   const noOptions = validateDefinition({ entity: "candidate", label: "Tier", field_type: "multi_choice", options: "" });
   assert.equal(noOptions.ok, false);
   if (!noOptions.ok) assert.ok(noOptions.errors.options);
-  const bad = validateDefinition({ entity: "placement", label: "", field_type: "rating" });
+  const bad = validateDefinition({ entity: "invoice", label: "", field_type: "rating" });
+  assert.equal(validateDefinition({ entity: "placement", label: "Notice", field_type: "text" }).ok, true);
   assert.equal(bad.ok, false);
   if (!bad.ok) assert.deepEqual(Object.keys(bad.errors).sort(), ["entity", "field_type", "label"]);
   const text = validateDefinition({ entity: "vacancy", label: "Budget", field_type: "number", options: "ignored" });

@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useCallback, useState, type ReactNode } from "react";
+import { Suspense, use, useCallback, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { CheckCheck, ClipboardList, Megaphone, Menu, NotebookPen, Plus, Search, Settings, X, type LucideIcon } from "lucide-react";
@@ -10,6 +10,8 @@ import { useDrawer } from "@/components/ui/use-drawer";
 import { TaskMenuProvider } from "@/components/work/task-menu";
 import { SyncIndicator } from "@/components/offline/sync-indicator";
 import { SyncRuntime } from "@/components/offline/sync-runtime";
+import { CommandPalette } from "@/components/search/command-palette";
+import { PortalShortcuts } from "@/components/shortcuts/portal-shortcuts";
 
 /** Kept on the device ahead of time, so they open without a connection. */
 const OFFLINE_PAGES = ["/work", "/work/add", "/work?view=board", "/work/log"];
@@ -38,13 +40,18 @@ const links: { label: string; href: string; icon: LucideIcon }[] = [
 export function WorkShell({
   workspaces,
   userMenu,
+  staff,
   children,
 }: {
   workspaces: ReactNode;
   userMenu: ReactNode;
+  /** Whether the user is on the Nordavo team (portal pages in search and "g" shortcuts). */
+  staff: Promise<boolean>;
   children: ReactNode;
 }) {
   const [open, setOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const openSearch = useCallback(() => setSearchOpen(true), []);
 
   const close = useCallback(() => setOpen(false), []);
   useDrawer(open, close, "work-drawer");
@@ -131,6 +138,12 @@ export function WorkShell({
         </div>
       </div>
 
+      {/* Ctrl/Cmd K or "/": pages and tasks, and for the team also clients, leads and the rest. */}
+      <CommandPalette open={searchOpen} onOpenChange={setSearchOpen} />
+      <Suspense fallback={null}>
+        <WorkShortcuts staff={staff} onSearch={openSearch} />
+      </Suspense>
+
       <div className="lg:pl-64">
         <main className="mx-auto w-full max-w-6xl pt-6 pb-tabbar pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] sm:pt-8 sm:pl-[max(1.5rem,env(safe-area-inset-left))] sm:pr-[max(1.5rem,env(safe-area-inset-right))] lg:px-10 lg:py-10">
           <TaskMenuProvider>{children}</TaskMenuProvider>
@@ -138,6 +151,10 @@ export function WorkShell({
       </div>
     </div>
   );
+}
+
+function WorkShortcuts({ staff, onSearch }: { staff: Promise<boolean>; onSearch: () => void }) {
+  return <PortalShortcuts onSearch={onSearch} portal={use(staff)} />;
 }
 
 function ActiveNavLinks() {

@@ -93,6 +93,8 @@ export type PartnerRow = {
   status: PartnerStatus;
   owner_id: string | null;
   last_contact_at: string | null;
+  next_action: string | null;
+  next_action_date: string | null;
   created_by: string | null;
   created_at: string;
   updated_at: string;

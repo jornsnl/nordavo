@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
+import { SENIORITY_VALUES } from "@/lib/recruitment/candidate-fields";
 import { requireStaff } from "@/lib/auth";
 import {
   fieldErrorsFrom,
@@ -15,6 +16,7 @@ import type { VacancyStatus } from "@/lib/database.types";
 import { todayIso } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
 import { clockOnLink, ownerColumns } from "@/lib/talent/talent-pool";
+import { processJobFile, validateJobFile } from "@/lib/recruitment/job-description";
 
 const idSchema = z.guid();
 
@@ -36,7 +38,7 @@ const vacancySchema = z
       .max(200, "Use at most 200 characters."),
     description: z.string().max(20000, "This profile is too long.").optional(),
     stack: z.string().max(1000, "Use at most 1000 characters.").optional(),
-    seniority: z.enum(["medior", "senior", "lead"], { error: "Choose a seniority." }),
+    seniority: z.enum(SENIORITY_VALUES, { error: "Choose a seniority." }),
     status: z.enum(["open", "on_hold", "filled", "closed"], { error: "Choose a status." }),
     talent_stage: z.enum(["intake", "zoeken", "profielen_verstuurd", "gesprekken", "geplaatst", "gesloten"], {
       error: "Choose a stage.",
@@ -57,9 +59,23 @@ const vacancySchema = z
     nice_to_haves: z.string().max(4000, "This is too long.").optional(),
     unclear: z.string().max(4000, "This is too long.").optional(),
     desired_start_date: z.iso.date({ error: "Choose a valid date." }).optional(),
+    presentation_deadline: z.iso.date({ error: "Choose a valid date." }).optional(),
+    start_time_ist: z
+      .string()
+      .regex(/^([01]\d|2[0-3]):[0-5]\d(:[0-5]\d)?$/, "Enter a time like 12:30.")
+      .optional(),
     owner_id: z.guid({ error: "Choose a team member." }).optional(),
+    // On hold: a reason is required, the start date defaults to today.
+    park_reason: z.string().trim().max(2000, "This reason is too long.").optional(),
+    hold_start: z.iso.date({ error: "Choose a valid date." }).optional(),
   })
   .superRefine((data, ctx) => {
+    if (data.status === "on_hold" && !data.park_reason) {
+      ctx.addIssue({ code: "custom", path: ["park_reason"], message: "Give the reason the vacancy is on hold." });
+    }
+    if (data.hold_start && data.hold_start > todayIso()) {
+      ctx.addIssue({ code: "custom", path: ["hold_start"], message: "The start date cannot be in the future." });
+    }
     if (data.owner_type === "client" && !data.client_id) {
       ctx.addIssue({ code: "custom", path: ["client_id"], message: "Choose a client." });
     }
@@ -118,8 +134,35 @@ function toRow(data: z.infer<typeof vacancySchema>) {
     nice_to_haves: parseLines(data.nice_to_haves),
     unclear: parseLines(data.unclear),
     desired_start_date: data.desired_start_date ?? null,
+    presentation_deadline: data.presentation_deadline ?? null,
+    start_time_ist: data.start_time_ist ?? null,
     owner_id: data.owner_id ?? null,
   };
+}
+
+/** Columns for on hold: the reason, and the chosen start date when it goes on hold now. */
+function holdColumns(data: z.infer<typeof vacancySchema>, wasOnHold: boolean) {
+  if (data.status !== "on_hold") return {};
+  return {
+    park_reason: data.park_reason ?? null,
+    ...(wasOnHold ? {} : { parked_at: holdStartAt(data.hold_start) }),
+  };
+}
+
+/** Noon in Amsterdam on the chosen day, so the date never shifts; now when it is today or not given. */
+function holdStartAt(day: string | undefined) {
+  if (!day || day === todayIso()) return new Date().toISOString();
+  return `${day}T12:00:00+01:00`;
+}
+
+/** The client's vacancy file from the form, if one was chosen. */
+async function jobFileFrom(formData: FormData) {
+  const value = formData.get("job_file");
+  if (!(value instanceof File) || value.size === 0) return null;
+  const bytes = Buffer.from(await value.arrayBuffer());
+  const valid = validateJobFile(value.name, value.type || null, bytes);
+  if ("error" in valid) return { error: valid.error } as const;
+  return { bytes, fileName: value.name, mime: value.type || null, kind: valid.kind } as const;
 }
 
 function revalidateOwners(row: { client_id: string | null; company_id: string | null }) {
@@ -147,11 +190,14 @@ export async function createVacancyAction(
   const parsed = vacancySchema.safeParse(formValues(formData));
   if (!parsed.success) return invalid(parsed.error);
 
+  const jobFile = await jobFileFrom(formData);
+  if (jobFile && "error" in jobFile) return { error: "Check the highlighted fields.", fieldErrors: { job_file: String(jobFile.error) } };
+
   const row = toRow(parsed.data);
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("vacancies")
-    .insert({ ...row, closed_at: CLOSED.includes(row.status) ? todayIso() : null })
+    .insert({ ...row, ...holdColumns(parsed.data, false), closed_at: CLOSED.includes(row.status) ? todayIso() : null })
     .select("id")
     .single();
   if (error) {
@@ -159,9 +205,15 @@ export async function createVacancyAction(
     return { error: GENERIC_ERROR };
   }
 
+  let fileFailed = false;
+  if (jobFile) {
+    const result = await processJobFile(supabase, data.id, jobFile, jobFile.kind).catch(() => null);
+    fileFailed = !result?.ok;
+  }
+
   revalidatePath("/dashboard/vacancies");
   revalidateOwners(row);
-  redirect(`/dashboard/vacancies/${data.id}`);
+  redirect(`/dashboard/vacancies/${data.id}${fileFailed ? "?job_file=failed" : ""}`);
 }
 
 export async function updateVacancyAction(
@@ -194,20 +246,30 @@ export async function updateVacancyAction(
       : todayIso()
     : null;
 
+  const jobFile = await jobFileFrom(formData);
+  if (jobFile && "error" in jobFile) return { error: "Check the highlighted fields.", fieldErrors: { job_file: String(jobFile.error) } };
+
   const { error } = await supabase
     .from("vacancies")
-    .update({ ...row, ...clock, closed_at: closedAt })
+    .update({ ...row, ...holdColumns(parsed.data, current.status === "on_hold"), ...clock, closed_at: closedAt })
     .eq("id", id);
   if (error) {
     if (error.code === "23503") return foreignKeyError();
     return { error: GENERIC_ERROR };
   }
 
+  let fileFailed = false;
+  if (jobFile) {
+    const result = await processJobFile(supabase, id, jobFile, jobFile.kind).catch(() => null);
+    fileFailed = !result?.ok;
+  }
+
   revalidatePath("/dashboard/vacancies");
   revalidatePath(`/dashboard/vacancies/${id}`);
+  revalidatePath("/dashboard");
   revalidateOwners(row);
   revalidateOwners(current);
-  redirect(`/dashboard/vacancies/${id}`);
+  redirect(`/dashboard/vacancies/${id}${fileFailed ? "?job_file=failed" : ""}`);
 }
 
 /**
@@ -276,4 +338,18 @@ export async function deleteVacancyAction(
   revalidatePath("/dashboard/vacancies");
   if (data) revalidateOwners(data);
   redirect("/dashboard/vacancies");
+}
+
+/** Upload the client's vacancy file (PDF or Word) from the vacancy page and read it into the fields. */
+export async function uploadJobFileAction(vacancyId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  await requireStaff();
+  if (!idSchema.safeParse(vacancyId).success) return { error: GENERIC_ERROR };
+  const jobFile = await jobFileFrom(formData);
+  if (!jobFile) return { error: "Choose a PDF or Word file.", fieldErrors: { job_file: "Choose a file." } };
+  if ("error" in jobFile) return { error: jobFile.error, fieldErrors: { job_file: String(jobFile.error) } };
+  const supabase = await createClient();
+  const result = await processJobFile(supabase, vacancyId, jobFile, jobFile.kind);
+  if (!result.ok) return { error: result.error };
+  revalidatePath(`/dashboard/vacancies/${vacancyId}`);
+  return { ok: true, message: result.warning ? `${result.message} ${result.warning}` : result.message };
 }

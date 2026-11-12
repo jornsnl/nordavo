@@ -24,6 +24,7 @@ export function TimelineCard({ vacancy, leadTime }: { vacancy: Vacancy; leadTime
   const stage = optionFor(talentStages, vacancy.talent_stage);
   const steps = [
     { label: "Intake", date: vacancy.intake_at },
+    { label: "Present by", date: vacancy.presentation_deadline, deadline: true },
     { label: "Profiles sent", date: vacancy.profiles_sent_at },
     { label: "First interview", date: vacancy.first_interview_at },
     { label: "Start", date: vacancy.start_at },
@@ -59,9 +60,9 @@ export function TimelineCard({ vacancy, leadTime }: { vacancy: Vacancy; leadTime
               : "This vacancy is nearing 3 weeks without profiles sent. Time to scale up."}
           </p>
         )}
-        <ol className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <ol className="grid grid-cols-2 gap-3 sm:grid-cols-5">
           {steps.map((step, i) => {
-            const days = i === 0 ? null : sinceIntake(step.date);
+            const days = i === 0 || "deadline" in step ? null : sinceIntake(step.date);
             return (
               <li
                 key={step.label}
@@ -83,6 +84,7 @@ export function TimelineCard({ vacancy, leadTime }: { vacancy: Vacancy; leadTime
             profiles_sent_at: dateInput(vacancy.profiles_sent_at),
             first_interview_at: dateInput(vacancy.first_interview_at),
             start_at: vacancy.start_at ?? "",
+            presentation_deadline: vacancy.presentation_deadline ?? "",
           }}
         />
       </CardBody>

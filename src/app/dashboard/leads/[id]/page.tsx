@@ -12,7 +12,15 @@ import {
   SignalTypeBadge,
 } from "@/components/leads/badges";
 import { AddContactButton } from "@/components/leads/add-contact-button";
+import { BackToListLink } from "@/components/leads/back-to-list";
+import { MergeCompanyButton, MergeContactsButton } from "@/components/leads/merge-buttons";
+import { VacancyItem } from "@/components/leads/vacancy-item";
 import { LeadSalesPanel } from "@/components/sales/lead-sales-panel";
+import { ClientRatesCard } from "@/components/sales/client-rates-card";
+import { LeadFlowCard } from "@/components/sales/lead-flow-card";
+import { pickable } from "@/lib/sales/choices";
+import { loadChoiceLists } from "@/lib/sales/flow-data";
+import { CustomFieldsCard } from "@/components/custom-fields/custom-fields-card";
 import { ContactsPanel } from "@/components/leads/contacts-panel";
 import {
   EditCompanyButton,
@@ -37,6 +45,7 @@ import {
   updateCompanyAction,
 } from "../actions";
 import { createContactAction } from "../manual-actions";
+import { mergeCompaniesAction, mergeContactsAction, searchMergeCompanies } from "../merge-actions";
 import { createClient } from "@/lib/supabase/server";
 import { leadStatuses, pipelineStages } from "@/lib/sales/labels";
 import { describeChange } from "@/lib/sales/timeline";
@@ -50,13 +59,14 @@ type Params = Promise<{ id: string }>;
 export default function Page({ params }: PageProps<"/dashboard/leads/[id]">) {
   return (
     <>
-      <Link
+      {/* Back to the Leads or Contacts table it came from, restored from the browser history at once. */}
+      <BackToListLink
         href="/dashboard/leads"
         className="mb-4 inline-flex items-center gap-1.5 text-sm font-medium text-muted hover:text-brand-700 max-md:-mt-2 max-md:mb-2 max-md:min-h-11 max-md:active:text-brand-700"
       >
         <ArrowLeft className="size-4" aria-hidden="true" />
         All leads
-      </Link>
+      </BackToListLink>
       <Suspense fallback={<DetailSkeleton />}>
         <LeadDetail params={params} />
       </Suspense>
@@ -70,13 +80,16 @@ async function LeadDetail({ params }: { params: Params }) {
   if (!company) notFound();
 
   const supabase = await createClient();
-  const [{ contacts, suppressions }, signals, clients, owners, partners] = await Promise.all([
+  const [{ contacts, suppressions }, signals, clients, owners, partners, similar, choiceLists] = await Promise.all([
     getCompanyContacts(company.id),
     getCompanySignals(company.id),
     company.client_id ? Promise.resolve([]) : listClientOptions(),
     supabase.from("profiles").select("id, full_name, email").in("role", ["admin", "member"]).order("full_name"),
     supabase.from("partners").select("id, name, company_name").order("name"),
+    supabase.rpc("sales_similar_companies", { p_name: company.name, p_domain: company.domain, p_exclude: company.id }),
+    loadChoiceLists(supabase),
   ]);
+  const duplicates = similar.data ?? [];
   const activities = await getCompanyActivities(
     company.id,
     contacts.map((c) => c.id),
@@ -133,6 +146,12 @@ async function LeadDetail({ params }: { params: Params }) {
               }}
               action={updateCompanyAction.bind(null, company.id)}
             />
+            <MergeCompanyButton
+              companyName={company.name}
+              duplicates={duplicates}
+              search={searchMergeCompanies}
+              action={mergeCompaniesAction.bind(null, company.id)}
+            />
             <ButtonLink href={`/dashboard/vacancies/new?company=${company.id}`}>
               <Briefcase aria-hidden="true" />
               Add vacancy
@@ -140,6 +159,25 @@ async function LeadDetail({ params }: { params: Params }) {
           </>
         }
       />
+
+      {duplicates.length > 0 && (
+        <p className="mb-6 flex flex-wrap items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+          <span className="min-w-0 flex-1">
+            Possible duplicate of{" "}
+            {duplicates.slice(0, 3).map((d, i) => (
+              <span key={d.id}>
+                {i > 0 && ", "}
+                <Link href={`/dashboard/leads/${d.id}`} className="font-medium underline">
+                  {d.name}
+                </Link>{" "}
+                ({d.domain.startsWith("nodomain:") ? "no website" : d.domain}, {d.reason})
+              </span>
+            ))}
+            . Same company? Use Merge to make it one lead.
+          </span>
+        </p>
+      )}
 
       {/* Below lg both columns dissolve into one list, so the contacts (to call or mail) come right after the verdict. */}
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_400px]">
@@ -168,7 +206,14 @@ async function LeadDetail({ params }: { params: Params }) {
             owners={(owners.data ?? []).map((p) => ({ id: p.id, name: p.full_name || p.email || "Unnamed" }))}
             partners={(partners.data ?? []).map((p) => ({ id: p.id, name: p.company_name ? `${p.name} (${p.company_name})` : p.name }))}
             primaryContactId={contacts.find((c) => c.isPrimary)?.id ?? null}
+            prioOptions={pickable(choiceLists.prio, company.prio == null ? null : String(company.prio))}
+            categoryOptions={pickable(choiceLists.category, company.category)}
           />
+          {/* Bucket, occupancy, prio reason, follow and own columns (round 4). */}
+          <Suspense fallback={null}>
+            <LeadFlowCard companyId={company.id} />
+          </Suspense>
+          <CustomFieldsCard entity="company" recordId={company.id} />
           <Card>
             <CardHeader
               title="ICP verdict"
@@ -269,7 +314,10 @@ async function LeadDetail({ params }: { params: Params }) {
             <ContactsPanel
               contacts={contacts}
               actions={
-                <AddContactButton companyName={company.name} action={createContactAction.bind(null, company.id)} />
+                <>
+                  <MergeContactsButton contacts={contactOptions} action={mergeContactsAction.bind(null, company.id)} />
+                  <AddContactButton companyName={company.name} action={createContactAction.bind(null, company.id)} />
+                </>
               }
             />
           </div>
@@ -298,6 +346,12 @@ async function LeadDetail({ params }: { params: Params }) {
             </CardBody>
           </Card>
 
+          <div className="min-w-0 max-lg:order-4">
+            <Suspense fallback={<Skeleton className="h-40 w-full" />}>
+              <ClientRatesCard companyId={company.id} clientId={company.client?.id ?? null} />
+            </Suspense>
+          </div>
+
           <div className="min-w-0 max-lg:order-5">
             <SuppressionCard
               suppressions={suppressions}
@@ -318,43 +372,39 @@ async function LeadDetail({ params }: { params: Params }) {
 }
 
 function SignalsCard({ signals }: { signals: SignalItem[] }) {
+  // Open vacancies first (oldest online first), then the closed ones.
+  const sorted = [...signals].sort((x, y) => Number(Boolean(x.closedAt)) - Number(Boolean(y.closedAt)));
   return (
     <Card>
-      <CardHeader title="Signals" description="Vacancies and other buying signals, newest first." />
+      <CardHeader
+        title="Signals"
+        description="Vacancies and other buying signals. Each vacancy links to the vacancy itself, with the day it went online and how many days it is open."
+      />
       {signals.length === 0 ? (
         <CardBody>
           <p className="text-sm text-muted">No signals for this company yet.</p>
         </CardBody>
       ) : (
         <ol className="divide-y divide-border">
-          {signals.map((s) => (
+          {sorted.map((s) => (
             <li key={s.id} className="flex flex-col gap-2 px-5 py-3 sm:flex-row sm:items-start sm:justify-between">
               <div className="min-w-0 space-y-1">
                 <div className="flex flex-wrap items-center gap-2">
                   <SignalTypeBadge type={s.type} />
-                  <span className="text-xs text-muted capitalize">{s.source}</span>
+                  {s.closedAt && <Badge tone="neutral">Offline</Badge>}
                 </div>
-                {s.sourceUrl ? (
-                  <a
-                    href={s.sourceUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 text-sm font-medium text-brand-700 hover:underline"
-                  >
-                    {s.title || "View source"}
-                    <ExternalLink className="size-3.5 shrink-0" aria-hidden="true" />
-                    <span className="sr-only">(opens in a new tab)</span>
-                  </a>
-                ) : (
-                  <p className="text-sm font-medium">{s.title || "Untitled"}</p>
-                )}
+                <VacancyItem
+                  title={s.title}
+                  url={s.sourceUrl}
+                  source={s.source}
+                  postedAt={s.postedAt}
+                  firstSeenAt={s.firstSeenAt}
+                  closedAt={s.closedAt}
+                  description={s.description}
+                  roleGroup={s.roleGroup}
+                />
               </div>
-              <p className="shrink-0 text-xs text-muted">
-                First seen {formatDate(s.firstSeenAt)}
-                <br className="hidden sm:block" />
-                <span className="sm:hidden">, </span>
-                last seen {formatDate(s.lastSeenAt)}
-              </p>
+              <p className="shrink-0 text-xs text-muted sm:text-right">Last seen {formatDate(s.lastSeenAt)}</p>
             </li>
           ))}
         </ol>

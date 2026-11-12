@@ -34,6 +34,10 @@ import { kinds, type AnyRow, type GridKind } from "./grid-kinds";
 import { LostReasonDialog, ParkDialog } from "./lost-reason-dialog";
 import { SalesBoard } from "./sales-board";
 import { AssignCallersDialog, type CallerOption } from "@/components/calls/assign-callers-dialog";
+import type { ChoiceLists } from "@/lib/sales/choices";
+import { applyChoiceLists, customColumnDefs, flowColumnDefs, type CustomColumn } from "@/lib/sales/grid-extras";
+import { AddColumnDialog } from "./add-column-dialog";
+import { TriageBar } from "./triage-bar";
 
 const ROW_H = 36;
 const LEAD_W = 76; // checkbox, pin and drag handle
@@ -115,8 +119,17 @@ export function SalesWorkspace({
   bulkActions,
   emptyText,
   callers,
+  choiceLists,
+  customColumns,
+  canAddColumns = false,
 }: {
   kind: GridKind;
+  /** The choice lists as set up in Settings (labels, order, hidden, extra options). */
+  choiceLists?: ChoiceLists;
+  /** Own columns (custom fields of companies and contacts). */
+  customColumns?: CustomColumn[];
+  /** Shows "Add column" in the column chooser. */
+  canAddColumns?: boolean;
   /** Active callers, only for admins: opens selected rows for callers (2.10). */
   callers?: CallerOption[];
   rows: AnyRow[];
@@ -156,7 +169,27 @@ export function SalesWorkspace({
 
   const dirty = JSON.stringify(config) !== JSON.stringify(savedConfig);
 
-  const allColumns = k.columns;
+  const [addingColumn, setAddingColumn] = useState(false);
+  const allColumns = useMemo(
+    () =>
+      applyChoiceLists(
+        [
+          ...k.columns,
+          ...flowColumnDefs<AnyRow>(kind === "contacts" ? "contacts" : "companies"),
+          ...customColumnDefs<AnyRow>((customColumns ?? []).filter((c) => kind === "contacts" || c.entity === "company")),
+        ],
+        choiceLists,
+      ),
+    [k.columns, kind, customColumns, choiceLists],
+  );
+  const boardColumns = useMemo(() => {
+    if (!choiceLists || kind === "pipeline") return undefined;
+    const list = kind === "contacts" ? choiceLists.contact_status : choiceLists.lead_status;
+    const used = new Set(rows.map((r) => String((r as unknown as Record<string, unknown>)[k.board.key] ?? "")));
+    return list
+      .filter((o) => !o.hidden || used.has(o.value))
+      .map((o) => ({ value: o.value, label: o.label, tone: o.tone, description: o.description ?? undefined }));
+  }, [choiceLists, kind, rows, k.board.key]);
   const visibleKeys = useMemo(() => {
     const keys = config.columns?.filter((key) => allColumns.some((c) => c.key === key));
     return keys && keys.length > 0 ? keys : allColumns.filter((c) => c.defaultVisible).map((c) => c.key);
@@ -554,6 +587,18 @@ export function SalesWorkspace({
                   }}
                 />
               )}
+              {kind === "companies" && (
+                <TriageBar
+                  companyIds={selectedRows.map((r) => r.id)}
+                  callers={callers}
+                  onDone={(text) => {
+                    setSelected(new Set());
+                    flash("ok", text);
+                    router.refresh();
+                  }}
+                  onError={(text) => flash("error", text)}
+                />
+              )}
               {bulkActions?.(selectedRows, () => setSelected(new Set()))}
             </>
           }
@@ -579,7 +624,7 @@ export function SalesWorkspace({
           emptyText={emptyText}
         />
       ) : (
-        <SalesBoard kind={kind} rows={viewRows} onMove={(row, value, extra) => {
+        <SalesBoard kind={kind} rows={viewRows} columns={boardColumns} onMove={(row, value, extra) => {
           const column = allColumns.find((c) => c.key === k.board.key)!;
           const changes: Change[] = [{ row, column, value, old: rawValue(row, column) }];
           if (extra?.lost_reason) {
@@ -635,6 +680,19 @@ export function SalesWorkspace({
           visible={visibleKeys}
           onChange={(next) => setConfig((c) => ({ ...c, columns: next }))}
           onClose={() => setChoosing(false)}
+          onAddColumn={canAddColumns ? () => { setChoosing(false); setAddingColumn(true); } : undefined}
+        />
+      )}
+      {addingColumn && (
+        <AddColumnDialog
+          entities={kind === "contacts" ? ["contact", "company"] : ["company"]}
+          onClose={() => setAddingColumn(false)}
+          onAdded={(key) => {
+            setAddingColumn(false);
+            setConfig((c) => ({ ...c, columns: [...visibleKeys, key] }));
+            flash("ok", "Column added. Fill it in like any other cell.");
+            router.refresh();
+          }}
         />
       )}
       {filterColumn && allColumns.find((c) => c.key === filterColumn) && (
@@ -741,7 +799,7 @@ function BulkBar({
       <span className="font-semibold text-brand-900 tabular-nums">{selected.length} selected</span>
       {prio && (
         <span className="flex items-center gap-1" role="group" aria-label="Set prio">
-          {(prio.options ?? []).map((o) => (
+          {(prio.options ?? []).filter((o) => !o.hidden).map((o) => (
             <button key={o.value} type="button" onClick={() => onApply(prio, Number(o.value))} className="rounded-lg border border-border bg-white px-2 py-1 text-xs font-semibold hover:border-brand-500">
               {o.label}
             </button>
@@ -758,7 +816,7 @@ function BulkBar({
       {column?.type === "select" || column?.type === "boolean" ? (
         <select aria-label="New value" value={text} onChange={(e) => setText(e.target.value)} className="h-8 rounded-lg border border-border bg-white px-2 text-sm">
           <option value="">(empty)</option>
-          {(column.type === "boolean" ? [{ value: "yes", label: "Yes" }, { value: "no", label: "No" }] : (column.options ?? [])).map((o) => (
+          {(column.type === "boolean" ? [{ value: "yes", label: "Yes" }, { value: "no", label: "No" }] : (column.options ?? []).filter((o) => !o.hidden)).map((o) => (
             <option key={o.value} value={o.value}>
               {o.label}
             </option>

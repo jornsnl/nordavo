@@ -3,9 +3,10 @@ import { Suspense } from "react";
 import Link from "next/link";
 import Form from "next/form";
 import { redirect } from "next/navigation";
-import { GraduationCap, Plus, Search, SearchX, Sparkles, Star, Users } from "lucide-react";
+import { GraduationCap, Plus, Search, SearchX, Sparkles, Star, Upload, Users } from "lucide-react";
 import { EmptyState } from "@/components/dashboard/empty-state";
 import { PageHeader } from "@/components/dashboard/page-header";
+import { ExportCsvLink } from "@/components/custom-fields/export-link";
 import { AutoSubmitSelects } from "@/components/entity/auto-submit";
 import { FilterChips, filterHref } from "@/components/entity/filter-chips";
 import { Avatar } from "@/components/ui/avatar";
@@ -50,6 +51,11 @@ export default function Page({ searchParams }: PageProps<"/dashboard/candidates"
             <ButtonLink href="/dashboard/candidates/academy" variant="secondary">
               <GraduationCap aria-hidden="true" />
               Academy results
+            </ButtonLink>
+            <ExportCsvLink href="/dashboard/candidates/export" />
+            <ButtonLink href="/dashboard/candidates/import" variant="secondary">
+              <Upload aria-hidden="true" />
+              Import
             </ButtonLink>
             <ButtonLink href="/dashboard/candidates/new">
               <Plus aria-hidden="true" />

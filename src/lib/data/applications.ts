@@ -70,7 +70,7 @@ export async function getPipeline(vacancyId: string) {
          video_score, video_notes, interview_at, shortlisted_at,
          background_check_status, background_check_notes,
          exit_from_stage, park_reason, park_until, parked_at, rejected_at,
-         candidate:candidates(id, full_name, current_title, years_experience, skills, is_topper, topper_reason, topper_at),
+         candidate:candidates(id, full_name, current_title, years_experience, skills, is_topper, topper_reason, topper_at, video_url),
          assessment:application_assessments(*)`,
       )
       .eq("vacancy_id", vacancyId)

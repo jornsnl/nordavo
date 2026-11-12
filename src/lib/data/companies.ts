@@ -146,6 +146,13 @@ export type SignalItem = {
   source: SignalSource;
   firstSeenAt: string;
   lastSeenAt: string;
+  /** The day it went online on the job board, when known (YYYY-MM-DD). */
+  postedAt?: string | null;
+  /** The vacancy text. */
+  description?: string | null;
+  /** When it went offline; null is open. */
+  closedAt?: string | null;
+  roleGroup?: string | null;
 };
 
 function toSignal(s: {
@@ -244,12 +251,18 @@ export async function getCompanySignals(companyId: string): Promise<SignalItem[]
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("signals")
-    .select("id, type, title, source_url, source, first_seen_at, last_seen_at")
+    .select("id, type, title, source_url, source, first_seen_at, last_seen_at, posted_at, description, closed_at, role_group")
     .eq("company_id", companyId)
     .order("last_seen_at", { ascending: false })
     .limit(100);
   if (error) throw new Error(`Could not load signals: ${error.message}`);
-  return data.map(toSignal);
+  return data.map((s) => ({
+    ...toSignal(s),
+    postedAt: s.posted_at,
+    description: s.description,
+    closedAt: s.closed_at,
+    roleGroup: s.role_group,
+  }));
 }
 
 export type SuppressionItem = {

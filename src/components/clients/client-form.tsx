@@ -73,7 +73,7 @@ export function ClientForm({
         <Field label="City" htmlFor="city" error={errors.city}>
           <Input id="city" name="city" autoComplete="address-level2" enterKeyHint="next" defaultValue={defaults?.city ?? ""} {...invalid("city")} />
         </Field>
-        <Field label="Status" htmlFor="status" required error={errors.status}>
+        <Field label="Status" htmlFor="status" required error={errors.status} hint="Active needs an owner and at least one contact person.">
           <Select id="status" name="status" defaultValue={defaults?.status ?? "lead"} {...invalid("status")}>
             {clientStatuses.map((s) => (
               <option key={s.value} value={s.value}>

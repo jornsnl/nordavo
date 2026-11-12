@@ -2,11 +2,12 @@
 
 import { Suspense, useCallback, useState, type ReactNode } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { Bell, CheckCheck, Home, Lightbulb, Menu, Search, Settings, X, type LucideIcon } from "lucide-react";
 import { LogoMark } from "@/components/brand/logo";
 import { TabBar, TabButton, type TabItem } from "@/components/ui/tab-bar";
 import { useDrawer } from "@/components/ui/use-drawer";
+import { PortalShortcuts } from "@/components/shortcuts/portal-shortcuts";
 
 const tabs: TabItem[] = [
   { label: "Overview", href: "/content", icon: Home, match: (path) => path === "/content" },
@@ -44,6 +45,8 @@ export function ContentShell({
   const [open, setOpen] = useState(false);
   const close = useCallback(() => setOpen(false), []);
   useDrawer(open, close, "content-drawer");
+  const router = useRouter();
+  const openSearch = useCallback(() => router.push("/content/search"), [router]);
 
   const sidebar = (
     <div className="flex h-full flex-col bg-brand-900 px-4 py-5 max-lg:pt-[calc(1.25rem+env(safe-area-inset-top))] max-lg:pb-[calc(1.25rem+env(safe-area-inset-bottom))]">
@@ -64,6 +67,10 @@ export function ContentShell({
 
   return (
     <div className="min-h-dvh">
+      {/* q quick add, / search, g + letter and the rest, as in Work and the dashboard. */}
+      <Suspense fallback={null}>
+        <PortalShortcuts onSearch={openSearch} portal={false} />
+      </Suspense>
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 lg:block">{sidebar}</aside>
 
       <header className="sticky top-0 z-20 border-b border-border bg-white/90 pt-safe backdrop-blur-lg lg:hidden">

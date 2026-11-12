@@ -13,6 +13,7 @@ import { TabBar, TabButton, type TabItem } from "@/components/ui/tab-bar";
 import { useDrawer } from "@/components/ui/use-drawer";
 import { SyncIndicator } from "@/components/offline/sync-indicator";
 import { SyncRuntime } from "@/components/offline/sync-runtime";
+import { PortalShortcuts } from "@/components/shortcuts/portal-shortcuts";
 
 /** Kept on the device ahead of time, so they open without a connection (read only, Work tasks also writable). */
 const OFFLINE_PAGES = ["/dashboard", "/work", "/dashboard/leads", "/dashboard/vacancies", "/dashboard/candidates", "/dashboard/clients"];
@@ -47,6 +48,7 @@ export function AppShell({
   const [searchOpen, setSearchOpen] = useState(false);
 
   const close = useCallback(() => setOpen(false), []);
+  const openSearch = useCallback(() => setSearchOpen(true), []);
   useDrawer(open, close, "mobile-sidebar");
 
   const moreButton = (
@@ -146,6 +148,9 @@ export function AppShell({
       </div>
 
       <CommandPalette open={searchOpen} onOpenChange={setSearchOpen} />
+      <Suspense fallback={null}>
+        <PortalShortcuts onSearch={openSearch} portal />
+      </Suspense>
 
       <div className="lg:pl-64">
         <main className="mx-auto w-full max-w-6xl pt-6 pb-tabbar pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] sm:pt-8 sm:pl-[max(1.5rem,env(safe-area-inset-left))] sm:pr-[max(1.5rem,env(safe-area-inset-right))] lg:px-10 lg:py-10">

@@ -87,7 +87,7 @@ Je bent de instroom taak van Nordavo. Werk met de Nordavo MCP en de connectors v
 2. Apify: haal de vacatures van de laatste 2 dagen op uit de LinkedIn en Indeed actors, voor Nederland, voor tech rollen (developers, data, BI, DevOps, QA). Laat recruitment- en detacheringsbureaus weg.
 3. Groepeer de vacatures per bedrijf. Bepaal per vacature de role_group (bijvoorbeeld "Backend", "Frontend", "Full stack", "Data & BI", "DevOps", "Mobile", "QA") en de datum dat hij online kwam (posted_at).
 4. Prospeo: zoek per nieuw bedrijf hooguit [3] beslissers (CTO, Head of Engineering, IT manager, oprichter bij kleine bedrijven) met hun LinkedIn URL en, als Prospeo die heeft, hun zakelijke mailadres.
-5. Schrijf in batches van hooguit 50 bedrijven met upsert_companies: source "apify" voor de vacatures (of "prospeo" als het bedrijf alleen uit Prospeo komt), per bedrijf name, domain (de website), linkedin_url (de bedrijfspagina), city, sector, employees, signals (title, type "vacature", role_group, posted_at, source_url) en contacts. Bekende bedrijven worden aangevuld, nooit overschreven; een vacature die al bekend is wordt alleen bijgewerkt.
+5. Schrijf in batches van hooguit 50 bedrijven met upsert_companies: source "apify" voor de vacatures (of "prospeo" als het bedrijf alleen uit Prospeo komt), per bedrijf name, domain (de website), linkedin_url (de bedrijfspagina), city, sector, employees, opening_line, red_flags en general_phone (eigen velden, niet in description), signals (title, type "vacature", role_group, posted_at, source_url = de link naar de vacature zelf, ook bij Indeed, en description = de vacaturetekst) en contacts (met role main, backup of extra en de LinkedIn link precies zoals Apify hem geeft). Bekende bedrijven worden aangevuld, nooit overschreven; een vacature die al bekend is wordt alleen bijgewerkt. Lees per bedrijf in results of er een error, signals_failed of possible_duplicates staat en noem die in je samenvatting.
 6. Roep log_job_run aan met action "finish", status "success", records_in = het aantal vacatures, records_out = het aantal nieuwe bedrijven, meta = {"companies_new": n, "companies_known": n, "signals_new": n, "contacts_new": n, "failed": n}.
 ```
 
@@ -167,6 +167,38 @@ Je bent de verzoeken taak van Nordavo. Werk met de Nordavo MCP.
 | `academy_assessment` | Ingeleverde Academy opdracht | AI voorstel op de rubric; Nordavo zet de score |
 | `lesson_draft` | *Draft from the transcript* in de les editor | Uitleg, taken en drie vragen als concept blokken |
 
+## 9. Campagnes in Instantly en Seleqt
+
+**Job name:** `claude-campaigns`. **Schema:** elke dag om 07:40 en 13:40.
+
+```text
+Je bent de campagnetaak van Nordavo. Werk met de Nordavo MCP en de connectors van Instantly en Seleqt.
+
+1. Roep log_job_run aan met action "start" en job_name "claude-campaigns".
+2. Haal de campagnes op: in Instantly alle campagnes met hun status, in Seleqt de LinkedIn campagnes.
+3. Zet elke campagne in Nordavo met upsert_campaign: name, channel "mail" (Instantly) of "linkedin" (Seleqt), provider, external_id = de id daar, status (draft, active, paused, finished).
+4. Haal per lopende campagne de leads op, met of ze replyden. Registreer ze met register_campaign_members (source "instantly" of "seleqt"): email of contact_id, status (active, replied, finished, bounced, unsubscribed), replied_at en reply_outcome. Een lead die Nordavo weigert omdat hij al in een andere lopende campagne zit: haal hem daar niet weg, noem hem in meta.
+5. Leads met status queued in get_campaign (in het portaal naar deze campagne gestuurd): zet ze in Instantly of Seleqt in de campagne, en registreer ze daarna als active.
+6. Roep log_job_run aan met action "finish", status "success", records_in = het aantal campagnes, records_out = het aantal geregistreerde leads, meta = {"added": n, "replied": n, "refused": n, "queued_pushed": n}.
+```
+
+De fallback is de job `s8-instantly-campaigns` (alleen Instantly, met de hand op Beheer, Jobs).
+
+## 10. Gevolgde bedrijven: nieuwe dev en data vacatures
+
+**Job name:** `claude-followed`. **Schema:** werkdagen om 09:10.
+
+```text
+Je bent de volgtaak van Nordavo. Werk met de Nordavo MCP en je zoekconnectors (Apify, Prospeo, de vacaturesites).
+
+1. Roep log_job_run aan met action "start" en job_name "claude-followed".
+2. Haal de gevolgde bedrijven op met list_followed_companies.
+3. Zoek per bedrijf nieuwe vacatures (website, LinkedIn, Indeed). Neem alleen dev en data rollen mee die nog niet in de lijst vacancies staan.
+4. Voeg ze toe met upsert_companies (het bedrijf op domein, met de vacatures als signals met eigen link en posted_at).
+   Het portaal maakt dan zelf een taak "New vacancy at ..." voor de eigenaar van het bedrijf (of wie het volgt) en zet een regel in de tijdlijn.
+5. Roep log_job_run aan met action "finish", status "success", records_in = het aantal gevolgde bedrijven, records_out = het aantal nieuwe vacatures.
+```
+
 ## Overzicht
 
 | Taak | Job name | Schrijft met |
@@ -179,6 +211,8 @@ Je bent de verzoeken taak van Nordavo. Werk met de Nordavo MCP.
 | Matches | `claude-match` | `save_matches`, `save_search_brief` |
 | CV scores | `claude-screening` | `save_cv_text`, `save_cv_score` |
 | Verzoeken | `claude-requests` | `complete_ai_request` |
+| Campagnes | `claude-campaigns` | `upsert_campaign`, `register_campaign_members` |
+| Gevolgde bedrijven | `claude-followed` | `upsert_companies` |
 
 Elke taak logt met `log_job_run`. Een job name begint altijd met `claude-`; daardoor staat de run op de Jobs pagina. `claude-match` en `claude-screening` horen bij de module Recruitment, `claude-requests` ziet iedereen van het team, de andere horen bij Sales.
 

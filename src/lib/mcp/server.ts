@@ -9,6 +9,7 @@ import { registerJobRunTool } from "@/lib/mcp/job-run-tool";
 import { registerRecruitmentAiTools } from "@/lib/mcp/recruitment-ai-tools";
 import { registerAiRequestTools } from "@/lib/mcp/ai-request-tools";
 import { registerContentTools } from "@/lib/mcp/content-tools";
+import { registerCustomFieldTools } from "@/lib/mcp/custom-field-tools";
 import { effectiveModules, portalModules } from "@/lib/modules";
 import { gateTools, levelSummary, mcpModules, type McpAccessLevels } from "@/lib/mcp/module-access";
 
@@ -71,6 +72,7 @@ export function createNordavoMcpServer(ctx: McpTokenContext, db: McpDb, siteUrl:
   registerRecruitmentAiTools(server, { ...ctx, db: scoped, siteUrl });
   registerAiRequestTools(server, { ...ctx, db: scoped, siteUrl });
   registerJobRunTool(server, { ...ctx, db: scoped, siteUrl });
+  registerCustomFieldTools(server, { ...ctx, db: scoped, siteUrl });
   // Content has its own rights (content_api_*), independent of the portal modules.
   registerContentTools(server, { ...ctx, db, siteUrl });
   return real;

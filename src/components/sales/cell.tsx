@@ -88,6 +88,24 @@ export function CellView({ column, row }: { column: ColumnDef<AnyRow>; row: AnyR
   const text = displayText(column, row);
   if (!text) return null;
   const raw = column.get(row);
+  const links = column.links?.(row);
+  if (links && links.length > 0) {
+    return (
+      <span className="flex min-w-0 gap-2 truncate">
+        {links.map((l, i) =>
+          l.href ? (
+            <a key={i} href={l.href} target="_blank" rel="noopener noreferrer" className="shrink-0 text-brand-700 hover:underline" onClick={(e) => e.stopPropagation()}>
+              {l.label}
+            </a>
+          ) : (
+            <span key={i} className="shrink-0">
+              {l.label}
+            </span>
+          ),
+        )}
+      </span>
+    );
+  }
   if (column.type === "select") {
     const tone = column.key.endsWith("prio") ? prioTone[String(raw)] : selectTone[String(raw)];
     return (
@@ -185,7 +203,7 @@ export function CellEditor({
             { value: "yes", label: "Yes" },
             { value: "no", label: "No" },
           ]
-        : (column.options ?? []);
+        : (column.options ?? []).filter((o) => !o.hidden || o.value === initial);
     return (
       <select
         ref={ref}

@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { fieldErrorsFrom, formValues, GENERIC_ERROR, type ActionState } from "@/lib/action-state";
 import { requireModule } from "@/lib/auth";
-import { normalizeEmail, normalizeLinkedin, normalizePhone } from "@/lib/gtm/normalize";
+import { cleanLinkedinUrl, normalizeEmail, normalizePhone } from "@/lib/gtm/normalize";
 import { createClient } from "@/lib/supabase/server";
 
 const idSchema = z.guid();
@@ -27,7 +27,7 @@ function toRow(data: z.infer<typeof partnerSchema>) {
     company_name: data.company_name ?? null,
     email: data.email ? (normalizeEmail(data.email) ?? data.email) : null,
     phone: data.phone ? (normalizePhone(data.phone) ?? data.phone) : null,
-    linkedin_url: data.linkedin_url ? (normalizeLinkedin(data.linkedin_url) ?? data.linkedin_url) : null,
+    linkedin_url: data.linkedin_url ? (cleanLinkedinUrl(data.linkedin_url) ?? data.linkedin_url) : null,
     notes: data.notes ?? null,
     status: data.status,
     owner_id: data.owner_id ?? null,
@@ -119,4 +119,29 @@ export async function setCompanyPartner(companyId: string, partnerId: string | n
   // The old partner's page loses the lead, the new one gains it.
   revalidatePath("/dashboard/partners/[id]", "page");
   return { ok: true, message: partnerId ? "Partner linked." : "Partner removed." };
+}
+
+const nextActionSchema = z.object({
+  next_action: z.string().trim().max(500, "Use at most 500 characters.").optional(),
+  next_action_date: z.iso.date({ error: "Pick a date." }).optional(),
+});
+
+/** The next action with its date on a partner, like on a lead (feedback Julius, 6fc01216). Logged in the partner's timeline. */
+export async function setPartnerNextAction(id: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  await requireModule("sales");
+  if (!idSchema.safeParse(id).success) return { error: "Partner not found." };
+  const parsed = nextActionSchema.safeParse(formValues(formData));
+  if (!parsed.success) return { error: "Check the next action.", fieldErrors: fieldErrorsFrom(parsed.error) };
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("partners")
+    .update({ next_action: parsed.data.next_action || null, next_action_date: parsed.data.next_action_date ?? null })
+    .eq("id", id);
+  if (error) {
+    console.error("setPartnerNextAction", error.message);
+    return { error: GENERIC_ERROR };
+  }
+  revalidatePath(`/dashboard/partners/${id}`);
+  revalidatePath("/dashboard/partners");
+  return { ok: true, message: parsed.data.next_action || parsed.data.next_action_date ? "Next action saved." : "Next action cleared." };
 }

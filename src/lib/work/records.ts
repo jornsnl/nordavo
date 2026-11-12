@@ -16,7 +16,7 @@ import type { WorkTaskLinkRow } from "@/lib/work/database";
 
 export type RecordType = WorkTaskLinkRow["entity_type"];
 
-export const recordTypes: RecordType[] = ["company", "client", "vacancy", "candidate", "placement", "application"];
+export const recordTypes: RecordType[] = ["company", "partner", "client", "vacancy", "candidate", "placement", "application"];
 
 export type TaskRecord = {
   type: RecordType;

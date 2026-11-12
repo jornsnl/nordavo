@@ -43,15 +43,22 @@ export const clientStatuses: Option<ClientStatus>[] = [
 
 export const vacancyStatuses: Option<VacancyStatus>[] = [
   { value: "open", label: "Open", tone: "brand" },
-  { value: "on_hold", label: "Parked", tone: "warning" },
+  { value: "on_hold", label: "On hold", tone: "warning" },
   { value: "filled", label: "Filled", tone: "success" },
   { value: "closed", label: "Closed", tone: "neutral" },
 ];
 
+/** One list for vacancies and candidates (feedback round 3). */
 export const seniorities: Option<Seniority>[] = [
+  { value: "intern", label: "Intern", tone: "neutral" },
+  { value: "fresher", label: "Fresher", tone: "neutral" },
+  { value: "junior", label: "Junior", tone: "neutral" },
   { value: "medior", label: "Medior", tone: "neutral" },
   { value: "senior", label: "Senior", tone: "brand" },
   { value: "lead", label: "Lead", tone: "accent" },
+  { value: "manager", label: "Manager", tone: "accent" },
+  { value: "senior_manager", label: "Senior manager", tone: "accent" },
+  { value: "freelance", label: "Freelance", tone: "neutral" },
 ];
 
 export const candidateStatuses: Option<CandidateStatus>[] = [
@@ -306,6 +313,7 @@ export const entityTypes: Record<EntityType, { label: string; href: (id: string)
   application: { label: "Application", href: (id) => `/dashboard/candidates?application=${id}` },
   placement: { label: "Placement", href: (id) => `/dashboard/placements/${id}` },
   company: { label: "Lead", href: (id) => `/dashboard/leads/${id}` },
+  partner: { label: "Partner", href: (id) => `/dashboard/partners/${id}` },
 };
 
 /** Look up the option for a value, e.g. optionFor(clientStatuses, "active"). */

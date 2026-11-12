@@ -1,9 +1,9 @@
 import "server-only";
+import { daysOpenWithoutHolds } from "@/lib/recruitment/vacancy-time";
 import { requireStaff } from "@/lib/auth";
 import type { ClientStatus, PlacementStatus, VacancyStatus } from "@/lib/database.types";
 import { createClient } from "@/lib/supabase/server";
 import { clientStatuses } from "@/lib/labels";
-import { daysBetween } from "@/lib/format";
 
 /** Escape % and _ so user input is matched literally in ilike. */
 export function likePattern(value: string) {
@@ -104,7 +104,7 @@ export async function getClientVacancies(clientId: string): Promise<ClientVacanc
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("vacancies")
-    .select("id, title, status, opened_at, closed_at")
+    .select("id, title, status, opened_at, closed_at, holds:vacancy_holds(started_on, ended_on)")
     .eq("client_id", clientId)
     .order("opened_at", { ascending: false });
   if (error) throw new Error(`Could not load vacancies: ${error.message}`);
@@ -113,7 +113,7 @@ export async function getClientVacancies(clientId: string): Promise<ClientVacanc
     title: v.title,
     status: v.status,
     openedAt: v.opened_at,
-    daysOpen: Math.max(0, daysBetween(v.opened_at, v.closed_at ?? new Date())),
+    daysOpen: daysOpenWithoutHolds(v, v.holds),
   }));
 }
 

@@ -92,7 +92,7 @@ export const s1Signals = defineJob({
       if (!domain && job.companyLinkedinUrl) {
         const key = normalizeLinkedin(job.companyLinkedinUrl)!;
         if (!linkedinToDomain.has(key)) {
-          const { data } = await ctx.db.from("companies").select("domain").eq("linkedin_url", key).limit(1).maybeSingle();
+          const { data } = await ctx.db.from("companies").select("domain").eq("linkedin_key", key).limit(1).maybeSingle();
           linkedinToDomain.set(key, data?.domain ?? null);
         }
         domain = linkedinToDomain.get(key) ?? null;
@@ -119,7 +119,7 @@ export const s1Signals = defineJob({
           domain,
           name: job.companyName,
           website: job.companyWebsite,
-          linkedin_url: normalizeLinkedin(job.companyLinkedinUrl),
+          linkedin_url: job.companyLinkedinUrl ?? null,
           employees: job.employees,
         },
         job.source === "linkedin" ? "apify_linkedin" : "apify_indeed",

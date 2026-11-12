@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
+import { SENIORITY_VALUES } from "@/lib/recruitment/candidate-fields";
 import {
   type ActionState,
   GENERIC_ERROR,
@@ -15,6 +16,8 @@ import { isUuid } from "@/lib/data/candidates";
 import type { CandidateStatus } from "@/lib/database.types";
 import { candidateStatuses } from "@/lib/labels";
 import { ATTACHMENTS_BUCKET, MAX_UPLOAD_BYTES, buildStoragePath } from "@/lib/storage";
+import { parseInrAmount } from "@/lib/forms/compensation";
+import { findDuplicateCandidates, type CandidateDuplicate } from "@/lib/screening/duplicates";
 import { createClient } from "@/lib/supabase/server";
 
 const statusValues = candidateStatuses.map((s) => s.value) as [CandidateStatus, ...CandidateStatus[]];
@@ -24,6 +27,20 @@ const httpUrl = (label: string) =>
     .url({ protocol: /^https?$/, error: `Enter a valid ${label}, starting with https://` })
     .max(500, { error: "This link is too long." })
     .optional();
+
+/** CTC in INR per year as people type it ("12 LPA", "12,00,000"). */
+const ctcAmount = z
+  .string()
+  .max(50, { error: "Enter an amount, for example 12 LPA." })
+  .transform((value, ctx) => {
+    const amount = parseInrAmount(value);
+    if (amount === null || amount > 1_000_000_000) {
+      ctx.addIssue({ code: "custom", message: "Enter an amount in rupees per year, for example 12 LPA or 1200000." });
+      return z.NEVER;
+    }
+    return amount;
+  })
+  .optional();
 
 const candidateSchema = z.object({
   full_name: z
@@ -47,7 +64,7 @@ const candidateSchema = z.object({
   status: z.enum(statusValues, { error: "Choose a status." }).default("available"),
   owner_id: z.string().refine(isUuid, { error: "Choose a team member." }).optional(),
   // Matching fields (T2 and the anonymous profile).
-  seniority: z.enum(["junior", "medior", "senior", "lead"], { error: "Choose a seniority." }).optional(),
+  seniority: z.enum(SENIORITY_VALUES, { error: "Choose a seniority." }).optional(),
   english_level: z.string().max(100, { error: "This English level is too long." }).optional(),
   availability: z.string().max(200, { error: "This availability is too long." }).optional(),
   profile_consent: z.enum(["yes", "no"], { error: "Choose yes, no or unknown." }).optional(),
@@ -55,6 +72,10 @@ const candidateSchema = z.object({
   project_types: z.string().max(2000, { error: "Too many project types." }).optional(),
   sectors: z.string().max(2000, { error: "Too many sectors." }).optional(),
   cv_text: z.string().max(100000, { error: "The CV text is too long (at most 100,000 characters)." }).optional(),
+  // A choice (immediate, 15 ... 90_plus); old free text stays when it was not changed.
+  notice_period: z.string().max(200, { error: "This notice period is too long." }).optional(),
+  current_ctc: ctcAmount,
+  expected_ctc: ctcAmount,
 });
 
 /** A comma separated list without empty items and case-insensitive duplicates. */
@@ -167,11 +188,25 @@ export async function saveCandidate(_prev: ActionState, formData: FormData): Pro
     project_types: uniqueList(input.project_types),
     sectors: uniqueList(input.sectors),
     cv_text: input.cv_text ?? null,
+    notice_period: input.notice_period ?? null,
+    current_ctc_inr_year: input.current_ctc ?? null,
+    expected_ctc_inr_year: input.expected_ctc ?? null,
   };
 
   const supabase = await createClient();
 
   if (!candidateId) {
+    // Duplicate check on name, email, phone and LinkedIn: warn once, the user confirms it is someone else.
+    if (formData.get("confirm_duplicate") !== "on") {
+      const duplicates = await findDuplicateCandidates(supabase, row);
+      if (duplicates.length > 0) {
+        return {
+          error: `This candidate may already exist: ${duplicates.map((d) => `${d.full_name} (${d.on})`).join(", ")}. Open the existing candidate, or tick "This is someone else" and save again.`,
+          fieldErrors: { confirm_duplicate: "Possible duplicate" },
+          link: { href: `/dashboard/candidates/${duplicates[0].id}`, label: `Open ${duplicates[0].full_name}` },
+        };
+      }
+    }
     // Insert first: the storage path needs the new id.
     const { data, error } = await supabase.from("candidates").insert(row).select("id").single();
     if (error || !data) return { error: GENERIC_ERROR };
@@ -301,4 +336,26 @@ export async function linkCandidateToVacancy(
   revalidatePath(`/dashboard/vacancies/${vacancy_id}/pipeline`);
   revalidatePath("/dashboard/candidates");
   return { ok: true, message: "Candidate added to the pipeline." };
+}
+
+/** Possible duplicates of a new candidate, for the warning in the form (on blur of name or email). */
+export async function checkCandidateDuplicates(input: {
+  full_name?: string;
+  email?: string;
+  phone?: string;
+  linkedin_url?: string;
+}): Promise<CandidateDuplicate[]> {
+  await requireStaff();
+  const clean = (v: unknown, max: number) => (typeof v === "string" && v.trim() ? v.trim().slice(0, max) : null);
+  const supabase = await createClient();
+  try {
+    return await findDuplicateCandidates(supabase, {
+      full_name: clean(input.full_name, 200) ?? "",
+      email: clean(input.email, 320),
+      phone: clean(input.phone, 50),
+      linkedin_url: clean(input.linkedin_url, 500),
+    });
+  } catch {
+    return [];
+  }
 }

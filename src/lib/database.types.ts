@@ -11,6 +11,7 @@ import type { AcademyAtsFunctions, AcademyAtsTables } from "@/lib/academy/ats/da
 import type { LearnFunctions } from "@/lib/academy/learn/database";
 import type { AcademyMediaFunctions, AcademyMediaTables } from "@/lib/academy/media/database";
 import type { WspFunctions, WspTables } from "@/lib/wsp/database";
+import type { CampaignProvider, CampaignStatus, SalesBucket, SalesFlowFunctions, SalesFlowTables, SalesFlowViews } from "@/lib/sales/flow-database";
 import type {
   ActivityDirection,
   ActivityType,
@@ -22,6 +23,7 @@ import type {
   SalesFunctions,
   SalesTables,
 } from "@/lib/sales/database";
+import type { LeadsFunctions } from "@/lib/sales/leads-database";
 
 export type Json =
   | string
@@ -38,10 +40,20 @@ export type Json =
  */
 export type ProfileRole = "admin" | "member" | "client" | "external" | "caller" | "developer" | "candidate";
 export type ClientStatus = "lead" | "active" | "inactive";
-export type Seniority = "medior" | "senior" | "lead";
+/** One list for vacancies and candidates (feedback round 3). */
+export type Seniority =
+  | "intern"
+  | "fresher"
+  | "junior"
+  | "medior"
+  | "senior"
+  | "lead"
+  | "manager"
+  | "senior_manager"
+  | "freelance";
 export type VacancyStatus = "open" | "on_hold" | "filled" | "closed";
 export type CandidateStatus = "available" | "in_process" | "parked" | "placed" | "unavailable";
-export type CandidateSeniority = "junior" | "medior" | "senior" | "lead";
+export type CandidateSeniority = Seniority;
 /** Pipeline flow, in order (recruitment brief 2.1). */
 export type FlowStage =
   | "sourced"
@@ -88,11 +100,12 @@ export type RequirementKind = "must_have" | "alternative" | "nice_to_have";
 export type TechstackResult = "pass" | "fail" | "unclear";
 export type AiRequestStatus = "pending" | "done" | "failed" | "applied";
 export type CvScorePurpose = "score" | "compare";
-export type AttachmentKind = "cv" | "payslip" | "background_check" | "video" | "test_result" | "other";
+export type AttachmentKind = "cv" | "payslip" | "background_check" | "video" | "test_result" | "job_description" | "other";
 export type ClientDecision = "pending" | "approved" | "rejected";
 export type PlacementStatus = "active" | "notice" | "ended";
 export type TaskStatus = "todo" | "in_progress" | "done";
-export type EntityType = "client" | "vacancy" | "candidate" | "application" | "placement" | "company";
+/** partner: tasks, notes and attachments on a partner (20261123430000_partner_tasks.sql). */
+export type EntityType = "client" | "vacancy" | "candidate" | "application" | "placement" | "company" | "partner";
 /** Portal modules a team member sees (recruitment planning, 2.5). Admins see all. */
 export type PortalModule = "sales" | "recruitment" | "clients" | "report" | "academy";
 export type InterviewKind = "interview" | "english_interview" | "client_interview";
@@ -102,7 +115,10 @@ export type PasskeyDeviceType = "singleDevice" | "multiDevice";
 export type WebauthnChallengeKind = "registration" | "authentication";
 export type McpTokenAccess = "read" | "write";
 // Custom fields (20261108050000_custom_fields_and_extras.sql)
-export type CustomFieldEntity = "candidate" | "vacancy" | "application";
+/** company and contact: own columns of the sales tables (20261123420000_sales_custom_columns.sql). */
+export type CustomFieldEntity = "candidate" | "vacancy" | "application" | "client" | "placement" | "company" | "contact";
+/** Record pages with a layout (20261123200000_custom_fields_layouts.sql). */
+export type LayoutEntity = "candidate" | "vacancy" | "client" | "placement";
 export type CustomFieldType =
   | "text"
   | "long_text"
@@ -186,12 +202,23 @@ export type ActivitySource =
   | "system"
   | "claude"
   | "apify"
-  | "prospeo";
+  | "prospeo"
+  | "bcc";
 export type SuppressionReason = "afgemeld" | "bezwaar" | "klant" | "lopend_gesprek" | "niet_bellen";
 export type SuppressionScope = "alle_kanalen" | "alleen_bellen" | "alleen_mail";
 export type ListExportType = "bellijst" | "mailcampagne" | "max_verrijking";
 export type JobStatus = "running" | "success" | "failed";
 export type MailLogStatus = "sent" | "failed" | "not_configured";
+export type InboundMailStatus =
+  | "logged"
+  | "no_match"
+  | "duplicate"
+  | "sender_mismatch"
+  | "unknown_address"
+  | "no_address"
+  | "invalid"
+  | "failed";
+export type InboundMailProvider = "postmark" | "resend" | "generic";
 export type VacancySource = "klant_eigen" | "samen_opgesteld" | "gescrapet";
 export type TalentStage = "intake" | "zoeken" | "profielen_verstuurd" | "gesprekken" | "geplaatst" | "gesloten";
 export type MatchSource = "eigen_pool" | "linkedin" | "naukri";
@@ -224,6 +251,7 @@ export type Database = {
           role: ProfileRole;
           client_id: string | null;
           email: string | null;
+          dial_template: string | null;
           time_zone: string;
           created_at: string;
           updated_at: string;
@@ -236,6 +264,7 @@ export type Database = {
           role?: ProfileRole;
           client_id?: string | null;
           email?: string | null;
+          dial_template?: string | null;
           time_zone?: string;
           created_at?: string;
           updated_at?: string;
@@ -248,6 +277,7 @@ export type Database = {
           role?: ProfileRole;
           client_id?: string | null;
           email?: string | null;
+          dial_template?: string | null;
           time_zone?: string;
           created_at?: string;
           updated_at?: string;
@@ -276,6 +306,7 @@ export type Database = {
           owner_id: string | null;
           created_at: string;
           updated_at: string;
+          custom_fields: CustomFieldValues;
         };
         Insert: {
           id?: string;
@@ -288,6 +319,7 @@ export type Database = {
           owner_id?: string | null;
           created_at?: string;
           updated_at?: string;
+          custom_fields?: CustomFieldValues;
         };
         Update: {
           id?: string;
@@ -300,6 +332,7 @@ export type Database = {
           owner_id?: string | null;
           created_at?: string;
           updated_at?: string;
+          custom_fields?: CustomFieldValues;
         };
         Relationships: [
           {
@@ -400,6 +433,8 @@ export type Database = {
           excluded_profiles: string[];
           techstack_min_hits: number | null;
           screening_model: ScreeningModel | null;
+          presentation_deadline: string | null;
+          start_time_ist: string | null;
         };
         Insert: {
           id?: string;
@@ -442,6 +477,8 @@ export type Database = {
           excluded_profiles?: string[];
           techstack_min_hits?: number | null;
           screening_model?: ScreeningModel | null;
+          presentation_deadline?: string | null;
+          start_time_ist?: string | null;
         };
         Update: {
           id?: string;
@@ -484,6 +521,8 @@ export type Database = {
           excluded_profiles?: string[];
           techstack_min_hits?: number | null;
           screening_model?: ScreeningModel | null;
+          presentation_deadline?: string | null;
+          start_time_ist?: string | null;
         };
         Relationships: [
           {
@@ -552,6 +591,8 @@ export type Database = {
           cv_text_status: CvTextStatus | null;
           cv_read_at: string | null;
           has_cv_text: boolean;
+          current_ctc_inr_year: number | null;
+          expected_ctc_inr_year: number | null;
         };
         Insert: {
           id?: string;
@@ -595,6 +636,8 @@ export type Database = {
           cv_text_status?: CvTextStatus | null;
           cv_read_at?: string | null;
           has_cv_text?: boolean;
+          current_ctc_inr_year?: number | null;
+          expected_ctc_inr_year?: number | null;
         };
         Update: {
           id?: string;
@@ -638,6 +681,8 @@ export type Database = {
           cv_text_status?: CvTextStatus | null;
           cv_read_at?: string | null;
           has_cv_text?: boolean;
+          current_ctc_inr_year?: number | null;
+          expected_ctc_inr_year?: number | null;
         };
         Relationships: [
           {
@@ -805,6 +850,7 @@ export type Database = {
           notes: string | null;
           created_at: string;
           updated_at: string;
+          custom_fields: CustomFieldValues;
         };
         Insert: {
           id?: string;
@@ -828,6 +874,7 @@ export type Database = {
           notes?: string | null;
           created_at?: string;
           updated_at?: string;
+          custom_fields?: CustomFieldValues;
         };
         Update: {
           id?: string;
@@ -851,6 +898,7 @@ export type Database = {
           notes?: string | null;
           created_at?: string;
           updated_at?: string;
+          custom_fields?: CustomFieldValues;
         };
         Relationships: [
           {
@@ -1297,6 +1345,19 @@ export type Database = {
           lead_status_changed_at: string;
           pipeline_stage: PipelineStage | null;
           pipeline_stage_changed_at: string | null;
+          source_list: string | null;
+          bucket: SalesBucket;
+          bucket_changed_at: string;
+          bucket_by: string | null;
+          bucket_until: string | null;
+          bucket_reason: string | null;
+          bucket_view_id: string | null;
+          bucket_caller_id: string | null;
+          bucket_campaign_id: string | null;
+          prio_reason: string | null;
+          followed_at: string | null;
+          followed_by: string | null;
+          custom_fields: Json;
           pipeline_entered_at: string | null;
           lost_reason: string | null;
           parked_until: string | null;
@@ -1310,6 +1371,14 @@ export type Database = {
           sequence_paused_at: string | null;
           created_at: string;
           updated_at: string;
+          /** Generated: normalize_linkedin(linkedin_url), for matching. */
+          linkedin_key: string | null;
+          /** Generated: company_name_key(name), for possible duplicates. */
+          name_key: string | null;
+          /** Generated: domain_stem(domain), for possible duplicates. */
+          domain_stem: string | null;
+          /** Domains of companies merged into this one. */
+          alias_domains: string[];
         };
         Insert: {
           id?: string;
@@ -1344,6 +1413,19 @@ export type Database = {
           lead_status_changed_at?: string;
           pipeline_stage?: PipelineStage | null;
           pipeline_stage_changed_at?: string | null;
+          source_list?: string | null;
+          bucket?: SalesBucket;
+          bucket_changed_at?: string;
+          bucket_by?: string | null;
+          bucket_until?: string | null;
+          bucket_reason?: string | null;
+          bucket_view_id?: string | null;
+          bucket_caller_id?: string | null;
+          bucket_campaign_id?: string | null;
+          prio_reason?: string | null;
+          followed_at?: string | null;
+          followed_by?: string | null;
+          custom_fields?: Json;
           pipeline_entered_at?: string | null;
           lost_reason?: string | null;
           parked_until?: string | null;
@@ -1357,6 +1439,7 @@ export type Database = {
           sequence_paused_at?: string | null;
           created_at?: string;
           updated_at?: string;
+          alias_domains?: string[];
         };
         Update: {
           id?: string;
@@ -1391,6 +1474,19 @@ export type Database = {
           lead_status_changed_at?: string;
           pipeline_stage?: PipelineStage | null;
           pipeline_stage_changed_at?: string | null;
+          source_list?: string | null;
+          bucket?: SalesBucket;
+          bucket_changed_at?: string;
+          bucket_by?: string | null;
+          bucket_until?: string | null;
+          bucket_reason?: string | null;
+          bucket_view_id?: string | null;
+          bucket_caller_id?: string | null;
+          bucket_campaign_id?: string | null;
+          prio_reason?: string | null;
+          followed_at?: string | null;
+          followed_by?: string | null;
+          custom_fields?: Json;
           pipeline_entered_at?: string | null;
           lost_reason?: string | null;
           parked_until?: string | null;
@@ -1404,6 +1500,7 @@ export type Database = {
           sequence_paused_at?: string | null;
           created_at?: string;
           updated_at?: string;
+          alias_domains?: string[];
         };
         Relationships: [
           {
@@ -1440,6 +1537,7 @@ export type Database = {
         Row: {
           id: string;
           company_id: string;
+          custom_fields: Json;
           first_name: string | null;
           last_name: string | null;
           title: string | null;
@@ -1476,10 +1574,15 @@ export type Database = {
           full_name: string | null;
           created_at: string;
           updated_at: string;
+          /** The LinkedIn member id (ACwAA... of an Apify link), case kept. */
+          linkedin_member_urn: string | null;
+          /** Generated: normalize_linkedin(linkedin_url), unique, for matching. */
+          linkedin_key: string | null;
         };
         Insert: {
           id?: string;
           company_id: string;
+          custom_fields?: Json;
           first_name?: string | null;
           last_name?: string | null;
           title?: string | null;
@@ -1515,10 +1618,12 @@ export type Database = {
           manual_position?: number | null;
           created_at?: string;
           updated_at?: string;
+          linkedin_member_urn?: string | null;
         };
         Update: {
           id?: string;
           company_id?: string;
+          custom_fields?: Json;
           first_name?: string | null;
           last_name?: string | null;
           title?: string | null;
@@ -1554,6 +1659,7 @@ export type Database = {
           manual_position?: number | null;
           created_at?: string;
           updated_at?: string;
+          linkedin_member_urn?: string | null;
         };
         Relationships: [
           {
@@ -1586,6 +1692,10 @@ export type Database = {
           raw_json: Json | null;
           role_group: string | null;
           posted_at: string | null;
+          /** The vacancy text. */
+          description: string | null;
+          /** When the vacancy went offline; null is open. */
+          closed_at: string | null;
         };
         Insert: {
           id?: string;
@@ -1600,6 +1710,8 @@ export type Database = {
           raw_json?: Json | null;
           role_group?: string | null;
           posted_at?: string | null;
+          description?: string | null;
+          closed_at?: string | null;
         };
         Update: {
           id?: string;
@@ -1614,6 +1726,8 @@ export type Database = {
           raw_json?: Json | null;
           role_group?: string | null;
           posted_at?: string | null;
+          description?: string | null;
+          closed_at?: string | null;
         };
         Relationships: [
           {
@@ -1634,6 +1748,13 @@ export type Database = {
           segment: string | null;
           message_variant: string | null;
           external_id: string | null;
+          provider: CampaignProvider;
+          status: CampaignStatus;
+          description: string | null;
+          ended_at: string | null;
+          synced_at: string | null;
+          created_by: string | null;
+          updated_at: string;
           started_at: string | null;
           created_at: string;
         };
@@ -1645,6 +1766,13 @@ export type Database = {
           segment?: string | null;
           message_variant?: string | null;
           external_id?: string | null;
+          provider?: CampaignProvider;
+          status?: CampaignStatus;
+          description?: string | null;
+          ended_at?: string | null;
+          synced_at?: string | null;
+          created_by?: string | null;
+          updated_at?: string;
           started_at?: string | null;
           created_at?: string;
         };
@@ -1656,6 +1784,13 @@ export type Database = {
           segment?: string | null;
           message_variant?: string | null;
           external_id?: string | null;
+          provider?: CampaignProvider;
+          status?: CampaignStatus;
+          description?: string | null;
+          ended_at?: string | null;
+          synced_at?: string | null;
+          created_by?: string | null;
+          updated_at?: string;
           started_at?: string | null;
           created_at?: string;
         };
@@ -1669,6 +1804,9 @@ export type Database = {
           company_id: string | null;
           channel: ActivityChannel;
           campaign_id: string | null;
+          recording_url: string | null;
+          duration_seconds: number | null;
+          telephony_id: string | null;
           signal_id: string | null;
           date: string;
           outcome: ActivityOutcome | null;
@@ -1691,6 +1829,7 @@ export type Database = {
           suggestion: Json | null;
           reviewed_by: string | null;
           reviewed_at: string | null;
+          mail: Json | null;
           created_at: string;
         };
         Insert: {
@@ -1699,6 +1838,9 @@ export type Database = {
           company_id?: string | null;
           channel: ActivityChannel;
           campaign_id?: string | null;
+          recording_url?: string | null;
+          duration_seconds?: number | null;
+          telephony_id?: string | null;
           signal_id?: string | null;
           date?: string;
           outcome?: ActivityOutcome | null;
@@ -1721,6 +1863,7 @@ export type Database = {
           suggestion?: Json | null;
           reviewed_by?: string | null;
           reviewed_at?: string | null;
+          mail?: Json | null;
           created_at?: string;
         };
         Update: {
@@ -1729,6 +1872,9 @@ export type Database = {
           company_id?: string | null;
           channel?: ActivityChannel;
           campaign_id?: string | null;
+          recording_url?: string | null;
+          duration_seconds?: number | null;
+          telephony_id?: string | null;
           signal_id?: string | null;
           date?: string;
           outcome?: ActivityOutcome | null;
@@ -1751,6 +1897,7 @@ export type Database = {
           suggestion?: Json | null;
           reviewed_by?: string | null;
           reviewed_at?: string | null;
+          mail?: Json | null;
           created_at?: string;
         };
         Relationships: [
@@ -1961,6 +2108,84 @@ export type Database = {
         Relationships: [
         ];
       };
+      mail_bcc_addresses: {
+        Row: {
+          user_id: string;
+          token: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          user_id: string;
+          token: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          user_id?: string;
+          token?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      mail_inbound_log: {
+        Row: {
+          id: string;
+          received_at: string;
+          provider: InboundMailProvider;
+          status: InboundMailStatus;
+          reason: string | null;
+          user_id: string | null;
+          bcc_address: string | null;
+          message_id: string | null;
+          from_address: string | null;
+          to_addresses: string[];
+          cc_addresses: string[];
+          subject: string | null;
+          mail_date: string | null;
+          attachment_names: string[];
+          activity_ids: string[];
+          company_count: number;
+        };
+        Insert: {
+          id?: string;
+          received_at?: string;
+          provider?: InboundMailProvider;
+          status: InboundMailStatus;
+          reason?: string | null;
+          user_id?: string | null;
+          bcc_address?: string | null;
+          message_id?: string | null;
+          from_address?: string | null;
+          to_addresses?: string[];
+          cc_addresses?: string[];
+          subject?: string | null;
+          mail_date?: string | null;
+          attachment_names?: string[];
+          activity_ids?: string[];
+          company_count?: number;
+        };
+        Update: {
+          id?: string;
+          received_at?: string;
+          provider?: InboundMailProvider;
+          status?: InboundMailStatus;
+          reason?: string | null;
+          user_id?: string | null;
+          bcc_address?: string | null;
+          message_id?: string | null;
+          from_address?: string | null;
+          to_addresses?: string[];
+          cc_addresses?: string[];
+          subject?: string | null;
+          mail_date?: string | null;
+          attachment_names?: string[];
+          activity_ids?: string[];
+          company_count?: number;
+        };
+        Relationships: [];
+      };
       mail_log: {
         Row: {
           id: string;
@@ -2075,6 +2300,47 @@ export type Database = {
             columns: ["approved_by"];
             isOneToOne: false;
             referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      vacancy_holds: {
+        Row: {
+          id: string;
+          vacancy_id: string;
+          started_on: string;
+          ended_on: string | null;
+          reason: string;
+          created_by: string | null;
+          ended_by: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          vacancy_id: string;
+          started_on: string;
+          ended_on?: string | null;
+          reason: string;
+          created_by?: string | null;
+          ended_by?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          vacancy_id?: string;
+          started_on?: string;
+          ended_on?: string | null;
+          reason?: string;
+          created_by?: string | null;
+          ended_by?: string | null;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "vacancy_holds_vacancy_id_fkey";
+            columns: ["vacancy_id"];
+            isOneToOne: false;
+            referencedRelation: "vacancies";
             referencedColumns: ["id"];
           },
         ];
@@ -2686,6 +2952,7 @@ export type Database = {
           position: number;
           show_in_list: boolean;
           archived_at: string | null;
+          block_key: string;
           created_by: string | null;
           created_at: string;
           updated_at: string;
@@ -2701,6 +2968,7 @@ export type Database = {
           position?: number;
           show_in_list?: boolean;
           archived_at?: string | null;
+          block_key?: string;
           created_by?: string | null;
           created_at?: string;
           updated_at?: string;
@@ -2714,11 +2982,19 @@ export type Database = {
           position?: number;
           show_in_list?: boolean;
           archived_at?: string | null;
+          block_key?: string;
           updated_at?: string;
         };
         Relationships: [];
       };
-    } & WorkTables & ContentTables & FormsTables & SalesTables & AcademyTables & AcademyMediaTables & AcademyPlacementTables & AcademyAtsTables & WspTables;
+      /** Page layouts per record type (20261123200000_custom_fields_layouts.sql). */
+      record_layouts: {
+        Row: { entity: LayoutEntity; config: Json; updated_by: string | null; updated_at: string };
+        Insert: { entity: LayoutEntity; config?: Json; updated_by?: string | null; updated_at?: string };
+        Update: { config?: Json; updated_by?: string | null; updated_at?: string };
+        Relationships: [];
+      };
+    } & WorkTables & ContentTables & FormsTables & SalesTables & SalesFlowTables & AcademyTables & AcademyMediaTables & AcademyPlacementTables & AcademyAtsTables & WspTables;
     Views: {
       call_list_candidates: { Row: ListCandidateBase & { phone: string; linkedin_url: string | null }; Relationships: [] };
       mail_list_candidates: { Row: ListCandidateBase & { email: string }; Relationships: [] };
@@ -2737,9 +3013,18 @@ export type Database = {
         };
         Relationships: [];
       };
-    };
+    } & SalesFlowViews;
     Functions: {
       is_staff: { Args: Record<string, never>; Returns: boolean };
+      portal_search: {
+        Args: { p_query: string; p_limit?: number };
+        Returns: { kind: string; id: string; parent_id: string | null; label: string | null; sublabel: string | null; score: number }[];
+      };
+      mail_bcc_token: { Args: { p_regenerate?: boolean }; Returns: string };
+      mail_bcc_find_contacts: {
+        Args: { p_emails: string[] };
+        Returns: { id: string; company_id: string; email: string }[];
+      };
       is_admin: { Args: Record<string, never>; Returns: boolean };
       current_client_id: { Args: Record<string, never>; Returns: string | null };
       client_review_application: {
@@ -2876,6 +3161,11 @@ export type Database = {
         Args: { p_emails?: string[]; p_phone_keys?: string[]; p_linkedins?: string[] };
         Returns: PublicTables["candidates"]["Row"][];
       };
+      screening_find_candidates_by_name: {
+        Args: { p_names?: string[] };
+        Returns: { id: string; full_name: string; email: string | null; phone: string | null }[];
+      };
+      normalize_notice_period: { Args: { p_text: string }; Returns: string | null };
       activate_screening_prompt: { Args: { p_prompt_id: string | null }; Returns: undefined };
       t2_candidate_pool: {
         Args: { p_vacancy_id: string; p_patterns?: string[]; p_weights?: number[]; p_require_hit?: boolean; p_limit?: number };
@@ -2885,11 +3175,15 @@ export type Database = {
         Args: { p_entity: CustomFieldEntity; p_id: string; p_key: string; p_value: Json | null };
         Returns: CustomFieldValues;
       };
+      delete_custom_field: {
+        Args: { p_id: string };
+        Returns: undefined;
+      };
       validate_custom_fields: {
         Args: { p_entity: CustomFieldEntity; p_new: Json; p_old?: Json };
         Returns: CustomFieldValues;
       };
-    } & WorkFunctions & ContentFunctions & FormsFunctions & SalesFunctions & AcademyFunctions & LearnFunctions & AcademyMediaFunctions & AcademyPlacementFunctions & AcademyAtsFunctions & WspFunctions;
+    } & WorkFunctions & ContentFunctions & FormsFunctions & SalesFunctions & LeadsFunctions & SalesFlowFunctions & AcademyFunctions & LearnFunctions & AcademyMediaFunctions & AcademyPlacementFunctions & AcademyAtsFunctions & WspFunctions;
     Enums: { [_ in never]: never };
     CompositeTypes: { [_ in never]: never };
   };

@@ -202,9 +202,9 @@ export async function importMaxCsv(db: Db, text: string): Promise<MaxImportResul
   const urls = [...new Set(rows.map((r) => r.linkedin).filter((u): u is string => Boolean(u)))];
   const contacts = new Map<string, { id: string; company_id: string; phone: string | null }>();
   for (const ids of chunk(urls, 100)) {
-    const { data, error } = await db.from("contacts").select("id, company_id, phone, linkedin_url").in("linkedin_url", ids);
+    const { data, error } = await db.from("contacts").select("id, company_id, phone, linkedin_key").in("linkedin_key", ids);
     if (error) throw new Error(`Could not look up contacts: ${error.message}`);
-    for (const c of data) if (c.linkedin_url) contacts.set(c.linkedin_url, c);
+    for (const c of data) if (c.linkedin_key) contacts.set(c.linkedin_key, c);
   }
 
   for (const row of rows) {

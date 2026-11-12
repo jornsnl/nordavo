@@ -287,7 +287,7 @@ export function registerWriteTools(server: McpServer, ctx: McpToolContext) {
     {
       title: "Change task status",
       description:
-        "Set the status of a Work task: todo, in_progress, review or done. The review rules of Work apply: only the reviewer (or a workspace admin) can mark a task as done, review needs a reviewer, and moving a task back from review or done needs a comment that says what still needs to happen. Only call after the user asked for it.",
+        "Set the status of a Work task: todo, in_progress, review or done. The review rules of Work apply: an owner (from todo or in_progress), the reviewer or a workspace admin can mark a task as done, from review only the reviewer or an admin, review needs a reviewer, and moving a task back from review or done needs a comment that says what still needs to happen. Only call after the user asked for it.",
       inputSchema: {
         id: idSchema.describe("Task id."),
         status: z.enum(["todo", "in_progress", "review", "done"]),

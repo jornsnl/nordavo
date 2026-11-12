@@ -8,6 +8,7 @@ Wat Judith nu in losse sheets en kolommen in Airtable bijhoudt, kan het team zel
 
 - **Kandidaten** (bijvoorbeeld opzegtermijn, salarisverwachting, tier, tools)
 - **Vacatures** (bijvoorbeeld budget per maand, startdatum klant)
+- **Klanten** en **plaatsingen** (sinds ronde 3, migratie `20261123200000_custom_fields_layouts.sql`)
 - **Sollicitaties**, dus de kaart van een kandidaat in de pipeline van één vacature (bijvoorbeeld een notitie voor het hiring report)
 
 Dit zijn de algemene velden die voor alle vacatures gelden. Vragen die per vacature verschillen horen bij het sollicitatieformulier (de form builder van een andere bouwer); die worden per vacature kolommen.
@@ -29,8 +30,26 @@ Leeg laten mag altijd; een leeg veld wordt weggehaald.
 
 ### Waar je ze beheert
 
-- **Settings > Fields** (`/dashboard/settings#custom-fields`): alle velden per soort record. Toevoegen, naam, hulptekst en opties wijzigen, volgorde (pijltjes), "Show as a column on the candidates list", archiveren en terugzetten.
-- **Direct op de pagina**: op de kandidaatpagina, de vacaturepagina en in de pipelinekaart staat een blok *Custom fields* met **Edit** en **+ Add field**. Een veld dat je daar toevoegt, geldt meteen voor alle records van die soort.
+- **Settings > Fields** (`/dashboard/settings#custom-fields`): kies bovenaan het soort record. Per soort de indeling van de pagina (zie *Blokken en indeling* hieronder) met de velden in hun blok: toevoegen, naam, hulptekst, opties en blok wijzigen, volgorde (pijltjes), "Show as a column on the candidates list", archiveren, terugzetten en (admins) definitief verwijderen.
+- **Direct op de pagina**: op de kandidaat, vacature, klant en plaatsingspagina staat elk blok met eigen velden met **Edit** en **+ Add field**, net als in de pipelinekaart. Een veld dat je daar toevoegt, komt in dat blok en geldt meteen voor alle records van die soort.
+
+### Blokken en indeling (ronde 3)
+
+Per pagina (kandidaat, vacature, klant, plaatsing) bepaalt het team zelf de indeling, in Settings > Fields:
+
+- **Blokken** verplaatsen (pijltjes), hernoemen, verbergen en terugzetten, en kiezen in welke kolom (hoofd of zijkant) ze staan. Bij kandidaten ook op welke tab: Overview, Selection, Matching, Contract of Activity.
+- **Eigen blokken** toevoegen ("Add block") en verwijderen. Een eigen blok bevat eigen velden en verschijnt op de pagina zodra er een veld in staat. Verwijder je een blok, dan gaan de velden terug naar het standaardblok *Custom fields*.
+- **Vaste velden** in de blokken Profile (kandidaat) en Details (vacature, klant, plaatsing) hernoemen, verbergen en verplaatsen.
+- **Reset layout** (admins) zet een pagina terug naar de standaard.
+
+Wat niet kan: blokken die hun eigen titel tekenen (bijvoorbeeld Interviews, CV screening, Compensation) kun je verplaatsen en verbergen, maar niet hernoemen; Settings laat bij die blokken geen *Rename* zien. Eigen velden staan alleen in *Custom fields* en eigen blokken, niet tussen de vaste velden van Profile of Details.
+
+Technisch: tabel `record_layouts` (per soort record één rij met `config` jsonb, alleen wat afwijkt van de standaard) en kolom `custom_field_definitions.block_key`. De standaardblokken staan in [src/lib/custom-fields/layout.ts](../src/lib/custom-fields/layout.ts); een nieuw blok in de code verschijnt vanzelf, na het blok waar het standaard achter staat. Een pagina gebruikt `<RecordLayout entity="vacancy" recordId={id} blocks={{ timeline: <TimelineCard/>, ... }} />` en voor de vaste velden `applyFieldLayout(findBlock(layout, "details"), items)`. Bij kandidaten geeft de pagina `tab` mee (`blocksForTab`).
+
+### Export en Claude
+
+- **CSV export**: knop *Export CSV* op de lijsten van kandidaten, vacatures, klanten en plaatsingen (`/dashboard/<soort>/export`). Alle vaste kolommen plus elk actief eigen veld als kolom, met de naam als kop. Een veld dat je toevoegt, hernoemt of archiveert, staat er bij de volgende export meteen goed in. Gelezen met je eigen sessie, dus met dezelfde rechten als de lijst.
+- **Claude (MCP)**: `list_custom_fields` geeft de definities (sleutel, naam, type, opties, blok). `get_candidate`, `get_vacancy` en `get_client` geven `custom_fields` met elk actief veld (leeg als `null`), de lijsttools en de pipelinekaarten de ingevulde velden per sleutel. `set_custom_fields` (schrijfrechten, module Recruitment) vult of wist velden met dezelfde controle als het portaal. Zie [mcp.md](./mcp.md).
 
 ### Wie mag wat
 
@@ -39,7 +58,9 @@ Leeg laten mag altijd; een leeg veld wordt weggehaald.
 | Velden zien en waarden invullen | ja | ja | nee | nee |
 | Veld toevoegen, naam, opties, volgorde, kolom in lijst | ja | ja | nee | nee |
 | Veld archiveren of terugzetten | ja | nee | nee | nee |
-| Veld verwijderen | nee, alleen archiveren | nee | nee | nee |
+| Pagina indeling (blokken, vaste velden) | ja | ja | nee | nee |
+| Indeling terugzetten naar standaard | ja | nee | nee | nee |
+| Gearchiveerd veld definitief verwijderen (met de waarden) | ja | nee | nee | nee |
 
 Gekozen: het hele team mag velden toevoegen, omdat "+ Add field" vanaf de kandidaatpagina anders weinig zin heeft. Archiveren is voor admins, omdat een gearchiveerd veld bij iedereen verdwijnt.
 
@@ -47,7 +68,7 @@ Vaste regels, afgedwongen in de database:
 
 - **Sleutel en soort record liggen vast.** De sleutel (bijvoorbeeld `notice_period`) wordt gemaakt uit de naam. De naam zelf mag je later wijzigen.
 - **Het type ligt vast**, behalve Text en Long text, die mag je omwisselen. Wil je een ander type: archiveer het veld en maak een nieuw.
-- **Archiveren in plaats van verwijderen.** Een gearchiveerd veld is weg van de pagina's en neemt geen nieuwe waarden aan; opgeslagen waarden blijven bewaard en komen terug als een admin het veld terugzet.
+- **Eerst archiveren, dan pas verwijderen.** Een gearchiveerd veld is weg van de pagina's en neemt geen nieuwe waarden aan; opgeslagen waarden blijven bewaard en komen terug als een admin het veld terugzet. Een admin kan een gearchiveerd veld daarna definitief verwijderen (`delete_custom_field()`); dan gaan ook de waarden op alle records weg.
 - **Opties weghalen** mag. Records die die optie al hebben, houden hem; hij staat er dan bij als "(removed option)" tot iemand het veld aanpast. Een optie hernoemen is dus: nieuwe optie toevoegen, oude weghalen, records bijwerken.
 
 ### Kolommen, filter en sorteren in de kandidatenlijst
@@ -63,11 +84,11 @@ De filters staan in de URL (`cf_<sleutel>=...`, sorteren met `sort=cf_<sleutel>&
 ### Hoe het technisch zit
 
 - Definities in de tabel `public.custom_field_definitions` (entity, key, label, field_type, options, help_text, position, show_in_list, archived_at).
-- Waarden in een `jsonb` kolom `custom_fields` op `candidates`, `vacancies` en `applications`, per sleutel.
+- Waarden in een `jsonb` kolom `custom_fields` op `candidates`, `vacancies`, `applications`, `clients` en `placements`, per sleutel.
 - De trigger `check_custom_fields` controleert elke nieuwe of gewijzigde waarde met `validate_custom_fields()` tegen de definitie (type, opties, gearchiveerd). Waarden die niet veranderen worden niet opnieuw gecontroleerd, zodat een later gearchiveerd veld of weggehaalde optie een andere wijziging nooit blokkeert.
 - `set_custom_field(entity, id, key, value)` wijzigt één waarde zonder de andere te overschrijven. Draait als de gebruiker zelf: row level security bepaalt welke records je mag wijzigen.
 - De app controleert hetzelfde vooraf ([src/lib/custom-fields/index.ts](../src/lib/custom-fields/index.ts)), zodat je een nette foutmelding bij het veld krijgt.
-- Componenten: [src/components/custom-fields](../src/components/custom-fields). Op de pagina's staat telkens één regel: `<CustomFieldsCard entity="candidate" recordId={id} />`, `<CustomFieldsCard entity="vacancy" ... />`, `<CustomFieldsPanel entity="application" recordId={card.id} />` in de pipelinekaart en `<CustomFieldsSettings />` in Settings.
+- Componenten: [src/components/custom-fields](../src/components/custom-fields). De kandidaat, vacature, klant en plaatsingspagina gebruiken `<RecordLayout ... />` (zie *Blokken en indeling*), de pipelinekaart `<CustomFieldsPanel entity="application" recordId={card.id} />`, losse pagina's kunnen nog `<CustomFieldsCard entity=... recordId={id} />` gebruiken en Settings `<CustomFieldsSettings />`.
 
 **Let op, klanten.** Klanten zien de definities niet en kunnen niets wijzigen. De waarden staan wel op de rij zelf, net als alle andere kolommen van een kandidaat. Een klant die een voorgestelde kandidaat mag zien, kan via de API dus ook diens custom fields lezen (het klantportaal toont ze niet). Van kandidaten en sollicitaties die een klant niet mag zien, ziet hij niets, ook geen custom fields; dat test `custom_fields.test.sql`. Zet dus geen gegevens in een custom field die een klant van een voorgestelde kandidaat nooit mag kunnen zien. Moet dat later wel, dan is de volgende stap een aparte tabel voor interne waarden met eigen RLS.
 
@@ -121,12 +142,15 @@ Geen nieuwe. Gebruikt worden de bestaande `SUPABASE_SECRET_KEY` (inloglinks make
 ## Tests
 
 - `tests/custom-fields.test.ts`: controle per type, formulierwaarden, sleutels, opties, filter en sorteren.
+- `tests/record-layout.test.ts`: indeling, opschonen, blokken per tab, vaste velden, opslaan en terugladen.
+- `tests/custom-fields-export.test.ts`: CSV kolommen en cellen, en wat Claude ziet en mag invullen.
 - `tests/work-time-zones.test.ts`: volledige lijst, servercontrole, oude namen, groepen en labels.
 - `tests/sign-in-link.test.ts`: wie een inloglink mag gebruiken.
 - `supabase/tests/custom_fields.test.sql`: type en optiecontrole in de database, alleen het team, archiveren alleen voor admins, klanten zien geen definities en geen waarden van kandidaten die ze niet mogen zien, gasten zien niets, en de tijdzonecontrole.
 
 ## Niet gebouwd
 
-- Custom fields in de MCP tools en in de export of het rapport. De waarden staan in `custom_fields`, dus dat kan later met een paar regels.
+- Eigen velden in het recruitmentrapport (de CSV van het rapport); wel in de exports per lijst.
+- Slepen in Settings > Fields: verplaatsen gaat met de pijltjes.
 - Kolommen met filter voor vacatures en sollicitaties (alleen de kandidatenlijst, zoals gevraagd).
 - Een apart, voor klanten afgeschermd soort veld (zie *Let op, klanten*).

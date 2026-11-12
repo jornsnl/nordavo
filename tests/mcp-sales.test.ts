@@ -234,12 +234,16 @@ test("start_sequence starts per company with source claude and keeps contact_id 
   }
 });
 
-test("upsert_companies needs a domain or a company LinkedIn URL", async () => {
+test("upsert_companies rejects only the company without a domain or LinkedIn URL", async () => {
   const { db } = fakeDb();
   const { client, close } = await connect("write", { db });
   try {
+    // The batch is not rejected: the company without a key is reported with its reason (143e4a7a).
     const result = await call(client, "upsert_companies", { source: "apify", companies: [{ name: "No key BV" }] });
-    assert.ok(result.isError);
+    assert.ok(!result.isError);
+    const body = JSON.parse(result.text);
+    assert.equal(body.failed, 1);
+    assert.match(body.results[0].error, /No website or company LinkedIn page/);
     assert.ok((await call(client, "upsert_companies", { source: "indeed", companies: [{ name: "X", domain: "x.nl" }] })).isError);
   } finally {
     await close();

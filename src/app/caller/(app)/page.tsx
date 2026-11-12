@@ -7,7 +7,11 @@ import { ListSkeleton } from "@/components/ui/skeleton";
 import { CallerStatsGrid, MonthFeesList } from "@/components/calls/caller-stats";
 import { requireCaller } from "@/lib/auth";
 import { formatCurrency, formatDate } from "@/lib/format";
-import { currentMonth, emptyStats, loadCallerMonths, loadCallerStats, monthLabel } from "@/lib/sales/caller-stats";
+import { currentMonth, emptyStats, loadCallerMonths, loadCallerStats, loadCallResults, loadRecentCalls, monthLabel } from "@/lib/sales/caller-stats";
+import { callOutcomes, labelOf } from "@/lib/sales/labels";
+import { Badge } from "@/components/ui/badge";
+import { DialSettingCard } from "@/components/calls/dial-setting-card";
+import { formatDateTime } from "@/lib/format";
 import { callerQueueSummary, openListsFor } from "@/lib/sales/queue";
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -31,14 +35,17 @@ async function Overview() {
     return <p className="text-sm text-muted">Calling is not available right now. Ask Nordavo to finish the setup.</p>;
   }
   const month = currentMonth();
-  const [{ data: row }, queue, lists, monthStats, allStats, months] = await Promise.all([
+  const [{ data: row }, queue, lists, monthStats, allStats, months, results, recent] = await Promise.all([
     db.from("callers").select("fee_per_meeting").eq("id", caller.callerId).maybeSingle(),
     callerQueueSummary(db, caller.callerId, caller.id),
     openListsFor(db, caller.callerId),
     loadCallerStats(db, { month, callerId: caller.callerId }),
     loadCallerStats(db, { month: null, callerId: caller.callerId }),
     loadCallerMonths(db, caller.callerId, 6),
+    loadCallResults(db, month),
+    loadRecentCalls(db, { callerId: caller.callerId, limit: 30 }),
   ]);
+  const mine = results.get(`caller:${caller.callerId}`);
 
   return (
     <div className="space-y-6">
@@ -130,6 +137,33 @@ async function Overview() {
           <CallerStatsGrid stats={allStats.stats.get(caller.callerId) ?? emptyStats} />
         </CardBody>
       </Card>
+
+      <Card>
+        <CardHeader
+          title="Your calls"
+          description={`Every attempt you logged, with its outcome. It is saved at the lead right away. This month: ${
+            callOutcomes.map((o) => `${mine?.outcomes[o.value] ?? 0} ${o.label.toLowerCase()}`).join(", ")
+          }.`}
+        />
+        <ul className="divide-y divide-border">
+          {recent.length === 0 && <li className="px-5 py-4 text-sm text-muted">No calls yet.</li>}
+          {recent.map((c) => (
+            <li key={c.id} className="flex flex-wrap items-center gap-3 px-4 py-2.5 text-sm sm:px-5">
+              <span className="w-32 shrink-0 text-xs text-muted">{formatDateTime(c.date)}</span>
+              <span className="min-w-0 flex-1">
+                <span className="font-medium text-ink">{c.companyName ?? "Lead"}</span>
+                {c.contactName && <span className="text-muted"> · {c.contactName}</span>}
+                {c.notes && <span className="block truncate text-xs text-muted">{c.notes}</span>}
+              </span>
+              <Badge tone={callOutcomes.find((o) => o.value === c.outcome)?.tone ?? "neutral"}>
+                {c.outcome ? labelOf(callOutcomes, c.outcome as never) : "Call"}
+              </Badge>
+            </li>
+          ))}
+        </ul>
+      </Card>
+
+      <DialSettingCard />
     </div>
   );
 }

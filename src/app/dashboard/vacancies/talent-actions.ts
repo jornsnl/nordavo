@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { SENIORITY_VALUES } from "@/lib/recruitment/candidate-fields";
 import { fieldErrorsFrom, formValues, GENERIC_ERROR, parseList } from "@/lib/action-state";
 import { askJson, ClaudeRefusalError, hasClaude } from "@/lib/ai/claude";
 import { markAiRequestsApplied, requestAi } from "@/lib/ai/queue";
@@ -92,7 +93,7 @@ const requirementsSchema = z
   .object({
     raw_text: z.string().max(30000, "This text is too long.").optional(),
     stack: z.string().max(1000, "Use at most 1000 characters.").optional(),
-    seniority: z.enum(["medior", "senior", "lead"], { error: "Choose a seniority." }),
+    seniority: z.enum(SENIORITY_VALUES, { error: "Choose a seniority." }),
     hours: z.coerce.number({ error: "Enter a number of hours." }).int("Use whole hours.").min(1, "At least 1 hour.").max(60, "At most 60 hours.").optional(),
     timezone_overlap: z.string().max(300, "Use at most 300 characters.").optional(),
     budget_min: amount.optional(),
@@ -374,6 +375,7 @@ const timelineSchema = z.object({
   profiles_sent_at: optionalDate,
   first_interview_at: optionalDate,
   start_at: optionalDate,
+  presentation_deadline: optionalDate,
 });
 
 /** A date input (YYYY-MM-DD) as a timestamp at noon UTC, so it shows as the same day in Amsterdam. */
@@ -408,6 +410,7 @@ export async function updateTimelineAction(vacancyId: string, _prev: TalentActio
     profiles_sent_at: keep(d.profiles_sent_at, current.profiles_sent_at),
     first_interview_at: keep(d.first_interview_at, current.first_interview_at),
     start_at: d.start_at ?? null,
+    presentation_deadline: d.presentation_deadline ?? null,
   };
   let stage = current.talent_stage;
   if (update.profiles_sent_at && !current.profiles_sent_at) stage = advanceStage(stage, "profielen_verstuurd");

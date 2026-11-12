@@ -3,6 +3,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { loadCompanyRows, loadContactRows, loadViews } from "@/lib/sales/data";
 import type { SalesViewEntity } from "@/lib/sales/database";
+import { applyFlow, loadChoiceLists, loadCustomColumns, loadFlowExtras } from "@/lib/sales/flow-data";
 import { SalesWorkspace } from "./data-grid";
 import type { AnyRow, GridKind } from "./grid-kinds";
 
@@ -25,7 +26,8 @@ export async function SalesTable({
   const supabase = await createClient();
   const entity: SalesViewEntity = kind;
   const user = await getCurrentUser();
-  const [rows, views, callers] = await Promise.all([
+  const customEntities: ("company" | "contact")[] = kind === "contacts" ? ["company", "contact"] : ["company"];
+  const [baseRows, views, callers, choiceLists, customColumns, flowExtras] = await Promise.all([
     kind === "contacts"
       ? loadContactRows(supabase)
       : loadCompanyRows(supabase, { pipelineOnly: kind === "pipeline" }),
@@ -33,7 +35,12 @@ export async function SalesTable({
     user.role === "admin" && kind !== "pipeline"
       ? supabase.from("callers").select("id, name, party").eq("status", "active").order("name")
       : Promise.resolve({ data: null }),
+    loadChoiceLists(supabase),
+    loadCustomColumns(supabase, customEntities),
+    loadFlowExtras(supabase, kind),
   ]);
+  // Bucket, occupancy, prio reason, follow and own columns (round 4).
+  const rows = applyFlow(kind, baseRows as AnyRow[], flowExtras, customColumns);
   const requested = first(params.view);
   const initialViewId = requested && views.some((v) => v.id === requested) ? requested : null;
   return (
@@ -45,6 +52,9 @@ export async function SalesTable({
         initialMode={first(params.mode) === "board" ? "board" : "table"}
         emptyText={emptyText}
         callers={callers.data ?? undefined}
+        choiceLists={choiceLists}
+        customColumns={customColumns}
+        canAddColumns
       />
   );
 }

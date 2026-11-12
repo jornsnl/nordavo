@@ -8,6 +8,7 @@ import type { PlacementStatus } from "@/lib/database.types";
 import { formatCurrency, formatDate, todayIso } from "@/lib/format";
 import { EmptyState } from "@/components/dashboard/empty-state";
 import { PageHeader } from "@/components/dashboard/page-header";
+import { ExportCsvLink } from "@/components/custom-fields/export-link";
 import { ButtonLink } from "@/components/ui/button";
 import { MobileList, MobileListItem } from "@/components/ui/mobile-list";
 import { ListSkeleton, Skeleton } from "@/components/ui/skeleton";
@@ -38,10 +39,13 @@ export default function Page({ searchParams }: { searchParams: SearchParams }) {
         title="Placements"
         description="Developers working full-time in a client's team. No minimum term, one month's notice."
         actions={
-          <ButtonLink href="/dashboard/placements/new">
-            <Plus aria-hidden="true" />
-            New placement
-          </ButtonLink>
+          <>
+            <ExportCsvLink href="/dashboard/placements/export" />
+            <ButtonLink href="/dashboard/placements/new">
+              <Plus aria-hidden="true" />
+              New placement
+            </ButtonLink>
+          </>
         }
       />
       <Suspense fallback={<PlacementsSkeleton />}>

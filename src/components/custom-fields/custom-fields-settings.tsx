@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import { getCurrentUser, isStaff } from "@/lib/auth";
-import { listCustomFieldDefinitions } from "@/lib/custom-fields/data";
+import { getStoredLayout, listCustomFieldDefinitions } from "@/lib/custom-fields/data";
+import { layoutEntities } from "@/lib/custom-fields/layout";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { ListSkeleton } from "@/components/ui/skeleton";
 import { CustomFieldsManager } from "./custom-fields-manager";
@@ -17,16 +18,20 @@ export function CustomFieldsSettings() {
 async function Loaded() {
   const user = await getCurrentUser();
   if (!isStaff(user)) return null;
-  const definitions = await listCustomFieldDefinitions({ includeArchived: true });
+  const [definitions, stored] = await Promise.all([
+    listCustomFieldDefinitions({ includeArchived: true }),
+    Promise.all(layoutEntities.map(async (e) => [e.value, await getStoredLayout(e.value)] as const)),
+  ]);
+  const layouts = Object.fromEntries(stored);
   return (
     <div id="custom-fields" className="scroll-mt-24">
       <Card>
         <CardHeader
           title="Fields"
-          description="Extra fields on candidates, vacancies and pipeline cards, like extra columns in Airtable."
+          description="The blocks and fields of the candidate, vacancy, client and placement pages, and extra fields of your own, like extra columns in Airtable."
         />
         <CardBody className="py-5">
-          <CustomFieldsManager definitions={definitions} isAdmin={user.role === "admin"} />
+          <CustomFieldsManager definitions={definitions} isAdmin={user.role === "admin"} layouts={layouts} />
         </CardBody>
       </Card>
     </div>

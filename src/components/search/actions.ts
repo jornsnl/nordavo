@@ -1,7 +1,7 @@
 "use server";
 
 import { z } from "zod";
-import { requireStaff } from "@/lib/auth";
+import { getCurrentUser, requireStaff } from "@/lib/auth";
 import {
   emptySearchGroups,
   isSearchableType,
@@ -13,9 +13,9 @@ import {
 
 const querySchema = z.string().trim().max(100);
 
-/** Command palette: a few hits per record type. */
+/** Command palette: pages, a few hits per record type and Work tasks (Work guests: pages and tasks only). */
 export async function globalSearch(query: string): Promise<SearchGroups> {
-  await requireStaff();
+  await getCurrentUser();
   const q = querySchema.safeParse(query);
   if (!q.success) return emptySearchGroups;
   return searchEverything(q.data);

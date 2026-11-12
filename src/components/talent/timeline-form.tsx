@@ -6,10 +6,11 @@ import { Button } from "@/components/ui/button";
 import { Field, FormMessage, Input } from "@/components/ui/field";
 import type { TalentActionState } from "@/lib/talent/types";
 
-type Dates = { intake_at: string; profiles_sent_at: string; first_interview_at: string; start_at: string };
+type Dates = { intake_at: string; profiles_sent_at: string; first_interview_at: string; start_at: string; presentation_deadline: string };
 
 const fields: { name: keyof Dates; label: string; hint?: string }[] = [
   { name: "intake_at", label: "Intake" },
+  { name: "presentation_deadline", label: "Present top 3 to 5 by", hint: "Deadline agreed with the client." },
   { name: "profiles_sent_at", label: "Profiles sent" },
   { name: "first_interview_at", label: "First interview", hint: "Moves the stage to Interviews if it was still earlier." },
   { name: "start_at", label: "Start" },

@@ -11,6 +11,7 @@ import {
   type CustomFieldType,
 } from "@/lib/custom-fields";
 import { Field, FormMessage, Input, Select, Textarea } from "@/components/ui/field";
+import { fieldNameClashes, fieldNameWarning } from "@/lib/recruitment/field-names";
 import { PendingSubmit, submitWithoutReset } from "@/components/placements/form-utils";
 
 type Action = (prev: ActionState, formData: FormData) => Promise<ActionState>;
@@ -26,24 +27,39 @@ export function DefinitionForm({
   entity,
   onDone,
   submitLabel,
+  blocks: blocksProp,
+  blocksByEntity,
+  blockKey,
+  existingFields = [],
 }: {
   action: Action;
   field?: CustomFieldDefinition;
   /** Fixes the record type of a new field. */
   entity?: CustomFieldEntity;
+  /** Blocks of the record page the field can go in (page layouts). Without it the field keeps its block. */
+  blocks?: { key: string; label: string }[];
+  /** Blocks per record type, when the record type can still be picked. */
+  blocksByEntity?: Partial<Record<CustomFieldEntity, { key: string; label: string }[]>>;
+  /** Preselected block for a new field. */
+  blockKey?: string;
   onDone?: (state: ActionState) => void;
   submitLabel?: string;
+  /** All field definitions, to warn when a name is already taken (here or on another record type). */
+  existingFields?: { id: string; label: string; key: string; entity: string }[];
 }) {
   const [state, formAction, pending] = useActionState(action, {});
   const [type, setType] = useState<CustomFieldType>(field?.fieldType ?? "text");
   const [target, setTarget] = useState<CustomFieldEntity>(field?.entity ?? entity ?? "candidate");
   const id = useId();
   const errors = state.fieldErrors ?? {};
+  const [label, setLabel] = useState(field?.label ?? "");
+  const nameWarning = fieldNameWarning(fieldNameClashes(label, target, existingFields, { ignoreId: field?.id }), target);
 
   useEffect(() => {
     if (state.ok) onDone?.(state);
   }, [state, onDone]);
 
+  const blocks = blocksProp ?? blocksByEntity?.[target];
   const typeLocked = Boolean(field) && field?.fieldType !== "text" && field?.fieldType !== "long_text";
   const typeChoices = field
     ? customFieldTypes.filter((t) => (typeLocked ? t.value === field.fieldType : t.value === "text" || t.value === "long_text"))
@@ -54,7 +70,21 @@ export function DefinitionForm({
       <FormMessage error={state.error} success={state.ok && !onDone ? state.message : undefined} />
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Name" htmlFor={`${id}-label`} required error={errors.label}>
-          <Input id={`${id}-label`} name="label" defaultValue={field?.label} maxLength={80} required placeholder="e.g. Notice period" />
+          <Input
+            id={`${id}-label`}
+            name="label"
+            value={label}
+            onChange={(e) => setLabel(e.target.value)}
+            maxLength={80}
+            required
+            placeholder="e.g. Preferred stack"
+            aria-describedby={nameWarning ? `${id}-label-warning` : undefined}
+          />
+          {nameWarning && (
+            <p id={`${id}-label-warning`} role="status" className="mt-1.5 text-xs text-amber-800">
+              {nameWarning}
+            </p>
+          )}
         </Field>
         {field || entity ? (
           <input type="hidden" name="entity" value={target} />
@@ -95,6 +125,19 @@ export function DefinitionForm({
           <Input id={`${id}-help`} name="help_text" defaultValue={field?.helpText ?? ""} maxLength={300} />
         </Field>
       </div>
+      {blocks && blocks.length > 1 ? (
+        <Field label="Block" htmlFor={`${id}-block`} hint="Where the field is shown on the page. Blocks are set up under Settings, Fields.">
+          <Select key={target} id={`${id}-block`} name="block_key" defaultValue={field?.blockKey ?? blockKey ?? "custom"}>
+            {blocks.map((b) => (
+              <option key={b.key} value={b.key}>
+                {b.label}
+              </option>
+            ))}
+          </Select>
+        </Field>
+      ) : (
+        !field && blockKey && <input type="hidden" name="block_key" value={blockKey} />
+      )}
       {isChoiceType(type) && (
         <Field
           label="Options"

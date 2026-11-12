@@ -42,7 +42,7 @@ export async function addSuppressionAction(_prev: ActionState, formData: FormDat
       return { fieldErrors: { value: "Enter the contact's LinkedIn URL or email address." }, error: "Check the highlighted fields." };
     }
     let query = supabase.from("contacts").select("id, first_name, last_name").limit(1);
-    query = linkedin ? query.eq("linkedin_url", linkedin) : query.eq("email", email!);
+    query = linkedin ? query.eq("linkedin_key", linkedin) : query.eq("email", email!);
     const { data, error } = await query.maybeSingle();
     if (error) return { error: GENERIC_ERROR };
     if (!data) return { fieldErrors: { value: "No contact found with this LinkedIn URL or email address." }, error: "Check the highlighted fields." };

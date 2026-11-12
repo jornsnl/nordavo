@@ -36,14 +36,14 @@ test("parseWebsite agrees with the SQL normalize_domain on the key", () => {
 });
 
 test("parseLinkedinProfile only accepts personal profiles", () => {
-  assert.equal(parseLinkedinProfile("https://nl.linkedin.com/in/Jane-Doe/?trk=x"), "linkedin.com/in/jane-doe");
+  assert.equal(parseLinkedinProfile("https://nl.linkedin.com/in/Jane-Doe/?trk=x"), "https://www.linkedin.com/in/Jane-Doe");
   assert.equal(parseLinkedinProfile("linkedin.com/company/acme"), null);
   assert.equal(parseLinkedinProfile("https://example.com/in/jane"), null);
   assert.equal(parseLinkedinProfile("linkedin.com/in/"), null);
 });
 
 test("parseLinkedinCompany only accepts company pages", () => {
-  assert.equal(parseLinkedinCompany("https://www.linkedin.com/company/Acme/"), "linkedin.com/company/acme");
+  assert.equal(parseLinkedinCompany("https://www.linkedin.com/company/Acme/"), "https://www.linkedin.com/company/Acme");
   assert.equal(parseLinkedinCompany("linkedin.com/in/jane-doe"), null);
 });
 
@@ -71,7 +71,7 @@ test("manualContactRow fills source and dates on email and phone", () => {
     last_name: "Doe",
     title: "CTO",
     tier: 1,
-    linkedin_url: "linkedin.com/in/jane-doe",
+    linkedin_url: "https://www.linkedin.com/in/jane-doe",
     email: "jane@acme.nl",
     email_source: MANUAL_SOURCE,
     email_found_at: NOW,

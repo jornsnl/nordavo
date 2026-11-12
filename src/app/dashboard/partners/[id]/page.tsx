@@ -16,7 +16,10 @@ import { getPartner, listTeamOptions, type PartnerDetail } from "@/lib/data/part
 import { formatDate, formatDateTime, formatRelativeDays } from "@/lib/format";
 import { activityChannels, optionFor } from "@/lib/labels";
 import { labelOf, leadStatuses, pipelineStages } from "@/lib/sales/labels";
-import { logPartnerContactAction, updatePartnerAction } from "../actions";
+import { logPartnerContactAction, setPartnerNextAction, updatePartnerAction } from "../actions";
+import { NextActionForm } from "@/components/partners/next-action-form";
+import { EntityExtras } from "@/components/entity/entity-extras";
+import { ListSkeleton } from "@/components/ui/skeleton";
 
 export const metadata: Metadata = {
   title: "Partner",
@@ -98,9 +101,30 @@ async function Detail({ params }: { params: PageProps<"/dashboard/partners/[id]"
 
           <Leads partner={partner} />
           <Moments partner={partner} />
+          {/* Tasks, notes and attachments, the same panel as on a lead (6fc01216). */}
+          <Suspense fallback={<ListSkeleton rows={3} />}>
+            <EntityExtras entityType="partner" entityId={partner.id} />
+          </Suspense>
         </div>
 
         <div className="min-w-0 space-y-4 sm:space-y-6">
+          <Card>
+            <CardHeader
+              title="Next action"
+              description={
+                partner.nextActionDate
+                  ? `${partner.nextAction ?? "Next action"} on ${formatDate(partner.nextActionDate)}, ${formatRelativeDays(partner.nextActionDate)}`
+                  : "What happens next with this partner, and when."
+              }
+            />
+            <CardBody>
+              <NextActionForm
+                action={setPartnerNextAction.bind(null, partner.id)}
+                nextAction={partner.nextAction}
+                nextActionDate={partner.nextActionDate}
+              />
+            </CardBody>
+          </Card>
           <Card>
             <CardHeader title="Log a contact moment" description="A call, mail, LinkedIn message or meeting with this partner." />
             <CardBody>

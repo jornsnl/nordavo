@@ -104,7 +104,7 @@ select pg_temp.check((select stage from public.applications where id = '00000000
   'completed form advances fill_out to video_review');
 select pg_temp.check((select form_completed_at is not null from public.applications where id = '00000000-0000-0000-0000-0000000002b1'), 'form_completed_at set');
 select pg_temp.check((select completed_at is not null from public.form_invites where id = '00000000-0000-0000-0000-0000000002d2'), 'invite completed');
-select pg_temp.check((select full_name = 'Asha K' and notice_period = '30 days' and willing_to_relocate and years_experience = 5
+select pg_temp.check((select full_name = 'Asha K' and notice_period = '30' and willing_to_relocate and years_experience = 5
   from public.candidates where id = '00000000-0000-0000-0000-0000000002f1'), 'personal link updates the candidate');
 select pg_temp.check((select via = 'personal' and answers ->> 'q1' = 'Asha K' and form_version = 1
   from public.form_responses where application_id = '00000000-0000-0000-0000-0000000002b1'), 'response stored');

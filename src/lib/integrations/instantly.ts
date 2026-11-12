@@ -299,3 +299,96 @@ export function activityOutcomeFor(
   if (event.type === "unsubscribe") return "afgemeld";
   return `reply_${event.sentiment ?? "neutraal"}`;
 }
+
+// ---------------------------------------------------------------------------
+// Running campaigns with their leads and replies (feedback Julius, 4f7fd90a)
+// ---------------------------------------------------------------------------
+//
+// Assumptions to check with real credentials:
+//   - campaign status: 0 draft, 1 active, 2 paused, 3 completed, 4 running
+//     subsequences, negative values are paused by Instantly (unhealthy
+//     accounts, bounce protection, suspended);
+//   - POST /leads/list with { campaign: <id> } lists the leads of a campaign,
+//     cursor in next_starting_after; a lead has email_reply_count and
+//     timestamp_last_reply when it replied.
+
+export type PortalCampaignStatus = "draft" | "active" | "paused" | "finished";
+
+/** Our campaign status for an Instantly campaign status number. */
+export function campaignStatusFor(status: number | null | undefined): PortalCampaignStatus {
+  if (status === 0) return "draft";
+  if (status === 1 || status === 4) return "active";
+  if (status === 3) return "finished";
+  if (status == null) return "active";
+  return "paused";
+}
+
+const campaignLeadSchema = z.looseObject({
+  id: z.string().min(1),
+  email: z.string().optional().nullable(),
+  campaign: z.string().optional().nullable(),
+  status: z.number().optional().nullable(),
+  email_reply_count: z.number().optional().nullable(),
+  timestamp_last_reply: z.string().optional().nullable(),
+  lt_interest_status: z.number().optional().nullable(),
+});
+
+export type CampaignLead = {
+  id: string;
+  email: string;
+  repliedAt: string | null;
+  /** reply_positief, reply_neutraal or reply_negatief when it replied. */
+  replyOutcome: string | null;
+  /** Our member status: active, replied, bounced, unsubscribed or finished. */
+  status: "active" | "replied" | "bounced" | "unsubscribed" | "finished";
+};
+
+/**
+ * A lead of a campaign as our member. Instantly lead status: 1 active,
+ * 2 paused, 3 completed, -1 bounced, -2 unsubscribed, -3 skipped.
+ */
+export function mapCampaignLead(raw: unknown): CampaignLead | null {
+  const parsed = campaignLeadSchema.safeParse(raw);
+  if (!parsed.success) return null;
+  const lead = parsed.data;
+  const email = (lead.email ?? "").trim().toLowerCase();
+  if (!email.includes("@")) return null;
+  const replied = (lead.email_reply_count ?? 0) > 0 || Boolean(lead.timestamp_last_reply);
+  const interest = lead.lt_interest_status;
+  const replyOutcome = replied
+    ? typeof interest === "number"
+      ? interest >= 1
+        ? "reply_positief"
+        : interest < 0
+          ? "reply_negatief"
+          : "reply_neutraal"
+      : "reply_neutraal"
+    : null;
+  const status: CampaignLead["status"] = replied
+    ? "replied"
+    : lead.status === -1
+      ? "bounced"
+      : lead.status === -2
+        ? "unsubscribed"
+        : lead.status === 3 || lead.status === -3
+          ? "finished"
+          : "active";
+  return { id: lead.id, email, repliedAt: replied ? (lead.timestamp_last_reply ?? new Date().toISOString()) : null, replyOutcome, status };
+}
+
+export async function fetchCampaignLeads(campaignId: string, maxPages = 50): Promise<CampaignLead[]> {
+  const out: CampaignLead[] = [];
+  let cursor: string | null | undefined;
+  for (let page = 0; page < maxPages; page += 1) {
+    const body: Record<string, unknown> = { campaign: campaignId, limit: 100 };
+    if (cursor) body.starting_after = cursor;
+    const data = pageSchema(z.unknown()).parse(await instantlyFetch("/leads/list", { method: "POST", json: body }));
+    for (const item of data.items) {
+      const lead = mapCampaignLead(item);
+      if (lead) out.push(lead);
+    }
+    cursor = data.next_starting_after;
+    if (!cursor || data.items.length === 0) break;
+  }
+  return out;
+}

@@ -5,6 +5,7 @@ import { getCurrentUser, isStaff, requireStaff } from "@/lib/auth";
 import type { ActionState } from "@/lib/action-state";
 import {
   customFieldErrorMessage,
+  DEFAULT_BLOCK,
   isChoiceType,
   isCustomFieldEntity,
   keyFromLabel,
@@ -14,7 +15,9 @@ import {
   type CustomFieldEntity,
   type CustomFieldValues,
 } from "@/lib/custom-fields";
-import { getCustomFieldValues, listCustomFieldDefinitions, toDefinition } from "@/lib/custom-fields/data";
+import { getCustomFieldValues, getStoredLayout, listCustomFieldDefinitions, toDefinition } from "@/lib/custom-fields/data";
+import { isLayoutEntity, resolveLayout, sanitizeLayout, type LayoutEntity, type StoredLayout } from "@/lib/custom-fields/layout";
+import type { Json } from "@/lib/database.types";
 import { createClient } from "@/lib/supabase/server";
 
 /**
@@ -31,6 +34,10 @@ function revalidateRecord(entity: CustomFieldEntity, recordId?: string) {
     if (recordId) revalidatePath(`/dashboard/candidates/${recordId}`);
   } else if (entity === "vacancy" && recordId) {
     revalidatePath(`/dashboard/vacancies/${recordId}`);
+  } else if (entity === "client" && recordId) {
+    revalidatePath(`/dashboard/clients/${recordId}`);
+  } else if (entity === "placement" && recordId) {
+    revalidatePath(`/dashboard/placements/${recordId}`);
   }
 }
 
@@ -106,6 +113,7 @@ export async function createCustomField(_prev: ActionState, formData: FormData):
     options: formData.get("options"),
     help_text: formData.get("help_text"),
     show_in_list: formData.get("show_in_list"),
+    block_key: formData.get("block_key"),
   });
   if (!parsed.ok) return { error: "Check the highlighted fields.", fieldErrors: parsed.errors };
   const input = parsed.value;
@@ -137,6 +145,8 @@ export async function createCustomField(_prev: ActionState, formData: FormData):
       help_text: input.helpText,
       show_in_list: input.entity === "candidate" && input.showInList,
       position,
+      // Only sent when not the default, so adding a field keeps working before the layouts migration.
+      ...(input.blockKey !== DEFAULT_BLOCK ? { block_key: input.blockKey } : {}),
     })
     .select("*")
     .single();
@@ -166,8 +176,10 @@ export async function updateCustomField(fieldId: string, _prev: ActionState, for
     options: formData.get("options"),
     help_text: formData.get("help_text"),
     show_in_list: formData.get("show_in_list"),
+    block_key: formData.get("block_key"),
   });
   if (!parsed.ok) return { error: "Check the highlighted fields.", fieldErrors: parsed.errors };
+  const blockChanged = formData.has("block_key") && parsed.value.blockKey !== (field.block_key ?? DEFAULT_BLOCK);
 
   const { error } = await supabase
     .from("custom_field_definitions")
@@ -177,6 +189,7 @@ export async function updateCustomField(fieldId: string, _prev: ActionState, for
       options: isChoiceType(fieldType) ? parsed.value.options : [],
       help_text: parsed.value.helpText,
       show_in_list: field.entity === "candidate" && parsed.value.showInList,
+      ...(blockChanged ? { block_key: parsed.value.blockKey } : {}),
     })
     .eq("id", fieldId);
   if (error) return { error: customFieldErrorMessage(error) };
@@ -199,30 +212,45 @@ export async function setCustomFieldArchived(fieldId: string, archived: boolean)
   return { ok: true, message: archived ? "Field archived. Stored values are kept." : "Field restored." };
 }
 
-/** Move a field one place up or down within its record type. */
+/** Which block a field is really shown in: a block that no longer exists means "Custom fields". */
+async function fieldBlockResolver(entity: CustomFieldEntity): Promise<(blockKey: string | null | undefined) => string> {
+  if (!isLayoutEntity(entity)) return () => DEFAULT_BLOCK;
+  const layout = resolveLayout(entity, await getStoredLayout(entity));
+  const holds = new Set(layout.blocks.filter((b) => b.holdsFields).map((b) => b.key));
+  return (key) => (key && holds.has(key) ? key : DEFAULT_BLOCK);
+}
+
+/** Move a field one place up or down within its block. */
 export async function moveCustomField(fieldId: string, direction: "up" | "down"): Promise<ActionState> {
   await requireStaff();
   if (!isUuid(fieldId)) return { error: "Field not found." };
   const supabase = await createClient();
-  const { data: field } = await supabase.from("custom_field_definitions").select("id, entity").eq("id", fieldId).maybeSingle();
+  const { data: field } = await supabase.from("custom_field_definitions").select("*").eq("id", fieldId).maybeSingle();
   if (!field) return { error: "Field not found." };
   const { data: siblings, error } = await supabase
     .from("custom_field_definitions")
-    .select("id, position")
+    .select("*")
     .eq("entity", field.entity)
     .is("archived_at", null)
     .order("position")
     .order("created_at");
   if (error || !siblings) return { error: customFieldErrorMessage(error) };
-  const order = siblings.map((s) => s.id);
-  const from = order.indexOf(fieldId);
+
+  // Positions are one list per record type; a move swaps with the neighbour in the same block.
+  const blockOf = await fieldBlockResolver(field.entity);
+  const sameBlock = siblings.filter((f) => blockOf(f.block_key) === blockOf(field.block_key)).map((f) => f.id);
+  const from = sameBlock.indexOf(fieldId);
   const to = direction === "up" ? from - 1 : from + 1;
-  if (from < 0 || to < 0 || to >= order.length) return { ok: true };
-  [order[from], order[to]] = [order[to], order[from]];
+  if (from < 0 || to < 0 || to >= sameBlock.length) return { ok: true };
+  const order = siblings.map((f) => f.id);
+  const a = order.indexOf(sameBlock[from]);
+  const b = order.indexOf(sameBlock[to]);
+  [order[a], order[b]] = [order[b], order[a]];
+
   // Renumber 1..n so gaps and ties from earlier edits disappear.
   for (let i = 0; i < order.length; i++) {
     const wanted = i + 1;
-    if (siblings.find((s) => s.id === order[i])?.position === wanted) continue;
+    if (siblings.find((f) => f.id === order[i])?.position === wanted) continue;
     const { error: moveError } = await supabase.from("custom_field_definitions").update({ position: wanted }).eq("id", order[i]);
     if (moveError) return { error: customFieldErrorMessage(moveError) };
   }
@@ -230,3 +258,46 @@ export async function moveCustomField(fieldId: string, direction: "up" | "down")
   return { ok: true };
 }
 
+/** Delete an archived field for good, with its values on every record. Admins only (the database checks it too). */
+export async function deleteCustomField(fieldId: string): Promise<ActionState> {
+  const user = await requireStaff();
+  if (user.role !== "admin") return { error: "Only an admin can delete a field." };
+  if (!isUuid(fieldId)) return { error: "Field not found." };
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("delete_custom_field", { p_id: fieldId });
+  if (error) return { error: customFieldErrorMessage(error) };
+  revalidatePath("/dashboard", "layout");
+  return { ok: true, message: "Field deleted, with its values." };
+}
+
+/**
+ * Save the layout of a record page (Settings, Fields). The layout is checked
+ * and cleaned first; anything unknown is dropped. Any team member may.
+ */
+export async function saveRecordLayout(entity: LayoutEntity, layout: StoredLayout): Promise<ActionState> {
+  await requireStaff();
+  if (!isLayoutEntity(entity)) return { error: "Unknown record type." };
+  const config = sanitizeLayout(entity, layout) as Json;
+  const supabase = await createClient();
+  const { error } = await supabase.from("record_layouts").upsert({ entity, config }, { onConflict: "entity" });
+  if (error) {
+    if (/record_layouts/.test(error.message ?? "") && /does not exist|schema cache/i.test(error.message ?? "")) {
+      return { error: "Page layouts are not set up yet. Run the database migrations first." };
+    }
+    return { error: customFieldErrorMessage(error) };
+  }
+  revalidatePath("/dashboard", "layout");
+  return { ok: true, message: "Layout saved." };
+}
+
+/** Back to the default layout. Admins only. */
+export async function resetRecordLayout(entity: LayoutEntity): Promise<ActionState> {
+  const user = await requireStaff();
+  if (user.role !== "admin") return { error: "Only an admin can reset a layout." };
+  if (!isLayoutEntity(entity)) return { error: "Unknown record type." };
+  const supabase = await createClient();
+  const { error } = await supabase.from("record_layouts").delete().eq("entity", entity);
+  if (error) return { error: customFieldErrorMessage(error) };
+  revalidatePath("/dashboard", "layout");
+  return { ok: true, message: "Layout reset to the default." };
+}

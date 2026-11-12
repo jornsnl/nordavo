@@ -134,6 +134,8 @@ export type CompanyContact = {
   title: string | null;
   tier: number | null;
   linkedinUrl: string | null;
+  /** LinkedIn member id (ACwAA...) of an Apify link, next to the profile link. */
+  linkedinMemberUrn: string | null;
   email: string | null;
   emailSource: string | null;
   emailStatus: EmailStatus | null;
@@ -198,7 +200,7 @@ export async function getCompanyContacts(
   const { data, error } = await supabase
     .from("contacts")
     .select(
-      "id, first_name, last_name, title, tier, linkedin_url, email, email_source, email_status, email_found_at, phone, phone_type, phone_source, phone_found_at, status, role, is_primary, attempts, last_attempt_at, callback_at, referred_to, caller_note, onepage_id, last_contacted_at",
+      "id, first_name, last_name, title, tier, linkedin_url, linkedin_member_urn, email, email_source, email_status, email_found_at, phone, phone_type, phone_source, phone_found_at, status, role, is_primary, attempts, last_attempt_at, callback_at, referred_to, caller_note, onepage_id, last_contacted_at",
     )
     .eq("company_id", companyId)
     .order("is_primary", { ascending: false })
@@ -230,6 +232,7 @@ export async function getCompanyContacts(
     title: c.title,
     tier: c.tier,
     linkedinUrl: c.linkedin_url,
+    linkedinMemberUrn: c.linkedin_member_urn,
     email: c.email,
     emailSource: c.email_source,
     emailStatus: c.email_status,

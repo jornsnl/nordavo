@@ -2,8 +2,9 @@ import { Fragment, type ReactNode } from "react";
 import { MENTION_RE } from "@/lib/work/mentions";
 
 /**
- * Small, safe Markdown for task descriptions and comments: headings, lists,
- * quotes, code, bold, italic, links and @mentions. Builds React elements, so
+ * Small, safe Markdown for task descriptions and comments: headings, lists
+ * (nested by indenting, and - [ ] checklists), quotes, code, rules, bold,
+ * italic, strikethrough, links and @mentions. Builds React elements, so
  * nothing in the text is ever treated as HTML. Links only open http(s) and
  * mailto addresses.
  */
@@ -33,7 +34,13 @@ function blocks(text: string): ReactNode[] {
       continue;
     }
 
-    const heading = /^(#{1,3})\s+(.*)$/.exec(line);
+    if (/^\s*([-*_])(\s*\1){2,}\s*$/.test(line)) {
+      out.push(<hr key={key++} className="border-border" />);
+      i++;
+      continue;
+    }
+
+    const heading = /^(#{1,6})\s+(.*)$/.exec(line);
     if (heading) {
       const size = heading[1].length === 1 ? "text-base" : "text-sm";
       out.push(
@@ -45,19 +52,18 @@ function blocks(text: string): ReactNode[] {
       continue;
     }
 
-    if (/^\s*[-*]\s+/.test(line) || /^\s*\d+[.)]\s+/.test(line)) {
-      const ordered = /^\s*\d+[.)]\s+/.test(line);
-      const items: string[] = [];
-      const itemRe = ordered ? /^\s*\d+[.)]\s+(.*)$/ : /^\s*[-*]\s+(.*)$/;
-      while (i < lines.length && itemRe.test(lines[i])) items.push(itemRe.exec(lines[i++])![1]);
-      const List = ordered ? "ol" : "ul";
-      out.push(
-        <List key={key++} className={`space-y-1 pl-5 ${ordered ? "list-decimal" : "list-disc"}`}>
-          {items.map((item, n) => (
-            <li key={n}>{inline(item)}</li>
-          ))}
-        </List>,
-      );
+    if (LIST_ITEM.test(line)) {
+      const items: ListLine[] = [];
+      while (i < lines.length && LIST_ITEM.test(lines[i])) {
+        const [, indent, marker, text] = LIST_ITEM.exec(lines[i++])!;
+        items.push({ indent: indent.replace(/\t/g, "  ").length, ordered: /\d/.test(marker), text });
+      }
+      // A switch between - and 1. at the same depth starts a new list.
+      for (let at = 0; at < items.length; ) {
+        const [list, next] = buildList(items, at, items[at].indent);
+        out.push(<Fragment key={key++}>{list}</Fragment>);
+        at = next;
+      }
       continue;
     }
 
@@ -81,13 +87,58 @@ function blocks(text: string): ReactNode[] {
     while (
       i < lines.length &&
       lines[i].trim() !== "" &&
-      !/^```|^#{1,3}\s|^\s*[-*]\s+|^\s*\d+[.)]\s+|^>/.test(lines[i])
+      !/^```|^#{1,6}\s|^>/.test(lines[i]) &&
+      !LIST_ITEM.test(lines[i])
     ) {
       paragraph.push(lines[i++]);
     }
     out.push(<p key={key++}>{withBreaks(paragraph)}</p>);
   }
   return out;
+}
+
+const LIST_ITEM = /^(\s*)([-*+]|\d+[.)])\s+(.*)$/;
+
+type ListLine = { indent: number; ordered: boolean; text: string };
+
+/** One list and the lists nested under its items (indented by two spaces or more), from items[start]. */
+function buildList(items: ListLine[], start: number, indent: number): [ReactNode, number] {
+  const ordered = items[start].ordered;
+  const entries: { text: string; children: ReactNode[] }[] = [];
+  let i = start;
+  while (i < items.length && items[i].indent >= indent) {
+    if (items[i].indent === indent && items[i].ordered !== ordered && entries.length > 0) break;
+    if (items[i].indent > indent && entries.length > 0) {
+      const [child, next] = buildList(items, i, items[i].indent);
+      entries[entries.length - 1].children.push(child);
+      i = next;
+      continue;
+    }
+    entries.push({ text: items[i].text, children: [] });
+    i++;
+  }
+  const List = ordered ? "ol" : "ul";
+  const list = (
+    <List key={start} className={`space-y-1 pl-5 ${ordered ? "list-decimal" : "list-disc"}`}>
+      {entries.map((entry, n) => {
+        const check = /^\[([ xX])\]\s+(.*)$/.exec(entry.text);
+        return (
+          <li key={n} className={check ? "-ml-5 list-none" : undefined}>
+            {check ? (
+              <span className="inline-flex items-start gap-2">
+                <input type="checkbox" checked={check[1] !== " "} readOnly disabled className="mt-1 size-3.5 rounded border-border" />
+                <span className={check[1] !== " " ? "text-muted line-through" : undefined}>{inline(check[2])}</span>
+              </span>
+            ) : (
+              inline(entry.text)
+            )}
+            {entry.children.length > 0 && <div className="mt-1 space-y-1">{entry.children}</div>}
+          </li>
+        );
+      })}
+    </List>
+  );
+  return [list, i];
 }
 
 function withBreaks(lines: string[]): ReactNode {
@@ -107,7 +158,10 @@ const TOKEN = new RegExp(
     "`([^`]+)`",
     MENTION_RE.source,
     "\\[([^\\]]+)\\]\\(([^)\\s]+)\\)",
+    "\\*\\*\\*([^*]+)\\*\\*\\*",
     "\\*\\*([^*]+)\\*\\*",
+    "(?<!\\w)__([^_\\n]+)__(?!\\w)",
+    "~~([^~\\n]+)~~",
     "(?<![\\w*])\\*([^*\\n]+)\\*(?![\\w*])",
     "(?<!\\w)_([^_\\n]+)_(?!\\w)",
     "(https?:\\/\\/[^\\s<>()]+[^\\s<>().,;:!?'\"])",
@@ -122,7 +176,7 @@ export function inline(text: string): ReactNode[] {
   for (const m of text.matchAll(TOKEN)) {
     const index = m.index ?? 0;
     if (index > last) out.push(text.slice(last, index));
-    const [, code, mentionName, , linkText, linkUrl, bold, italic, underscored, bare] = m;
+    const [, code, mentionName, , linkText, linkUrl, boldItalic, bold, boldUnderscored, strike, italic, underscored, bare] = m;
     if (code !== undefined) {
       out.push(
         <code key={key++} className="rounded bg-surface px-1 py-0.5 font-mono text-[0.85em]">
@@ -145,8 +199,16 @@ export function inline(text: string): ReactNode[] {
           linkText
         ),
       );
-    } else if (bold !== undefined) {
-      out.push(<strong key={key++}>{inline(bold)}</strong>);
+    } else if (boldItalic !== undefined) {
+      out.push(
+        <strong key={key++}>
+          <em>{inline(boldItalic)}</em>
+        </strong>,
+      );
+    } else if (bold !== undefined || boldUnderscored !== undefined) {
+      out.push(<strong key={key++}>{inline(bold ?? boldUnderscored)}</strong>);
+    } else if (strike !== undefined) {
+      out.push(<s key={key++}>{inline(strike)}</s>);
     } else if (italic !== undefined || underscored !== undefined) {
       out.push(<em key={key++}>{inline(italic ?? underscored)}</em>);
     } else if (bare !== undefined) {

@@ -112,9 +112,13 @@ end $$;
 select pg_temp.act('judith@nordavo.nl');
 select public.work_set_status(pg_temp.id('task1'), 'in_progress');
 select public.work_add_comment(pg_temp.id('task1'), 'Two found, still looking', '{}');
--- Judith is not the reviewer: no shortcut to Done.
-select pg_temp.fails($$select public.work_set_status(pg_temp.id('task1'), 'done')$$, 'done by a non-reviewer');
+-- Mira is neither owner nor reviewer: she cannot finish it (an owner could, see below).
+select pg_temp.act('mira@nordavo.nl');
+select pg_temp.fails($$select public.work_set_status(pg_temp.id('task1'), 'done')$$, 'done by someone who is not owner or reviewer');
+select pg_temp.act('judith@nordavo.nl');
 select public.work_set_status(pg_temp.id('task1'), 'review');
+-- In Review the reviewer decides: the owner cannot finish it from there.
+select pg_temp.fails($$select public.work_set_status(pg_temp.id('task1'), 'done')$$, 'done by the owner while in review');
 
 reset role;
 do $$ begin
@@ -160,6 +164,19 @@ do $$ begin
     raise exception 'FAIL: the activity log should record the changes';
   end if;
 end $$;
+
+-- An owner may also finish a task directly, without review, and open it again.
+insert into ids values ('task2', public.work_create_task(
+  pg_temp.id('hiring'), 'Call back Bright Fintech', null, 'normal', null, null, array[pg_temp.uid('judith@nordavo.nl')]));
+select pg_temp.act('judith@nordavo.nl');
+select public.work_set_status(pg_temp.id('task2'), 'done');
+do $$ begin
+  if (select status from public.work_tasks where id = pg_temp.id('task2')) <> 'done' then
+    raise exception 'FAIL: an owner should be able to finish a task directly';
+  end if;
+end $$;
+select public.work_set_status(pg_temp.id('task2'), 'todo', 'Not finished after all');
+select pg_temp.act('floris@nordavo.nl');
 
 -- Users cannot write to the tables directly, only through the functions.
 select pg_temp.fails($$update public.work_tasks set status = 'done' where id = pg_temp.id('task1')$$, 'direct update');

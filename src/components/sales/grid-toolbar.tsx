@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ArrowDown, ArrowUp, Eye, EyeOff, GripVertical, X } from "lucide-react";
+import { ArrowDown, ArrowUp, Eye, EyeOff, GripVertical, Plus, X } from "lucide-react";
 import type { ColumnFilter, FilterOp, SortRule } from "@/lib/sales/grid";
 import type { ColumnDef } from "@/lib/sales/rows";
 import { Button } from "@/components/ui/button";
@@ -213,11 +213,14 @@ export function ColumnChooser({
   visible,
   onChange,
   onClose,
+  onAddColumn,
 }: {
   columns: ColumnDef<AnyRow>[];
   visible: string[];
   onChange: (next: string[]) => void;
   onClose: () => void;
+  /** Opens the form for an own column (custom field), when the table allows it. */
+  onAddColumn?: () => void;
 }) {
   const [dragKey, setDragKey] = useState<string | null>(null);
   const hidden = columns.filter((c) => !visible.includes(c.key));
@@ -274,6 +277,21 @@ export function ColumnChooser({
             ))}
           </ul>
         </>
+      )}
+      {onAddColumn && (
+        <div className="mt-5 border-t border-border pt-4">
+          <button
+            type="button"
+            onClick={onAddColumn}
+            className="inline-flex min-h-10 items-center gap-1.5 rounded-lg px-2 text-sm font-semibold text-brand-700 hover:bg-brand-50"
+          >
+            <Plus className="size-4" aria-hidden="true" />
+            Add your own column
+          </button>
+          <p className="mt-1 text-xs text-muted">
+            Own columns are filled like any cell, can be filtered and sorted, and show on the lead page. Rename or archive them in Settings, Fields.
+          </p>
+        </div>
       )}
     </Modal>
   );

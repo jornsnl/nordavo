@@ -6,7 +6,6 @@ import {
   Briefcase,
   CalendarClock,
   Check,
-  ExternalLink,
   History,
   LoaderCircle,
   Phone,
@@ -15,8 +14,10 @@ import {
   Square,
   Users,
 } from "lucide-react";
+import { VacancyItem } from "@/components/leads/vacancy-item";
 import type { CallOutcome } from "@/lib/sales/database";
 import { buildSalesBookingUrl } from "@/lib/sales/booking";
+import { dialsInBrowser } from "@/lib/sales/telephony";
 import type { CallCard, CallInput, CallStep } from "@/lib/sales/call-session";
 import { callOutcomes, companyPrios } from "@/lib/sales/labels";
 import { formatDate, formatDateTime, todayIso } from "@/lib/format";
@@ -236,7 +237,8 @@ function ContactCall({
 
               {dial ? (
                 <a
-                  href={`tel:${dial.number.replace(/[^\d+]/g, "")}`}
+                  href={dial.href}
+                  {...(dialsInBrowser(dial.href) ? { target: "_blank", rel: "noreferrer" } : {})}
                   className="flex items-center gap-3 rounded-2xl bg-brand-700 px-5 py-4 text-white shadow-sm transition hover:bg-brand-800 active:scale-[0.99]"
                 >
                   <Phone className="size-6 shrink-0" aria-hidden="true" />
@@ -296,20 +298,16 @@ function ContactCall({
             ) : (
               <ul className="divide-y divide-border">
                 {card.vacancies.map((v) => (
-                  <li key={v.id} className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm first:pt-0 last:pb-0">
-                    <span className="min-w-0">
-                      <span className="font-medium text-ink">{v.title || "Vacancy"}</span>
-                      {v.roleGroup && <span className="text-muted"> · {v.roleGroup}</span>}
-                    </span>
-                    <span className="flex items-center gap-3 text-xs text-muted">
-                      {v.daysOpen != null && <span>{v.daysOpen} days open</span>}
-                      {v.url && (
-                        <a href={v.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 font-medium text-brand-600 hover:underline">
-                          Source
-                          <ExternalLink className="size-3.5" aria-hidden="true" />
-                        </a>
-                      )}
-                    </span>
+                  <li key={v.id} className="py-2 text-sm first:pt-0 last:pb-0">
+                    {/* Title links to the vacancy (site, LinkedIn, Indeed); date online, days open and the text to fold open. */}
+                    <VacancyItem
+                      title={v.title}
+                      url={v.url}
+                      postedAt={v.postedAt}
+                      firstSeenAt={v.firstSeenAt ?? new Date().toISOString()}
+                      description={v.description}
+                      roleGroup={v.roleGroup}
+                    />
                   </li>
                 ))}
               </ul>
@@ -452,7 +450,7 @@ function OutcomePanel({ card, pending, onLog }: { card: CallCard; pending: boole
         </Field>
 
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-          {callOutcomes.map((o) => (
+          {card.outcomes.map((c) => ({ ...(callOutcomes.find((o) => o.value === c.value) ?? callOutcomes[0]), label: c.label, description: c.description })).map((o) => (
             <button
               key={o.value}
               type="button"
@@ -464,6 +462,7 @@ function OutcomePanel({ card, pending, onLog }: { card: CallCard; pending: boole
               }`}
             >
               {o.label}
+              {o.description && <span className="block text-xs font-normal opacity-80">{o.description}</span>}
             </button>
           ))}
         </div>

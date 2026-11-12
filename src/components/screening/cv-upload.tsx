@@ -24,9 +24,10 @@ const MAX_FILES = 300;
 /**
  * Bulk CV upload (2.6.2): drop many PDF or DOCX files; they go to the
  * server one after the other, each is read, matched to an existing
- * candidate or creates a new one, and lands in this vacancy as Sourced.
+ * candidate (email, phone or LinkedIn in the CV, else a unique name) or
+ * creates a new one, and with a vacancy lands in it as Sourced.
  */
-export function CvUpload({ vacancyId, claude }: { vacancyId: string; claude: boolean }) {
+export function CvUpload({ vacancyId = null, claude }: { vacancyId?: string | null; claude: boolean }) {
   const inputId = useId();
   const [items, setItems] = useState<Item[]>([]);
   const [source, setSource] = useState<CandidateSource>("other");
@@ -65,7 +66,7 @@ export function CvUpload({ vacancyId, claude }: { vacancyId: string; claude: boo
       setItems((all) => all.map((it, n) => (n === i ? { ...it, status: "uploading" } : it)));
       const form = new FormData();
       form.set("file", items[i].file);
-      form.set("vacancy_id", vacancyId);
+      if (vacancyId) form.set("vacancy_id", vacancyId);
       form.set("source", source);
       form.set("origin", origin);
       let response: CvUploadActionResult;

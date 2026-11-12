@@ -5,6 +5,7 @@ import { s2Qualify } from "./s2-qualify";
 import { s3DecisionMakers } from "./s3-decision-makers";
 import { s4EmailEnrich } from "./s4-email-enrich";
 import { s8InstantlySync } from "./s8-instantly-sync";
+import { instantlyCampaigns } from "./instantly-campaigns";
 import { s8WebpartnersImport } from "./s8-webpartners-import";
 import { s10WeeklyReport } from "./s10-weekly-report";
 import { screeningScore } from "./screening-score";
@@ -36,6 +37,7 @@ export const jobs: Record<string, Job> = Object.fromEntries(
   s3DecisionMakers,
   s4EmailEnrich,
   s8InstantlySync,
+  instantlyCampaigns,
   s8WebpartnersImport,
   s10WeeklyReport,
   t2Match,
@@ -75,6 +77,7 @@ export const fallbackJobs: Record<string, { claudeTask: string; task: string }> 
   "s3-decision-makers": { claudeTask: "claude-companies", task: "New companies and vacancies from Apify and Prospeo" },
   "s4-email-enrich": { claudeTask: "claude-companies", task: "New companies and vacancies from Apify and Prospeo" },
   "s8-instantly-sync": { claudeTask: "claude-replies", task: "Replies from Instantly and Seleqt" },
+  "s8-instantly-campaigns": { claudeTask: "claude-campaigns", task: "Campaigns in Instantly and Seleqt with leads and replies" },
   "s8-webpartners-import": { claudeTask: "claude-calcom", task: "Cal.com bookings to Meetings" },
   "t2-match": { claudeTask: "claude-match", task: "Matches from the talent pool and the search brief" },
   "screening-score": { claudeTask: "claude-screening", task: "CV scores against the job description" },

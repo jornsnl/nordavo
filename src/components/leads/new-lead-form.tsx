@@ -5,7 +5,7 @@ import { LoaderCircle } from "lucide-react";
 import { createLeadAction } from "@/app/dashboard/leads/manual-actions";
 import { FormActions } from "@/components/entity/form-actions";
 import { Button, ButtonLink } from "@/components/ui/button";
-import { Field, FormMessage, Input, Select } from "@/components/ui/field";
+import { Field, FormMessage, Input, Select, Textarea } from "@/components/ui/field";
 import { initialActionState } from "@/lib/action-state";
 import { segments } from "@/lib/labels";
 import { invalidProps } from "./action-modal";
@@ -115,6 +115,21 @@ export function NewLeadForm() {
             {...invalidProps(state, "linkedin_url")}
           />
         </Field>
+        <Field label="General number" htmlFor="general_phone" hint="The reception or main number of the company." error={e.general_phone}>
+          <Input id="general_phone" name="general_phone" type="tel" autoComplete="off" {...invalidProps(state, "general_phone")} />
+        </Field>
+        <Field label="Opening line" htmlFor="opening_line" error={e.opening_line} className="sm:col-span-2">
+          <Textarea id="opening_line" name="opening_line" rows={2} placeholder="What you open the call or mail with" {...invalidProps(state, "opening_line")} />
+        </Field>
+        <Field label="Red flags" htmlFor="red_flags" hint="One per line." error={e.red_flags} className="sm:col-span-2">
+          <Textarea id="red_flags" name="red_flags" rows={3} {...invalidProps(state, "red_flags")} />
+        </Field>
+        {e.confirm_duplicate && (
+          <label className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 sm:col-span-2">
+            <input type="checkbox" name="confirm_duplicate" className="mt-0.5 size-4" />
+            <span>This is another company: add the lead anyway.</span>
+          </label>
+        )}
       </div>
       <FormActions>
         <ButtonLink href="/dashboard/leads" variant="secondary">

@@ -12,6 +12,8 @@ import { MobileList, MobileListItem } from "@/components/ui/mobile-list";
 import { ListSkeleton } from "@/components/ui/skeleton";
 import { Table, TBody, TD, TH, THead, TR } from "@/components/ui/table";
 import { listSequences, type SequenceListItem } from "@/lib/data/sequences";
+import { listCampaigns } from "@/lib/data/campaigns";
+import { CampaignList } from "@/components/campaigns/campaign-list";
 import { formatDate } from "@/lib/format";
 import { sequenceStatuses } from "@/lib/sales/labels";
 import { createSequenceAction } from "./actions";
@@ -40,10 +42,31 @@ export default function Page({ searchParams }: PageProps<"/dashboard/sequences">
         description="Steps over mail, LinkedIn and calls, each on its own day. Claude writes concept texts, you approve them; only approved text is used. Start a sequence for companies from here or let Claude do it."
       />
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
-        <div className="min-w-0">
-          <Suspense fallback={<ListSkeleton rows={5} />}>
-            <SequenceList searchParams={searchParams} />
-          </Suspense>
+        <div className="min-w-0 space-y-8">
+          <section aria-labelledby="campaigns-heading" className="space-y-3">
+            <div className="flex flex-wrap items-end justify-between gap-2">
+              <div>
+                <h2 id="campaigns-heading" className="font-display text-lg font-semibold text-brand-900">
+                  Running campaigns
+                </h2>
+                <p className="text-sm text-muted">Instantly (mail) and Seleqt (LinkedIn): the leads in them and who replied.</p>
+              </div>
+              <Link href="/dashboard/sequences/campaigns" className="text-sm font-semibold text-brand-600 hover:text-brand-800">
+                All campaigns
+              </Link>
+            </div>
+            <Suspense fallback={<ListSkeleton rows={3} />}>
+              <RunningCampaigns />
+            </Suspense>
+          </section>
+          <section aria-labelledby="sequences-heading" className="space-y-3">
+            <h2 id="sequences-heading" className="font-display text-lg font-semibold text-brand-900">
+              Sequences
+            </h2>
+            <Suspense fallback={<ListSkeleton rows={5} />}>
+              <SequenceList searchParams={searchParams} />
+            </Suspense>
+          </section>
         </div>
         <Card className="self-start">
           <CardHeader title="New sequence" description="Give it a name; add the steps on the next page." />
@@ -54,6 +77,10 @@ export default function Page({ searchParams }: PageProps<"/dashboard/sequences">
       </div>
     </>
   );
+}
+
+async function RunningCampaigns() {
+  return <CampaignList campaigns={await listCampaigns()} />;
 }
 
 async function SequenceList({ searchParams }: { searchParams: PageProps<"/dashboard/sequences">["searchParams"] }) {

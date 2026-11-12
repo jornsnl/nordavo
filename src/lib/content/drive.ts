@@ -2,7 +2,7 @@ import "server-only";
 import { JWT } from "google-auth-library";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/database.types";
-import { parseServiceAccount } from "@/lib/integrations/google-sheets";
+import { parseServiceAccount, serviceAccountStatus } from "@/lib/integrations/google-sheets";
 
 /**
  * Google Drive import and sync for the media library (docs/content.md).
@@ -25,20 +25,25 @@ const DRIVE_API = "https://www.googleapis.com/drive/v3/files";
 export const DRIVE_MAX_BYTES = 100 * 1024 * 1024;
 const FOLDER_MIME = "application/vnd.google-apps.folder";
 
+/** True when GOOGLE_SERVICE_ACCOUNT_JSON is set and readable (raw JSON or base64). */
 export function hasGoogleDrive() {
-  return Boolean(process.env.GOOGLE_SERVICE_ACCOUNT_JSON);
+  return serviceAccountStatus().ok;
 }
 
 export const DRIVE_SETUP_HELP =
-  "Google Drive is not connected yet. Put the JSON key of a Google service account (with the Drive API switched on) on one line in GOOGLE_SERVICE_ACCOUNT_JSON, then share the folder with the service account's e-mail address as viewer.";
+  "Google Drive is not connected yet. Put the JSON key of a Google service account (with the Drive API switched on) in GOOGLE_SERVICE_ACCOUNT_JSON (the JSON itself or its base64), then share the folder with the service account's e-mail address as viewer.";
+
+/** What is wrong with the Drive setup, in words, or null when the key is readable. */
+export function driveSetupError(): string | null {
+  const status = serviceAccountStatus();
+  if (status.ok) return null;
+  return status.configured ? `${status.error} See docs/content.md, Google Drive.` : DRIVE_SETUP_HELP;
+}
 
 /** The service account's e-mail address, to share folders with (null when not set up). */
 export function driveServiceEmail(): string | null {
-  try {
-    return parseServiceAccount(process.env.GOOGLE_SERVICE_ACCOUNT_JSON).client_email;
-  } catch {
-    return null;
-  }
+  const status = serviceAccountStatus();
+  return status.ok ? status.email : null;
 }
 
 // ---------------------------------------------------------------------------
@@ -152,9 +157,55 @@ async function driveJson<T>(url: string): Promise<T> {
     if (response.status === 404) {
       throw new Error("Google Drive cannot find that folder. Share it with the service account as viewer.");
     }
-    throw new Error(`Google Drive answered ${response.status}: ${text.slice(0, 300)}`);
+    throw new Error(driveErrorMessage(response.status, text));
   }
   return JSON.parse(text) as T;
+}
+
+/**
+ * A readable message for an error answer of the Drive API: the Drive API
+ * switched off in the Cloud project, a wrong key, or anything else.
+ */
+export function driveErrorMessage(status: number, body: string): string {
+  let message = "";
+  let reason = "";
+  try {
+    const json = JSON.parse(body) as { error?: { message?: string; errors?: { reason?: string }[]; status?: string } | string; error_description?: string };
+    if (typeof json.error === "object" && json.error) {
+      message = json.error.message ?? "";
+      reason = json.error.errors?.[0]?.reason ?? json.error.status ?? "";
+    } else {
+      message = json.error_description ?? json.error ?? "";
+    }
+  } catch {
+    message = body.slice(0, 300);
+  }
+  if (/accessNotConfigured|SERVICE_DISABLED|has not been used|is disabled/i.test(`${reason} ${message}`)) {
+    return "The Google Drive API is switched off for the Cloud project of this service account. Enable it in Google Cloud (APIs and services, Library, Google Drive API) and try again in a few minutes.";
+  }
+  if (status === 401 || /invalid_grant|invalid_client|account not found/i.test(message)) {
+    return "Google refused the service account key. Check that the key in GOOGLE_SERVICE_ACCOUNT_JSON is current and not deleted in Google Cloud.";
+  }
+  return `Google Drive answered ${status}: ${message.slice(0, 300) || "no details"}`;
+}
+
+/**
+ * Test the connection: get a token for the service account and ask Drive who
+ * it is. Cheap (one token, one small request); does not need a folder.
+ */
+export async function testDriveConnection(): Promise<{ ok: true; email: string } | { ok: false; error: string }> {
+  const setup = driveSetupError();
+  if (setup) return { ok: false, error: setup };
+  try {
+    const about = await driveJson<{ user?: { emailAddress?: string } }>("https://www.googleapis.com/drive/v3/about?fields=user(emailAddress)");
+    return { ok: true, email: about.user?.emailAddress ?? driveServiceEmail() ?? "" };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (/invalid_grant|invalid_client|account not found|No key|DECODER|PEM/i.test(message)) {
+      return { ok: false, error: driveErrorMessage(401, JSON.stringify({ error_description: message })) };
+    }
+    return { ok: false, error: message };
+  }
 }
 
 /** The name of a folder, to show in the list. */

@@ -105,8 +105,8 @@ export function skillOverlap(wanted: string[], candidate: Pick<PoolCandidate, "s
 /** Candidate level from the seniority field, or years of experience as fallback. */
 export function candidateLevel(c: Pick<PoolCandidate, "seniority" | "yearsExperience">): "junior" | "medior" | "senior" | null {
   const s = c.seniority ? foldText(c.seniority) : "";
-  if (/junior|trainee|intern|stagiair/.test(s)) return "junior";
-  if (/senior|lead|principal|staff|architect/.test(s)) return "senior";
+  if (/junior|trainee|intern|stagiair|fresher/.test(s)) return "junior";
+  if (/senior|lead|principal|staff|architect|manager/.test(s)) return "senior";
   if (/medior|mid/.test(s)) return "medior";
   if (c.yearsExperience === null) return null;
   if (c.yearsExperience >= 5) return "senior";

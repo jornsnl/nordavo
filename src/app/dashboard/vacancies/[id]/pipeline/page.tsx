@@ -97,8 +97,8 @@ async function Pipeline({
       />
       {vacancy.status === "on_hold" && (
         <p role="status" className="mb-4 rounded-2xl border border-amber-600/20 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-          This vacancy is parked{vacancy.parked_at ? ` since ${formatDate(vacancy.parked_at)}` : ""}
-          {vacancy.park_reason ? `: ${vacancy.park_reason}` : "."} Unpark it on the vacancy page.
+          This vacancy is on hold{vacancy.parked_at ? ` since ${formatDate(vacancy.parked_at)}` : ""}
+          {vacancy.park_reason ? `: ${vacancy.park_reason}` : "."} The clock stands still. Resume it on the vacancy page.
         </p>
       )}
       <PipelineBoard

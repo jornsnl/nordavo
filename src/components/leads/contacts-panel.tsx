@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
-import { CircleCheck, CircleX, Link2, Mail, Phone } from "lucide-react";
+import { CircleCheck, CircleX, Link2, Mail, Phone, TriangleAlert } from "lucide-react";
+import { isLinkedinLinkBroken } from "@/lib/gtm/normalize";
 import { buttonClasses } from "@/components/ui/button";
 import { ContactStatusBadge, EmailStatusBadge, TierBadge } from "@/components/leads/badges";
 import { Badge } from "@/components/ui/badge";
@@ -59,8 +60,9 @@ export function ContactsPanel({
                   <p id={`contact-${c.id}`} className="flex scroll-mt-24 flex-wrap items-center gap-2 font-medium text-ink">
                     {c.name}
                     <TierBadge tier={c.tier} />
-                    {c.isPrimary && <Badge tone="accent">Primary</Badge>}
-                    {c.role !== "main" && <Badge tone="neutral">{c.role === "extra" ? "Extra" : "Reserve"}</Badge>}
+                    <Badge tone={c.role === "main" ? "brand" : c.role === "reserve" ? "accent" : "neutral"}>
+                      {c.role === "main" ? "Main contact" : c.role === "reserve" ? "Backup" : "Extra"}
+                    </Badge>
                   </p>
                   {c.title && <p className="text-sm text-muted">{c.title}</p>}
                   {(c.attempts > 0 || c.callbackAt || c.referredTo) && (
@@ -88,9 +90,29 @@ export function ContactsPanel({
                         rel="noopener noreferrer"
                         className="break-all text-brand-700 hover:underline"
                       >
-                        {c.linkedinUrl.replace(/^linkedin\.com/, "")}
+                        {c.linkedinUrl.replace(/^(https?:\/\/)?(www\.)?linkedin\.com/, "")}
                         <span className="sr-only">(opens in a new tab)</span>
                       </a>
+                      {isLinkedinLinkBroken(c.linkedinUrl) && (
+                        <span className="mt-0.5 flex items-start gap-1 text-xs text-amber-800">
+                          <TriangleAlert className="mt-0.5 size-3 shrink-0" aria-hidden="true" />
+                          This Apify link was saved in lowercase and may not open. Paste the link again with its capitals, or let Claude fetch it again.
+                        </span>
+                      )}
+                      {c.linkedinMemberUrn && !c.linkedinUrl.includes(c.linkedinMemberUrn) && (
+                        <span className="block text-xs text-muted">
+                          Also known as{" "}
+                          <a
+                            href={`https://www.linkedin.com/in/${c.linkedinMemberUrn}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-brand-700 hover:underline"
+                          >
+                            {c.linkedinMemberUrn}
+                            <span className="sr-only">(Apify link, opens in a new tab)</span>
+                          </a>
+                        </span>
+                      )}
                     </dd>
                   </div>
                 )}

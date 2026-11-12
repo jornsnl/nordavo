@@ -5,6 +5,7 @@ import Form from "next/form";
 import { Building2, Plus, Search } from "lucide-react";
 import { EmptyState } from "@/components/dashboard/empty-state";
 import { PageHeader } from "@/components/dashboard/page-header";
+import { ExportCsvLink } from "@/components/custom-fields/export-link";
 import { FilterChips, filterHref } from "@/components/entity/filter-chips";
 import { Badge } from "@/components/ui/badge";
 import { Button, ButtonLink } from "@/components/ui/button";
@@ -35,10 +36,13 @@ export default function Page({ searchParams }: { searchParams: SearchParams }) {
         title="Clients"
         description="The Dutch scale-ups we find developers and data engineers for."
         actions={
-          <ButtonLink href="/dashboard/clients/new">
-            <Plus aria-hidden="true" />
-            New client
-          </ButtonLink>
+          <>
+            <ExportCsvLink href="/dashboard/clients/export" />
+            <ButtonLink href="/dashboard/clients/new">
+              <Plus aria-hidden="true" />
+              New client
+            </ButtonLink>
+          </>
         }
       />
       <Suspense fallback={<Skeleton className="mb-6 h-11 w-full" />}>

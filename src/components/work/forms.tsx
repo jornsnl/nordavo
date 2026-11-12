@@ -9,6 +9,7 @@ import { Field, FormMessage, Input, Select, Textarea } from "@/components/ui/fie
 import { Modal } from "@/components/ui/modal";
 import { PendingSubmit, submitWithoutReset } from "@/components/placements/form-utils";
 import { RecordPicker } from "@/components/work/record-picker";
+import { MarkdownField } from "@/components/work/markdown-field";
 import type { EntityType } from "@/lib/database.types";
 
 export type WorkAction = (state: WorkActionState, formData: FormData) => Promise<WorkActionState>;
@@ -97,19 +98,7 @@ export function TaskForm({
       <Field label="Title" htmlFor="task_title" required error={errors.title}>
         <Input id="task_title" name="title" required maxLength={300} autoFocus aria-invalid={Boolean(errors.title)} />
       </Field>
-      <Field
-        label="Description"
-        htmlFor="task_description"
-        hint="Goal, steps and when it is done. Markdown works: **bold**, lists, links."
-        error={errors.description}
-      >
-        <Textarea
-          id="task_description"
-          name="description"
-          rows={parentId ? 3 : 6}
-          defaultValue={parentId ? "" : "Goal:\n\nSteps:\n- \n\nDone when:\n"}
-        />
-      </Field>
+      <MarkdownField id="task_description" name="description" label="Description" rows={parentId ? 3 : 6} error={errors.description} />
       <div className="grid gap-4 sm:grid-cols-3">
         <Field label="Priority" htmlFor="task_priority">
           <Select id="task_priority" name="priority" defaultValue="normal">
@@ -133,7 +122,15 @@ export function TaskForm({
           </Select>
         </Field>
       </div>
-      <PeoplePicker name="assignees" label="Owners" people={people} />
+      {/* You own what you make, unless you change it (feedback Julius); you come first in the list. */}
+      <PeoplePicker
+        name="assignees"
+        label="Owners"
+        people={[...people.filter((p) => p.id === currentUserId), ...people.filter((p) => p.id !== currentUserId)].map((p) =>
+          p.id === currentUserId ? { ...p, name: `${p.name} (you)` } : p,
+        )}
+        defaultSelected={people.some((p) => p.id === currentUserId) ? [currentUserId] : []}
+      />
       {!parentId && recordTypes.length > 0 && (
         <RecordPicker initial={null} types={recordTypes} error={errors.entity_id} legend="Linked record (optional)" />
       )}

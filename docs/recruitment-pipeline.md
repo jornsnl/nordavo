@@ -66,8 +66,10 @@ Een ster bij toppers en het filter **Toppers only** (op de telefoon een chip).
 
 ### Vacaturepagina
 
-Blok **Park this vacancy**: parkeren met een reden (status On hold, getoond als Parked, met datum). Met
-**Unpark** gaat de vacature weer open. Het bord laat een melding zien zolang de vacature geparkeerd is.
+Blok **Put on hold** (ronde 3, was Park this vacancy): status On hold met een verplichte reden en een
+startdatum, ook via het vacatureformulier. Elke periode staat in `vacancy_holds`; days open en lead time
+staan stil zolang de vacature on hold is. Met **Resume** gaat de vacature weer open en loopt de klok weer.
+Het blok toont de reden, hoe lang al, en eerdere periodes. Het bord laat een melding zien zolang de vacature on hold is.
 
 ### Claude (MCP)
 

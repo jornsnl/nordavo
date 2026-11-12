@@ -67,6 +67,10 @@ const nextConfig: NextConfig = {
   },
   partialPrefetching: true,
   experimental: {
+    // Going back to a page seen in the last 30 seconds (Leads, Contacts) shows
+    // it from the client cache instead of loading it again. Server actions
+    // that change data still refresh it (docs/sales.md, Snelheid).
+    staleTimes: { dynamic: 30 },
     serverActions: {
       // CV uploads go through a server action: 20 MB file plus form overhead.
       bodySizeLimit: "21mb",

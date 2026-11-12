@@ -46,7 +46,7 @@ Eén persoon kan in meerdere workspaces zitten met verschillende rollen, bijvoor
 | Gast uitnodigen | ja | ja, in projecten waar hij in zit | nee |
 | Taken en subtaken maken | ja | ja | ja, binnen zijn projecten |
 | Status, opmerkingen, bijlagen | ja | ja | ja, binnen zijn projecten |
-| Naar Done zetten | ja | als reviewer | als reviewer |
+| Naar Done zetten | ja | als eigenaar of reviewer | als eigenaar of reviewer |
 | Archiveren | ja | eigen taken | nee |
 | Andere mensen zien | ja | ja | alleen mensen in zijn projecten (en admins) |
 | Exporteren | ja | nee | nee |
@@ -81,7 +81,7 @@ Julius wil Todoist en Akiflow vervangen door Work: alle taken op één plek, zak
 To do, In progress, Review, Done, en optioneel Cancelled.
 
 - Naar Review: de reviewer krijgt direct een mail. De reviewer is standaard de maker van de taak.
-- Naar Done: alleen de reviewer of een admin. Dat geldt ook via de API.
+- Naar Done: een eigenaar kiest zelf: direct afvinken (*Mark as done*, vanuit To do of In progress) of *Send to review*. Vanuit Review beslist de reviewer (of een admin). Een eigenaar mag een taak die hij zelf afvinkte weer openen (met een opmerking). Dat geldt ook via de API (migratie `20261123000000_work_owner_complete.sql`).
 - Terug uit Review (of Done heropenen): alleen met een opmerking erbij. De eigenaren krijgen een mail.
 - Cancelled: de maker, de reviewer of een admin.
 
@@ -206,10 +206,10 @@ Er is nog maar één takenlijst: Work. De module Tasks van het portaal (`/dashbo
 - Een Work taak kan hangen aan een klant, lead (bedrijf), vacature, kandidaat, sollicitatie of plaatsing (`public.work_task_links`, één record per taak).
 - **Op de taakpagina** ziet een teamlid met de module van dat record het record (met link), en bij een lead of klant de primaire contactpersoon: naam, functie, mailadres, telefoon en LinkedIn (bij een lead `contacts.is_primary`, bij een klant `client_contacts.is_primary`; de LinkedIn van een klantcontact vul je in op de klantpagina, blok Contacts, en staat in `client_contacts.linkedin_url`). Met *Change or remove the record* kies je een ander record (zoeken per soort record) of haal je de koppeling weg (`work_set_task_link`). Een taak zonder record krijgt daar *Link a record*.
 - **Een nieuwe taak** in een project kan meteen een record krijgen (`work_create_record_task` met dat project).
-- **Detailpagina's** (klant, lead, vacature, kandidaat, plaatsing): het blok *Tasks* toont de Work taken van dat record, open eerst op deadline en daarna de laatst afgeronde. Snel toevoegen maakt een Work taak in het afgeschermde project *Portal records* van de workspace Nordavo; een deadline als dag wordt 17:00 in jouw tijdzone. Afvinken zet de taak op Done als jij reviewer of admin bent, anders gaat hij naar Review bij de reviewer (de reviewregel van Work blijft gelden). Bij een lead of klant staat de primaire contactpersoon in elke open taak. De titel linkt naar de taak in Work.
+- **Detailpagina's** (klant, lead, vacature, kandidaat, plaatsing): het blok *Tasks* toont de Work taken van dat record, open eerst op deadline en daarna de laatst afgeronde. Snel toevoegen maakt een Work taak in het afgeschermde project *Portal records* van de workspace Nordavo; een deadline als dag wordt 17:00 in jouw tijdzone. Afvinken zet de taak op Done als jij eigenaar, reviewer of admin bent, anders gaat hij naar Review bij de reviewer. Snel toevoegen kent meerdere eigenaren (vinkjes); jij staat bovenaan en bent standaard aangevinkt. Bij een lead of klant staat de primaire contactpersoon in elke open taak. De titel linkt naar de taak in Work.
 - **Activiteit** van een record toont ook het log van de gekoppelde Work taken, en de oude regels van portaaltaken van voor de overgang (ook een oude prioriteit, nu met Urgent erbij).
 - **Een record verwijderen** verwijdert ook zijn Work taken (trigger per tabel).
-- **Zoeken** (Ctrl K in het portaal) vindt ook Work taken (`work_search`, binnen wat je mag zien).
+- **Zoeken** (Ctrl K of / in het portaal en in Work) vindt ook Work taken (`work_search`, binnen wat je mag zien). Zie *Sneltoetsen en zoeken*.
 
 ### Doorzoekbare keuzelijsten
 
@@ -225,7 +225,7 @@ Elke keuzelijst die lang kan worden (klanten, bedrijven, contacten, kandidaten, 
 
 - Elke prioriteit heeft een vaste kleur, overal hetzelfde (`priorityStyles` in `src/lib/sales/labels.ts`): Urgent rood, High oranje, Normal blauw, Low grijs. Als chip in de filters, als chip en linkerrand in lijsten, op kaarten van het bord, op de taakpagina en in het takenblok van een record.
 - Groepering op deadline in de tijdzone van de kijker (`src/lib/work/grouping.ts`): Overdue (deadline voorbij), Today, This week (tot en met zondag), Later, No date.
-- **Bord** op My overview en de projectpagina: een kolom per status (To do, In progress, Review, Done; Cancelled alleen als er zulke taken zijn). Een kaart naar een andere kolom slepen zet de status via `work_set_status`, dus met de reviewregels: Done alleen door de reviewer of een admin, Review alleen met een reviewer, terug van Review of Done alleen met een opmerking (op de taakpagina). Weigert de database, dan springt de kaart terug en staat de melding erboven. Met de muis via het greepje, op een telefoon lang drukken, met het toetsenbord spatie en de pijltjes.
+- **Bord** op My overview en de projectpagina: een kolom per status (To do, In progress, Review, Done; Cancelled alleen als er zulke taken zijn). Een kaart naar een andere kolom slepen zet de status via `work_set_status`, dus met de reviewregels: Done alleen door een eigenaar (niet vanuit Review), de reviewer of een admin, Review alleen met een reviewer, terug van Review of Done alleen met een opmerking (op de taakpagina). Weigert de database, dan springt de kaart terug en staat de melding erboven. Met de muis via het greepje, op een telefoon lang drukken, met het toetsenbord spatie en de pijltjes.
 
 ### Gasten zien geen portaaldata
 
@@ -293,3 +293,25 @@ npm run e2e
 ```
 
 `tests/e2e/offline.spec.ts` logt in op een productiebuild, wacht tot de service worker de hoofdpagina's heeft bewaard, gaat offline, herlaadt (de pagina opent van het apparaat), maakt een taak en wijzigt taken, gaat weer online en controleert dat alles op de server staat en de indicator "Synced" toont. De database regels staan in `supabase/tests/work_offline.test.sql`.
+
+## Sneltoetsen, snel invoeren en zoeken (feedback Julius)
+
+Werkt in het hele portaal (`/dashboard`) en in Work, ook in het smalle zijpaneel (Sidepad), maar nooit terwijl je in een veld typt of als er een ander venster open is. `?` toont de lijst (`src/lib/shortcuts.ts`, `src/components/shortcuts/portal-shortcuts.tsx`).
+
+| Toets | Wat |
+| --- | --- |
+| `q` | Snel een taak toevoegen: een klein venster, titel typen en Enter (opgeslagen en dicht). Optioneel datum (17:00 in jouw tijdzone), project (standaard het project van de pagina waar je bent, anders je inbox) en eigenaar (standaard jij). Esc sluit zonder op te slaan. Gaat via de offline outbox, dus werkt ook zonder verbinding |
+| `/` of Ctrl/⌘ K | Zoeken |
+| `g` en een letter | Naar een scherm: `t` My tasks, `r` To review, `i` inbox, `d` overzicht, `l` leads, `o` contacten, `p` pipeline, `m` meetings, `c` klanten, `v` vacatures, `k` kandidaten, `n` Content, `s` instellingen. Gasten van Work alleen de Work schermen |
+| `j` / `k` (of pijltjes zodra er een taak gekozen is) | Volgende of vorige taak in een lijst |
+| `e` | Gekozen taak bewerken (op de taakpagina: titel en omschrijving) |
+| `c` of Enter | Gekozen taak afvinken (op de taakpagina: deze taak). Mag je hem niet afronden, dan gaat hij naar Review |
+| `x` | Gekozen taak selecteren om in bulk af te vinken (projectlijst) |
+| `?` | Alle sneltoetsen |
+
+- **Afvinken in lijsten:** elke taakrij heeft een rond vinkje (één klik). In de lijst van een project kies je met de vierkante vakjes meerdere taken en vink je ze samen af (*Mark as done* in de balk onderaan, `completeTasksAction`), met per taak dezelfde regels.
+- **Taakpagina:** een eigenaar ziet *Mark as done* en *Send to review* naast elkaar.
+- **Nieuwe taak:** de omschrijving is leeg (geen sjabloon meer), jij bent standaard eigenaar en staat bovenaan. Markdown (vet, cursief, lijsten, ook genest, checklists `- [ ]`, links) wordt getoond op de taakpagina; met *Preview* zie je het al tijdens het typen. HTML in de tekst wordt nooit uitgevoerd.
+- **Zoeken** vindt ook pagina's (menu en Work, ook op Nederlandse woorden als "vacatures") en is tolerant voor typefouten: `portal_search` (migratie `20261123010000_portal_search.sql`, pg_trgm) zoekt in leads, contactpersonen van leads en klanten, klanten, vacatures (ook op klantnaam) en kandidaten, als de ingelogde gebruiker (RLS). Zonder die migratie valt het terug op de oude zoekopdracht.
+- **Zoekbare keuzelijsten** openen met de gekozen waarde in beeld en gemarkeerd.
+- **Linkermenu:** elke groep is in en uit te klappen, ook die waar je nu bent (een stip toont dan waar je zit).

@@ -8,6 +8,7 @@ import { parseViewConfig, viewConfigToJson } from "@/lib/sales/grid";
 import { createClient } from "@/lib/supabase/server";
 import { searchCompanyOptions, type CompanyOption } from "@/lib/data/sequences";
 import type { PipelineStage } from "@/lib/sales/database";
+import { isCustomField, moreFields } from "@/lib/sales/grid-extras";
 
 // Writes of the sales tables and boards. Every edit goes through
 // public.sales_update(), which only accepts whitelisted columns and logs each
@@ -25,7 +26,8 @@ const uuid = z.guid();
 const editSchema = z.object({
   entity: z.enum(["company", "contact"]),
   ids: z.array(uuid).min(1).max(5000),
-  fields: z.record(z.string().regex(/^[a-z_]{2,40}$/), z.json()),
+  // Own columns are "cf:<key>" (sales_set_custom_field).
+  fields: z.record(z.string().regex(/^(cf:[a-z][a-z0-9_]{0,39}|[a-z_]{2,40})$/), z.json()),
 });
 
 /** Turns a database error into a sentence for the table's message bar. */
@@ -50,14 +52,49 @@ export async function applyEdits(edits: Edit[]): Promise<EditResult> {
   let count = 0;
   for (const edit of parsed.data) {
     if (Object.keys(edit.fields).length === 0) continue;
-    const { data, error } = await supabase.rpc("sales_update", {
-      p_entity: edit.entity,
-      p_ids: edit.ids,
-      p_fields: edit.fields as Json,
-      p_source: "handmatig",
-    });
-    if (error) return { ok: false, error: friendly(error.message) };
-    count += data ?? 0;
+    // Three write paths, all logged in Activities: the fixed columns
+    // (sales_update), the prio reason and follow (sales_update_more) and the
+    // own columns (sales_set_custom_field, one per column).
+    const base: Record<string, Json> = {};
+    const more: Record<string, Json> = {};
+    const custom: [string, Json][] = [];
+    for (const [field, value] of Object.entries(edit.fields)) {
+      if (isCustomField(field)) custom.push([field.slice(3), value as Json]);
+      else if ((moreFields as readonly string[]).includes(field)) more[field] = value as Json;
+      else base[field] = value as Json;
+    }
+    if (Object.keys(base).length > 0) {
+      const { data, error } = await supabase.rpc("sales_update", {
+        p_entity: edit.entity,
+        p_ids: edit.ids,
+        p_fields: base as Json,
+        p_source: "handmatig",
+      });
+      if (error) return { ok: false, error: friendly(error.message) };
+      count += data ?? 0;
+    }
+    if (Object.keys(more).length > 0) {
+      if (edit.entity !== "company") return { ok: false, error: "This column cannot be edited." };
+      const { data, error } = await supabase.rpc("sales_update_more", {
+        p_entity: "company",
+        p_ids: edit.ids,
+        p_fields: more as Json,
+        p_source: "handmatig",
+      });
+      if (error) return { ok: false, error: friendly(error.message) };
+      count += data ?? 0;
+    }
+    for (const [key, value] of custom) {
+      const { data, error } = await supabase.rpc("sales_set_custom_field", {
+        p_entity: edit.entity,
+        p_ids: edit.ids,
+        p_key: key,
+        p_value: value,
+        p_source: "handmatig",
+      });
+      if (error) return { ok: false, error: friendly(error.message) };
+      count += data ?? 0;
+    }
   }
   revalidatePath("/dashboard/leads", "layout");
   revalidatePath("/dashboard/contacts", "layout");

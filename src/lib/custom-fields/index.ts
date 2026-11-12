@@ -18,12 +18,18 @@ export type CustomFieldDefinition = {
   position: number;
   showInList: boolean;
   archivedAt: string | null;
+  /** Block of the record page the field is shown in (layout.ts); "custom" by default. */
+  blockKey: string;
 };
 
 export const customFieldEntities: { value: CustomFieldEntity; label: string; plural: string }[] = [
   { value: "candidate", label: "Candidate", plural: "Candidates" },
   { value: "vacancy", label: "Vacancy", plural: "Vacancies" },
+  { value: "client", label: "Client", plural: "Clients" },
+  { value: "placement", label: "Placement", plural: "Placements" },
   { value: "application", label: "Application", plural: "Applications (pipeline card)" },
+  { value: "company", label: "Lead (company)", plural: "Leads (sales tables and lead page)" },
+  { value: "contact", label: "Contact", plural: "Contacts (sales tables and call lists)" },
 ];
 
 export const customFieldTypes: { value: CustomFieldType; label: string; hint: string }[] = [
@@ -104,7 +110,11 @@ export type DefinitionInput = {
   options: string[];
   helpText: string | null;
   showInList: boolean;
+  blockKey: string;
 };
+
+/** The default block of a field: "Custom fields". */
+export const DEFAULT_BLOCK = "custom";
 
 /** Checks a new or edited definition. Field errors by form field name. */
 export function validateDefinition(input: {
@@ -114,6 +124,7 @@ export function validateDefinition(input: {
   options?: unknown;
   help_text?: unknown;
   show_in_list?: unknown;
+  block_key?: unknown;
 }): { ok: true; value: DefinitionInput } | { ok: false; errors: Record<string, string> } {
   const errors: Record<string, string> = {};
   const label = typeof input.label === "string" ? input.label.trim() : "";
@@ -141,6 +152,7 @@ export function validateDefinition(input: {
       options,
       helpText: helpText || null,
       showInList: input.show_in_list === true || input.show_in_list === "on" || input.show_in_list === "true",
+      blockKey: typeof input.block_key === "string" && KEY_PATTERN.test(input.block_key) ? input.block_key : DEFAULT_BLOCK,
     },
   };
 }

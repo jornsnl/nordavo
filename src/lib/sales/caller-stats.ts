@@ -189,3 +189,136 @@ export async function loadCallerMonths(db: Db, callerId: string, months = 6) {
   }
   return out;
 }
+
+// ---------------------------------------------------------------------------
+// Results per person who calls (feedback Julius, 1b12f557): external callers
+// and team members, with every outcome. The phone system's own call rows
+// (source telephony, docs/calls.md) are left out: the outcome on the call
+// screen is the attempt, the telephony row only adds the recording.
+// ---------------------------------------------------------------------------
+
+export type CallResult = {
+  /** "caller:<id>" or "team:<profile id>". */
+  key: string;
+  kind: "caller" | "team";
+  id: string;
+  called: number;
+  reached: number;
+  outcomes: Record<string, number>;
+  meetings: number;
+  approved: number;
+};
+
+export function summarizeCallResults(
+  calls: { caller_id: string | null; created_by: string | null; outcome: string | null; source?: string | null }[],
+  meetings: { caller_id: string | null; booked_by: string | null; status: MeetingStatus }[],
+): Map<string, CallResult> {
+  const out = new Map<string, CallResult>();
+  const get = (kind: "caller" | "team", id: string) => {
+    const key = `${kind}:${id}`;
+    let r = out.get(key);
+    if (!r) {
+      r = { key, kind, id, called: 0, reached: 0, outcomes: {}, meetings: 0, approved: 0 };
+      out.set(key, r);
+    }
+    return r;
+  };
+  for (const c of calls) {
+    if (c.source === "telephony" || c.outcome === "verstuurd") continue;
+    const who = c.caller_id ? get("caller", c.caller_id) : c.created_by ? get("team", c.created_by) : null;
+    if (!who) continue;
+    who.called += 1;
+    if (c.outcome && reachedOutcomes.includes(c.outcome)) who.reached += 1;
+    const o = c.outcome ?? "unknown";
+    who.outcomes[o] = (who.outcomes[o] ?? 0) + 1;
+  }
+  for (const m of meetings) {
+    if (m.status === "cancelled") continue;
+    const who = m.caller_id ? get("caller", m.caller_id) : m.booked_by ? get("team", m.booked_by) : null;
+    if (!who) continue;
+    who.meetings += 1;
+    if (m.status === "approved") who.approved += 1;
+  }
+  return out;
+}
+
+/** A share as a whole percentage, or null when there is nothing to divide by. */
+export function rate(part: number, whole: number): number | null {
+  return whole > 0 ? Math.round((part / whole) * 100) : null;
+}
+
+/** Calls and meetings of a month (YYYY-MM) or all time, per external caller and team member. */
+export async function loadCallResults(db: Db, month: string | null) {
+  const range = month ? monthRange(month) : null;
+  const [calls, meetings] = await Promise.all([
+    pages((from, to) => {
+      let q = db
+        .from("activities")
+        .select("caller_id, created_by, outcome, source")
+        .eq("channel", "bellen")
+        .eq("type", "contact")
+        .range(from, to);
+      if (range) q = q.gte("date", range.from).lt("date", range.to);
+      return q;
+    }),
+    pages((from, to) => {
+      let q = db.from("meetings").select("caller_id, booked_by, status").range(from, to);
+      if (month) q = q.or(meetingMonthFilter(month));
+      return q;
+    }),
+  ]);
+  return summarizeCallResults(calls, meetings);
+}
+
+export type RecentCall = {
+  id: string;
+  date: string;
+  outcome: string | null;
+  notes: string | null;
+  companyId: string | null;
+  companyName: string | null;
+  contactName: string | null;
+  callerId: string | null;
+  createdBy: string | null;
+  recordingUrl: string | null;
+};
+
+/** The latest calls, of one caller or of everyone, newest first. */
+export async function loadRecentCalls(db: Db, { callerId, limit = 50 }: { callerId?: string; limit?: number } = {}): Promise<RecentCall[]> {
+  let q = db
+    .from("activities")
+    .select("id, date, outcome, notes, company_id, contact_id, caller_id, created_by, recording_url")
+    .eq("channel", "bellen")
+    .eq("type", "contact")
+    .order("date", { ascending: false })
+    .limit(limit);
+  if (callerId) q = q.eq("caller_id", callerId);
+  const { data, error } = await q;
+  if (error) {
+    console.error("loadRecentCalls", error.message);
+    return [];
+  }
+  const rows = data ?? [];
+  const companyIds = [...new Set(rows.map((r) => r.company_id).filter((v): v is string => Boolean(v)))];
+  const contactIds = [...new Set(rows.map((r) => r.contact_id).filter((v): v is string => Boolean(v)))];
+  const [companies, contacts] = await Promise.all([
+    companyIds.length ? db.from("companies").select("id, name").in("id", companyIds) : Promise.resolve({ data: [] }),
+    contactIds.length ? db.from("contacts").select("id, first_name, last_name").in("id", contactIds) : Promise.resolve({ data: [] }),
+  ]);
+  const companyName = new Map((companies.data ?? []).map((c) => [c.id, c.name]));
+  const contactName = new Map(
+    (contacts.data ?? []).map((c) => [c.id, [c.first_name, c.last_name].filter(Boolean).join(" ") || null]),
+  );
+  return rows.map((r) => ({
+    id: r.id,
+    date: r.date,
+    outcome: r.outcome,
+    notes: r.notes,
+    companyId: r.company_id,
+    companyName: r.company_id ? (companyName.get(r.company_id) ?? null) : null,
+    contactName: r.contact_id ? (contactName.get(r.contact_id) ?? null) : null,
+    callerId: r.caller_id,
+    createdBy: r.created_by,
+    recordingUrl: r.recording_url ?? null,
+  }));
+}

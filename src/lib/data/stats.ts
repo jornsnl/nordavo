@@ -3,7 +3,8 @@ import { requireStaff } from "@/lib/auth";
 import type { ApplicationStage } from "@/lib/database.types";
 import { todayIso } from "@/lib/format";
 import { createClient } from "@/lib/supabase/server";
-import { addDays, diffDays } from "@/components/placements/dates";
+import { addDays } from "@/components/placements/dates";
+import { daysOpenWithoutHolds, deadlineLevel } from "@/lib/recruitment/vacancy-time";
 
 /** Nordavo promises three candidates within three weeks. */
 export const PROMISED_CANDIDATES = 3;
@@ -59,26 +60,27 @@ export async function getVacanciesNeedingAttention(limit = 6) {
 
   const { data, error } = await supabase
     .from("vacancies")
-    .select("id, title, opened_at, client:clients(id, name), applications(stage, presented_at)")
+    .select("id, title, opened_at, presentation_deadline, client:clients(id, name), applications(stage, presented_at), holds:vacancy_holds(started_on, ended_on)")
     .eq("status", "open")
     .eq("is_talent_pool", false)
     .order("opened_at", { ascending: true });
 
   if (error) throw new Error(`Could not load vacancies: ${error.message}`);
 
-  const today = todayIso();
   const rows = data.map((vacancy) => {
-    const daysOpen = Math.max(0, diffDays(vacancy.opened_at, today));
+    // Days on hold do not count (vacancy_holds).
+    const daysOpen = daysOpenWithoutHolds({ opened_at: vacancy.opened_at, closed_at: null }, vacancy.holds);
     const presented = vacancy.applications.filter(
       // Also counts candidates the client saw and later turned down.
       (a) => PRESENTED_STAGES.includes(a.stage) || a.presented_at !== null,
     ).length;
+    const deadline = deadlineLevel(vacancy.presentation_deadline, presented);
     const signal: AttentionSignal =
       presented >= PROMISED_CANDIDATES
         ? "done"
-        : daysOpen >= PROMISED_DAYS
+        : daysOpen >= PROMISED_DAYS || deadline === "late"
           ? "late"
-          : daysOpen >= 14
+          : daysOpen >= 14 || deadline === "soon"
             ? "soon"
             : "on_track";
     return {
@@ -88,6 +90,8 @@ export async function getVacanciesNeedingAttention(limit = 6) {
       daysOpen,
       presented,
       signal,
+      /** Deadline to present the top 3 to 5 candidates, when set. */
+      presentationDeadline: vacancy.presentation_deadline,
     };
   });
 

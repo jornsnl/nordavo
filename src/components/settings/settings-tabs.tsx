@@ -3,6 +3,7 @@ import Link from "next/link";
 const tabs = [
   { key: "general", label: "General", href: "/dashboard/settings" },
   { key: "callers", label: "Callers", href: "/dashboard/settings/callers" },
+  { key: "sales-lists", label: "Sales lists", href: "/dashboard/settings/sales-lists" },
   { key: "mail-log", label: "Mail log", href: "/dashboard/settings/mail-log" },
   { key: "working-style", label: "Working style", href: "/dashboard/settings/working-style" },
 ] as const;

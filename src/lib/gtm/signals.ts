@@ -5,6 +5,8 @@
  * tiers from briefing section 3. No I/O here, so everything is unit tested.
  */
 
+import { normalizeLinkedin } from "./normalize";
+
 /** Days after which an open vacancy becomes a `lang_open` signal (S1). */
 export const LONG_OPEN_DAYS = 60;
 /** Window in which distinct open tech roles count towards `meerdere_rollen`. */
@@ -220,14 +222,15 @@ export function pickDecisionMakers<T extends PersonCandidate>(
   people: T[],
   { count, domain, existingLinkedin = [] }: { count: number; domain: string | null; existingLinkedin?: (string | null)[] },
 ): RankedPerson<T>[] {
-  const seen = new Set(existingLinkedin.filter(Boolean) as string[]);
+  // LinkedIn links compare on their lowercase key, whatever case or form they were stored in.
+  const seen = new Set(existingLinkedin.map((u) => normalizeLinkedin(u)).filter(Boolean) as string[]);
   const ranked: RankedPerson<T>[] = [];
   for (const person of people) {
     const tier = tierForTitle(person.title);
     if (!tier) continue;
     if (domain && person.companyDomain && person.companyDomain !== domain) continue;
     if (!person.linkedinUrl && !(person.firstName && person.lastName)) continue;
-    const key = person.linkedinUrl ?? `${person.firstName} ${person.lastName}`.toLowerCase();
+    const key = normalizeLinkedin(person.linkedinUrl) ?? `${person.firstName} ${person.lastName}`.toLowerCase();
     if (seen.has(key)) continue;
     seen.add(key);
     ranked.push({ ...person, tier });

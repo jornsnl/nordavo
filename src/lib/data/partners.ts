@@ -72,6 +72,8 @@ export type PartnerDetail = {
   ownerId: string | null;
   ownerName: string | null;
   lastContactAt: string | null;
+  nextAction: string | null;
+  nextActionDate: string | null;
   createdAt: string;
   leads: {
     id: string;
@@ -97,7 +99,7 @@ export async function getPartner(id: string): Promise<PartnerDetail | null> {
   const supabase = await createClient();
   const { data: p, error } = await supabase
     .from("partners")
-    .select("id, name, company_name, email, phone, linkedin_url, notes, status, owner_id, last_contact_at, created_at")
+    .select("id, name, company_name, email, phone, linkedin_url, notes, status, owner_id, last_contact_at, next_action, next_action_date, created_at")
     .eq("id", id)
     .maybeSingle();
   if (error) throw new Error(`Could not load the partner: ${error.message}`);
@@ -132,6 +134,8 @@ export async function getPartner(id: string): Promise<PartnerDetail | null> {
     ownerId: p.owner_id,
     ownerName: p.owner_id ? (names.get(p.owner_id) ?? null) : null,
     lastContactAt: p.last_contact_at,
+    nextAction: p.next_action ?? null,
+    nextActionDate: p.next_action_date ?? null,
     createdAt: p.created_at,
     leads: leads.data.map((c) => ({
       id: c.id,

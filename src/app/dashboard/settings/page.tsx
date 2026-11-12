@@ -40,6 +40,11 @@ import {
 } from "./actions";
 import { resetUserMfa } from "./mfa-actions";
 import { sendTestMail } from "./mail-actions";
+import { regenerateBccAddress } from "./bcc-actions";
+import { CopyButton } from "@/components/talent/copy-button";
+import { bccAddressFor } from "@/lib/mail/bcc-inbound";
+import type { InboundMailStatus } from "@/lib/database.types";
+import { DialSettingCard } from "@/components/calls/dial-setting-card";
 
 export const metadata: Metadata = {
   title: "Settings",
@@ -69,6 +74,14 @@ export default function Page() {
 
         <Suspense fallback={null}>
           <Interviews />
+        </Suspense>
+
+        <Suspense fallback={null}>
+          <DialSettingCard />
+        </Suspense>
+
+        <Suspense fallback={null}>
+          <BccLogging />
         </Suspense>
 
         <Card>
@@ -130,6 +143,100 @@ async function Interviews() {
       />
       <CardBody className="py-5">
         <BookingLinkForm action={updateBookingUrl} bookingUrl={profile.bookingUrl} />
+      </CardBody>
+    </Card>
+  );
+}
+
+const inboundStatus: Record<InboundMailStatus, { label: string; tone: "success" | "neutral" | "warning" | "danger" }> = {
+  logged: { label: "Logged", tone: "success" },
+  no_match: { label: "No contact", tone: "neutral" },
+  duplicate: { label: "Duplicate", tone: "neutral" },
+  sender_mismatch: { label: "Not from you", tone: "warning" },
+  unknown_address: { label: "Unknown address", tone: "warning" },
+  no_address: { label: "No BCC address", tone: "warning" },
+  invalid: { label: "Unreadable", tone: "danger" },
+  failed: { label: "Failed", tone: "danger" },
+};
+
+/**
+ * BCC logging (docs/mail.md): your own address on MAIL_BCC_DOMAIN. Put it in
+ * BCC and the mail is logged as an activity on the contacts and companies it
+ * went to. Created on first view; Replace makes the old address stop working.
+ */
+async function BccLogging() {
+  const user = await getCurrentUser();
+  if (!hasModule(user, "sales")) return null;
+  const supabase = await createClient();
+  const { data: token, error } = await supabase.rpc("mail_bcc_token", {});
+  const address = bccAddressFor(token);
+  let query = supabase
+    .from("mail_inbound_log")
+    .select("id, received_at, status, reason, subject, from_address, company_count")
+    .order("received_at", { ascending: false })
+    .limit(10);
+  // Admins see every inbound mail (also those for unknown addresses), others their own.
+  if (user.role !== "admin") query = query.eq("user_id", user.id);
+  const { data: recent } = await query;
+
+  return (
+    <Card>
+      <CardHeader
+        title="BCC logging"
+        description="Put this address in BCC when you mail a lead or client from your own mailbox. The mail is logged as an activity on every known contact it went to, one per company. Only mail you send yourself counts."
+      />
+      <CardBody className="space-y-5 py-5">
+        {error ? (
+          <p className="text-sm text-danger">Your BCC address could not be loaded.</p>
+        ) : !address ? (
+          <p className="rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-800">
+            BCC logging is not set up yet: MAIL_BCC_DOMAIN is missing on the server (docs/mail.md, BCC logging).
+          </p>
+        ) : (
+          <div className="flex flex-wrap items-center gap-3">
+            <code className="min-w-0 flex-1 rounded-lg border border-border bg-surface px-3 py-2 font-mono text-sm break-all text-ink select-all">
+              {address}
+            </code>
+            <CopyButton text={address} label="BCC address" />
+            <ConfirmButton
+              size="sm"
+              variant="ghost"
+              title="Replace your BCC address?"
+              description="You get a new address right away. Mail to the old address is ignored from now on, so update it wherever you saved it (for example an automatic BCC rule)."
+              confirmLabel="Replace address"
+              action={regenerateBccAddress}
+            >
+              Replace
+            </ConfirmButton>
+          </div>
+        )}
+        <p className="text-xs text-muted">
+          Logged: subject, date, To and Cc, Message-ID and the names of attachments, not the text. Nordavo addresses are skipped; a recipient must be a contact with exactly that address.
+        </p>
+        {(recent ?? []).length > 0 && (
+          <div>
+            <p className="mb-2 text-xs font-medium tracking-wide text-muted uppercase">Recent mail</p>
+            <ul className="divide-y divide-border rounded-xl border border-border text-sm">
+              {(recent ?? []).map((row) => {
+                const status = inboundStatus[row.status];
+                return (
+                  <li key={row.id} className="flex flex-wrap items-start justify-between gap-x-4 gap-y-1 px-4 py-3">
+                    <div className="min-w-0">
+                      <p className="truncate font-medium text-ink">{row.subject || "(no subject)"}</p>
+                      <p className="text-xs text-muted">
+                        {formatDate(row.received_at)}
+                        {user.role === "admin" && row.from_address && <> · {row.from_address}</>}
+                        {row.status === "logged" && <> · {row.company_count} {row.company_count === 1 ? "company" : "companies"}</>}
+                        {row.status !== "logged" && row.reason && <> · {row.reason}</>}
+                      </p>
+                    </div>
+                    <Badge tone={status.tone}>{status.label}</Badge>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        )}
       </CardBody>
     </Card>
   );

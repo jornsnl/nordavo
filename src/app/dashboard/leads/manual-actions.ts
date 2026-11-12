@@ -6,6 +6,8 @@ import { z } from "zod";
 import { requireStaff } from "@/lib/auth";
 import { fieldErrorsFrom, formValues, type ActionState } from "@/lib/action-state";
 import { likeExact, MANUAL_SOURCE, manualContactRow, parseLinkedinCompany, parseWebsite } from "@/lib/gtm/manual";
+import { normalizeLinkedin, normalizePhone } from "@/lib/gtm/normalize";
+import { duplicateWarning } from "@/lib/sales/duplicates";
 import { createClient } from "@/lib/supabase/server";
 
 /*
@@ -54,6 +56,10 @@ const leadSchema = z.object({
     .regex(/^\d{8}$/, "A KvK number has 8 digits.")
     .optional(),
   linkedin_url: optionalText(300),
+  opening_line: optionalText(2000),
+  red_flags: optionalText(3000),
+  general_phone: optionalText(50),
+  confirm_duplicate: z.string().optional(),
 });
 
 /** The error for a domain that is already a lead, with a link to that lead. */
@@ -61,7 +67,8 @@ async function duplicateLead(supabase: Db, domain: string): Promise<ActionState 
   const { data: existing } = await supabase
     .from("companies")
     .select("id, name, status")
-    .eq("domain", domain)
+    .or(`domain.eq.${domain},alias_domains.cs.{${domain}}`)
+    .limit(1)
     .maybeSingle();
   if (!existing) return null;
   const { count } = await supabase
@@ -101,6 +108,24 @@ export async function createLeadAction(_prev: ActionState, formData: FormData): 
   const duplicate = await duplicateLead(supabase, site.domain);
   if (duplicate) return duplicate;
 
+  // The same company on another domain (brightcape.nl and brightcape.com): warn, add only after a tick.
+  if (d.confirm_duplicate !== "on") {
+    const { data: similar } = await supabase.rpc("sales_similar_companies", { p_name: d.name, p_domain: site.domain });
+    const warning = duplicateWarning(similar ?? []);
+    if (warning && similar?.[0]) {
+      return {
+        error: warning,
+        fieldErrors: { name: "A company with a similar name exists.", confirm_duplicate: "Tick this to add the lead anyway." },
+        link: { href: `/dashboard/leads/${similar[0].id}`, label: `Open ${similar[0].name}` },
+      };
+    }
+  }
+  const generalPhone = d.general_phone ? (normalizePhone(d.general_phone) ?? d.general_phone.trim()) : null;
+  const redFlags = (d.red_flags ?? "")
+    .split(/[;\n]/)
+    .map((f) => f.replace(/^[\s\-*•]+/, "").trim())
+    .filter(Boolean);
+
   const { data, error } = await supabase
     .from("companies")
     .insert({
@@ -114,6 +139,9 @@ export async function createLeadAction(_prev: ActionState, formData: FormData): 
       employees: d.employees ?? null,
       kvk_number: d.kvk_number ?? null,
       linkedin_url: linkedin,
+      opening_line: d.opening_line?.trim() || null,
+      red_flags: redFlags,
+      general_phone: generalPhone,
       source: MANUAL_SOURCE,
       sources: [MANUAL_SOURCE],
     })
@@ -138,6 +166,7 @@ const contactSchema = z.object({
   last_name: optionalText(150),
   title: optionalText(200),
   tier: z.enum(["1", "2", "3"], { error: "Choose a tier." }).transform((v) => Number(v) as 1 | 2 | 3).optional(),
+  role: z.enum(["main", "reserve", "extra"], { error: "Choose a role." }).optional(),
   email: optionalText(320),
   phone: optionalText(50),
   linkedin_url: optionalText(300),
@@ -189,7 +218,7 @@ export async function createContactAction(
     let found: FoundContact | null = null;
     let field: keyof typeof DUPLICATE_HINTS = "linkedin_url";
     if (row.linkedin_url) {
-      const { data } = await supabase.from("contacts").select(columns).eq("linkedin_url", row.linkedin_url).maybeSingle();
+      const { data } = await supabase.from("contacts").select(columns).eq("linkedin_key", normalizeLinkedin(row.linkedin_url) ?? "").maybeSingle();
       found = data;
     }
     if (!found && row.email) {
