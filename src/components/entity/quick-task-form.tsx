@@ -11,7 +11,11 @@ import { Field, FormMessage, Input, Select } from "@/components/ui/field";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { createRecordTaskAction } from "@/app/work/record-actions";
 
-/** Add a Work task to this record without leaving the page. It lands in the project "Portal records". */
+/**
+ * Add a Work task to this record without leaving the page. It lands in the
+ * project "Portal records". You are the owner unless you change it, and you
+ * can pick several owners (feedback Julius).
+ */
 export function QuickTaskForm({
   entityType,
   entityId,
@@ -63,17 +67,7 @@ export function QuickTaskForm({
           aria-invalid={errors.title ? true : undefined}
         />
       </Field>
-      <Field label="Owner" htmlFor={`${id}-assignee`}>
-        <Select id={`${id}-assignee`} name="assignee_id" defaultValue={currentUserId}>
-          <option value="">Nobody</option>
-          {staff.map((member) => (
-            <option key={member.id} value={member.id}>
-              {member.name}
-              {member.id === currentUserId ? " (you)" : ""}
-            </option>
-          ))}
-        </Select>
-      </Field>
+      <OwnersPicker staff={staff} currentUserId={currentUserId} legendId={`${id}-owners`} />
       <div className="grid grid-cols-2 gap-3">
         <Field label="Deadline" htmlFor={`${id}-due`} hint="17:00 on that day" error={errors.due_date}>
           <Input id={`${id}-due`} name="due_date" type="date" className="px-2.5" />
@@ -97,5 +91,41 @@ export function QuickTaskForm({
         </SubmitButton>
       </div>
     </form>
+  );
+}
+
+/**
+ * Owners as checkboxes, the signed-in user first and ticked. The rest of the
+ * team in alphabetical order; with a long team the list scrolls.
+ */
+function OwnersPicker({ staff, currentUserId, legendId }: { staff: StaffMember[]; currentUserId: string; legendId: string }) {
+  const me = staff.find((m) => m.id === currentUserId);
+  const ordered = [...(me ? [me] : []), ...staff.filter((m) => m.id !== currentUserId)];
+  return (
+    <fieldset aria-labelledby={legendId}>
+      <legend id={legendId} className="mb-1.5 block text-sm font-medium text-ink">
+        Owners
+      </legend>
+      <div className="max-h-36 space-y-0.5 overflow-y-auto rounded-xl border border-border bg-white p-1.5">
+        {ordered.map((member) => (
+          <label
+            key={member.id}
+            className="flex cursor-pointer items-center gap-2.5 rounded-lg px-2 py-1 text-sm hover:bg-brand-50 pointer-coarse:min-h-10"
+          >
+            <input
+              type="checkbox"
+              name="assignee_ids"
+              value={member.id}
+              defaultChecked={member.id === currentUserId}
+              className="size-4 rounded border-border text-brand-700"
+            />
+            <span className="flex-1 truncate">
+              {member.name}
+              {member.id === currentUserId ? " (you)" : ""}
+            </span>
+          </label>
+        ))}
+      </div>
+    </fieldset>
   );
 }

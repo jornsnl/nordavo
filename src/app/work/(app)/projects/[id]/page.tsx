@@ -13,6 +13,7 @@ import { Markdown } from "@/components/work/markdown";
 import { PageTabs } from "@/components/work/page-tabs";
 import { LiveTasks } from "@/components/work/live-task-lists";
 import { QuickAddTask } from "@/components/work/quick-add-task";
+import { TaskSelectionProvider } from "@/components/work/task-selection";
 import type { TaskView } from "@/lib/offline/overlay";
 import { PriorityChips, ViewToggle } from "@/components/work/view-controls";
 import { createTaskAction } from "@/app/work/actions";
@@ -189,15 +190,17 @@ async function Project({ params, searchParams }: { params: Promise<{ id: string 
       {view !== "list" ? (
         <LiveTasks tasks={tasks} view={only(allStatuses)} layout={view} timeZone={user.timeZone} showContext={false} empty={noTasks} />
       ) : (
-        <div className="space-y-4">
-          <LiveTasks tasks={open} view={only(openStatuses)} layout="due" timeZone={user.timeZone} showContext={false} empty={tasks.length === 0 ? noTasks : null} />
-          {showDone && (
-            <>
-              <LiveTasks tasks={done} view={only(["done"])} layout="group" title="Done" timeZone={user.timeZone} showContext={false} empty={null} />
-              <LiveTasks tasks={cancelled} view={only(["cancelled"])} layout="group" title="Cancelled" timeZone={user.timeZone} showContext={false} empty={null} />
-            </>
-          )}
-        </div>
+        <TaskSelectionProvider>
+          <div className="space-y-4">
+            <LiveTasks tasks={open} view={only(openStatuses)} layout="due" timeZone={user.timeZone} showContext={false} empty={tasks.length === 0 ? noTasks : null} />
+            {showDone && (
+              <>
+                <LiveTasks tasks={done} view={only(["done"])} layout="group" title="Done" timeZone={user.timeZone} showContext={false} empty={null} />
+                <LiveTasks tasks={cancelled} view={only(["cancelled"])} layout="group" title="Cancelled" timeZone={user.timeZone} showContext={false} empty={null} />
+              </>
+            )}
+          </div>
+        </TaskSelectionProvider>
       )}
     </>
   );

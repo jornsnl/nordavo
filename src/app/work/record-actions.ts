@@ -55,7 +55,7 @@ const quickTaskSchema = z.object({
     .string({ error: "Give the task a title." })
     .min(1, "Give the task a title.")
     .max(300, "Keep the title under 300 characters."),
-  assignee_id: z.guid("Choose a team member.").optional(),
+  assignee_ids: z.array(z.guid("Choose a team member.")).max(20, "Pick at most 20 owners.").default([]),
   due_date: z.iso.date("Choose a valid date.").optional(),
   priority: z.enum(["low", "normal", "high", "urgent"]).default("normal"),
 });
@@ -71,11 +71,14 @@ export async function createRecordTaskAction(
   if (!isRecordType(entityType) || !uuid.safeParse(entityId).success) return { error: GENERIC_ERROR };
   if (!canUseRecordType(user, entityType)) return { error: "You do not have access to tasks on this record." };
 
-  const parsed = quickTaskSchema.safeParse(formValues(formData));
+  const parsed = quickTaskSchema.safeParse({
+    ...formValues(formData),
+    assignee_ids: formData.getAll("assignee_ids").filter((v): v is string => typeof v === "string" && v !== ""),
+  });
   if (!parsed.success) {
     return { error: "Check the highlighted fields.", fieldErrors: fieldErrorsFrom(parsed.error) };
   }
-  const { title, assignee_id, due_date, priority } = parsed.data;
+  const { title, assignee_ids, due_date, priority } = parsed.data;
 
   const supabase = await createClient();
   const { error } = await supabase.rpc("work_create_record_task", {
@@ -85,7 +88,7 @@ export async function createRecordTaskAction(
     p_priority: priority,
     // A deadline picked as a day means the end of the working day, 17:00 for the maker.
     p_due_at: due_date ? localInputToUtc(`${due_date}T17:00`, user.timeZone) : null,
-    p_assignees: assignee_id ? [assignee_id] : [],
+    p_assignees: [...new Set(assignee_ids)],
   });
   if (error) {
     console.error("createRecordTaskAction", error.code, error.message);
@@ -97,7 +100,7 @@ export async function createRecordTaskAction(
 
 /**
  * Tick a Work task off from a list outside the task page, or open it again.
- * Only the reviewer or a workspace admin may mark a task as done (the review
+ * An owner, the reviewer or a workspace admin may mark a task as done (the review
  * rule of Work); for anyone else ticking it off sends it to review instead.
  */
 export async function toggleTaskDoneAction(taskId: string, done: boolean): Promise<ActionState> {
@@ -116,15 +119,48 @@ export async function toggleTaskDoneAction(taskId: string, done: boolean): Promi
     return { ok: true };
   }
 
-  const { error } = await supabase.rpc("work_set_status", { p_task: taskId, p_status: "done" });
-  if (!error) {
-    revalidatePath("/", "layout");
-    return { ok: true, message: "Done." };
-  }
-  if (error.code !== "42501") return { error: workErrorMessage(error) };
+  const result = await finishTask(supabase, taskId);
+  if (typeof result !== "string") return result;
+  revalidatePath("/", "layout");
+  return result === "done"
+    ? { ok: true, message: "Done." }
+    : { ok: true, message: "Sent to the reviewer: only an owner or the reviewer can mark it as done." };
+}
 
+type Supabase = Awaited<ReturnType<typeof createClient>>;
+
+/** Done when the review rules allow it, otherwise to review. */
+async function finishTask(supabase: Supabase, taskId: string): Promise<"done" | "review" | { error: string }> {
+  const { error } = await supabase.rpc("work_set_status", { p_task: taskId, p_status: "done" });
+  if (!error) return "done";
+  if (error.code !== "42501") return { error: workErrorMessage(error) };
   const { error: reviewError } = await supabase.rpc("work_set_status", { p_task: taskId, p_status: "review" });
   if (reviewError) return { error: workErrorMessage(reviewError) };
+  return "review";
+}
+
+export type BulkDoneResult = { done: number; review: number; failed: number; error?: string };
+
+/**
+ * Tick several tasks off at once (the selection in a project list). Each
+ * goes through the same rules as one checkbox: done when allowed, otherwise
+ * to review. At most 200 at a time.
+ */
+export async function completeTasksAction(taskIds: string[]): Promise<BulkDoneResult> {
+  await requireWorkUser();
+  const ids = [...new Set(taskIds)].filter((id) => uuid.safeParse(id).success).slice(0, 200);
+  const result: BulkDoneResult = { done: 0, review: 0, failed: 0 };
+  if (ids.length === 0) return result;
+  const supabase = await createClient();
+  for (const id of ids) {
+    const outcome = await finishTask(supabase, id);
+    if (outcome === "done") result.done++;
+    else if (outcome === "review") result.review++;
+    else {
+      result.failed++;
+      result.error ??= outcome.error;
+    }
+  }
   revalidatePath("/", "layout");
-  return { ok: true, message: "Sent to the reviewer: only the reviewer can mark it as done." };
+  return result;
 }

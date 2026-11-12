@@ -26,11 +26,20 @@ export function DefinitionForm({
   entity,
   onDone,
   submitLabel,
+  blocks: blocksProp,
+  blocksByEntity,
+  blockKey,
 }: {
   action: Action;
   field?: CustomFieldDefinition;
   /** Fixes the record type of a new field. */
   entity?: CustomFieldEntity;
+  /** Blocks of the record page the field can go in (page layouts). Without it the field keeps its block. */
+  blocks?: { key: string; label: string }[];
+  /** Blocks per record type, when the record type can still be picked. */
+  blocksByEntity?: Partial<Record<CustomFieldEntity, { key: string; label: string }[]>>;
+  /** Preselected block for a new field. */
+  blockKey?: string;
   onDone?: (state: ActionState) => void;
   submitLabel?: string;
 }) {
@@ -44,6 +53,7 @@ export function DefinitionForm({
     if (state.ok) onDone?.(state);
   }, [state, onDone]);
 
+  const blocks = blocksProp ?? blocksByEntity?.[target];
   const typeLocked = Boolean(field) && field?.fieldType !== "text" && field?.fieldType !== "long_text";
   const typeChoices = field
     ? customFieldTypes.filter((t) => (typeLocked ? t.value === field.fieldType : t.value === "text" || t.value === "long_text"))
@@ -95,6 +105,19 @@ export function DefinitionForm({
           <Input id={`${id}-help`} name="help_text" defaultValue={field?.helpText ?? ""} maxLength={300} />
         </Field>
       </div>
+      {blocks && blocks.length > 1 ? (
+        <Field label="Block" htmlFor={`${id}-block`} hint="Where the field is shown on the page. Blocks are set up under Settings, Fields.">
+          <Select key={target} id={`${id}-block`} name="block_key" defaultValue={field?.blockKey ?? blockKey ?? "custom"}>
+            {blocks.map((b) => (
+              <option key={b.key} value={b.key}>
+                {b.label}
+              </option>
+            ))}
+          </Select>
+        </Field>
+      ) : (
+        !field && blockKey && <input type="hidden" name="block_key" value={blockKey} />
+      )}
       {isChoiceType(type) && (
         <Field
           label="Options"

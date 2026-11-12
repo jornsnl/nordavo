@@ -2,7 +2,9 @@ import { Suspense } from "react";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { ListSkeleton } from "@/components/ui/skeleton";
 import { createClient } from "@/lib/supabase/server";
-import { DRIVE_SETUP_HELP, driveServiceEmail, hasGoogleDrive } from "@/lib/content/drive";
+import { DRIVE_SETUP_HELP } from "@/lib/content/drive";
+import { serviceAccountStatus } from "@/lib/integrations/google-sheets";
+import { DriveConnectionTest } from "./drive-connection-test";
 import { DriveFolderList, type DriveFolderItem } from "./drive-folder-list";
 
 /**
@@ -42,19 +44,45 @@ async function Folders({ workspaceId }: { workspaceId: string | null }) {
     lastSyncedAt: f.last_synced_at,
     lastResult: f.last_result,
   }));
-  const email = driveServiceEmail();
+  const status = serviceAccountStatus();
   return (
     <div className="space-y-4">
-      {!hasGoogleDrive() ? (
-        <p className="rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-800">{DRIVE_SETUP_HELP}</p>
-      ) : (
-        email && (
-          <p className="text-sm text-muted">
-            Share a folder as viewer with <span className="font-mono text-xs text-ink select-all">{email}</span>, then paste its link.
-          </p>
-        )
-      )}
-      <DriveFolderList workspaceId={workspaceId} folders={folders} enabled={hasGoogleDrive()} />
+      <DriveKeyStatus status={status} />
+      <DriveFolderList workspaceId={workspaceId} folders={folders} enabled={status.ok} />
+    </div>
+  );
+}
+
+/** Whether the service account key is set and readable, and which address to share folders with. */
+function DriveKeyStatus({ status }: { status: ReturnType<typeof serviceAccountStatus> }) {
+  if (!status.configured) {
+    return (
+      <div className="rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-800">
+        <p className="font-medium">Service account key: not configured</p>
+        <p className="mt-1">{DRIVE_SETUP_HELP} An admin sets it at the hosting provider and as a GitHub Actions secret (docs/content.md).</p>
+      </div>
+    );
+  }
+  if (!status.ok) {
+    return (
+      <div className="rounded-xl bg-danger-bg px-4 py-3 text-sm text-danger">
+        <p className="font-medium">Service account key: set, but not readable</p>
+        <p className="mt-1">{status.error}</p>
+      </div>
+    );
+  }
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border px-4 py-3">
+      <div className="min-w-0 text-sm">
+        <p className="font-medium text-ink">
+          Service account key: configured{status.format === "base64" ? " (base64)" : ""}
+          {status.projectId && <span className="font-normal text-muted"> · project {status.projectId}</span>}
+        </p>
+        <p className="mt-1 text-muted">
+          Share a folder as viewer with <span className="font-mono text-xs break-all text-ink select-all">{status.email}</span>, then paste its link.
+        </p>
+      </div>
+      <DriveConnectionTest />
     </div>
   );
 }

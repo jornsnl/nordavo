@@ -624,6 +624,8 @@ export type TaskDetail = {
   can: {
     edit: boolean;
     approve: boolean;
+    /** An owner may finish the task directly, without review (from To do or In progress), and open it again. */
+    complete: boolean;
     cancel: boolean;
     archive: boolean;
     addSubtask: boolean;
@@ -750,6 +752,7 @@ export async function getTask(taskId: string): Promise<TaskDetail> {
     can: {
       edit: editable,
       approve: editable && (isAdmin || task.reviewer_id === user.id),
+      complete: editable && task.assignees.some((a) => a.user_id === user.id),
       cancel: editable && (isAdmin || task.reviewer_id === user.id || task.created_by === user.id),
       archive: editable && (isAdmin || (workspace.role === "member" && task.created_by === user.id)),
       addSubtask: editable && !task.parent_id,

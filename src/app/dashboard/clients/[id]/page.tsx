@@ -8,6 +8,9 @@ import { QuickActions, telHref, type QuickAction } from "@/components/entity/qui
 import { PageHeader } from "@/components/dashboard/page-header";
 import { ConfirmDeleteButton } from "@/components/clients/confirm-delete-button";
 import { ContactsCard } from "@/components/clients/contacts-card";
+import { RecordLayout } from "@/components/custom-fields/record-layout";
+import { getRecordLayout } from "@/lib/custom-fields/data";
+import { applyFieldLayout, blockLabel, coreField, findBlock } from "@/lib/custom-fields/layout";
 import { DaysOpen } from "@/components/vacancies/days-open";
 import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
@@ -53,11 +56,14 @@ async function ClientDetail({ params }: { params: Params }) {
   const client = await getClient(id);
   if (!client) notFound();
 
-  const [contacts, vacancies, placements] = await Promise.all([
+  const [contacts, vacancies, placements, layout] = await Promise.all([
     getClientContacts(client.id),
     getClientVacancies(client.id),
     getClientPlacements(client.id),
+    getRecordLayout("client"),
   ]);
+  const details = findBlock(layout, "details");
+  const notesField = coreField(details, "notes", "Notes");
   const status = optionFor(clientStatuses, client.status);
   const websiteUrl = client.website && /^https?:\/\//i.test(client.website) ? client.website : null;
 
@@ -100,72 +106,79 @@ async function ClientDetail({ params }: { params: Params }) {
 
       <QuickActions label={`Quick contact with ${client.name}`} actions={quickActions} />
 
-      <div className="grid grid-cols-1 gap-4 sm:gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
-        <div className="min-w-0 space-y-4 sm:space-y-6">
-          <Card>
-            <CardHeader title="Details" />
-            <CardBody>
-              <DetailList
-                items={[
-                  {
-                    label: "Website",
-                    value: websiteUrl ? (
-                      <a
-                        href={websiteUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 text-brand-700 hover:underline"
-                      >
-                        {websiteUrl.replace(/^https?:\/\//, "").replace(/\/$/, "")}
-                        <ExternalLink className="size-3.5" aria-hidden="true" />
-                        <span className="sr-only">(opens in a new tab)</span>
-                      </a>
-                    ) : (
-                      client.website
-                    ),
-                  },
-                  { label: "Industry", value: client.industry },
-                  { label: "Location", value: client.city },
-                  {
-                    label: "Owner",
-                    value: client.owner ? client.owner.full_name || client.owner.email : null,
-                  },
-                  { label: "Client since", value: formatDate(client.created_at) },
-                ]}
-              />
-              {client.notes && (
-                <div className="mt-6 border-t border-border pt-4">
-                  <h3 className="text-xs font-medium tracking-wide text-muted uppercase">Notes</h3>
-                  <p className="mt-1 text-sm whitespace-pre-line text-ink">{client.notes}</p>
-                </div>
-              )}
-            </CardBody>
-          </Card>
-
-          <VacanciesCard clientId={client.id} vacancies={vacancies} />
-          <PlacementsCard placements={placements} />
-        </div>
-
-        <div className="min-w-0 space-y-4 sm:space-y-6">
-          <ContactsCard
-            contacts={contacts}
-            saveAction={saveContactAction.bind(null, client.id)}
-            deleteAction={deleteContactAction.bind(null, client.id)}
-          />
-          <Suspense fallback={<ListSkeleton rows={3} />}>
-            <EntityExtras entityType="client" entityId={client.id} />
-          </Suspense>
-        </div>
-      </div>
+      <RecordLayout
+        entity="client"
+        recordId={client.id}
+        layout={layout}
+        blocks={{
+          details: (
+            <Card>
+              <CardHeader title={blockLabel(layout, "details")} />
+              <CardBody>
+                <DetailList
+                  items={applyFieldLayout(details, [
+                    {
+                      key: "website",
+                      label: "Website",
+                      value: websiteUrl ? (
+                        <a
+                          href={websiteUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-brand-700 hover:underline"
+                        >
+                          {websiteUrl.replace(/^https?:\/\//, "").replace(/\/$/, "")}
+                          <ExternalLink className="size-3.5" aria-hidden="true" />
+                          <span className="sr-only">(opens in a new tab)</span>
+                        </a>
+                      ) : (
+                        client.website
+                      ),
+                    },
+                    { key: "industry", label: "Industry", value: client.industry },
+                    { key: "location", label: "Location", value: client.city },
+                    {
+                      key: "owner",
+                      label: "Owner",
+                      value: client.owner ? client.owner.full_name || client.owner.email : null,
+                    },
+                    { key: "client_since", label: "Client since", value: formatDate(client.created_at) },
+                  ])}
+                />
+                {client.notes && !notesField.hidden && (
+                  <div className="mt-6 border-t border-border pt-4">
+                    <h3 className="text-xs font-medium tracking-wide text-muted uppercase">{notesField.label}</h3>
+                    <p className="mt-1 text-sm whitespace-pre-line text-ink">{client.notes}</p>
+                  </div>
+                )}
+              </CardBody>
+            </Card>
+          ),
+          vacancies: <VacanciesCard clientId={client.id} vacancies={vacancies} title={blockLabel(layout, "vacancies")} />,
+          placements: <PlacementsCard placements={placements} title={blockLabel(layout, "placements")} />,
+          contacts: (
+            <ContactsCard
+              contacts={contacts}
+              saveAction={saveContactAction.bind(null, client.id)}
+              deleteAction={deleteContactAction.bind(null, client.id)}
+            />
+          ),
+          extras: (
+            <Suspense fallback={<ListSkeleton rows={3} />}>
+              <EntityExtras entityType="client" entityId={client.id} />
+            </Suspense>
+          ),
+        }}
+      />
     </>
   );
 }
 
-function VacanciesCard({ clientId, vacancies }: { clientId: string; vacancies: ClientVacancyItem[] }) {
+function VacanciesCard({ clientId, vacancies, title }: { clientId: string; vacancies: ClientVacancyItem[]; title: string }) {
   return (
     <Card>
       <CardHeader
-        title="Vacancies"
+        title={title}
         description="All job profiles of this client."
         actions={
           <ButtonLink href={`/dashboard/vacancies/new?client=${clientId}`} variant="secondary" size="sm">
@@ -210,10 +223,10 @@ function VacanciesCard({ clientId, vacancies }: { clientId: string; vacancies: C
   );
 }
 
-function PlacementsCard({ placements }: { placements: ClientPlacementItem[] }) {
+function PlacementsCard({ placements, title }: { placements: ClientPlacementItem[]; title: string }) {
   return (
     <Card>
-      <CardHeader title="Placements" description="Developers working at this client through Nordavo." />
+      <CardHeader title={title} description="Developers working at this client through Nordavo." />
       {placements.length === 0 ? (
         <CardBody>
           <p className="text-sm text-muted">No placements at this client yet.</p>

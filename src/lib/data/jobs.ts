@@ -21,6 +21,7 @@ const JOB_ENV: Record<string, { required: string[]; optional?: string[] }> = {
     required: ["ANTHROPIC_API_KEY"],
   },
   "screening-score": { required: ["ANTHROPIC_API_KEY"] },
+  "content-drive-sync": { required: ["GOOGLE_SERVICE_ACCOUNT_JSON"] },
 };
 
 /** Jobs that cannot run without a parameter. */

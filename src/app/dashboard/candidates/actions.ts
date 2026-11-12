@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
+import { SENIORITY_VALUES } from "@/lib/recruitment/candidate-fields";
 import {
   type ActionState,
   GENERIC_ERROR,
@@ -47,7 +48,7 @@ const candidateSchema = z.object({
   status: z.enum(statusValues, { error: "Choose a status." }).default("available"),
   owner_id: z.string().refine(isUuid, { error: "Choose a team member." }).optional(),
   // Matching fields (T2 and the anonymous profile).
-  seniority: z.enum(["junior", "medior", "senior", "lead"], { error: "Choose a seniority." }).optional(),
+  seniority: z.enum(SENIORITY_VALUES, { error: "Choose a seniority." }).optional(),
   english_level: z.string().max(100, { error: "This English level is too long." }).optional(),
   availability: z.string().max(200, { error: "This availability is too long." }).optional(),
   profile_consent: z.enum(["yes", "no"], { error: "Choose yes, no or unknown." }).optional(),

@@ -89,7 +89,7 @@ Elke rij heeft een type, een kanaal en een bron.
 | --- | --- |
 | Type | `contact` (bellen, mail, LinkedIn), `reply`, `meeting`, `change` (een veld gewijzigd, met oude en nieuwe waarde), `note`, `view` (een beller opende een contact), `system` |
 | Kanaal | `bellen`, `mail`, `linkedin`, `meeting`, `system` |
-| Bron | `handmatig`, `instantly`, `seleqt`, `calcom`, `claude`, `apify`, `prospeo`, `import`, `system` en de oude `webpartners`, `onepage` |
+| Bron | `handmatig`, `instantly`, `seleqt`, `calcom`, `claude`, `apify`, `prospeo`, `bcc` (mail met je BCC adres, zie [mail.md](./mail.md#bcc-logging-inkomende-mail)), `import`, `system` en de oude `webpartners`, `onepage` |
 | Richting | `inbound` of `outbound` |
 
 - **Geen dubbelen.** Iets uit een ander systeem heeft een `external_id`; dezelfde id twee keer wordt één keer opgeslagen. Claude kan dus veilig twee keer ophalen.

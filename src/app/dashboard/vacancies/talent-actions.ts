@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { SENIORITY_VALUES } from "@/lib/recruitment/candidate-fields";
 import { fieldErrorsFrom, formValues, GENERIC_ERROR, parseList } from "@/lib/action-state";
 import { askJson, ClaudeRefusalError, hasClaude } from "@/lib/ai/claude";
 import { markAiRequestsApplied, requestAi } from "@/lib/ai/queue";
@@ -92,7 +93,7 @@ const requirementsSchema = z
   .object({
     raw_text: z.string().max(30000, "This text is too long.").optional(),
     stack: z.string().max(1000, "Use at most 1000 characters.").optional(),
-    seniority: z.enum(["medior", "senior", "lead"], { error: "Choose a seniority." }),
+    seniority: z.enum(SENIORITY_VALUES, { error: "Choose a seniority." }),
     hours: z.coerce.number({ error: "Enter a number of hours." }).int("Use whole hours.").min(1, "At least 1 hour.").max(60, "At most 60 hours.").optional(),
     timezone_overlap: z.string().max(300, "Use at most 300 characters.").optional(),
     budget_min: amount.optional(),

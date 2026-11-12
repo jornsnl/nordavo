@@ -1,6 +1,6 @@
 import "server-only";
 import { defineJob } from "@/lib/gtm/jobs";
-import { DRIVE_SETUP_HELP, hasGoogleDrive, syncDriveFolder } from "@/lib/content/drive";
+import { driveSetupError, syncDriveFolder } from "@/lib/content/drive";
 
 /**
  * Content: import new files from the Google Drive folders of the media
@@ -11,7 +11,8 @@ export const contentDriveSync = defineJob({
   name: "content-drive-sync",
   description: "Content: import new photos, PDFs and videos from the linked Google Drive folders",
   async run(ctx) {
-    if (!hasGoogleDrive()) throw new Error(DRIVE_SETUP_HELP);
+    const setupError = driveSetupError();
+    if (setupError) throw new Error(setupError);
     let query = ctx.db.from("content_drive_folders").select("id, workspace_id, folder_id, name, created_by").order("created_at");
     if (ctx.params.folder) query = query.eq("id", ctx.params.folder);
     const { data: folders, error } = await query;

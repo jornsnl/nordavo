@@ -125,3 +125,41 @@ export async function listCandidateOptions() {
 }
 
 export type CandidateOption = Awaited<ReturnType<typeof listCandidateOptions>>[number];
+
+/** Video intro copies uploaded to the portal (attachments of kind video), newest first. */
+export async function listCandidateVideos(candidateId: string) {
+  await requireStaff();
+  if (!isUuid(candidateId)) return [];
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("attachments")
+    .select("id, file_name, created_at, uploader:profiles(full_name, email)")
+    .eq("entity_type", "candidate")
+    .eq("entity_id", candidateId)
+    .eq("kind", "video")
+    .order("created_at", { ascending: false });
+  if (error) throw new Error(`Could not load videos: ${error.message}`);
+  return data.map((a) => ({
+    id: a.id,
+    fileName: a.file_name,
+    createdAt: a.created_at,
+    uploaderName: a.uploader?.full_name || a.uploader?.email || "Unknown",
+  }));
+}
+
+/** The next planned interview of any of these applications, or null. */
+export async function getNextInterview(applicationIds: string[]) {
+  await requireStaff();
+  if (applicationIds.length === 0) return null;
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("interviews")
+    .select("id, kind, starts_at, application_id")
+    .in("application_id", applicationIds)
+    .gte("starts_at", new Date().toISOString())
+    .in("status", ["scheduled", "rescheduled"])
+    .order("starts_at", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+  return data;
+}

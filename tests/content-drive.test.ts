@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { extractFolderId, folderPath, orientationOf, safeFileName, shouldImport, summaryText, takenOn } from "../src/lib/content/drive";
+import { driveErrorMessage, extractFolderId, folderPath, orientationOf, safeFileName, shouldImport, summaryText, takenOn } from "../src/lib/content/drive";
 import { mediaKind, parseMediaFilters, parseMediaSuggestion } from "../src/lib/content/media-utils";
 
 const ID = "1AbCdEfGhIjKlMnOpQrStUvWxYz012345";
@@ -53,4 +53,13 @@ test("media: kinds, filters and Claude's suggestion", () => {
   });
   assert.equal(parseMediaSuggestion({}), null);
   assert.equal(parseMediaSuggestion("x"), null);
+});
+
+test("drive: readable messages for Drive API errors", () => {
+  const disabled = JSON.stringify({
+    error: { code: 403, message: "Google Drive API has not been used in project 123 before or it is disabled.", errors: [{ reason: "accessNotConfigured" }] },
+  });
+  assert.match(driveErrorMessage(403, disabled), /Drive API is switched off/);
+  assert.match(driveErrorMessage(401, JSON.stringify({ error: "invalid_grant", error_description: "Invalid JWT Signature." })), /refused the service account key/);
+  assert.match(driveErrorMessage(500, "oops"), /answered 500: oops/);
 });

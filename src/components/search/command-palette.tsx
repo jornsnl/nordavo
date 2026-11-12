@@ -2,20 +2,34 @@
 
 import { useEffect, useId, useRef, useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
-import { Briefcase, Building2, CheckSquare, Handshake, LoaderCircle, Radar, Search, Users, type LucideIcon } from "lucide-react";
+import {
+  Briefcase,
+  Building2,
+  CheckSquare,
+  Contact,
+  CornerDownRight,
+  Handshake,
+  LoaderCircle,
+  Radar,
+  Search,
+  Users,
+  type LucideIcon,
+} from "lucide-react";
 import type { RecordHit, SearchGroups } from "@/lib/data/search";
 import { globalSearch } from "./actions";
 
 const groups: { key: keyof SearchGroups; label: string; icon: LucideIcon }[] = [
+  { key: "page", label: "Pages", icon: CornerDownRight },
   { key: "company", label: "Leads", icon: Radar },
   { key: "client", label: "Clients", icon: Building2 },
+  { key: "contact", label: "Contacts", icon: Contact },
   { key: "vacancy", label: "Vacancies", icon: Briefcase },
   { key: "candidate", label: "Candidates", icon: Users },
   { key: "placement", label: "Placements", icon: Handshake },
   { key: "task", label: "Tasks in Work", icon: CheckSquare },
 ];
 
-const emptyResults: SearchGroups = { company: [], client: [], vacancy: [], candidate: [], placement: [], task: [] };
+const emptyResults: SearchGroups = { page: [], company: [], contact: [], client: [], vacancy: [], candidate: [], placement: [], task: [] };
 
 const subscribeNever = () => () => {};
 
@@ -29,8 +43,9 @@ export function useShortcutLabel() {
 }
 
 /**
- * Global search over leads, clients, vacancies, candidates, placements and Work tasks.
- * Opens with Ctrl/Cmd + K or through `open`. On phones it is a full screen
+ * Global search over pages, leads, contacts, clients, vacancies, candidates,
+ * placements and Work tasks, forgiving of typos (portal_search).
+ * Opens with Ctrl/Cmd + K, "/" (PortalShortcuts) or through `open`. On phones it is a full screen
  * search sheet with a large field, a "Annuleren" button and big result rows.
  */
 export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
@@ -123,7 +138,7 @@ export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenCh
               <Search className="size-5 shrink-0 text-muted" aria-hidden="true" />
             )}
             <label htmlFor={`${id}-input`} className="sr-only">
-              Search clients, vacancies, candidates and placements
+              Search pages, leads, clients, vacancies, candidates and tasks
             </label>
             <input
               ref={inputRef}
@@ -134,7 +149,7 @@ export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenCh
               autoCapitalize="none"
               autoCorrect="off"
               spellCheck={false}
-              placeholder="Search by client, vacancy or candidate"
+              placeholder="Search pages, clients, leads, people or tasks"
               className="h-14 min-w-0 flex-1 appearance-none bg-transparent text-base text-ink outline-none placeholder:text-muted/70 [&::-webkit-search-cancel-button]:hidden max-sm:h-16"
               role="combobox"
               aria-expanded={flat.length > 0}
@@ -225,7 +240,7 @@ export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenCh
             {searched === "" && !loading && (
               <p className="px-3 py-8 text-center text-sm text-muted">
                 Type at least 2 letters.
-                <span className="pointer-coarse:hidden"> Use the arrow keys to choose and Enter to open.</span>
+                <span className="pointer-coarse:hidden"> Use the arrow keys to choose and Enter to open. Press ? for all shortcuts.</span>
               </p>
             )}
           </div>

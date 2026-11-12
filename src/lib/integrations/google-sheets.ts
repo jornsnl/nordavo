@@ -31,21 +31,97 @@ const serviceAccountSchema = z.looseObject({
   private_key: z.string().min(1),
 });
 
-/** Parse the service account JSON from the environment. Accepts escaped newlines in the key. */
-export function parseServiceAccount(raw: string | undefined): { client_email: string; private_key: string } {
-  if (!raw) throw new Error("GOOGLE_SERVICE_ACCOUNT_JSON is missing. Put the service account JSON on one line in the environment.");
+export type ServiceAccountFormat = "json" | "base64";
+
+/** The JSON text of the key: raw JSON (one line or the file as is) or base64 of the file. */
+function serviceAccountText(raw: string): { text: string; format: ServiceAccountFormat } {
+  let value = raw.trim();
+  // Double encoded: the JSON as a JSON string ("{\"type\": ...}").
+  if (value.startsWith('"')) {
+    try {
+      const inner: unknown = JSON.parse(value);
+      if (typeof inner === "string") value = inner.trim();
+    } catch {
+      // Not a JSON string; plain quotes are removed below.
+    }
+  }
+  // Quotes around the whole value, as some dashboards and .env files keep them.
+  if (/^(['"])[\s\S]*\1$/.test(value) && value.length > 1) value = value.slice(1, -1).trim();
+  if (value.startsWith("{")) return { text: value, format: "json" };
+  const compact = value.replace(/\s+/g, "");
+  if (/^[A-Za-z0-9+/_-]+={0,2}$/.test(compact)) {
+    const decoded = Buffer.from(compact.replace(/-/g, "+").replace(/_/g, "/"), "base64").toString("utf8").trim();
+    if (decoded.startsWith("{")) return { text: decoded, format: "base64" };
+  }
+  return { text: value, format: "json" };
+}
+
+function parseJsonLoose(text: string): unknown {
+  try {
+    const first: unknown = JSON.parse(text);
+    // Double encoded ("{\"type\": ...}") as a JSON string.
+    return typeof first === "string" ? JSON.parse(first) : first;
+  } catch {
+    // Real line breaks inside the private key (the key pasted unescaped).
+    const repaired = text.replace(/("private_key"\s*:\s*")([\s\S]*?)(")/, (_m, a: string, key: string, c: string) => a + key.replace(/\r?\n/g, "\\n") + c);
+    return JSON.parse(repaired);
+  }
+}
+
+/**
+ * Parse the service account key from the environment. Accepts the JSON on
+ * one line, the downloaded file as is (several lines), base64 of the file,
+ * quotes around the value and escaped (or double escaped) newlines in the key.
+ */
+export function parseServiceAccount(raw: string | undefined): {
+  client_email: string;
+  private_key: string;
+  project_id: string | null;
+  format: ServiceAccountFormat;
+} {
+  if (!raw || !raw.trim()) {
+    throw new Error("GOOGLE_SERVICE_ACCOUNT_JSON is missing. Put the service account JSON (or its base64) in the environment.");
+  }
+  const { text, format } = serviceAccountText(raw);
   let json: unknown;
   try {
-    json = JSON.parse(raw);
+    json = parseJsonLoose(text);
   } catch {
-    throw new Error("GOOGLE_SERVICE_ACCOUNT_JSON is not valid JSON.");
+    throw new Error("GOOGLE_SERVICE_ACCOUNT_JSON is not valid JSON (nor base64 of it). Paste the whole key file of the service account.");
   }
   const parsed = serviceAccountSchema.safeParse(json);
-  if (!parsed.success) throw new Error("GOOGLE_SERVICE_ACCOUNT_JSON lacks client_email or private_key.");
+  if (!parsed.success) throw new Error("GOOGLE_SERVICE_ACCOUNT_JSON lacks client_email or private_key. Use a key of type service_account, not an OAuth client.");
+  const type = (json as { type?: unknown }).type;
+  if (typeof type === "string" && type !== "service_account") {
+    throw new Error(`GOOGLE_SERVICE_ACCOUNT_JSON is a key of type "${type}", not a service account.`);
+  }
+  const key = parsed.data.private_key.replace(/\\\\n/g, "\n").replace(/\\n/g, "\n").replace(/\r\n/g, "\n");
+  if (!/-----BEGIN [A-Z ]*PRIVATE KEY-----/.test(key)) {
+    throw new Error("The private_key in GOOGLE_SERVICE_ACCOUNT_JSON is not a PEM key. Download a new JSON key for the service account.");
+  }
+  const projectId = (json as { project_id?: unknown }).project_id;
   return {
     client_email: parsed.data.client_email,
-    private_key: parsed.data.private_key.replace(/\\n/g, "\n"),
+    private_key: key,
+    project_id: typeof projectId === "string" ? projectId : null,
+    format,
   };
+}
+
+export type ServiceAccountStatus =
+  | { configured: false; ok: false; error: string }
+  | { configured: true; ok: false; error: string }
+  | { configured: true; ok: true; email: string; projectId: string | null; format: ServiceAccountFormat };
+
+/** Whether GOOGLE_SERVICE_ACCOUNT_JSON is set and readable, for status screens. Never throws. */
+export function serviceAccountStatus(raw: string | undefined = process.env.GOOGLE_SERVICE_ACCOUNT_JSON): ServiceAccountStatus {
+  if (!raw || !raw.trim()) return { configured: false, ok: false, error: "GOOGLE_SERVICE_ACCOUNT_JSON is not set." };
+  try {
+    const account = parseServiceAccount(raw);
+    return { configured: true, ok: true, email: account.client_email, projectId: account.project_id, format: account.format };
+  } catch (error) {
+    return { configured: true, ok: false, error: error instanceof Error ? error.message : String(error) };
+  }
 }
 
 /** Normalise a values.get response to rows of strings. */

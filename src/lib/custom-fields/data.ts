@@ -1,15 +1,19 @@
 import "server-only";
+import { cache } from "react";
 import { requireStaff } from "@/lib/auth";
 import type { Database } from "@/lib/database.types";
 import { createClient } from "@/lib/supabase/server";
 import { asValues, type CustomFieldDefinition, type CustomFieldEntity, type CustomFieldValues } from "@/lib/custom-fields";
+import { resolveLayout, sanitizeLayout, type LayoutEntity, type ResolvedLayout, type StoredLayout } from "@/lib/custom-fields/layout";
 
 type Row = Database["public"]["Tables"]["custom_field_definitions"]["Row"];
 
-const TABLE_OF: Record<CustomFieldEntity, "candidates" | "vacancies" | "applications"> = {
+const TABLE_OF: Record<CustomFieldEntity, "candidates" | "vacancies" | "applications" | "clients" | "placements"> = {
   candidate: "candidates",
   vacancy: "vacancies",
   application: "applications",
+  client: "clients",
+  placement: "placements",
 };
 
 export function toDefinition(row: Row): CustomFieldDefinition {
@@ -24,6 +28,7 @@ export function toDefinition(row: Row): CustomFieldDefinition {
     position: row.position,
     showInList: row.show_in_list,
     archivedAt: row.archived_at,
+    blockKey: row.block_key ?? "custom",
   };
 }
 
@@ -62,3 +67,25 @@ export async function listCandidateCustomValues(): Promise<Map<string, CustomFie
 }
 
 export { TABLE_OF as customFieldTables };
+
+/** The stored layout of a record page, cleaned; empty (the default) when none is saved or the table is not there yet. */
+export async function getStoredLayout(entity: LayoutEntity): Promise<StoredLayout> {
+  await requireStaff();
+  const supabase = await createClient();
+  const { data, error } = await supabase.from("record_layouts").select("config").eq("entity", entity).maybeSingle();
+  // Before the migration (20261123200000) the table is missing: the default layout.
+  if (error || !data) return {};
+  return sanitizeLayout(entity, data.config);
+}
+
+/**
+ * The full layout of a record page with its custom fields in their blocks.
+ * Cached per request, so a page and its blocks share one load.
+ */
+export const getRecordLayout = cache(async (entity: LayoutEntity): Promise<ResolvedLayout> => {
+  const [stored, definitions] = await Promise.all([getStoredLayout(entity), listCustomFieldDefinitions({ entity })]);
+  return resolveLayout(entity, stored, definitions);
+});
+
+/** Values of the custom fields of one record of a page, cached per request. */
+export const getRecordValues = cache(getCustomFieldValues);

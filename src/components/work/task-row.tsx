@@ -11,6 +11,8 @@ import { initials } from "@/lib/format";
 import { RecordChip } from "@/components/work/task-record";
 import { groupByDue } from "@/lib/work/grouping";
 import { TaskMenuButton, TaskRowItem } from "@/components/work/task-row-item";
+import { DoneCheckbox } from "@/components/work/done-checkbox";
+import { TaskSelectBox } from "@/components/work/task-selection";
 
 export function StatusBadge({ status }: { status: WorkStatus }) {
   const option = workOption(workStatuses, status);
@@ -132,32 +134,39 @@ export function TaskRow({
       task={menuTask}
       className={`group relative flex flex-col gap-2 px-4 py-3 transition hover:bg-brand-50/50 sm:flex-row sm:items-center sm:gap-4 sm:px-5 ${priorityBorder(task.priority)}`}
     >
-      <div className="min-w-0 flex-1">
-        {showContext && (
-          <p className="mb-0.5 truncate text-xs text-muted">
-            {task.workspace.name} › {task.project.name}
-          </p>
-        )}
-        {task.parentTitle && (
-          <p className="mb-0.5 flex items-center gap-1 truncate text-xs text-muted">
-            <CornerDownRight className="size-3" aria-hidden="true" />
-            {task.parentTitle}
-          </p>
-        )}
-        <Link
-          href={`/work/tasks/${task.id}`}
-          className={`font-medium after:absolute after:inset-0 focus-visible:outline-none ${
-            done ? "text-muted line-through decoration-slate-300" : "text-ink"
-          }`}
-        >
-          {task.isLog && <NotebookPen className="mr-1.5 inline size-3.5 text-muted" aria-label="Logged work" />}
-          {task.title}
-        </Link>
-        {task.record && (
-          <div className="mt-1">
-            <RecordChip record={task.record} />
-          </div>
-        )}
+      <div className="flex min-w-0 flex-1 items-start gap-3">
+        {/* Above the row's link overlay, so a click ticks the box instead of opening the task. */}
+        <div className="relative z-10 flex shrink-0 items-center gap-2 pt-0.5">
+          <TaskSelectBox taskId={task.id} title={task.title} />
+          {task.status !== "cancelled" && <DoneCheckbox taskId={task.id} title={task.title} done={task.status === "done"} />}
+        </div>
+        <div className="min-w-0 flex-1">
+          {showContext && (
+            <p className="mb-0.5 truncate text-xs text-muted">
+              {task.workspace.name} › {task.project.name}
+            </p>
+          )}
+          {task.parentTitle && (
+            <p className="mb-0.5 flex items-center gap-1 truncate text-xs text-muted">
+              <CornerDownRight className="size-3" aria-hidden="true" />
+              {task.parentTitle}
+            </p>
+          )}
+          <Link
+            href={`/work/tasks/${task.id}`}
+            className={`font-medium after:absolute after:inset-0 focus-visible:outline-none ${
+              done ? "text-muted line-through decoration-slate-300" : "text-ink"
+            }`}
+          >
+            {task.isLog && <NotebookPen className="mr-1.5 inline size-3.5 text-muted" aria-label="Logged work" />}
+            {task.title}
+          </Link>
+          {task.record && (
+            <div className="mt-1">
+              <RecordChip record={task.record} />
+            </div>
+          )}
+        </div>
       </div>
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 sm:shrink-0 sm:justify-end">
         <StatusBadge status={task.status} />

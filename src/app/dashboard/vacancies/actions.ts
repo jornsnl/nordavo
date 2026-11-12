@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
+import { SENIORITY_VALUES } from "@/lib/recruitment/candidate-fields";
 import { requireStaff } from "@/lib/auth";
 import {
   fieldErrorsFrom,
@@ -36,7 +37,7 @@ const vacancySchema = z
       .max(200, "Use at most 200 characters."),
     description: z.string().max(20000, "This profile is too long.").optional(),
     stack: z.string().max(1000, "Use at most 1000 characters.").optional(),
-    seniority: z.enum(["medior", "senior", "lead"], { error: "Choose a seniority." }),
+    seniority: z.enum(SENIORITY_VALUES, { error: "Choose a seniority." }),
     status: z.enum(["open", "on_hold", "filled", "closed"], { error: "Choose a status." }),
     talent_stage: z.enum(["intake", "zoeken", "profielen_verstuurd", "gesprekken", "geplaatst", "gesloten"], {
       error: "Choose a stage.",

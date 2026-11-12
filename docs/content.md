@@ -121,10 +121,30 @@ Er is bewust geen LinkedIn koppeling. De reviewer plant zelf in of post zelf in 
 
 De mediabibliotheek importeert en synchroniseert een map in Google Drive, bijvoorbeeld de map van de fotoshoot met de submappen Day 1 en Day 2.
 
-1. Zet `GOOGLE_SERVICE_ACCOUNT_JSON` (het JSON bestand van een Google Cloud service account, op één regel) op de server en in de GitHub secrets. Het is dezelfde variabele als voor Google Sheets.
-2. Zet in Google Cloud de **Google Drive API** aan voor het project van dat service account.
-3. Deel de map in Drive met het `client_email` adres uit dat JSON bestand (lezen is genoeg).
-4. Voeg de map toe onder Settings, Google Drive (of in de bedrijfsbibliotheek), met de id uit de URL van de map. *Sync now* importeert meteen; de job `content-drive-sync` doet het elke ochtend.
+### Sleutel van het service account inrichten
+
+De sleutel staat in Bitwarden; het portaal kan daar niet bij, dus een beheerder zet hem zelf op twee plekken. Het is dezelfde variabele als voor Google Sheets (`s8-webpartners-import`).
+
+1. **Google Cloud** (console.cloud.google.com, project van het service account):
+   - APIs and services, Library, **Google Drive API**, *Enable*. Zonder dit geeft Drive een 403 ("API has not been used in project").
+   - IAM and admin, Service accounts: het account hoeft geen rollen in het project; toegang komt alleen uit het delen van mappen.
+   - Is er nog geen sleutel: het account, tab Keys, *Add key*, *Create new key*, JSON. Bewaar het bestand in Bitwarden.
+2. **Hosting van de app** (Vercel: project, Settings, Environment Variables): voeg `GOOGLE_SERVICE_ACCOUNT_JSON` toe voor Production (en Preview als je daar wilt testen), en deploy opnieuw. Elke vorm werkt:
+   - de inhoud van het JSON bestand zoals het is (meerdere regels mag),
+   - dezelfde JSON op één regel,
+   - base64 van het bestand (`base64 -w0 key.json` op Linux, `base64 -i key.json` op macOS), handig als een dashboard regeleindes of aanhalingstekens verandert.
+   Aanhalingstekens om de waarde, `\n` of echte regeleindes in de `private_key` en dubbel ge-escapete JSON worden ook goed gelezen (`parseServiceAccount` in `src/lib/integrations/google-sheets.ts`).
+3. **GitHub Actions** (repository, Settings, Secrets and variables, Actions, *New repository secret*): naam `GOOGLE_SERVICE_ACCOUNT_JSON`, dezelfde waarde. `.github/workflows/content-jobs.yml` (job `content-drive-sync`, elke ochtend 06:00) en `gtm-jobs.yml` geven hem door aan de job.
+4. **Controleren**: open Content, Library (of Settings, Google Drive van een workspace). Bovenaan het blok Google Drive folders staat de status:
+   - *not configured*: de variabele ontbreekt op de server (of er is niet opnieuw gedeployd),
+   - *set, but not readable*: met de reden, bijvoorbeeld geen geldige JSON of een sleutel van het verkeerde type,
+   - *configured*: met het mailadres van het service account en het project. Klik **Test connection**: dat haalt een token op en vraagt Drive wie het is. Gaat dat mis, dan zegt de melding of de Drive API uit staat of de sleutel geweigerd wordt.
+   De job controleer je op Beheer, Jobs (`content-drive-sync`, *Run now* of via de workflow met `workflow_dispatch`).
+
+### Mappen koppelen
+
+1. Deel de map in Drive met het mailadres dat de status toont (het `client_email` uit het JSON bestand), als **viewer**. Een gedeelde drive werkt ook als het account daar lid van is.
+2. Voeg de map toe onder Settings, Google Drive (of in de bedrijfsbibliotheek) met de link of de id van de map. *Sync now* importeert meteen; de job `content-drive-sync` doet het elke ochtend.
 
 ## Claude
 

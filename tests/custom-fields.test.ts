@@ -30,6 +30,7 @@ function def(fieldType: CustomFieldType, extra: Partial<CustomFieldDefinition> =
     position: 0,
     showInList: true,
     archivedAt: null,
+    blockKey: "custom",
     ...extra,
   };
 }

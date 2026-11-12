@@ -1,8 +1,9 @@
 "use client";
 
-import { startTransition, useId, useRef, useState, useTransition } from "react";
+import { startTransition, useEffect, useId, useRef, useState, useTransition } from "react";
 import { Archive, Copy, Download, FileUp, Pencil, Trash2, X } from "lucide-react";
 import type { WorkStatus } from "@/lib/work/database";
+import { statusMoves, type StatusMove, type StatusRights } from "@/lib/work/status-moves";
 import { workPriorities, workTaskTypes } from "@/lib/work/labels";
 import { mentionToken } from "@/lib/work/mentions";
 import { Button } from "@/components/ui/button";
@@ -10,43 +11,10 @@ import { Field, FormMessage, Input, Select, Textarea } from "@/components/ui/fie
 import { PendingSubmit, submitWithoutReset } from "@/components/placements/form-utils";
 import { PeoplePicker, useWorkAction, type PersonOption, type WorkAction } from "@/components/work/forms";
 import { Markdown } from "@/components/work/markdown";
+import { MarkdownField } from "@/components/work/markdown-field";
+import { EDIT_TASK_EVENT } from "@/components/shortcuts/current-task";
 
-type Move = { to: WorkStatus; label: string; variant?: "primary" | "secondary" | "danger"; needsComment?: boolean; hint?: string };
-
-/** The status buttons that make sense for this user right now; the database checks the same rules. */
-export function statusMoves(status: WorkStatus, can: { approve: boolean; cancel: boolean }): Move[] {
-  const moves: Move[] = [];
-  switch (status) {
-    case "todo":
-      moves.push({ to: "in_progress", label: "Start" }, { to: "review", label: "Send to review", variant: "secondary" });
-      break;
-    case "in_progress":
-      moves.push({ to: "review", label: "Send to review" }, { to: "todo", label: "Back to To do", variant: "secondary" });
-      break;
-    case "review":
-      if (can.approve) {
-        moves.push(
-          { to: "done", label: "Approve" },
-          { to: "in_progress", label: "Send back", variant: "secondary", needsComment: true, hint: "Say what still needs to happen. The owners get a mail." },
-        );
-      } else {
-        moves.push({ to: "in_progress", label: "Pull back from review", variant: "secondary", needsComment: true, hint: "Say why you take it back." });
-      }
-      break;
-    case "done":
-      if (can.approve) {
-        moves.push({ to: "in_progress", label: "Reopen", variant: "secondary", needsComment: true, hint: "Say what still needs to happen." });
-      }
-      break;
-    case "cancelled":
-      moves.push({ to: "todo", label: "Reopen", variant: "secondary" });
-      break;
-  }
-  if (can.cancel && status !== "done" && status !== "cancelled") {
-    moves.push({ to: "cancelled", label: "Cancel task", variant: "secondary" });
-  }
-  return moves;
-}
+type Move = StatusMove;
 
 export function StatusControl({
   action,
@@ -56,7 +24,7 @@ export function StatusControl({
 }: {
   action: WorkAction;
   status: WorkStatus;
-  can: { approve: boolean; cancel: boolean };
+  can: StatusRights;
   hasReviewer: boolean;
 }) {
   const [selected, setSelected] = useState<Move | null>(null);
@@ -118,14 +86,25 @@ export function DescriptionEditor({
   title,
   description,
   editable,
+  startEditing = false,
 }: {
   action: WorkAction;
   title: string;
   description: string | null;
   editable: boolean;
+  /** Open in edit mode (the "e" shortcut from a list lands with ?edit=1). */
+  startEditing?: boolean;
 }) {
-  const [editing, setEditing] = useState(false);
+  const [editing, setEditing] = useState(editable && startEditing);
   const { state, formAction, pending, errors } = useWorkAction(action, () => setEditing(false));
+
+  // "e" on the task page (PortalShortcuts).
+  useEffect(() => {
+    if (!editable) return;
+    const onEdit = () => setEditing(true);
+    window.addEventListener(EDIT_TASK_EVENT, onEdit);
+    return () => window.removeEventListener(EDIT_TASK_EVENT, onEdit);
+  }, [editable]);
 
   if (!editing) {
     return (
@@ -146,9 +125,7 @@ export function DescriptionEditor({
       <Field label="Title" htmlFor="edit_title" required error={errors.title}>
         <Input id="edit_title" name="title" defaultValue={title} maxLength={300} required />
       </Field>
-      <Field label="Description" htmlFor="edit_description" hint="Markdown works: **bold**, - lists, [links](https://…)">
-        <Textarea id="edit_description" name="description" defaultValue={description ?? ""} rows={10} />
-      </Field>
+      <MarkdownField id="edit_description" name="description" label="Description" defaultValue={description ?? ""} rows={10} />
       <div className="flex gap-2 max-sm:*:flex-1">
         <PendingSubmit pending={pending} pendingLabel="Saving">
           Save

@@ -45,13 +45,15 @@ import {
 } from "@/lib/work/data";
 import { formatEstimate, workOption, workPriorities, workStatuses, workTaskTypeLabel } from "@/lib/work/labels";
 import { formatAgo, formatDateTimeIn, utcToLocalInput } from "@/lib/work/time";
+import { reviewRuleText } from "@/lib/work/status-moves";
+import { CurrentTask } from "@/components/shortcuts/current-task";
 
 export const metadata: Metadata = { title: "Task" };
 
-export default function TaskPage({ params }: PageProps<"/work/tasks/[id]">) {
+export default function TaskPage({ params, searchParams }: PageProps<"/work/tasks/[id]">) {
   return (
     <Suspense fallback={<ListSkeleton rows={8} />}>
-      <TaskDetailView params={params} />
+      <TaskDetailView params={params} searchParams={searchParams} />
     </Suspense>
   );
 }
@@ -63,8 +65,15 @@ function formatBytes(n: number | null) {
   return `${(n / 1024 / 1024).toFixed(1)} MB`;
 }
 
-async function TaskDetailView({ params }: { params: Promise<{ id: string }> }) {
+async function TaskDetailView({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const { id } = await params;
+  const startEditing = (await searchParams).edit === "1";
   const user = await requireWorkUser();
   const task = await getTask(id);
   const tz = user.timeZone;
@@ -80,6 +89,9 @@ async function TaskDetailView({ params }: { params: Promise<{ id: string }> }) {
 
   return (
     <article className="space-y-5">
+      <CurrentTask
+        task={{ id: task.id, title: task.title, status: task.status, priority: task.priority, reviewerId: task.reviewer?.id ?? null }}
+      />
       <nav aria-label="Breadcrumb" className="flex flex-wrap items-center gap-1 text-sm text-muted">
         <Link href={`/work/w/${task.workspace.slug}`} className="hover:text-brand-700">
           {task.workspace.name}
@@ -178,7 +190,7 @@ async function TaskDetailView({ params }: { params: Promise<{ id: string }> }) {
             <p className="text-xs text-muted">
               {task.status === "review"
                 ? `Waiting for ${task.reviewer?.name ?? "the reviewer"} since ${formatAgo(task.reviewRequestedAt ?? task.createdAt, tz)}.`
-                : `Reviewer: ${task.reviewer?.name ?? "nobody yet"}. Only the reviewer or an admin can mark it as done.`}
+                : reviewRuleText(task.can, task.reviewer?.name ?? null)}
             </p>
           </CardBody>
         </Card>
@@ -194,6 +206,7 @@ async function TaskDetailView({ params }: { params: Promise<{ id: string }> }) {
                 title={task.title}
                 description={task.description}
                 editable={task.can.edit}
+                startEditing={startEditing}
               />
             </CardBody>
           </Card>
