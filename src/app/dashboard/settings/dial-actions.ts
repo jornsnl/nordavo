@@ -1,7 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentUser, requireCaller } from "@/lib/auth";
+import { createAdminClient } from "@/lib/supabase/admin";
 import type { ActionState } from "@/lib/action-state";
 import { isDialTemplate } from "@/lib/sales/telephony";
 import { createClient } from "@/lib/supabase/server";
@@ -22,7 +23,10 @@ export async function updateDialTemplate(_prev: ActionState, formData: FormData)
       fieldErrors: { dial_template: "Start with https:// (or tel:, sip:, callto:) and put {number} where the number goes." },
     };
   }
-  const supabase = await createClient();
+  if (user.role === "caller") await requireCaller();
+  // Callers have no table access of their own: their own row with the secret key.
+  const supabase = user.role === "caller" ? createAdminClient() : await createClient();
+  if (!supabase) return { error: "Not available right now." };
   const { error } = await supabase.from("profiles").update({ dial_template: raw || null }).eq("id", user.id);
   if (error) {
     console.error("updateDialTemplate", error.message);

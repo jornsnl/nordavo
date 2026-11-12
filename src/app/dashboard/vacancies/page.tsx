@@ -11,7 +11,7 @@ import { FilterChips, filterHref } from "@/components/entity/filter-chips";
 import { LeadTimeSignal } from "@/components/talent/lead-time-signal";
 import { DaysOpen } from "@/components/vacancies/days-open";
 import { Badge } from "@/components/ui/badge";
-import { Button, ButtonLink } from "@/components/ui/button";
+import { ButtonLink } from "@/components/ui/button";
 import { Input, Select } from "@/components/ui/field";
 import { SearchSelect } from "@/components/ui/search-select";
 import { MobileList, MobileListItem } from "@/components/ui/mobile-list";

@@ -1,4 +1,5 @@
 import "server-only";
+import { daysOpenWithoutHolds } from "@/lib/recruitment/vacancy-time";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import type { ApplicationStage, Json } from "@/lib/database.types";
@@ -434,7 +435,7 @@ function registerReadTools(server: McpServer, ctx: McpToolContext) {
     {
       title: "Vacancy",
       description:
-        "One vacancy with its profile (description, stack, must-haves, budget) and the pipeline grouped per stage (sourced, techstack_check, fill_out, video_review, technical_test, interview, matched, client_interview, final_screening, placed; apart from the flow parked and rejected, with the stage they left and the reason). Each card has application and candidate ids, origin (applied or headhunted), source, form status, CV score and verdict, video, test and interview scores, planned interview, shortlist, topper and background check status, and client decision. A talent pool vacancy (is_talent_pool) has no client yet and no three-week clock (days_open null). A parked vacancy has status on_hold with park_reason.",
+        "One vacancy with its profile (description, stack, must-haves, budget) and the pipeline grouped per stage (sourced, techstack_check, fill_out, video_review, technical_test, interview, matched, client_interview, final_screening, placed; apart from the flow parked and rejected, with the stage they left and the reason). Each card has application and candidate ids, origin (applied or headhunted), source, form status, CV score and verdict, video, test and interview scores, planned interview, shortlist, topper and background check status, and client decision. A talent pool vacancy (is_talent_pool) has no client yet and no three-week clock (days_open null). A vacancy on hold has status on_hold with park_reason; holds lists every on hold period, which days_open leaves out. presentation_deadline is the date to present the top 3 to 5 candidates; start_time_ist the desired daily start time in India.",
       inputSchema: { id: idSchema },
       annotations: READ_ONLY,
     },
@@ -443,7 +444,7 @@ function registerReadTools(server: McpServer, ctx: McpToolContext) {
         await db
           .from("vacancies")
           .select(
-            "id, title, status, seniority, description, stack, must_haves, nice_to_haves, monthly_budget, budget_min, budget_max, hours, timezone_overlap, desired_start_date, opened_at, closed_at, park_reason, parked_at, talent_stage, is_talent_pool, intake_at, profiles_sent_at, first_interview_at, custom_fields, client:clients(id, name), company:companies(id, name, domain), owner:profiles!vacancies_owner_id_fkey(full_name, email)",
+            "id, title, status, seniority, description, stack, must_haves, nice_to_haves, monthly_budget, budget_min, budget_max, hours, timezone_overlap, desired_start_date, presentation_deadline, start_time_ist, opened_at, closed_at, park_reason, parked_at, talent_stage, is_talent_pool, intake_at, profiles_sent_at, first_interview_at, custom_fields, client:clients(id, name), company:companies(id, name, domain), owner:profiles!vacancies_owner_id_fkey(full_name, email), holds:vacancy_holds(started_on, ended_on, reason)",
           )
           .eq("id", id)
           .maybeSingle(),
@@ -494,7 +495,8 @@ function registerReadTools(server: McpServer, ctx: McpToolContext) {
         custom_fields: await cf.full("vacancy", vacancy.custom_fields),
         description: clip(vacancy.description, 4000),
         owner: personName(vacancy.owner),
-        days_open: vacancy.is_talent_pool ? null : daysSince(vacancy.opened_at, vacancy.closed_at ?? new Date()),
+        // Days on hold (holds) do not count as open.
+        days_open: vacancy.is_talent_pool ? null : daysOpenWithoutHolds(vacancy, vacancy.holds),
         url: url("vacancy", vacancy.id),
         pipeline,
         recent_notes: notes,

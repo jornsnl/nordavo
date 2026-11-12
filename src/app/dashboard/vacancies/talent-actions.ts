@@ -375,6 +375,7 @@ const timelineSchema = z.object({
   profiles_sent_at: optionalDate,
   first_interview_at: optionalDate,
   start_at: optionalDate,
+  presentation_deadline: optionalDate,
 });
 
 /** A date input (YYYY-MM-DD) as a timestamp at noon UTC, so it shows as the same day in Amsterdam. */
@@ -409,6 +410,7 @@ export async function updateTimelineAction(vacancyId: string, _prev: TalentActio
     profiles_sent_at: keep(d.profiles_sent_at, current.profiles_sent_at),
     first_interview_at: keep(d.first_interview_at, current.first_interview_at),
     start_at: d.start_at ?? null,
+    presentation_deadline: d.presentation_deadline ?? null,
   };
   let stage = current.talent_stage;
   if (update.profiles_sent_at && !current.profiles_sent_at) stage = advanceStage(stage, "profielen_verstuurd");

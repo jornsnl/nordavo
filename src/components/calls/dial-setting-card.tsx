@@ -1,6 +1,7 @@
 import "server-only";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { getCurrentUser, hasModule } from "@/lib/auth";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { DialSettingForm } from "./dial-setting-form";
 
@@ -8,7 +9,9 @@ import { DialSettingForm } from "./dial-setting-form";
 export async function DialSettingCard() {
   const user = await getCurrentUser();
   if (user.role !== "caller" && !hasModule(user, "sales")) return null;
-  const supabase = await createClient();
+  // Callers have no table access of their own: their own row with the secret key.
+  const supabase = user.role === "caller" ? createAdminClient() : await createClient();
+  if (!supabase) return null;
   const { data, error } = await supabase.from("profiles").select("dial_template").eq("id", user.id).maybeSingle();
   if (error) return null;
   return (

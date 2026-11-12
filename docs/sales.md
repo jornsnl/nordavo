@@ -74,12 +74,49 @@ Regels:
 
 ## Contacten
 
-- **Rol**: Main, Extra of Reserve. Per bedrijf is er hooguit één primaire contactpersoon (`is_primary`); die krijgt een sequence als er geen contact is gekozen.
+- **Rol en tier**: per bedrijf één Main (de primaire contactpersoon, `is_primary`, die krijgt een sequence als er geen contact is gekozen), daarna Backup (in de database `reserve`) en de rest Extra. Een nieuw contact zonder rol wordt Main als het bedrijf er nog geen heeft, anders Backup, anders Extra; iemand Main maken (in de tabel, op de leadpagina of via Claude) zet de oude Main op Backup (trigger `contacts_roles`). Zonder tier krijgt een contact de tier van de functie (`contact_tier_for_title`: 1 CTO of head of engineering of data, 2 eigenaar of directeur, 3 recruiter of HR). De migratie `20261123310000_leads_links_roles.sql` gaf bestaande contacten (allemaal Main zonder tier) zo hun tier, en per bedrijf Main, Backup en Extra op volgorde van primair, tier en nummer; bedrijven met precies één Main bleven zoals ze waren. Claude geeft rol en tier mee bij `add_contact`, `upsert_companies` en `update_contacts`.
+- **LinkedIn**: de link wordt precies bewaard zoals hij binnenkomt (hoofdletters in het pad blijven), altijd met `https://www.linkedin.com/...`, zonder `?trk=` en dergelijke (`linkedin_clean_url`, in de app `cleanLinkedinUrl`). Voor het ontdubbelen is er een aparte sleutel in kleine letters (`linkedin_key`, uniek). Een Apify link (`linkedin.com/in/ACwAA...`) geeft ook het LinkedIn member id (`linkedin_member_urn`); zo is dezelfde persoon met de Apify link en met de gewone link (`linkedin.com/in/nickphdijk`) één contact. Een contact wordt herkend op de link, het member id, het mailadres bij het bedrijf en als laatste op voor en achternaam bij het bedrijf (behalve als hun LinkedIn verschilt).
+- **Kapotte Apify links**: tot november 2026 werden links in kleine letters opgeslagen; een Apify id werkt dan niet meer (1.688 van de 1.786). De hoofdletters zijn niet terug te rekenen. De migratie herstelt wat een andere tabel nog goed had (kandidaten, klantcontacten, partners); de rest herstelt zich zodra de link opnieuw binnenkomt (Apify via Claude, een import of plakken), want dezelfde link met hoofdletters vervangt de link in kleine letters. De leadpagina waarschuwt bij zo'n link, en Claude vindt ze met `list_contacts` en `linkedin_broken: true`. Er is geen tabel met de ruwe Apify antwoorden voor contacten; `signals.raw_json` bevat alleen vacatures.
 - **Status**: New, Qualified, Enrich, Enriched, In outreach, Reached, Not reached, Not interested, Do not contact. Statussen gaan alleen vooruit (`shouldPromoteStatus`); Do not contact verandert nooit meer.
 - **Pogingen**: elk belresultaat telt een poging. Na drie keer geen gehoor is het contact Not reached.
 - **Terugbellen**: een datum (`callback_at`); het contact staat dan die dag weer in de wachtrij.
 - **Toegewezen beller**: een contact kan aan één beller hangen tot een datum.
 - **Route**: hoe je het contact het beste bereikt, uit een vaste lijst: Mobile, Main number, Via reception, LinkedIn of Mail. In de tabel is het een keuzelijst; plakken uit Excel zet "Bellen", "06", "Receptie" of "e-mail" om naar de juiste route.
+
+## Lead toevoegen
+
+- **Openingszin, red flags en algemeen nummer** zijn eigen velden bij **Add lead** en bij `add_company` en `upsert_companies` (`opening_line`, `red_flags`, `general_phone`), en te wijzigen met `update_companies`. Zet Claude ze toch in de beschrijving als "OPENING LINE: ...", "RED FLAGS: ..." of "GENERAL NUMBER: ...", dan haalt de MCP ze eruit (`extractLeadNotes`). De migratie deed dat ook voor de bestaande beschrijvingen (`sales_extract_lead_notes`), alleen waar het veld nog leeg was; de oude tekst staat als wijziging in Activities.
+- **Batch van Claude.** Een bedrijf zonder website en zonder LinkedIn pagina wordt geweigerd met de reden; de andere bedrijven van dezelfde batch worden gewoon opgeslagen (vroeger viel de hele batch, zoals Finneo, TurkischGids en SRS).
+
+## Vacatures
+
+Vacatures zijn signalen van het type `vacature` (`public.signals`).
+
+- **Eigen link per vacature.** Een Indeed link (`nl.indeed.com/viewjob?jk=...`) werd vroeger stil geweigerd: de MCP wilde een link met `https://`, en de sleutel tegen dubbelen liet de hele querystring weg, zodat alle Indeed vacatures dezelfde sleutel hadden en alleen de eerste bleef. Nu krijgt elke link `https://` (`cleanSourceUrl`) en houdt de sleutel het vacature id (`jk` bij Indeed, `currentJobId` bij LinkedIn, een `id` parameter elders; `vacancyUrlKey`). Dezelfde link bij een ander bedrijf is een andere vacature. Een vacature die niet opgeslagen kan worden, staat met de reden in het antwoord van de MCP (`signals_failed`). Vacatures die door de oude fout zijn samengevallen, zijn niet terug te halen; Claude voegt ze opnieuw toe bij de volgende instroom. Voor de 427 vacatures zonder link kan Claude de link alsnog zetten met `update_signals`.
+- **Online sinds en dagen open.** Per vacature `posted_at` (de datum online op de vacaturesite, invulbaar via de MCP en de import), anders de dag dat we hem voor het eerst zagen. De dagen open tellen per dag in Amsterdamse tijd (`daysOnline`). Een vacature offline zetten kan met `closed` (`closed_at`); open is alles zonder `closed_at`.
+- **Tekst.** `description` met de vacaturetekst (via de MCP), uit te klappen op de leadpagina en op het belscherm.
+- **Waar.** Leadpagina, blok Signals: titel met link naar de vacature (site, LinkedIn, Indeed), online sinds, dagen open, tekst. Belscherm: dezelfde regel per open vacature. Tabellen Leads, Contacts en de bellijsten: kolommen *Open vacancies*, *Days open (oldest)*, *Days online (newest)*, de data online van de oudste en de nieuwste en *Vacancies (days open)* met de titels als links; sorteren en filteren kan op elke kolom.
+
+## Dubbelen samenvoegen
+
+- **Waarschuwing.** Een bedrijf met dezelfde naam op een ander domein (Brightcape op brightcape.nl en brightcape.com), dezelfde domeinnaam met een andere extensie, of een naam die met de andere begint, is een mogelijke dubbele (`sales_similar_companies`, met `company_name_key` en `domain_stem`). Bij **Add lead** vraagt het portaal dan een vinkje, de MCP noemt ze in `possible_duplicates`, en de leadpagina toont ze bovenaan.
+- **Samenvoegen.** Op de leadpagina met **Merge**: kies de andere (een mogelijke dubbele of zoek op naam). Het bedrijf van de pagina blijft. Contacten, activities, vacatures, meetings, sequences, belstappen, vacatures uit recruitment, notities, taken, bijlagen en alles wat verder naar het andere bedrijf wijst gaat mee (elke foreign key, ook later toegevoegde, en alles met `entity_type = 'company'`). Lege velden worden aangevuld, red flags en bronnen samengevoegd, het domein van de andere blijft als alias (`alias_domains`, zodat een import hem niet opnieuw aanmaakt), en de hele oude rij staat in Activities (`merged_company`). Daarna wordt de andere verwijderd (`sales_merge_companies`). Twee contacten: **Merge** bij Contacts op de leadpagina (`sales_merge_contacts`): beide LinkedIn links blijven (link en member id), pogingen en datums nemen de hoogste, Do not contact wint, de beste rol blijft. Claude: `merge_companies` en `merge_contacts`.
+- Een koppeling die na het verplaatsen dubbel zou zijn (bijvoorbeeld twee keer dezelfde sequence voor één bedrijf), vervalt; het aantal staat in het resultaat.
+
+## Snelheid
+
+Leads (789 bedrijven) en Contacts (1.970) laadden in seconden, Contacts in meer dan 4. Oorzaken en wat er nu is:
+
+| Oorzaak | Nu |
+| --- | --- |
+| De regel "alleen met de module Sales" (RLS) liep per rij: 2.000 contacten met hun bedrijf waren 4.000 keer een opzoeking in `profiles` | Eén keer per query (`(select public.has_module('sales'))`, migratie `20261123300000_leads_performance_signals.sql`) |
+| Leads haalde alle activities (tot 10.000, per 1.000 na elkaar), alle contacten en alle signalen op om per bedrijf het laatste contactmoment en de aantallen te tellen | Eén functie in de database, `sales_company_facts()`, met een index op het laatste contactmoment: groeit niet mee met het aantal activities |
+| Pagina's van 1.000 rijen na elkaar | De eerste pagina met het totaal, de rest tegelijk (`allParallel` in `src/lib/sales/data.ts`) |
+| Terug naar de lijst laadde alles opnieuw | Terug vanaf een lead gaat via de browsergeschiedenis (`BackToListLink`): filter, sortering en scrollpositie blijven en er wordt niets geladen. Een pagina die je de laatste 30 seconden zag, komt uit de cache van de browser (`experimental.staleTimes.dynamic` in `next.config.ts`). Filteren, sorteren en zoeken gebeurt al in de browser en alleen de zichtbare rijen worden getekend |
+
+Let op: de extra kolommen van round 4 (`attachFlow` in `src/lib/sales/flow-data.ts`) laden na de rijen nog een keer alle bedrijven en contacten; dat is een tweede ronde na de eerste en kan beter tegelijk.
+
+**Helpt een betaald abonnement?** Nauwelijks voor deze klacht. De traagheid zat in hoe de pagina's laadden (alles ophalen, na elkaar, regels per rij), niet in de grootte van de server; met 800 bedrijven en 2.000 contacten is de database klein. Supabase Pro (ongeveer 25 dollar per maand) geeft geen pauze na een week zonder gebruik, dagelijkse backups en de mogelijkheid van een grotere server (compute add-on, extra kosten); dat is de moeite waard voor een productieomgeving, maar maakt deze pagina's niet merkbaar sneller. Vercel Pro (20 dollar per gebruiker per maand) geeft langere functietijden en meer gebruik, niet snellere pagina's. Wat wel veel scheelt en niets kost: de functies van Vercel in dezelfde regio als de database draaien (Supabase Frankfurt `eu-central-1`, Vercel `fra1`; zie [work.md](./work.md)). Elke vraag aan de database over de oceaan kost anders zo'n 90 ms extra.
 
 ## Activities
 
@@ -233,7 +270,10 @@ De exportgeschiedenis (`list_exports`) blijft bestaan en staat op Contacts, Enri
 | Tests van de regels | `supabase/tests/sales_crm.test.sql`, `supabase/tests/sales_sequences.test.sql`, `supabase/tests/sales_gaps.test.sql` |
 | Excel-import | `src/lib/sales/call-list-import.ts`, `src/app/dashboard/import/call-list-actions.ts`, `src/components/import/call-list-import.tsx`, `tests/call-list-import.test.ts` |
 | Types en labels | `src/lib/sales/database.ts`, `src/lib/sales/labels.ts` |
-| Rijen van de tabellen | `src/lib/sales/data.ts`, `src/lib/sales/rows.ts`, `src/lib/sales/grid.ts` |
+| Rijen van de tabellen | `src/lib/sales/data.ts`, `src/lib/sales/rows.ts`, `src/lib/sales/grid.ts`, `src/lib/sales/vacancies.ts` |
+| Snelheid, vacatures, LinkedIn, rollen, dubbelen | `supabase/migrations/20261123300000_leads_performance_signals.sql`, `20261123310000_leads_links_roles.sql`, `20261123320000_leads_duplicates_merge.sql`, test `supabase/tests/leads_contacts.test.sql`, `tests/leads-contacts.test.ts` |
+| Herkennen van personen en bedrijven | `src/lib/gtm/normalize.ts`, `src/lib/sales/contact-keys.ts`, `src/lib/sales/contact-match.ts`, `src/lib/sales/duplicates.ts`, `src/lib/gtm/lead-notes.ts` |
+| Samenvoegen | `src/app/dashboard/leads/merge-actions.ts`, `src/components/leads/merge-buttons.tsx` |
 | Cijfers | `src/lib/sales/stats.ts`, `src/lib/gtm/report.ts` |
 | Replies to review | `src/lib/sales/replies.ts`, `src/app/dashboard/leads/replies` |
 | Sequences | `src/lib/data/sequences.ts`, `src/app/dashboard/sequences`, `src/components/sequences` |
