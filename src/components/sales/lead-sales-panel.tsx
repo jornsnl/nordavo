@@ -49,7 +49,12 @@ export function LeadSalesPanel({
   owners,
   partners,
   primaryContactId,
+  prioOptions,
+  categoryOptions,
 }: {
+  /** From Settings, Sales lists (3f93bd66); the built in options when absent. */
+  prioOptions?: { value: string; label: string; description?: string | null }[];
+  categoryOptions?: { value: string; label: string }[];
   company: LeadSalesFields;
   contacts: Option[];
   owners: Option[];
@@ -228,9 +233,10 @@ export function LeadSalesPanel({
             <span className={label}>Prio</span>
             <select className={control} value={values.prio ?? ""} onChange={(e) => save({ prio: e.target.value ? Number(e.target.value) : null })}>
               <option value="">No prio</option>
-              {companyPrios.map((p) => (
-                <option key={p.value} value={p.value}>
+              {(prioOptions ?? companyPrios).map((p) => (
+                <option key={p.value} value={p.value} title={"description" in p ? (p.description ?? undefined) : undefined}>
                   {p.label}
+                  {"description" in p && p.description ? `: ${p.description}` : ""}
                 </option>
               ))}
             </select>
@@ -239,7 +245,7 @@ export function LeadSalesPanel({
             <span className={label}>Category</span>
             <select className={control} value={values.category ?? ""} onChange={(e) => save({ category: (e.target.value || null) as CompanyCategory | null })}>
               <option value="">Unknown</option>
-              {companyCategories.map((c) => (
+              {(categoryOptions ?? companyCategories).map((c) => (
                 <option key={c.value} value={c.value}>
                   {c.label}
                 </option>

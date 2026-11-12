@@ -84,7 +84,7 @@ select pg_temp.check(pg_temp.fails($$insert into public.custom_field_definitions
 select pg_temp.check(pg_temp.fails($$insert into public.custom_field_definitions (entity, key, label, field_type, options) values ('candidate', 'stack', 'Stack', 'multi_choice', '{a,a}')$$, 'twice'), 'duplicate option refused');
 select pg_temp.check(pg_temp.fails($$insert into public.custom_field_definitions (entity, key, label, field_type) values ('candidate', 'tier', 'Tier again', 'text')$$, 'duplicate key'), 'duplicate key refused');
 select pg_temp.check(pg_temp.fails($$insert into public.custom_field_definitions (entity, key, label, field_type) values ('candidate', 'Bad Key', 'Bad', 'text')$$, 'check constraint'), 'bad key refused');
-select pg_temp.check(pg_temp.fails($$insert into public.custom_field_definitions (entity, key, label, field_type) values ('placement', 'x', 'X', 'text')$$, 'check constraint'), 'unknown entity refused');
+select pg_temp.check(pg_temp.fails($$insert into public.custom_field_definitions (entity, key, label, field_type) values ('invoice', 'x', 'X', 'text')$$, 'check constraint'), 'unknown entity refused');
 select pg_temp.check(pg_temp.fails($$insert into public.custom_field_definitions (entity, key, label, field_type) values ('candidate', 'x', 'X', 'rating')$$, 'check constraint'), 'unknown type refused');
 
 -- Valid values, every type.
@@ -135,7 +135,7 @@ select pg_temp.check((select custom_fields ->> 'tier' = 'B' and custom_fields ->
 select public.set_custom_field('candidate', '00000000-0000-0000-0000-0000000005f1', 'relocate', null);
 select pg_temp.check((select not (custom_fields ? 'relocate') from public.candidates where id = '00000000-0000-0000-0000-0000000005f1'), 'set_custom_field with null clears');
 select pg_temp.check(pg_temp.fails($$select public.set_custom_field('candidate', '00000000-0000-0000-0000-0000000005f1', 'tier', '"Q"')$$, 'one of its options'), 'set_custom_field validates');
-select pg_temp.check(pg_temp.fails($$select public.set_custom_field('company', '00000000-0000-0000-0000-0000000005f1', 'tier', '"A"')$$, 'Unknown record type'), 'set_custom_field unknown entity');
+select pg_temp.check(pg_temp.fails($$select public.set_custom_field('invoice', '00000000-0000-0000-0000-0000000005f1', 'tier', '"A"')$$, 'Unknown record type'), 'set_custom_field unknown entity');
 
 -- Definitions: no delete, fixed key and type, archiving is for admins.
 select pg_temp.check(pg_temp.fails($$delete from public.custom_field_definitions where key = 'github'$$, 'permission denied'), 'staff cannot delete a field');

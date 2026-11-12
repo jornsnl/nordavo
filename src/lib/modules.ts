@@ -102,6 +102,7 @@ export function jobModule(jobName: string): PortalModule | null {
 export function moduleForEntity(entityType: string | null | undefined): PortalModule | null {
   switch (entityType) {
     case "company":
+    case "partner":
       return "sales";
     case "client":
       return "clients";

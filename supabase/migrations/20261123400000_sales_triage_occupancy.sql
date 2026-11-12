@@ -312,6 +312,10 @@ begin
        and (v_company.bucket_campaign_id is null or v_company.bucket_campaign_id = new.campaign_id)
        and public.sales_running_campaign(new.company_id) is null then
       perform public.sales_set_bucket(new.company_id, 'free', p_note => 'Campaign ended without a reply');
+      -- Approached without result (the change log names it).
+      update public.companies set lead_status = 'cooled_down'
+      where id = new.company_id and lead_status = 'in_sequence'
+        and not exists (select 1 from public.sequence_enrollments e where e.company_id = new.company_id and e.status in ('active', 'paused'));
     end if;
   end if;
   return null;
@@ -537,7 +541,7 @@ begin
     if v_channel is null then
       raise exception 'Pick a campaign';
     end if;
-    if v_channel <> case p_destination when 'mail_campaign' then 'mail' else 'linkedin' end then
+    if v_channel <> (case p_destination when 'mail_campaign' then 'mail' else 'linkedin' end) then
       raise exception 'That campaign is on another channel';
     end if;
   elsif p_destination = 'parked' then
@@ -596,7 +600,7 @@ begin
     end if;
 
     if p_destination = 'find_number' then
-      if v_company.lead_status not in ('no_go', 'do_not_contact', 'enrich') then
+      if v_company.lead_status not in ('do_not_contact', 'enrich') then
         perform public.sales_update('company', array[v_company.id], jsonb_build_object('lead_status', 'enrich'), p_source, p_actor);
       end if;
       perform public.sales_set_bucket(v_company.id, 'find_number', p_note => coalesce(v_note, 'To Max for a number'));
@@ -612,7 +616,7 @@ begin
         end if;
       end if;
       perform public.sales_set_bucket(v_company.id, 'call', v_until, null, v_view, v_caller, null, v_note);
-      if v_company.lead_status in ('new', 'review', 'enrich', 'cooled_down') then
+      if v_company.lead_status in ('new', 'review', 'enrich', 'cooled_down', 'no_go') then
         perform public.sales_update('company', array[v_company.id], jsonb_build_object('lead_status', 'ready'), p_source, p_actor);
       end if;
     elsif p_destination in ('mail_campaign', 'linkedin_campaign') then
@@ -630,7 +634,7 @@ begin
         and status in ('stopped', 'finished') and replied_at is null;
       perform public.sales_set_bucket(v_company.id, p_destination, null, null, null, null, v_campaign,
         coalesce(v_note, 'Campaign: ' || v_campaign_name));
-      if v_company.lead_status in ('new', 'review', 'ready', 'enrich', 'cooled_down') then
+      if v_company.lead_status in ('new', 'review', 'ready', 'enrich', 'cooled_down', 'no_go') then
         perform public.sales_update('company', array[v_company.id], jsonb_build_object('lead_status', 'in_sequence'), p_source, p_actor);
       end if;
     elsif p_destination = 'parked' then

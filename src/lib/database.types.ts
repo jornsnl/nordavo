@@ -104,7 +104,8 @@ export type AttachmentKind = "cv" | "payslip" | "background_check" | "video" | "
 export type ClientDecision = "pending" | "approved" | "rejected";
 export type PlacementStatus = "active" | "notice" | "ended";
 export type TaskStatus = "todo" | "in_progress" | "done";
-export type EntityType = "client" | "vacancy" | "candidate" | "application" | "placement" | "company";
+/** partner: tasks, notes and attachments on a partner (20261123430000_partner_tasks.sql). */
+export type EntityType = "client" | "vacancy" | "candidate" | "application" | "placement" | "company" | "partner";
 /** Portal modules a team member sees (recruitment planning, 2.5). Admins see all. */
 export type PortalModule = "sales" | "recruitment" | "clients" | "report" | "academy";
 export type InterviewKind = "interview" | "english_interview" | "client_interview";

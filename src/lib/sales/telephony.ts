@@ -26,7 +26,7 @@ export function e164(phone: string): string {
 /** Whether a template is one the portal accepts (the database checks the same). */
 export function isDialTemplate(template: string): boolean {
   const t = template.trim();
-  return t.length <= 500 && t.includes("{number}") && /^(https:\/\/|tel:|callto:|sip:|dubline:)/i.test(t);
+  return t.length <= 500 && /\{(number|digits|local)\}/.test(t) && /^(https:\/\/|tel:|callto:|sip:|dubline:)/i.test(t);
 }
 
 /**

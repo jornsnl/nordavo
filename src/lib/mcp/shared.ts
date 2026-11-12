@@ -105,6 +105,8 @@ export function recordUrl(siteUrl: string, type: string, id: string): string | n
       return `${base}/dashboard/placements/${id}`;
     case "company":
       return `${base}/dashboard/leads/${id}`;
+    case "partner":
+      return `${base}/dashboard/partners/${id}`;
     case "task":
       return `${base}/work/tasks/${id}`;
     default:

@@ -16,7 +16,7 @@
 alter table public.profiles
   add column if not exists dial_template text check (
     dial_template is null
-    or (char_length(dial_template) <= 500 and position('{number}' in dial_template) > 0
+    or (char_length(dial_template) <= 500 and dial_template ~ '\{(number|digits|local)\}'
         and (dial_template ~* '^https://' or dial_template ~* '^(tel|callto|sip|dubline):'))
   );
 

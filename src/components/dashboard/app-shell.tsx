@@ -148,7 +148,9 @@ export function AppShell({
       </div>
 
       <CommandPalette open={searchOpen} onOpenChange={setSearchOpen} />
-      <PortalShortcuts onSearch={openSearch} portal />
+      <Suspense fallback={null}>
+        <PortalShortcuts onSearch={openSearch} portal />
+      </Suspense>
 
       <div className="lg:pl-64">
         <main className="mx-auto w-full max-w-6xl pt-6 pb-tabbar pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] sm:pt-8 sm:pl-[max(1.5rem,env(safe-area-inset-left))] sm:pr-[max(1.5rem,env(safe-area-inset-right))] lg:px-10 lg:py-10">

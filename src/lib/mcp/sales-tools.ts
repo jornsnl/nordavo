@@ -38,6 +38,7 @@ import { effectiveModules, jobModule } from "@/lib/modules";
 import type { LeadStatus } from "@/lib/sales/database";
 import { companyCategories, contactRoles, leadStatuses, meetingStatuses, pipelineStages, sequenceStatuses } from "@/lib/sales/labels";
 import { countLeadStatuses, loadSalesFigures } from "@/lib/sales/stats";
+import { registerSalesFlowTools, SALES_FLOW_READ_TOOLS, SALES_FLOW_WRITE_TOOLS } from "@/lib/mcp/sales-flow-tools";
 
 /**
  * MCP tools for the sales CRM (feedback Julius, part 7): Claude reads the
@@ -122,6 +123,7 @@ export const SALES_READ_TOOLS = [
   "list_sequence_tasks",
   "list_sequences",
   "sales_stats",
+  ...SALES_FLOW_READ_TOOLS,
 ] as const;
 
 export const SALES_WRITE_TOOLS = [
@@ -143,6 +145,7 @@ export const SALES_WRITE_TOOLS = [
   "update_sequence_tasks",
   "update_signals",
   "upsert_companies",
+  ...SALES_FLOW_WRITE_TOOLS,
 ] as const;
 
 /** Where a lead added by hand through Claude came from (companies.source). */
@@ -155,6 +158,8 @@ export function registerSalesTools(server: McpServer, ctx: McpToolContext) {
   if (!hasSales(ctx)) return;
   registerSalesReadTools(server, ctx);
   if (ctx.access === "write") registerSalesWriteTools(server, ctx);
+  // Campaigns, triage, occupancy and followed companies (round 4).
+  registerSalesFlowTools(server, ctx);
 }
 
 function rpcError(error: { message: string } | null, what: string) {

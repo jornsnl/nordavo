@@ -18,6 +18,8 @@ import { VacancyItem } from "@/components/leads/vacancy-item";
 import { LeadSalesPanel } from "@/components/sales/lead-sales-panel";
 import { ClientRatesCard } from "@/components/sales/client-rates-card";
 import { LeadFlowCard } from "@/components/sales/lead-flow-card";
+import { pickable } from "@/lib/sales/choices";
+import { loadChoiceLists } from "@/lib/sales/flow-data";
 import { CustomFieldsCard } from "@/components/custom-fields/custom-fields-card";
 import { ContactsPanel } from "@/components/leads/contacts-panel";
 import {
@@ -78,13 +80,14 @@ async function LeadDetail({ params }: { params: Params }) {
   if (!company) notFound();
 
   const supabase = await createClient();
-  const [{ contacts, suppressions }, signals, clients, owners, partners, similar] = await Promise.all([
+  const [{ contacts, suppressions }, signals, clients, owners, partners, similar, choiceLists] = await Promise.all([
     getCompanyContacts(company.id),
     getCompanySignals(company.id),
     company.client_id ? Promise.resolve([]) : listClientOptions(),
     supabase.from("profiles").select("id, full_name, email").in("role", ["admin", "member"]).order("full_name"),
     supabase.from("partners").select("id, name, company_name").order("name"),
     supabase.rpc("sales_similar_companies", { p_name: company.name, p_domain: company.domain, p_exclude: company.id }),
+    loadChoiceLists(supabase),
   ]);
   const duplicates = similar.data ?? [];
   const activities = await getCompanyActivities(
@@ -203,6 +206,8 @@ async function LeadDetail({ params }: { params: Params }) {
             owners={(owners.data ?? []).map((p) => ({ id: p.id, name: p.full_name || p.email || "Unnamed" }))}
             partners={(partners.data ?? []).map((p) => ({ id: p.id, name: p.company_name ? `${p.name} (${p.company_name})` : p.name }))}
             primaryContactId={contacts.find((c) => c.isPrimary)?.id ?? null}
+            prioOptions={pickable(choiceLists.prio, company.prio == null ? null : String(company.prio))}
+            categoryOptions={pickable(choiceLists.category, company.category)}
           />
           {/* Bucket, occupancy, prio reason, follow and own columns (round 4). */}
           <Suspense fallback={null}>

@@ -46,6 +46,10 @@ De uitkomstknoppen zijn die van de Excel: No answer, Call back (met datum), Reac
 
 **Next contact** laat het huidige contact los en opent het volgende in de volgorde van de wachtrij. **Stop** laat het contact ook los.
 
+### Bellijst als sheet
+
+Naast het belscherm staat elke bellijst ook als spreadsheet: **Sheet** op `/dashboard/calls?list=<id>&view=sheet` (en *Call sheet* op Call lists), voor externe bellers **Sheet** op `/caller/call?view=sheet`. Per contact één rij: bedrijf, contact en functie, telefoon (belknop), openingszin, open rollen, aantal vacatures, dagen open (de oudste), links (vacatures, website, LinkedIn), red flags en de status met pogingen. Het team ziet alle contacten van de lijst met *Can call now* bij wie in de wachtrij staat; een beller ziet alleen zijn eigen wachtrij. *Copy for Excel* kopieert de rijen. De uitkomst log je op het belscherm, dat het contact voor je vasthoudt. Code: `src/lib/sales/call-sheet.ts`, `src/components/calls/call-sheet.tsx`.
+
 ### Meeting planned en Cal.com
 
 Meeting planned opent de Cal.com saleslink in een nieuw tabblad, met naam, mail en een notitie (bedrijf en de ingevulde notitie) al ingevuld. De link draagt ook `metadata[contact_id]`, `metadata[company_id]` en `metadata[caller_id]` mee.
@@ -101,6 +105,23 @@ Een beller heeft een eigen omgeving op `/caller` zonder portaalmenu: zijn overzi
 * **Per beller** (Instellingen, Callers, voor de admin; en op `/caller` voor de beller zelf): gebeld, bereikt, afspraken en goedgekeurd, per maand en in totaal. Gebeld telt de belregels met `caller_id` in Activities; bereikt telt Reached: interested, Meeting planned, Reached: not interested, Referred en Wrong person; afspraken en goedgekeurd komen uit het register (zonder geannuleerde).
 * **Maandoverzicht**: per beller de goedgekeurde afspraken en het totaal aan fees, op de pagina Meetings (tab **Month overview**) en op `/caller` (laatste zes maanden). Een afspraak telt in de maand waarin hij plaatsvindt, of waarin hij gepland is als er nog geen tijd is.
 
+## Resultaten per beller
+
+**Calls, Results per caller** (`/dashboard/calls/stats`): per externe beller en per teamlid, per maand of in totaal, hoeveel er gebeld is, hoeveel bereikt (met percentage), elke uitkomst apart, afspraken en goedgekeurd, plus de laatste calls (met opname als het belsysteem die stuurde). Een beller ziet op `/caller` zijn eigen laatste calls met uitkomst en de tellingen per uitkomst. Elke poging staat meteen bij de lead (Activities met `caller_id`). De rijen van het belsysteem zelf tellen niet mee, alleen de uitkomst op het belscherm (`summarizeCallResults` in `src/lib/sales/caller-stats.ts`).
+
+## Bellen via je eigen belsysteem (Dubline)
+
+**Click to call.** Iedereen kiest zelf hoe de belknop belt (Settings, blok *Calling*; een beller op `/caller`): leeg is een `tel:` link (de telefoon of softphone van het apparaat), anders de click to call link van het eigen belsysteem met `{number}` (+31612345678), `{digits}` (31612345678) of `{local}` (0612345678), bijvoorbeeld `https://.../call?number={number}`. Een https link opent in een nieuw tabblad. Opgeslagen in `profiles.dial_template`.
+
+**Gesprek en opname bij de lead.** Het belsysteem stuurt na elk gesprek een webhook:
+
+* `POST /api/webhooks/calls` met `Authorization: Bearer <CALLS_WEBHOOK_SECRET>` (of header `X-Webhook-Secret`, of `?secret=` als het systeem geen headers kan zetten).
+* JSON met een id (`id`, `call_id` of `uuid`), het nummer van de lead (`to` bij uitgaand, `from` bij inkomend, of `number`), `direction`, `started_at`, `duration`, `recording_url` (https), `status` (`answered`, `missed`, ...) en `agent_email` (mailadres van de beller in het portaal). Ook in een `data` object.
+* Het nummer wordt op cijfers gematcht (`sales_phone_key`: +31 6, 06 en 0031 6 zijn hetzelfde) met het mobiel van een contact, anders het algemene nummer van een bedrijf. Het gesprek komt in Activities (kanaal bellen, bron `telephony`, met `recording_url` en `duration_seconds`) bij die lead, met de beller als `agent_email` een bekend account is. Hetzelfde id twee keer is één regel; een latere levering vult de opname aan. Geen match: 200 met `ignored`.
+* Zet `CALLS_WEBHOOK_SECRET` in de omgevingsvariabelen. Zonder geheim weigert de route alles (401).
+
+Dubline: zet in de beheeromgeving een webhook bij *gesprek beëindigd* naar de URL hierboven en kies de velden zoals boven; de exacte veldnamen van Dubline zijn niet getest, de route accepteert de gangbare namen (`src/lib/sales/telephony.ts`, `parseCallEvent`).
+
 ## Afsprakenregister
 
 Op `/dashboard/meetings` staan alle afspraken, van het belscherm, Cal.com en met de hand: datum, bedrijf en contact, beller, reden van het gesprek, status en fee.
@@ -116,5 +137,6 @@ Statussen: Planned, Held, Approved, Rejected, No show en Cancelled. Elke statusw
 
 * `tests/queue.test.ts`: de regels en de volgorde van de wachtrij en de verdeling over bellers.
 * `tests/caller-stats.test.ts`: de tellingen per beller, de fees per maand, maandgrenzen in Amsterdamse tijd en de uitnodigingsmail.
+* `tests/sales-flow.test.ts`: de sheet, de click to call link, de webhook, de resultaten per beller, triage, bezetting, keuzelijsten, eigen kolommen en campagnes.
 * `tests/calcom.test.ts`: de Cal.com koppeling, ook de afspraak in het register en de vooraf ingevulde saleslink.
 * `supabase/tests/sales_crm.test.sql` en `supabase/tests/calls.test.sql`: de belregels, de rol in de sessie, pauzeren en stoppen, en wie afspraken goedkeurt.

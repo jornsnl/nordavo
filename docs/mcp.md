@@ -117,6 +117,10 @@ Lijsten geven standaard 25 en maximaal 100 rijen, met `offset` om te bladeren. R
 | `list_replies_to_review` | Replies die op Julius wachten, met de tekst en het voorstel van Claude |
 | `sales_stats` | Cijfers: bedrijven per leadstatus en fase, en per periode calls, bereikt, mails, replies, meetings, fees en per beller (zie [sales.md](./sales.md)) |
 | `list_job_runs` | Runs van de jobs en van de geplande taken van Claude (`triggered_by` `claude`) |
+| `list_campaigns` / `get_campaign` | Lopende campagnes in Instantly (mail) en Seleqt (LinkedIn) met hun leads, status per lead en wie replyde |
+| `get_occupancy` | Per bedrijf de bucket, of het vrij is, en in welke campagne, bellijst of sequence het zit of zat (kanaal, sinds, tot, reply) |
+| `list_incoming` | Binnengekomen: per bucket hoeveel, per bronlijst hoeveel nog zonder bestemming, en de leads zelf |
+| `list_followed_companies` | Gevolgde bedrijven met eigenaar en bekende vacatures, voor de taak `claude-followed` |
 
 ### Schrijven (alleen tokens met *Lezen en schrijven*)
 
@@ -149,6 +153,10 @@ Lijsten geven standaard 25 en maximaal 100 rijen, met `offset` om te bladeren. R
 | `start_sequence` | Een actieve sequence starten voor een of meer bedrijven |
 | `update_sequence_tasks` | Mail en LinkedIn stappen afvinken als klaargezet in Instantly of Seleqt, of overslaan |
 | `pause_company` | Een bedrijf overal pauzeren na een reply: sequences op pauze, open belstappen vervallen |
+| `upsert_campaign` | Een campagne van Instantly of Seleqt aanmaken of bijwerken op `external_id`: naam, kanaal, status. Klaar zetten (`finished`) maakt leads zonder reply weer vrij |
+| `register_campaign_members` | Wie in een campagne zit en wie replyde (op contact, bedrijf of mailadres). Een lead in een andere lopende campagne wordt geweigerd en genoemd, tenzij `force` |
+| `triage_leads` | Leads naar één bestemming: `find_number`, `call` (bellijst of beller), `mail_campaign`, `linkedin_campaign`, `parked` (datum), `no_go` (reden), `incoming`, `free` |
+| `follow_company` | Een bedrijf volgen of ontvolgen voor nieuwe dev en data vacatures |
 | `log_job_run` | Het begin en einde van een run van een geplande taak loggen (`claude-...`), zichtbaar op Beheer, Jobs. Ook voor een eigenaar met alleen Recruitment, dan alleen `claude-match` en `claude-screening` |
 
 ### Matchen en screenen (eigenaar met de module Recruitment)

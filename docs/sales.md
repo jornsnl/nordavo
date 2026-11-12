@@ -164,6 +164,80 @@ Leads, Contacts, Pipeline en de bellijsten zijn één spreadsheettabel (`src/com
 - **Lost vraagt een reden**, overal: slepen op het bord, een cel in de tabel, plakken of de bulkbalk. De tabel opent dan dezelfde dialoog als het bord en slaat fase en reden samen op. Ongedaan maken zet beide terug.
 - **Alles in Activities**: elke cel, elke bulkwijziging, vastzetten en slepen (zie Activities).
 
+## Binnengekomen en triage
+
+Pagina: **Sales, Incoming** (`/dashboard/inbox`). Elke lead staat altijd in precies één bucket of flow (`companies.bucket`):
+
+| Bucket | Betekenis | Wie werkt eraan |
+| --- | --- | --- |
+| Incoming | Nieuw, nog geen bestemming | De eigenaar |
+| Find number | Naar Max voor een nummer (leadstatus Enrich) | Max |
+| Call | Op een bellijst (`bucket_view_id`) of bij een externe beller (`bucket_caller_id`) | De lijst of de beller |
+| Mail campaign | In een mailcampagne in Instantly (`bucket_campaign_id`) | De campagne |
+| LinkedIn campaign | In een LinkedIn campagne in Seleqt | De campagne |
+| Sequence | In een sequence van het portaal | De eigenaar |
+| Pipeline | Warm, in de pipeline | De eigenaar |
+| Parked | Tot een datum (`bucket_until`), komt dan terug als volgende actie | De eigenaar |
+| No go | Met een reden (`bucket_reason`), leadstatus No go | |
+| Free | Benaderd zonder resultaat, klaar voor een nieuwe bestemming | |
+
+- **Per lijst.** Een nieuwe lead krijgt de lijst waarmee hij binnenkwam (`source_list`): de partner ("Partner X"), anders de bron en de week ("Apify week 46"). Incoming is per lijst gegroepeerd en toont per lijst hoeveel leads nog geen bestemming hebben.
+- **Per bucket** het aantal en wie eraan werkt (beller, lijst, campagne of eigenaar).
+- **Triage.** Kies per lead of voor een selectie **Send to**: Find number, Call (bellijst of externe beller, eventueel tot een datum), Mail campaign, LinkedIn campaign, Park until, No go met reden, of terug naar Incoming. Dat kan op Incoming, in de tabel Leads (bulkbalk) en op de leadpagina. Alles gaat via `sales_triage()`: één bucket per lead, de oude flow stopt (een beller geeft de contacten terug, een wachtende campagne stopt) en elke verplaatsing staat in Activities (veld `bucket`).
+- **Bellijst.** Een lead die triage op een bellijst zet, komt op die lijst na de contacten die de weergave zelf vindt, ook als de filters hem niet zouden tonen.
+- **Vanzelf.** In de pipeline komen zet de bucket op Pipeline, parkeren op Parked, Lost op Free. Een sequence starten zet hem op Sequence; een sequence of campagne die eindigt zonder reply maakt de lead weer Free.
+- Bij de migratie kreeg elke bestaande lead een bucket uit zijn leadstatus, fase, sequences en beller; de rest staat op Incoming.
+
+## Bezet door een campagne of bellijst
+
+Eén model voor waar een lead zit: de view `sales_occupancy` (campagnes, sequences, bellijsten en bellers) per bedrijf en contact, met kanaal, sinds, tot, of er een reply was en of het nog loopt.
+
+- **Leadpagina:** blok *Where this lead is* met de bucket, Free of Occupied, en elke campagne, lijst of sequence.
+- **Tabellen:** kolommen *Bucket*, *Came in with*, *Occupied by* en *Free* (onder Columns). Filter op Free = Yes voor de vrije leads.
+- **Niet dubbel.** Een lead zit in hooguit één lopende campagne (wachtend of actief). Een tweede wordt geweigerd met de naam van de campagne waarin hij zit (trigger `campaign_members_one_running`); triage slaat bezette leads over en noemt ze, tenzij je *Also leads that are occupied* aanvinkt.
+- **Weer vrij.** Een campagne die klaar is zonder reply maakt de lead vanzelf vrij (bucket Free). Een reply op het kanaal van een lopende campagne zet de lead in die campagne op Replied.
+
+## Campagnes in Instantly en Seleqt
+
+Pagina: **Sales, Sequences**, blok *Running campaigns*, en **Sequences, Campaigns** (`/dashboard/sequences/campaigns`). Per campagne: kanaal, Instantly of Seleqt, status, hoeveel leads, hoeveel lopen en hoeveel replyden; op de campagnepagina elke lead met status, sinds en reply.
+
+- **Claude** registreert campagnes en leden met `upsert_campaign` en `register_campaign_members` (taak `claude-campaigns`, [claude-jobs.md](./claude-jobs.md)). Leads die het portaal naar een campagne stuurt staan op *queued* tot Claude ze in Instantly of Seleqt zet.
+- **Instantly** heeft ook een fallback job: `s8-instantly-campaigns` (met `INSTANTLY_API_KEY`) haalt de campagnes en hun leads op.
+- **Seleqt** heeft geen API die het portaal kent: plak of upload de export op de campagnepagina (*Import leads*: een kolom met mailadres of LinkedIn link, en eventueel status en replied). LinkedIn links worden gematcht op `contacts.linkedin_key`.
+- Campagnes staan in `campaigns` (nu met `provider`, `status`, `ended_at`) en de leden in `campaign_members`.
+
+## Keuzelijsten en prio
+
+Pagina: **Settings, Sales lists** (admin). Per lijst: namen, uitleg, volgorde en verbergen.
+
+| Lijst | Wat kan | Waarom |
+| --- | --- | --- |
+| Prio | Extra niveaus tot 20, elk met uitleg | Geen regels hangen aan prio |
+| Category | Eigen categorieën toevoegen en verwijderen | Geen regels hangen aan categorie; de database controleert de waarde (`companies_check_category`) |
+| Lead status | Hernoemen, uitleggen, volgorde, verbergen | De regels gebruiken de statussen, dus geen nieuwe |
+| Contact status | Idem | De belregels gebruiken ze |
+| Call screen outcomes | Idem, de uitleg staat onder de knop | Elke knop past een belregel toe in `sales_log_call` |
+
+Vast blijven: de pipelinefases, de route, de rol en tier van contacten en de ICP waarden. Een verborgen optie wordt niet meer aangeboden, maar rijen die hem hebben houden hun naam. Per bedrijf staat de **reden voor de prio** (`prio_reason`) op de leadpagina en als kolom *Prio reason*; de uitleg van het prioniveau staat erbij. De lijsten staan in `sales_choice_options` (`20261123410000_sales_choice_lists.sql`, `src/lib/sales/choices.ts`).
+
+## Eigen kolommen
+
+In elke salestabel (Leads, Contacts, Pipeline, bellijsten): **Columns, Add your own column**. Een eigen kolom is een eigen veld van type company (bedrijf) of contact (contactpersoon): tekst, lange tekst, getal, datum, ja/nee, keuze, meerkeuze of link.
+
+- Vullen zoals elke cel: typen, plakken uit Excel, de bulkbalk en ongedaan maken. Filteren, sorteren en slepen zoals de vaste kolommen; een weergave bewaart ze.
+- Elke wijziging uit de tabel staat in Activities als veld `cf:<sleutel>` (`sales_set_custom_field`).
+- Een kolom van type company staat ook op de leadpagina (blok Custom fields) en onder Settings, Fields, waar je hem hernoemt, de volgorde aanpast of archiveert.
+- Waarden staan in `companies.custom_fields` en `contacts.custom_fields` (`20261123420000_sales_custom_columns.sql`).
+
+## Bedrijven volgen
+
+Op de leadpagina **Follow vacancies** (of kolom *Followed*, of de MCP tool `follow_company`). Komt er bij een gevolgd bedrijf een vacature binnen met een dev of data titel (`sales_is_dev_data_title`, gelijk aan `src/lib/sales/follow.ts`), dan:
+
+- staat er een regel in de tijdlijn van het bedrijf, en
+- krijgt de eigenaar (of wie het bedrijf volgt) een Work taak *New vacancy at ...* met prioriteit high, gekoppeld aan de lead.
+
+Eén keer per vacature. Claude controleert de gevolgde bedrijven met de taak `claude-followed` ([claude-jobs.md](./claude-jobs.md)).
+
 ## Excel-import van de bellijst
 
 Pagina: **Beheer, Import**, blok *Call list (Excel)*. Leest `Nordavo_bellijst_4.xlsx` in de browser (de tabs Bellen, Vacatures, Overige contacten en Nog verrijken) en schrijft zonder dubbelen. Opnieuw importeren maakt niets dubbel en overschrijft niets wat het team veranderde; het vult alleen lege velden.
@@ -202,7 +276,7 @@ Het register (`public.meetings`) vervangt de meetingsheet: gepland, gehouden, go
 
 ## Partners
 
-Pagina: **Sales, Partners** (`/dashboard/partners`). Partners zijn mensen die leads aanbrengen. Per partner: naam, bedrijf, mail, telefoon, LinkedIn, notities, status en eigenaar, het laatste contactmoment, de contactmomenten zelf en de leads die van deze partner kwamen (`companies.partner_id`) met hun leadstatus en fase. Een contactmoment loggen maakt een activity met `partner_id` (type contact) en werkt het laatste contactmoment bij. Een lead koppel je aan een partner met de server action `setCompanyPartner` (via `sales_update`, dus gelogd).
+Pagina: **Sales, Partners** (`/dashboard/partners`). Partners zijn mensen die leads aanbrengen. Net als een lead heeft een partner een **volgende actie met datum** (`next_action`, `next_action_date`, in de tijdlijn van de partner) en het blok met **taken, notities en bijlagen** (recordtype `partner`, Work taken in *Portal records*). Per partner: naam, bedrijf, mail, telefoon, LinkedIn, notities, status en eigenaar, het laatste contactmoment, de contactmomenten zelf en de leads die van deze partner kwamen (`companies.partner_id`) met hun leadstatus en fase. Een contactmoment loggen maakt een activity met `partner_id` (type contact) en werkt het laatste contactmoment bij. Een lead koppel je aan een partner met de server action `setCompanyPartner` (via `sales_update`, dus gelogd).
 
 ## Replies to review
 

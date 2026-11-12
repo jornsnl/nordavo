@@ -274,7 +274,7 @@ export type WorkApiTokenRow = {
 /** Link of a task to one portal record (20261110000000_work_records.sql). Team only. */
 export type WorkTaskLinkRow = {
   task_id: string;
-  entity_type: "client" | "vacancy" | "candidate" | "application" | "placement" | "company";
+  entity_type: "client" | "vacancy" | "candidate" | "application" | "placement" | "company" | "partner";
   entity_id: string;
   created_by: string | null;
   created_at: string;

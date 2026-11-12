@@ -84,6 +84,10 @@ export const WRITE_TOOLS: Record<string, { module: McpModule; kind: "suggest" | 
   update_sequence_tasks: { module: "sales", kind: "write" },
   update_signals: { module: "sales", kind: "write" },
   upsert_companies: { module: "sales", kind: "write" },
+  upsert_campaign: { module: "sales", kind: "write" },
+  register_campaign_members: { module: "sales", kind: "write" },
+  triage_leads: { module: "sales", kind: "write" },
+  follow_company: { module: "sales", kind: "write" },
   // Content
   content_suggest_media_description: { module: "content", kind: "suggest" },
   content_suggest_images: { module: "content", kind: "suggest" },

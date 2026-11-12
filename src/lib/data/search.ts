@@ -262,6 +262,7 @@ export async function resolveRecords(
 
   const idsOf = (type: string) => [...new Set(refs.filter((r) => r.type === type).map((r) => r.id))];
   const companyIds = idsOf("company");
+  const partnerIds = idsOf("partner");
   const clientIds = idsOf("client");
   const vacancyIds = idsOf("vacancy");
   const candidateIds = idsOf("candidate");
@@ -270,6 +271,20 @@ export async function resolveRecords(
   const taskIds = idsOf("task");
 
   await Promise.all([
+    partnerIds.length > 0 &&
+      supabase
+        .from("partners")
+        .select("id, name, company_name")
+        .in("id", partnerIds)
+        .then(({ data }) => {
+          for (const p of data ?? []) {
+            result.set(recordKey("partner", p.id), {
+              label: p.name,
+              sublabel: p.company_name,
+              href: entityTypes.partner.href(p.id),
+            });
+          }
+        }),
     companyIds.length > 0 &&
       supabase
         .from("companies")
