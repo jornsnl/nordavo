@@ -8,6 +8,7 @@ import {
   GraduationCap,
   Handshake,
   HeartHandshake,
+  Inbox,
   KanbanSquare,
   Library,
   LayoutDashboard,
@@ -49,6 +50,7 @@ export const navSections: NavSection[] = [
     label: "Sales",
     items: [
       { label: "Leads", href: "/dashboard/leads", icon: Radar },
+      { label: "Incoming", href: "/dashboard/inbox", icon: Inbox },
       { label: "Contacts", href: "/dashboard/contacts", icon: Contact },
       { label: "Pipeline", href: "/dashboard/pipeline", icon: Filter },
       { label: "Calls", href: "/dashboard/calls", icon: Phone },

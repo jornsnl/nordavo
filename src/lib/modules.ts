@@ -51,6 +51,7 @@ export function effectiveModules(role: ProfileRole, stored: readonly string[] | 
 /** Dashboard routes that belong to a module. Routes not listed are for every team member. */
 const routeModules: [prefix: string, module: PortalModule][] = [
   ["/dashboard/leads", "sales"],
+  ["/dashboard/inbox", "sales"],
   ["/dashboard/contacts", "sales"],
   ["/dashboard/pipeline", "sales"],
   ["/dashboard/calls", "sales"],

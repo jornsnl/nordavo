@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { fieldErrorsFrom, formValues, GENERIC_ERROR, type ActionState } from "@/lib/action-state";
 import { requireModule } from "@/lib/auth";
-import { normalizeEmail, normalizeLinkedin, normalizePhone } from "@/lib/gtm/normalize";
+import { cleanLinkedinUrl, normalizeEmail, normalizePhone } from "@/lib/gtm/normalize";
 import { createClient } from "@/lib/supabase/server";
 
 const idSchema = z.guid();
@@ -27,7 +27,7 @@ function toRow(data: z.infer<typeof partnerSchema>) {
     company_name: data.company_name ?? null,
     email: data.email ? (normalizeEmail(data.email) ?? data.email) : null,
     phone: data.phone ? (normalizePhone(data.phone) ?? data.phone) : null,
-    linkedin_url: data.linkedin_url ? (normalizeLinkedin(data.linkedin_url) ?? data.linkedin_url) : null,
+    linkedin_url: data.linkedin_url ? (cleanLinkedinUrl(data.linkedin_url) ?? data.linkedin_url) : null,
     notes: data.notes ?? null,
     status: data.status,
     owner_id: data.owner_id ?? null,

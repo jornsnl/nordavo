@@ -93,3 +93,9 @@ export function moveCursor(current: number, step: number, count: number): number
   if (current < 0) return step > 0 ? 0 : count - 1;
   return Math.min(count - 1, Math.max(0, current + step));
 }
+
+/** The project of the page you are on (/work/projects/<id>), so a quick add lands there by default. */
+export function projectFromPath(pathname: string | null): string | null {
+  const match = /^\/work\/projects\/([0-9a-f-]{36})(?:\/|$)/i.exec(pathname ?? "");
+  return match ? match[1].toLowerCase() : null;
+}

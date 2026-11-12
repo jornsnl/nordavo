@@ -1,10 +1,24 @@
 import "server-only";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import type { ActivityOutcome, Json } from "@/lib/database.types";
+import type { ActivityOutcome, Database, Json } from "@/lib/database.types";
 import { amsterdamMidnight, periodRange } from "@/lib/gtm/report";
-import { normalizeDomain, normalizeEmail, normalizeLinkedin, normalizePhone, phoneTypeFor, splitName } from "@/lib/gtm/normalize";
+import { extractLeadNotes } from "@/lib/gtm/lead-notes";
+import {
+  cleanLinkedinUrl,
+  cleanSourceUrl,
+  normalizeDomain,
+  normalizeEmail,
+  normalizeLinkedin,
+  normalizePhone,
+  phoneTypeFor,
+  splitName,
+} from "@/lib/gtm/normalize";
 import { upsertSignal } from "@/lib/gtm/upsert";
+import { contactRoleFrom, linkedinPatch, personKeys } from "@/lib/sales/contact-keys";
+import { findSalesContact } from "@/lib/sales/contact-match";
+import { duplicateWarning, type SimilarCompany } from "@/lib/sales/duplicates";
+import { daysOnline, onlineSince } from "@/lib/sales/vacancies";
 import { accessError } from "@/lib/mcp/module-scope";
 import {
   check,
@@ -46,6 +60,12 @@ const leadStatus = z.enum(values(leadStatuses));
 const pipelineStage = z.enum(values(pipelineStages));
 const category = z.enum(values(companyCategories));
 const contactRole = z.enum(values(contactRoles));
+/** Role of a contact as Claude may write it: main, backup (stored as reserve) or extra. */
+const contactRoleInput = z
+  .enum(["main", "backup", "reserve", "extra"])
+  .transform((v) => contactRoleFrom(v) ?? "extra")
+  .describe("main (one per company, the primary contact), backup or extra.");
+const tierInput = z.number().int().min(1).max(3).describe("1 CTO or head of engineering or data, 2 owner or director, 3 recruiter or HR.");
 const meetingStatus = z.enum(values(meetingStatuses));
 const sequenceStatus = z.enum(values(sequenceStatuses));
 const icpDecision = z.enum(["GO", "NO_GO", "REVIEW"]);
@@ -111,6 +131,8 @@ export const SALES_WRITE_TOOLS = [
   "create_meeting",
   "draft_sequence_text",
   "log_activity",
+  "merge_companies",
+  "merge_contacts",
   "open_list_for_callers",
   "pause_company",
   "set_icp_verdict",
@@ -119,6 +141,7 @@ export const SALES_WRITE_TOOLS = [
   "update_contacts",
   "update_meeting",
   "update_sequence_tasks",
+  "update_signals",
   "upsert_companies",
 ] as const;
 
@@ -247,7 +270,7 @@ function registerSalesReadTools(server: McpServer, ctx: McpToolContext) {
     {
       title: "Company (sales)",
       description:
-        "One sales company with lead status, pipeline stage, prio, category, ICP verdict and reason, owner, partner, next action, its contacts (role, status, primary), hiring signals (role group, date online), the last activities, meetings, sequences and notes. Use list_companies or search to find ids.",
+        "One sales company with lead status, pipeline stage, prio, category, ICP verdict and reason, opening line, red flags, general number, owner, partner, next action, its contacts (role main, backup (reserve) or extra, tier, status, primary, LinkedIn link and member id), vacancies and other signals (link, text, date online, days open, closed), possible duplicate companies, the last activities, meetings, sequences and notes. Use list_companies or search to find ids.",
       inputSchema: { id: idSchema },
       annotations: READ_ONLY,
     },
@@ -268,7 +291,7 @@ function registerSalesReadTools(server: McpServer, ctx: McpToolContext) {
         db
           .from("contacts")
           .select(
-            "id, first_name, last_name, title, tier, role, is_primary, status, phone, phone_type, email, email_status, linkedin_url, attempts, last_attempt_at, callback_at, referred_to, assigned_caller_id, last_contacted_at",
+            "id, first_name, last_name, title, tier, role, is_primary, status, phone, phone_type, email, email_status, linkedin_url, linkedin_member_urn, attempts, last_attempt_at, callback_at, referred_to, assigned_caller_id, last_contacted_at",
           )
           .eq("company_id", id)
           .order("is_primary", { ascending: false })
@@ -276,10 +299,10 @@ function registerSalesReadTools(server: McpServer, ctx: McpToolContext) {
           .limit(50),
         db
           .from("signals")
-          .select("id, type, title, role_group, posted_at, source, source_url, first_seen_at, last_seen_at")
+          .select("id, type, title, role_group, posted_at, source, source_url, description, closed_at, first_seen_at, last_seen_at")
           .eq("company_id", id)
           .order("last_seen_at", { ascending: false })
-          .limit(20),
+          .limit(30),
         db
           .from("activities")
           .select("id, date, type, channel, direction, outcome, notes, source, field, old_value, new_value, contact_id, created_by, review_status")
@@ -319,7 +342,11 @@ function registerSalesReadTools(server: McpServer, ctx: McpToolContext) {
         partner: company.partner_id ? (partners.get(company.partner_id) ?? null) : null,
         url: url("company", company.id),
         contacts: check(contacts, "contacts").map((c) => ({ ...c, name: name(c.first_name, c.last_name) })),
-        signals: check(signals, "signals"),
+        signals: check(signals, "signals").map((sig) => {
+          const since = onlineSince(sig);
+          return { ...sig, description: clip(sig.description, 2000), online_since: since, days_open: sig.closed_at ? null : daysOnline(since) };
+        }),
+        possible_duplicates: await similarCompanies(db, company.name, company.domain, company.id),
         last_activities: activityRows.map((a) => ({
           ...a,
           notes: clip(a.notes, 500),
@@ -347,7 +374,7 @@ function registerSalesReadTools(server: McpServer, ctx: McpToolContext) {
     {
       title: "Contacts (sales)",
       description:
-        "List contacts of sales companies with role (main, extra, reserve), status, primary flag, phone, email, attempts and callback date. Filter on status, role, company, the lead status of the company, has_phone and text (name or email).",
+        "List contacts of sales companies with role (main, reserve = backup, extra), tier, status, primary flag, phone, email, LinkedIn link and member id, attempts and callback date. Filter on status, role, company, the lead status of the company, has_phone, text (name or email) and linkedin_broken: Apify links (linkedin.com/in/ACwAA...) that were stored in lowercase before November 2026 and do not open. Repair those by giving the link again with its case (add_contact or upsert_companies with the Apify link, or update_contacts).",
       inputSchema: {
         status: z.array(contactStatus).max(9).optional(),
         role: contactRole.optional(),
@@ -356,6 +383,7 @@ function registerSalesReadTools(server: McpServer, ctx: McpToolContext) {
         primary_only: z.boolean().optional(),
         has_phone: z.boolean().optional(),
         text: z.string().max(80).optional(),
+        linkedin_broken: z.boolean().optional().describe("true: only contacts whose Apify LinkedIn link was lowercased and needs its case back."),
         limit: limitSchema,
         offset: offsetSchema,
       },
@@ -366,7 +394,7 @@ function registerSalesReadTools(server: McpServer, ctx: McpToolContext) {
       let q = db
         .from("contacts")
         .select(
-          "id, company_id, first_name, last_name, title, tier, role, is_primary, status, phone, email, email_status, linkedin_url, attempts, last_attempt_at, callback_at, assigned_caller_id, last_contacted_at, company:companies!contacts_company_id_fkey!inner(name, lead_status, pipeline_stage)",
+          "id, company_id, first_name, last_name, title, tier, role, is_primary, status, phone, email, email_status, linkedin_url, linkedin_member_urn, attempts, last_attempt_at, callback_at, assigned_caller_id, last_contacted_at, company:companies!contacts_company_id_fkey!inner(name, lead_status, pipeline_stage)",
           { count: "exact" },
         );
       if (input.status?.length) q = q.in("status", input.status);
@@ -376,6 +404,8 @@ function registerSalesReadTools(server: McpServer, ctx: McpToolContext) {
       if (input.primary_only) q = q.eq("is_primary", true);
       if (input.has_phone === true) q = q.not("phone", "is", null);
       if (input.has_phone === false) q = q.is("phone", null);
+      // like is case sensitive: a good Apify link starts with ACwAA, a broken one with acwaa.
+      if (input.linkedin_broken) q = q.like("linkedin_url", "%/in/ac_aa%");
       if (pattern) q = q.or(`first_name.ilike.${pattern},last_name.ilike.${pattern},email.ilike.${pattern}`);
       const result = await q.order("created_at", { ascending: false }).range(input.offset, input.offset + input.limit - 1);
       const rows = check(result, "contacts");
@@ -790,6 +820,11 @@ export const companyFieldsSchema = z
     next_action_date: dateSchema.nullable().optional(),
     pinned: z.boolean().optional().describe("Pin to the top of the lists, or unpin."),
     manual_position: z.number().nullable().optional().describe("Manual order in the lists (lower is higher)."),
+    opening_line: z.string().trim().max(2000).nullable().optional().describe("Opening line for calls and mail."),
+    red_flags: z.array(z.string().trim().min(1).max(300)).max(30).optional().describe("Red flags, one per item (replaces the list)."),
+    general_phone: z.string().trim().max(50).nullable().optional().describe("The general (reception) number of the company."),
+    description: z.string().trim().max(5000).nullable().optional().describe("What they do."),
+    linkedin_url: z.string().trim().max(500).nullable().optional().describe("Company LinkedIn page; stored with https://."),
   })
   .strict()
   .refine((f) => Object.keys(f).length > 0, { message: "Give at least one field to change." })
@@ -808,6 +843,8 @@ export function companyPatch(fields: z.infer<typeof companyFieldsSchema>, now = 
   for (const [key, value] of Object.entries(fields)) {
     if (value === undefined) continue;
     if (key === "pinned") patch.pinned_at = value ? now.toISOString() : null;
+    else if (key === "linkedin_url") patch.linkedin_url = cleanLinkedinUrl(value as string | null);
+    else if (key === "general_phone" && typeof value === "string") patch.general_phone = normalizePhone(value) ?? value;
     else patch[key] = value as Json;
   }
   return patch;
@@ -816,12 +853,14 @@ export function companyPatch(fields: z.infer<typeof companyFieldsSchema>, now = 
 const contactFieldsSchema = z
   .object({
     status: contactStatus.optional(),
-    role: contactRole.optional(),
-    is_primary: z.boolean().optional().describe("Only for one contact at a time."),
+    role: contactRoleInput.optional().describe("main (one per company; the old main becomes backup), backup or extra."),
+    tier: tierInput.nullable().optional(),
+    is_primary: z.boolean().optional().describe("Only for one contact at a time; the primary contact is the main contact."),
     title: z.string().trim().max(200).nullable().optional(),
     phone: z.string().trim().max(50).nullable().optional(),
     email: z.email().max(320).nullable().optional(),
-    linkedin_url: z.string().trim().max(500).nullable().optional(),
+    linkedin_url: z.string().trim().max(500).nullable().optional().describe("Profile link, stored exactly as given (case kept) with https://."),
+    linkedin_member_urn: z.string().trim().max(200).optional().describe("The LinkedIn member id (ACwAA...) of an Apify link, next to the normal profile link."),
     callback_at: dateSchema.nullable().optional(),
     assigned_caller_id: idSchema.nullable().optional(),
     assigned_until: dateSchema.nullable().optional(),
@@ -834,8 +873,16 @@ const signalSchema = z.object({
   title: z.string().trim().min(1).max(300).describe("Job title of the vacancy."),
   type: z.enum(["vacature", "lang_open", "meerdere_rollen", "remote_extern", "freelance", "funding", "nieuwe_cto", "overig"]).default("vacature"),
   role_group: z.string().trim().max(200).optional().describe("For example Backend, Frontend, Data & BI, DevOps."),
-  posted_at: dateSchema.optional().describe("Date the vacancy went online."),
-  source_url: z.url().max(1000).optional(),
+  posted_at: dateSchema.optional().describe("Date the vacancy went online on the job board (the days open count from here)."),
+  // A plain string: a link without https:// (nl.indeed.com/viewjob?jk=...) used to fail the whole call.
+  source_url: z
+    .string()
+    .trim()
+    .max(1000)
+    .optional()
+    .describe("Link to the vacancy itself (Indeed viewjob?jk=..., LinkedIn jobs/view/..., the company site). Every vacancy its own link."),
+  description: z.string().trim().max(20000).optional().describe("The vacancy text."),
+  closed: z.boolean().optional().describe("true: the vacancy is offline."),
 });
 
 const personSchema = z.object({
@@ -843,26 +890,41 @@ const personSchema = z.object({
   last_name: z.string().trim().max(100).optional(),
   full_name: z.string().trim().max(200).optional(),
   title: z.string().trim().max(200).optional(),
-  linkedin_url: z.string().trim().max(500).optional(),
+  linkedin_url: z.string().trim().max(500).optional().describe("Profile link, kept exactly as given (case matters for Apify links)."),
+  linkedin_member_urn: z.string().trim().max(200).optional().describe("LinkedIn member id (ACwAA...) when you also have the normal profile link."),
   email: z.email().max(320).optional(),
   phone: z.string().trim().max(50).optional(),
+  role: contactRoleInput.optional(),
+  tier: tierInput.optional().describe("Leave out to take it from the job title."),
 });
 
-export const upsertCompanySchema = z
-  .object({
-    name: z.string().trim().min(1).max(200),
-    domain: z.string().trim().max(300).optional().describe("Website or domain; the main key."),
-    linkedin_url: z.string().trim().max(500).optional().describe("Company LinkedIn page; the key when there is no domain."),
-    city: z.string().trim().max(200).optional(),
-    sector: z.string().trim().max(200).optional(),
-    employees: z.number().int().min(0).max(1_000_000).optional(),
-    description: z.string().trim().max(5000).optional(),
-    signals: z.array(signalSchema).max(50).default([]),
-    contacts: z.array(personSchema).max(20).default([]),
-  })
-  .refine((c) => Boolean(normalizeDomain(c.domain) || normalizeLinkedin(c.linkedin_url)), {
-    message: "Give a domain or a company LinkedIn URL, so the company can be matched.",
-  });
+export const upsertCompanySchema = z.object({
+  name: z.string().trim().min(1).max(200),
+  domain: z.string().trim().max(300).optional().describe("Website or domain; the main key."),
+  linkedin_url: z.string().trim().max(500).optional().describe("Company LinkedIn page; the key when there is no domain."),
+  city: z.string().trim().max(200).optional(),
+  sector: z.string().trim().max(200).optional(),
+  employees: z.number().int().min(0).max(1_000_000).optional(),
+  description: z.string().trim().max(5000).optional().describe("What they do. Put the opening line, red flags and general number in their own fields."),
+  opening_line: z.string().trim().max(2000).optional().describe("Opening line for calls and mail."),
+  red_flags: z.array(z.string().trim().min(1).max(300)).max(30).optional().describe("Red flags, one per item."),
+  general_phone: z.string().trim().max(50).optional().describe("The general (reception) number."),
+  signals: z.array(signalSchema).max(50).default([]),
+  contacts: z
+    .array(personSchema)
+    .max(20)
+    .default([])
+    .describe("Decision makers, best first: the first without a role becomes main, the next backup, the rest extra."),
+});
+
+/**
+ * Why a company cannot be added, or null. Checked per company, so one
+ * company without a website or LinkedIn page no longer rejects the batch.
+ */
+export function companyKeyError(input: { domain?: string; linkedin_url?: string }): string | null {
+  if (normalizeDomain(input.domain) || normalizeLinkedin(input.linkedin_url)) return null;
+  return "No website or company LinkedIn page: give one of the two, so the company can be matched. Not saved.";
+}
 
 function registerSalesWriteTools(server: McpServer, ctx: McpToolContext) {
   const { db } = ctx;
@@ -876,7 +938,7 @@ function registerSalesWriteTools(server: McpServer, ctx: McpToolContext) {
     {
       title: "Update companies",
       description:
-        "Change lead status, pipeline stage (contact, interested, meeting_planned, meeting_held, vacancy_drafted, agreed_paid, profiles_sent, candidate_interviews, won; or off it: lost needs lost_reason, parked needs parked_until), the date to send profiles (profiles_due_on), prio, category, owner, partner, next action, pin or manual position of one or more companies. Goes through sales_update: every change is logged in Activities with you and source claude. Only call when the user or a scheduled task asked for it.",
+        "Change opening line, red flags, general number, what they do (description), company LinkedIn page, lead status, pipeline stage (contact, interested, meeting_planned, meeting_held, vacancy_drafted, agreed_paid, profiles_sent, candidate_interviews, won; or off it: lost needs lost_reason, parked needs parked_until), the date to send profiles (profiles_due_on), prio, category, owner, partner, next action, pin or manual position of one or more companies. Goes through sales_update: every change is logged in Activities with you and source claude. Only call when the user or a scheduled task asked for it.",
       inputSchema: { ids: idsSchema, fields: companyFieldsSchema },
       annotations: WRITE,
     },
@@ -909,19 +971,41 @@ function registerSalesWriteTools(server: McpServer, ctx: McpToolContext) {
       if (blocked) return blocked;
       const unique = [...new Set(ids)];
       if (fields.is_primary !== undefined && unique.length > 1) return fail("Set is_primary on one contact at a time.");
+      if (fields.linkedin_url && unique.length > 1) return fail("Set linkedin_url on one contact at a time.");
+      if (fields.linkedin_member_urn && unique.length > 1) return fail("Set linkedin_member_urn on one contact at a time.");
+      if (fields.role === "main" && unique.length > 1) return fail("A company has one main contact: set role main on one contact at a time.");
+      const { linkedin_member_urn: urn, ...rest } = fields;
       const patch: Record<string, Json> = {};
-      for (const [key, value] of Object.entries(fields)) if (value !== undefined) patch[key] = value as Json;
+      for (const [key, value] of Object.entries(rest)) if (value !== undefined) patch[key] = value as Json;
       if (typeof patch.phone === "string") patch.phone = normalizePhone(patch.phone) ?? patch.phone;
       if (typeof patch.email === "string") patch.email = normalizeEmail(patch.email) ?? patch.email;
-      if (typeof patch.linkedin_url === "string") patch.linkedin_url = normalizeLinkedin(patch.linkedin_url) ?? patch.linkedin_url;
-      const { data, error } = await db.rpc("sales_update", {
-        p_entity: "contact",
-        p_ids: unique,
-        p_fields: patch,
-        p_source: "claude",
-        p_actor: actor,
-      });
-      return rpcError(error, "update the contacts") ?? ok({ updated: data ?? 0, requested: unique.length });
+      // Kept exactly (case of the path), with https://; never lowercased.
+      if (typeof patch.linkedin_url === "string") patch.linkedin_url = cleanLinkedinUrl(patch.linkedin_url);
+      let updated = 0;
+      if (Object.keys(patch).length > 0) {
+        const { data, error } = await db.rpc("sales_update", {
+          p_entity: "contact",
+          p_ids: unique,
+          p_fields: patch,
+          p_source: "claude",
+          p_actor: actor,
+        });
+        const failed = rpcError(error, "update the contacts");
+        if (failed) return /linkedin_key/.test(error?.message ?? "") ? fail("Another contact already has this LinkedIn profile. Merge the two with merge_contacts.") : failed;
+        updated = data ?? 0;
+      }
+      if (urn) {
+        const { error } = await db.rpc("sales_set_contact_linkedin", { p_contact: unique[0], p_member_urn: urn, p_source: "claude", p_actor: actor });
+        if (error) {
+          return fail(
+            /linkedin_member_urn/.test(error.message)
+              ? "Another contact already has this LinkedIn member id. Merge the two with merge_contacts."
+              : `Could not save the LinkedIn member id: ${error.message}`,
+          );
+        }
+        updated = Math.max(updated, 1);
+      }
+      return ok({ updated, requested: unique.length });
     },
   );
 
@@ -1063,7 +1147,7 @@ function registerSalesWriteTools(server: McpServer, ctx: McpToolContext) {
     {
       title: "Add company (lead)",
       description:
-        "Add one company that did not come from Apify or Prospeo: an inbound lead, a LinkedIn contact, a tip from a partner or someone from the network. Say where it came from (origin) and why (source_note). Matched on the normalized domain, then on the company LinkedIn page: a known company is filled in, never overwritten, and not added twice. Contacts can come along. Starts as lead status new.",
+        "Add one company that did not come from Apify or Prospeo: an inbound lead, a LinkedIn contact, a tip from a partner or someone from the network. Say where it came from (origin) and why (source_note). Fill opening_line, red_flags and general_phone in their own fields, not in the description. Matched on the normalized domain (also the domains of merged companies), then on the company LinkedIn page: a known company is filled in, never overwritten, and not added twice. The answer lists possible_duplicates (a company with the same or a similar name on another domain): check them and merge with merge_companies when they are the same. Contacts can come along with role (main, backup, extra) and tier. Starts as lead status new.",
       inputSchema: {
         origin: z.enum(LEAD_ORIGINS).describe("Where the lead came from."),
         source_note: z.string().trim().max(2000).optional().describe("Who referred it, which post, what was said."),
@@ -1075,6 +1159,8 @@ function registerSalesWriteTools(server: McpServer, ctx: McpToolContext) {
     async ({ origin, source_note, partner_id, company }) => {
       const blocked = guard();
       if (blocked) return blocked;
+      const keyError = companyKeyError(company);
+      if (keyError) return fail(`${company.name}: ${keyError}`);
       if (partner_id) {
         const { data: partner } = await db.from("partners").select("id").eq("id", partner_id).maybeSingle();
         if (!partner) return fail("Partner not found.");
@@ -1103,7 +1189,7 @@ function registerSalesWriteTools(server: McpServer, ctx: McpToolContext) {
     {
       title: "Add contact to a company",
       description:
-        "Add a contact person to a company that is already in the portal, with name, title, email, phone, LinkedIn, role (main, extra, reserve) and whether they are the primary contact. The same person is not added twice: the same LinkedIn profile anywhere, or the same email or name at this company, is filled in instead (never overwritten). Logged in Activities with you and source claude.",
+        "Add a contact person to a company that is already in the portal, with name, title, tier, email, phone, LinkedIn, role (main, backup, extra) and whether they are the primary contact. One main contact per company: a second main becomes backup unless is_primary is true. Without a tier the tier comes from the job title. The same person is not added twice: the same LinkedIn link (any case), the same LinkedIn member id (Apify ACwAA... link) anywhere, or the same email or name at this company, is filled in instead (never overwritten). Logged in Activities with you and source claude.",
       inputSchema: {
         company_id: idSchema,
         first_name: z.string().trim().max(100).optional(),
@@ -1112,8 +1198,10 @@ function registerSalesWriteTools(server: McpServer, ctx: McpToolContext) {
         title: z.string().trim().max(200).optional(),
         email: z.email().max(320).optional(),
         phone: z.string().trim().max(50).optional(),
-        linkedin_url: z.string().trim().max(500).optional(),
-        role: contactRole.optional(),
+        linkedin_url: z.string().trim().max(500).optional().describe("Profile link, kept exactly as given."),
+        linkedin_member_urn: z.string().trim().max(200).optional().describe("LinkedIn member id (ACwAA...) next to the normal profile link."),
+        role: contactRoleInput.optional(),
+        tier: tierInput.optional(),
         is_primary: z.boolean().optional(),
         origin: z.enum(LEAD_ORIGINS).optional().describe("Where this contact came from."),
       },
@@ -1193,7 +1281,7 @@ function registerSalesWriteTools(server: McpServer, ctx: McpToolContext) {
     {
       title: "Add companies and vacancies",
       description:
-        "Add new companies with their vacancies (signals) and decision makers from Apify or Prospeo. Companies are matched on the normalized domain, then on the company LinkedIn URL: a known company is filled in (never overwritten) and a vacancy seen again only updates its last seen date. New companies start as lead status new. At most 50 per call.",
+        "Add new companies with their vacancies (signals) and decision makers from Apify or Prospeo. Companies are matched on the normalized domain (also the domains of merged companies), then on the company LinkedIn URL: a known company is filled in (never overwritten) and a vacancy seen again only updates its last seen date. Give every vacancy its own link (source_url, e.g. nl.indeed.com/viewjob?jk=...), its posted_at and its text (description). A company without website and LinkedIn page, or a vacancy with a link that is not a web address, is reported in results with the reason; the rest is saved. New companies start as lead status new; possible_duplicates lists companies with a similar name on another domain. At most 50 per call.",
       inputSchema: {
         source: z.enum(["apify", "prospeo"]),
         companies: z.array(upsertCompanySchema).min(1).max(50),
@@ -1205,18 +1293,102 @@ function registerSalesWriteTools(server: McpServer, ctx: McpToolContext) {
       if (blocked) return blocked;
       const results = [];
       for (const input of companies) {
+        const keyError = companyKeyError(input);
+        if (keyError) {
+          results.push({ name: input.name, error: keyError });
+          continue;
+        }
         try {
           results.push(await upsertSalesCompany(db, actor, source, input));
         } catch (error) {
-          results.push({ name: input.name, error: error instanceof Error ? error.message : String(error) });
+          results.push({ name: input.name, error: `Not saved: ${error instanceof Error ? error.message : String(error)}` });
         }
       }
+      const signalErrors = results.reduce((n, r) => n + ("signals_failed" in r ? (r.signals_failed?.length ?? 0) : 0), 0);
       return ok({
         created: results.filter((r) => "created" in r && r.created).length,
         matched: results.filter((r) => "created" in r && !r.created).length,
         failed: results.filter((r) => "error" in r).length,
+        vacancies_not_saved: signalErrors,
         results,
       });
+    },
+  );
+
+  // -------------------------------------------------------------------------
+  server.registerTool(
+    "merge_companies",
+    {
+      title: "Merge two companies",
+      description:
+        "Merge a duplicate company (merge_id) into the company that stays (keep_id), for example the same company added on its .nl and its .com domain. Nothing is lost: contacts, activities, vacancies, meetings, sequences, call steps, notes, tasks and attachments move to keep_id, empty fields of keep_id are filled from merge_id, the domain of merge_id is kept as an alias so it is not added again, and the full old record is logged in Activities. merge_id is then deleted. Only when the user asked for it or both are clearly the same company.",
+      inputSchema: { keep_id: idSchema, merge_id: idSchema },
+      annotations: { ...WRITE, destructiveHint: true },
+    },
+    async ({ keep_id, merge_id }) => {
+      const blocked = guard();
+      if (blocked) return blocked;
+      const { data, error } = await db.rpc("sales_merge_companies", { p_keep: keep_id, p_merge: merge_id, p_source: "claude", p_actor: actor });
+      return rpcError(error, "merge the companies") ?? ok({ ...(data as Record<string, Json>), url: recordUrl(ctx.siteUrl, "company", keep_id) });
+    },
+  );
+
+  // -------------------------------------------------------------------------
+  server.registerTool(
+    "merge_contacts",
+    {
+      title: "Merge two contacts",
+      description:
+        "Merge a duplicate contact (merge_id) into the contact that stays (keep_id), for example the same person once with an Apify link and once with a normal profile link. Activities, meetings, sequences, call steps and suppressions move to keep_id; empty fields are filled (both LinkedIn link and member id are kept), attempts and dates take the highest, Do not contact wins. merge_id is deleted and logged in Activities.",
+      inputSchema: { keep_id: idSchema, merge_id: idSchema },
+      annotations: { ...WRITE, destructiveHint: true },
+    },
+    async ({ keep_id, merge_id }) => {
+      const blocked = guard();
+      if (blocked) return blocked;
+      const { data, error } = await db.rpc("sales_merge_contacts", { p_keep: keep_id, p_merge: merge_id, p_source: "claude", p_actor: actor });
+      return rpcError(error, "merge the contacts") ?? ok(data);
+    },
+  );
+
+  // -------------------------------------------------------------------------
+  server.registerTool(
+    "update_signals",
+    {
+      title: "Update vacancies (signals)",
+      description:
+        "Correct vacancies (signals) of a company: the date it went online (posted_at, the days open count from here), the link to the vacancy, its text, or closed (offline). Use get_company for the ids.",
+      inputSchema: {
+        ids: z.array(idSchema).min(1).max(100),
+        fields: z
+          .object({
+            posted_at: dateSchema.nullable().optional(),
+            source_url: z.string().trim().max(1000).nullable().optional(),
+            description: z.string().trim().max(20000).nullable().optional(),
+            closed: z.boolean().optional(),
+            title: z.string().trim().min(1).max(300).optional(),
+            role_group: z.string().trim().max(200).nullable().optional(),
+          })
+          .strict()
+          .refine((f) => Object.keys(f).length > 0, { message: "Give at least one field to change." }),
+      },
+      annotations: WRITE,
+    },
+    async ({ ids, fields }) => {
+      const blocked = guard();
+      if (blocked) return blocked;
+      const unique = [...new Set(ids)];
+      if (fields.source_url && unique.length > 1) return fail("Set source_url on one vacancy at a time: every vacancy has its own link.");
+      const { closed, source_url, ...rest } = fields;
+      const patch: Database["public"]["Tables"]["signals"]["Update"] = { ...rest };
+      if (source_url !== undefined) {
+        const clean = source_url ? cleanSourceUrl(source_url) : null;
+        if (source_url && !clean) return fail(`"${source_url}" is not a web address. Give the full link to the vacancy.`);
+        patch.source_url = clean;
+      }
+      if (closed !== undefined) patch.closed_at = closed ? new Date().toISOString() : null;
+      const { data, error } = await db.from("signals").update(patch).in("id", unique).select("id");
+      return rpcError(error, "update the vacancies") ?? ok({ updated: (data ?? []).length, requested: unique.length });
     },
   );
 
@@ -1458,40 +1630,63 @@ function friendlyStartError(message: string) {
 
 type UpsertCompanyInput = z.infer<typeof upsertCompanySchema>;
 
+/** Companies with the same or a similar name on another domain (sales_similar_companies). */
+export async function similarCompanies(db: McpDb, name: string, domain: string | null, exclude: string | null): Promise<SimilarCompany[]> {
+  const { data, error } = await db.rpc("sales_similar_companies", { p_name: name, p_domain: domain, p_exclude: exclude });
+  return error ? [] : (data ?? []);
+}
+
+/** The company with this domain, or one merged into it with this domain. */
+async function companyByDomain<F extends string>(db: McpDb, domain: string, fields: F) {
+  const direct = check(await db.from("companies").select(fields).eq("domain", domain).maybeSingle(), "company");
+  if (direct && !Array.isArray(direct)) return direct;
+  const alias = check(await db.from("companies").select(fields).contains("alias_domains", [domain]).limit(1).maybeSingle(), "company");
+  return alias && !Array.isArray(alias) ? alias : null;
+}
+
 /** Match on domain, then LinkedIn; fill in missing fields through sales_update; add signals and people. */
 export async function upsertSalesCompany(db: McpDb, actor: string, source: "apify" | "prospeo" | LeadOrigin, input: UpsertCompanyInput) {
   const domain = normalizeDomain(input.domain);
-  const linkedin = normalizeLinkedin(input.linkedin_url);
-  const fields = "id, name, domain, website, city, sector, employees, linkedin_url, description, sources" as const;
+  const linkedinKey = normalizeLinkedin(input.linkedin_url);
+  const fields = "id, name, domain, website, city, sector, employees, linkedin_url, description, opening_line, red_flags, general_phone, sources" as const;
 
-  let existing = domain
-    ? check(await db.from("companies").select(fields).eq("domain", domain).maybeSingle(), "company")
-    : null;
-  if ((!existing || Array.isArray(existing)) && linkedin) {
-    existing = check(await db.from("companies").select(fields).eq("linkedin_url", linkedin).limit(1).maybeSingle(), "company");
+  let existing = domain ? await companyByDomain(db, domain, fields) : null;
+  if (!existing && linkedinKey) {
+    const hit = check(await db.from("companies").select(fields).eq("linkedin_key", linkedinKey).limit(1).maybeSingle(), "company");
+    existing = hit && !Array.isArray(hit) ? hit : null;
   }
 
+  // Opening line, red flags and number written into the description go to their own fields.
+  const notes = extractLeadNotes(input.description);
   const incoming = {
     name: input.name,
     website: domain ? (input.domain && /^https?:\/\//i.test(input.domain) ? input.domain : `https://${domain}`) : null,
     city: input.city ?? null,
     sector: input.sector ?? null,
     employees: input.employees ?? null,
-    linkedin_url: linkedin,
-    description: input.description ?? null,
+    linkedin_url: cleanLinkedinUrl(input.linkedin_url),
+    description: notes ? notes.description : (input.description ?? null),
+    opening_line: input.opening_line ?? notes?.opening_line ?? null,
+    red_flags: input.red_flags?.length ? input.red_flags : notes?.red_flags.length ? notes.red_flags : null,
+    general_phone: (() => {
+      const raw = input.general_phone ?? notes?.general_phone ?? null;
+      return raw ? (normalizePhone(raw) ?? raw).slice(0, 50) : null;
+    })(),
   };
 
   let companyId: string;
   let created = false;
   let companyDomain: string;
-  if (existing && !Array.isArray(existing)) {
+  if (existing) {
     companyId = existing.id;
     companyDomain = existing.domain;
     const patch: Record<string, Json> = {};
     for (const [key, value] of Object.entries(incoming)) {
       if (value === null || value === "" || key === "name") continue;
       const current = (existing as Record<string, unknown>)[key];
-      if (current === null || current === undefined || current === "") patch[key] = value;
+      if (current === null || current === undefined || current === "" || (Array.isArray(current) && current.length === 0)) {
+        patch[key] = value as Json;
+      }
     }
     if (Object.keys(patch).length > 0) {
       const { error } = await db.rpc("sales_update", {
@@ -1510,7 +1705,7 @@ export async function upsertSalesCompany(db: McpDb, actor: string, source: "apif
     companyDomain = domain ?? `nodomain:${input.name.toLowerCase().replace(/\s+/g, " ").trim().slice(0, 180)}`;
     const { data, error } = await db
       .from("companies")
-      .insert({ ...incoming, domain: companyDomain, source, sources: [source], lead_status: "new" })
+      .insert({ ...incoming, red_flags: incoming.red_flags ?? [], domain: companyDomain, source, sources: [source], lead_status: "new" })
       .select("id")
       .single();
     if (error) {
@@ -1530,75 +1725,77 @@ export async function upsertSalesCompany(db: McpDb, actor: string, source: "apif
     });
   }
 
+  // Every vacancy on its own; one that cannot be saved is reported, not dropped silently.
   let signalsNew = 0;
+  let signalsSeenAgain = 0;
+  const signalsFailed: { title: string; error: string }[] = [];
   for (const s of input.signals) {
-    const r = await upsertSignal(db, {
-      company_id: companyId,
-      company_domain: companyDomain,
-      type: s.type,
-      title: s.title,
-      // Signals know apify, prospeo, linkedin; a lead by hand files its vacancies as "overig".
-      source: source === "apify" || source === "prospeo" || source === "linkedin" ? source : "overig",
-      source_url: s.source_url ?? null,
-      role_group: s.role_group ?? null,
-      posted_at: s.posted_at ?? null,
-    });
-    if (r.created) signalsNew += 1;
+    const url = s.source_url ? cleanSourceUrl(s.source_url) : null;
+    if (s.source_url && !url) {
+      signalsFailed.push({ title: s.title, error: `Not saved: "${s.source_url}" is not a web address. Give the full link to the vacancy.` });
+      continue;
+    }
+    try {
+      const r = await upsertSignal(db, {
+        company_id: companyId,
+        company_domain: companyDomain,
+        type: s.type,
+        title: s.title,
+        // Signals know apify, prospeo, linkedin; a lead by hand files its vacancies as "overig".
+        source: source === "apify" || source === "prospeo" || source === "linkedin" ? source : "overig",
+        source_url: url,
+        role_group: s.role_group ?? null,
+        posted_at: s.posted_at ?? null,
+        description: s.description ?? null,
+        closed: s.closed,
+      });
+      if (r.created) signalsNew += 1;
+      else signalsSeenAgain += 1;
+    } catch (error) {
+      signalsFailed.push({ title: s.title, error: `Not saved: ${error instanceof Error ? error.message : String(error)}` });
+    }
   }
 
   let contactsNew = 0;
+  const contactsFailed: { name: string; error: string }[] = [];
   for (const p of input.contacts) {
     const split = p.full_name ? splitName(p.full_name) : { first: null, last: null };
-    const first = p.first_name ?? split.first;
-    const last = p.last_name ?? split.last;
-    const personLinkedin = normalizeLinkedin(p.linkedin_url);
-    const email = normalizeEmail(p.email);
-    const phone = normalizePhone(p.phone);
-    if (!first && !personLinkedin && !email) continue;
-    let q = db.from("contacts").select("id, title, email, phone, linkedin_url").limit(1);
-    if (personLinkedin) q = q.eq("linkedin_url", personLinkedin);
-    else if (email) q = q.eq("company_id", companyId).eq("email", email);
-    else q = q.eq("company_id", companyId).eq("first_name", first ?? "").eq("last_name", last ?? "");
-    const found = check(await q.maybeSingle(), "contact");
-    if (found && !Array.isArray(found)) {
-      const patch: Record<string, Json> = {};
-      if (!found.title && p.title) patch.title = p.title;
-      if (!found.email && email) patch.email = email;
-      if (!found.phone && phone) {
-        patch.phone = phone;
-        patch.phone_type = phoneTypeFor(phone);
-      }
-      if (!found.linkedin_url && personLinkedin) patch.linkedin_url = personLinkedin;
-      if (Object.keys(patch).length > 0) {
-        const { error } = await db.rpc("sales_update", {
-          p_entity: "contact",
-          p_ids: [found.id],
-          p_fields: patch,
-          p_source: "claude",
-          p_actor: actor,
-        });
-        if (error) throw new Error(error.message);
-      }
-      continue;
+    const result = await addSalesContact(
+      db,
+      actor,
+      {
+        company_id: companyId,
+        first_name: p.first_name ?? split.first ?? undefined,
+        last_name: p.last_name ?? split.last ?? undefined,
+        title: p.title,
+        email: p.email,
+        phone: p.phone,
+        linkedin_url: p.linkedin_url,
+        linkedin_member_urn: p.linkedin_member_urn,
+        role: p.role,
+        tier: p.tier,
+      },
+      { source, quiet: true },
+    );
+    if ("error" in result) {
+      contactsFailed.push({ name: p.full_name ?? ([p.first_name, p.last_name].filter(Boolean).join(" ") || p.email || "Contact"), error: result.error });
     }
-    const now = new Date().toISOString();
-    const { error } = await db.from("contacts").insert({
-      company_id: companyId,
-      first_name: first,
-      last_name: last,
-      title: p.title ?? null,
-      linkedin_url: personLinkedin,
-      ...(email ? { email, email_source: source, email_found_at: now, email_status: "unknown" as const } : {}),
-      ...(phone ? { phone, phone_type: phoneTypeFor(phone), phone_source: source, phone_found_at: now } : {}),
-      status: "new",
-      source,
-      sources: [source],
-    });
-    if (error && error.code !== "23505") throw new Error(error.message);
-    if (!error) contactsNew += 1;
+    else if (result.created) contactsNew += 1;
   }
 
-  return { name: input.name, company_id: companyId, created, signals_new: signalsNew, contacts_new: contactsNew };
+  const duplicates = created ? await similarCompanies(db, input.name, domain, companyId) : [];
+  return {
+    name: input.name,
+    company_id: companyId,
+    created,
+    signals_new: signalsNew,
+    signals_seen_again: signalsSeenAgain,
+    ...(signalsFailed.length ? { signals_failed: signalsFailed } : {}),
+    contacts_new: contactsNew,
+    ...(contactsFailed.length ? { contacts_failed: contactsFailed } : {}),
+    ...(notes ? { moved_from_description: ["opening_line", "red_flags", "general_phone"].filter((k) => notes[k as keyof typeof notes]?.length) } : {}),
+    ...(duplicates.length ? { possible_duplicates: duplicates, warning: duplicateWarning(duplicates) } : {}),
+  };
 }
 
 export type AddContactInput = {
@@ -1610,66 +1807,82 @@ export type AddContactInput = {
   email?: string;
   phone?: string;
   linkedin_url?: string;
+  linkedin_member_urn?: string;
   role?: "main" | "extra" | "reserve";
+  tier?: number;
   is_primary?: boolean;
   origin?: LeadOrigin;
 };
 
 /**
- * One contact on an existing company, without duplicates (the rules of the
- * portal's Add contact): the same LinkedIn profile anywhere, else the same
- * email at this company, else the same name at this company, is the same
- * person and only gets its empty fields filled in.
+ * One contact on an existing company, without duplicates: the same LinkedIn
+ * link (any case) or member id anywhere, else the same email at this
+ * company, else the same name at this company, is the same person and only
+ * gets its empty fields filled in (and a lowercased Apify link its case back).
  */
-export async function addSalesContact(db: McpDb, actor: string, input: AddContactInput): Promise<
-  { error: string } | { contact_id: string; created: boolean; filled_in: string[] }
-> {
+export async function addSalesContact(
+  db: McpDb,
+  actor: string,
+  input: AddContactInput,
+  options: { source?: string; quiet?: boolean } = {},
+): Promise<{ error: string } | { contact_id: string; created: boolean; filled_in: string[]; matched_on?: string }> {
   const { data: company } = await db.from("companies").select("id").eq("id", input.company_id).maybeSingle();
   if (!company) return { error: "Company not found. Add it first with add_company." };
   const split = input.full_name ? splitName(input.full_name) : { first: null, last: null };
   const first = input.first_name?.trim() || split.first;
   const last = input.last_name?.trim() || split.last;
-  const linkedin = normalizeLinkedin(input.linkedin_url);
-  const email = normalizeEmail(input.email);
+  const keys = personKeys({ linkedin_url: input.linkedin_url, linkedin_member_urn: input.linkedin_member_urn, email: input.email, first, last });
   const phone = normalizePhone(input.phone);
-  if (input.linkedin_url && !linkedin) return { error: "That is not a LinkedIn profile URL." };
+  if (input.linkedin_url && !keys.linkedinKey) return { error: "That is not a LinkedIn profile URL." };
   if (input.phone && !phone) return { error: "That is not a valid phone number." };
-  if (!first && !last && !email && !linkedin) return { error: "Give at least a name, an email or a LinkedIn profile." };
+  if (!first && !last && !keys.email && !keys.linkedinKey && !keys.memberUrn) return { error: "Give at least a name, an email or a LinkedIn profile." };
 
-  const fields = "id, company_id, first_name, last_name, title, email, phone, linkedin_url, role, is_primary" as const;
-  let found = linkedin ? check(await db.from("contacts").select(fields).eq("linkedin_url", linkedin).limit(1).maybeSingle(), "contact") : null;
-  if ((!found || Array.isArray(found)) && email) {
-    found = check(await db.from("contacts").select(fields).eq("company_id", input.company_id).eq("email", email).limit(1).maybeSingle(), "contact");
-  }
-  if ((!found || Array.isArray(found)) && first && !email && !linkedin) {
-    found = check(
-      await db.from("contacts").select(fields).eq("company_id", input.company_id).eq("first_name", first).eq("last_name", last ?? "").limit(1).maybeSingle(),
-      "contact",
-    );
-  }
-
-  const source = input.origin ?? "claude";
-  if (found && !Array.isArray(found)) {
-    if (found.company_id !== input.company_id) {
-      return { error: `This LinkedIn profile is already a contact at another company (contact ${found.id}).` };
+  const found = await findSalesContact(db, input.company_id, keys, "first_name, last_name, title, tier, email, phone, role, is_primary");
+  const source = options.source ?? input.origin ?? "claude";
+  if (found) {
+    const row = found.row as typeof found.row & {
+      first_name: string | null;
+      last_name: string | null;
+      title: string | null;
+      tier: number | null;
+      email: string | null;
+      phone: string | null;
+      role: string;
+      is_primary: boolean;
+    };
+    if (row.company_id !== input.company_id && (found.by === "linkedin" || found.by === "member_id")) {
+      return { error: `This LinkedIn profile is already a contact at another company (contact ${row.id}).` };
     }
     const patch: Record<string, Json> = {};
-    if (!found.first_name && first) patch.first_name = first;
-    if (!found.last_name && last) patch.last_name = last;
-    if (!found.title && input.title) patch.title = input.title;
-    if (!found.email && email) patch.email = email;
-    if (!found.phone && phone) {
+    if (!row.first_name && first) patch.first_name = first;
+    if (!row.last_name && last) patch.last_name = last;
+    if (!row.title && input.title) patch.title = input.title;
+    if (row.tier == null && input.tier) patch.tier = input.tier;
+    if (!row.email && keys.email) patch.email = keys.email;
+    if (!row.phone && phone) {
       patch.phone = phone;
       patch.phone_type = phoneTypeFor(phone);
     }
-    if (!found.linkedin_url && linkedin) patch.linkedin_url = linkedin;
-    if (input.role && input.role !== found.role) patch.role = input.role;
-    if (input.is_primary !== undefined && input.is_primary !== found.is_primary) patch.is_primary = input.is_primary;
+    const links = linkedinPatch(row, keys);
+    if (links.linkedin_url) patch.linkedin_url = links.linkedin_url;
+    if (input.role && input.role !== row.role) patch.role = input.role;
+    if (input.is_primary !== undefined && input.is_primary !== row.is_primary) patch.is_primary = input.is_primary;
     if (Object.keys(patch).length) {
-      const { error } = await db.rpc("sales_update", { p_entity: "contact", p_ids: [found.id], p_fields: patch, p_source: "claude", p_actor: actor });
-      if (error) return { error: `Could not update the contact: ${error.message}` };
+      const { error } = await db.rpc("sales_update", { p_entity: "contact", p_ids: [row.id], p_fields: patch, p_source: "claude", p_actor: actor });
+      if (error) {
+        return {
+          error: /linkedin_key/.test(error.message)
+            ? `Another contact already has the LinkedIn profile ${links.linkedin_url}. Merge the two with merge_contacts.`
+            : `Could not update the contact: ${error.message}`,
+        };
+      }
     }
-    return { contact_id: found.id, created: false, filled_in: Object.keys(patch) };
+    if (links.linkedin_member_urn) {
+      const { error } = await db.rpc("sales_set_contact_linkedin", { p_contact: row.id, p_member_urn: links.linkedin_member_urn, p_source: "claude", p_actor: actor });
+      if (error) return { error: `Could not save the LinkedIn member id: ${error.message}` };
+      patch.linkedin_member_urn = links.linkedin_member_urn;
+    }
+    return { contact_id: row.id, created: false, filled_in: Object.keys(patch), matched_on: found.by };
   }
 
   const now = new Date().toISOString();
@@ -1680,9 +1893,13 @@ export async function addSalesContact(db: McpDb, actor: string, input: AddContac
       first_name: first,
       last_name: last,
       title: input.title ?? null,
-      linkedin_url: linkedin,
+      tier: input.tier ?? null,
+      linkedin_url: keys.linkedinUrl,
+      linkedin_member_urn: keys.memberUrn,
+      // Without a role: main when the company has none yet, else backup, else extra (the database decides).
       role: input.role ?? "main",
-      ...(email ? { email, email_source: source, email_found_at: now, email_status: "unknown" as const } : {}),
+      is_primary: input.is_primary ?? false,
+      ...(keys.email ? { email: keys.email, email_source: source, email_found_at: now, email_status: "unknown" as const } : {}),
       ...(phone ? { phone, phone_type: phoneTypeFor(phone), phone_source: source, phone_found_at: now } : {}),
       status: "new",
       source,
@@ -1691,27 +1908,19 @@ export async function addSalesContact(db: McpDb, actor: string, input: AddContac
     .select("id")
     .single();
   if (error || !data) {
-    if (error?.code === "23505") return { error: "This person is already a contact." };
+    if (error?.code === "23505") return { error: "This person is already a contact (same LinkedIn profile or member id)." };
     return { error: `Could not add the contact: ${error?.message ?? "unknown error"}` };
   }
-  if (input.is_primary) {
-    const { error: primaryError } = await db.rpc("sales_update", {
-      p_entity: "contact",
-      p_ids: [data.id],
-      p_fields: { is_primary: true },
+  if (!options.quiet) {
+    await db.rpc("sales_log_activity", {
+      p_company: input.company_id,
+      p_contact: data.id,
+      p_channel: "system",
+      p_type: "system",
+      p_notes: `Contact added by Claude${input.origin ? ` (${originLabels[input.origin]})` : ""}`,
       p_source: "claude",
       p_actor: actor,
     });
-    if (primaryError) return { error: `The contact was added, but not made primary: ${primaryError.message}` };
   }
-  await db.rpc("sales_log_activity", {
-    p_company: input.company_id,
-    p_contact: data.id,
-    p_channel: "system",
-    p_type: "system",
-    p_notes: `Contact added by Claude${input.origin ? ` (${originLabels[input.origin]})` : ""}`,
-    p_source: "claude",
-    p_actor: actor,
-  });
   return { contact_id: data.id, created: true, filled_in: [] };
 }

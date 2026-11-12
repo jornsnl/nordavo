@@ -28,6 +28,8 @@ export const customFieldEntities: { value: CustomFieldEntity; label: string; plu
   { value: "client", label: "Client", plural: "Clients" },
   { value: "placement", label: "Placement", plural: "Placements" },
   { value: "application", label: "Application", plural: "Applications (pipeline card)" },
+  { value: "company", label: "Lead (company)", plural: "Leads (sales tables and lead page)" },
+  { value: "contact", label: "Contact", plural: "Contacts (sales tables and call lists)" },
 ];
 
 export const customFieldTypes: { value: CustomFieldType; label: string; hint: string }[] = [

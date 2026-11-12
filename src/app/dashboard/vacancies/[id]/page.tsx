@@ -32,6 +32,10 @@ import { getVacancy, getVacancyPipelineSummary, listCompanyOptions, PRESENTED_TA
 import { formatCurrency, formatDate } from "@/lib/format";
 import { optionFor, seniorities, talentStages, vacancyStatuses } from "@/lib/labels";
 import { TALENT_POOL_LABEL } from "@/lib/talent/talent-pool";
+import { istToNl } from "@/lib/recruitment/vacancy-time";
+import { Markdown } from "@/components/work/markdown";
+import { JobFileUpload } from "@/components/vacancies/job-file-upload";
+import { listJobFiles } from "@/lib/data/vacancies";
 import { deleteVacancyAction, linkTalentPoolVacancyAction } from "../actions";
 
 // Claude calls (matching, opening lines) run inside server actions on this page.
@@ -43,7 +47,7 @@ export const metadata: Metadata = {
 
 type Params = Promise<{ id: string }>;
 
-export default function Page({ params }: PageProps<"/dashboard/vacancies/[id]">) {
+export default function Page({ params, searchParams }: PageProps<"/dashboard/vacancies/[id]">) {
   return (
     <>
       <Link
@@ -54,13 +58,19 @@ export default function Page({ params }: PageProps<"/dashboard/vacancies/[id]">)
         All vacancies
       </Link>
       <Suspense fallback={<DetailSkeleton />}>
-        <VacancyDetail params={params} />
+        <VacancyDetail params={params} searchParams={searchParams} />
       </Suspense>
     </>
   );
 }
 
-async function VacancyDetail({ params }: { params: Params }) {
+async function VacancyDetail({
+  params,
+  searchParams,
+}: {
+  params: Params;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const { id } = await params;
   const vacancy = await getVacancy(id);
   if (!vacancy) notFound();
@@ -68,6 +78,9 @@ async function VacancyDetail({ params }: { params: Params }) {
   const [summary, layout] = await Promise.all([getVacancyPipelineSummary(vacancy.id), getRecordLayout("vacancy")]);
   const stackField = coreField(findBlock(layout, "details"), "stack", "Stack");
   const status = optionFor(vacancyStatuses, vacancy.status);
+  const startTime = istToNl(vacancy.start_time_ist);
+  const jobFiles = await listJobFiles(vacancy.id);
+  const jobFileFailed = (await searchParams).job_file === "failed";
   const seniority = optionFor(seniorities, vacancy.seniority);
   const stage = optionFor(talentStages, vacancy.talent_stage);
   const searchBrief = readSearchBrief(vacancy.search_brief);
@@ -154,7 +167,14 @@ async function VacancyDetail({ params }: { params: Params }) {
           ),
           pipeline: <PipelineSummary vacancyId={vacancy.id} summary={summary} target={PRESENTED_TARGET} />,
           park: (
-            <ParkVacancyCard vacancyId={vacancy.id} status={vacancy.status} parkReason={vacancy.park_reason} parkedAt={vacancy.parked_at} />
+            <ParkVacancyCard
+              vacancyId={vacancy.id}
+              status={vacancy.status}
+              parkReason={vacancy.park_reason}
+              parkedAt={vacancy.parked_at}
+              holds={vacancy.holds}
+              hasCompany={Boolean(vacancy.company_id || vacancy.client_id)}
+            />
           ),
           form: <VacancyFormCard vacancyId={vacancy.id} />,
           wsp: (
@@ -187,7 +207,27 @@ async function VacancyDetail({ params }: { params: Params }) {
                       label: "Desired start",
                       value: formatDate(vacancy.desired_start_date, "Not filled in"),
                     },
+                    {
+                      key: "start_time",
+                      label: "Start time",
+                      value: startTime ? `${startTime.ist} IST: ${startTime.winter} NL in winter, ${startTime.summer} NL in summer` : vacancy.timezone_overlap,
+                    },
+                    {
+                      key: "presentation_deadline",
+                      label: "Present top 3 to 5 by",
+                      value: vacancy.presentation_deadline ? formatDate(vacancy.presentation_deadline) : null,
+                    },
+                    {
+                      key: "flow_deadline",
+                      label: "Flow deadline",
+                      value: vacancy.flowDeadline
+                        ? `${formatDate(vacancy.flowDeadline.date)}${vacancy.flowDeadline.source === "three_weeks" ? " (opened plus three weeks)" : ""}`
+                        : null,
+                    },
                     { key: "opened_on", label: "Opened on", value: formatDate(vacancy.opened_at) },
+                    ...(vacancy.holdSummary.total > 0
+                      ? [{ key: "on_hold", label: "Days on hold", value: `${vacancy.holdSummary.total} (not counted as open)` }]
+                      : []),
                     ...(vacancy.closed_at ? [{ key: "closed_on", label: "Closed on", value: formatDate(vacancy.closed_at) }] : []),
                     {
                       key: "owner",
@@ -219,10 +259,9 @@ async function VacancyDetail({ params }: { params: Params }) {
             <Card>
               <CardHeader title={blockLabel(layout, "job_profile")} />
               <CardBody>
+                <JobFileUpload vacancyId={vacancy.id} files={jobFiles} failed={jobFileFailed} />
                 {vacancy.description ? (
-                  <p className="max-w-prose text-sm leading-relaxed whitespace-pre-line text-ink">
-                    {vacancy.description}
-                  </p>
+                  <Markdown text={vacancy.description} className="mt-4 max-w-prose" />
                 ) : (
                   <p className="text-sm text-muted">
                     No job profile yet. Ask the client for a job description and add it here.

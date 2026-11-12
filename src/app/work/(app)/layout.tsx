@@ -18,6 +18,7 @@ export default function WorkLayout({ children }: LayoutProps<"/work">) {
   return (
     <div lang="en">
       <WorkShell
+        staff={isTeam()}
         workspaces={
           <Suspense fallback={<WorkspaceNavSkeleton />}>
             <WorkspaceNav />
@@ -33,6 +34,15 @@ export default function WorkLayout({ children }: LayoutProps<"/work">) {
       </WorkShell>
     </div>
   );
+}
+
+/** For the shortcuts and the search: team members also get the portal pages. Not awaited, the shell streams it. */
+async function isTeam(): Promise<boolean> {
+  try {
+    return isStaff(await requireWorkUser());
+  } catch {
+    return false;
+  }
 }
 
 async function WorkUserMenu() {

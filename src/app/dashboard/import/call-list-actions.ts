@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requireModule } from "@/lib/auth";
 import type { ContactStatus, Json, TablesInsert } from "@/lib/database.types";
-import { normalizeEmail, normalizeLinkedin, normalizePhone, phoneTypeFor } from "@/lib/gtm/normalize";
+import { cleanLinkedinUrl, normalizeEmail, normalizeLinkedin, normalizePhone, phoneTypeFor } from "@/lib/gtm/normalize";
 import type { LeadStatus } from "@/lib/sales/database";
 import { contactRoutes } from "@/lib/sales/labels";
 import { historyExternalId } from "@/lib/sales/call-list-import";
@@ -144,7 +144,7 @@ export async function importCompanies(input: z.input<typeof companySchema>[]): P
       existing = data;
     }
     if (!existing && linkedin) {
-      const { data } = await supabase.from("companies").select(select).ilike("linkedin_url", linkedin).limit(1);
+      const { data } = await supabase.from("companies").select(select).eq("linkedin_key", normalizeLinkedin(linkedin) ?? "").limit(1);
       existing = data?.[0] ?? null;
     }
     if (!existing) {
@@ -246,7 +246,7 @@ export async function importContacts(input: z.input<typeof contactSchema>[]): Pr
     const phone = normalizePhone(c.phone);
     let existing: Record<string, unknown> | null = null;
     if (linkedin) {
-      const { data } = await supabase.from("contacts").select(select).eq("linkedin_url", linkedin).maybeSingle();
+      const { data } = await supabase.from("contacts").select(select).eq("linkedin_key", linkedin).maybeSingle();
       existing = data;
     }
     if (!existing && email) {
@@ -275,7 +275,8 @@ export async function importContacts(input: z.input<typeof contactSchema>[]): Pr
       title: c.title,
       tier: c.tier,
       route: c.route,
-      linkedin_url: linkedin,
+      // The link as in the sheet (case kept); linkedin above is only the key to match on.
+      linkedin_url: cleanLinkedinUrl(c.linkedin_url),
       referred_to: c.referred_to,
       caller_note: c.caller_note,
       last_attempt_at: c.last_attempt_at,

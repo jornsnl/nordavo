@@ -100,7 +100,8 @@ function NavList({
     .map((section) => ({ ...section, items: section.items.filter((item) => canSeePath(item.href, modules)) }))
     .filter((section) => section.items.length > 0);
   // Titled sections start collapsed, except the one with the current page.
-  // A section opened or closed by hand stays that way in this browser.
+  // Every section can be opened and closed by hand, the current one too
+  // (feedback Julius), and stays that way in this browser.
   const raw = useSyncExternalStore(subscribe, readRaw, () => null);
   const toggles = useMemo(() => parseToggles(raw), [raw]);
   const toggle = (label: string, open: boolean) => writeToggles({ ...toggles, [label]: !open });
@@ -111,7 +112,7 @@ function NavList({
       {sections.map((section, index) => {
         const hasActive = section.items.some((item) => isActive(item.href, pathname));
         const label = section.label;
-        const open = !label || hasActive || toggles[label] === true;
+        const open = !label || (toggles[label] ?? hasActive);
         const listId = `${baseId}-section-${index}`;
         return (
           <div key={label ?? index}>
@@ -121,10 +122,18 @@ function NavList({
                 onClick={() => toggle(label, open)}
                 aria-expanded={open}
                 aria-controls={listId}
-                disabled={hasActive}
-                className="group/section mb-1 flex w-full items-center justify-between rounded-md px-3 py-1.5 text-[11px] font-semibold tracking-wider text-brand-200/50 uppercase transition hover:text-brand-100 focus-visible:outline-2 focus-visible:outline-accent-500 disabled:cursor-default disabled:hover:text-brand-200/50 max-lg:min-h-11"
+                className="group/section mb-1 flex w-full items-center justify-between rounded-md px-3 py-1.5 text-[11px] font-semibold tracking-wider text-brand-200/50 uppercase transition hover:text-brand-100 focus-visible:outline-2 focus-visible:outline-accent-500 max-lg:min-h-11"
               >
-                {label}
+                <span className="flex items-center gap-2">
+                  {label}
+                  {/* Closed with the current page inside: a dot says where you are. */}
+                  {!open && hasActive && (
+                    <>
+                      <span aria-hidden="true" className="size-1.5 rounded-full bg-accent-500" />
+                      <span className="sr-only">(current page)</span>
+                    </>
+                  )}
+                </span>
                 <ChevronRight
                   className={`size-3.5 transition-transform ${open ? "rotate-90" : ""}`}
                   aria-hidden="true"

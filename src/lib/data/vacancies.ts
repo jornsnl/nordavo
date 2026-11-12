@@ -4,7 +4,7 @@ import type { ApplicationStage, Seniority, TalentStage, VacancyStatus } from "@/
 import { createClient } from "@/lib/supabase/server";
 import { applicationStages, talentStages, vacancyStatuses } from "@/lib/labels";
 import { leadTime, type LeadTime } from "@/lib/talent/lead-time";
-import { daysBetween } from "@/lib/format";
+import { daysOpenWithoutHolds, flowDeadline, holdSummary, type HoldPeriod } from "@/lib/recruitment/vacancy-time";
 import { isUuid, likePattern } from "@/lib/data/clients";
 
 /** Our promise: 3 candidates within 3 weeks. */
@@ -21,9 +21,9 @@ export function isTalentStage(value: unknown): value is TalentStage {
   return talentStages.some((s) => s.value === value);
 }
 
-/** Days a vacancy has been open, counted up to closed_at when it is closed. */
-export function vacancyDaysOpen(v: { opened_at: string; closed_at: string | null }) {
-  return Math.max(0, daysBetween(v.opened_at, v.closed_at ?? new Date()));
+/** Days a vacancy has been open, counted up to closed_at when it is closed, without the days on hold. */
+export function vacancyDaysOpen(v: { opened_at: string; closed_at: string | null }, holds: HoldPeriod[] = []) {
+  return daysOpenWithoutHolds(v, holds);
 }
 
 export type VacancyListItem = {
@@ -43,6 +43,12 @@ export type VacancyListItem = {
   stack: string[];
   inPipeline: number;
   daysOpen: number;
+  /** Deadline to present the top 3 to 5 candidates. */
+  presentationDeadline: string | null;
+  /** End of the whole flow: the presentation deadline, else opened plus three weeks and the days on hold. */
+  flowDeadline: { date: string; source: "deadline" | "three_weeks" } | null;
+  openedAt: string;
+  presented: number;
 };
 
 export async function listVacancies({
@@ -65,7 +71,7 @@ export async function listVacancies({
   let query = supabase
     .from("vacancies")
     .select(
-      "id, title, client_id, company_id, is_talent_pool, seniority, status, stack, opened_at, closed_at, talent_stage, intake_at, profiles_sent_at, client:clients(name), company:companies(name), applications(stage)",
+      "id, title, client_id, company_id, is_talent_pool, seniority, status, stack, opened_at, closed_at, talent_stage, intake_at, profiles_sent_at, presentation_deadline, client:clients(name), company:companies(name), applications(stage, presented_at), holds:vacancy_holds(started_on, ended_on)",
     )
     .order("opened_at", { ascending: true });
 
@@ -80,6 +86,10 @@ export async function listVacancies({
 
   return data.map((v) => ({
     id: v.id,
+    openedAt: v.opened_at,
+    presentationDeadline: v.presentation_deadline,
+    flowDeadline: flowDeadline(v, v.holds),
+    presented: v.applications.filter((a) => a.presented_at !== null || PRESENTED_STAGES.includes(a.stage)).length,
     title: v.title,
     clientId: v.client_id,
     clientName: v.client?.name ?? null,
@@ -87,12 +97,12 @@ export async function listVacancies({
     companyName: v.company?.name ?? null,
     isTalentPool: v.is_talent_pool,
     talentStage: v.talent_stage,
-    leadTime: leadTime(v),
+    leadTime: leadTime(v, new Date(), v.holds),
     seniority: v.seniority,
     status: v.status,
     stack: v.stack,
     inPipeline: v.applications.filter((a) => a.stage !== "rejected" && a.stage !== "parked").length,
-    daysOpen: vacancyDaysOpen(v),
+    daysOpen: vacancyDaysOpen(v, v.holds),
   }));
 }
 
@@ -103,13 +113,21 @@ export async function getVacancy(id: string) {
   const { data, error } = await supabase
     .from("vacancies")
     .select(
-      "*, client:clients(id, name), company:companies(id, name, domain), owner:profiles!vacancies_owner_id_fkey(id, full_name, email)",
+      "*, client:clients(id, name), company:companies(id, name, domain), owner:profiles!vacancies_owner_id_fkey(id, full_name, email), holds:vacancy_holds(id, started_on, ended_on, reason)",
     )
     .eq("id", id)
     .maybeSingle();
   if (error) throw new Error(`Could not load vacancy: ${error.message}`);
   if (!data) return null;
-  return { ...data, daysOpen: vacancyDaysOpen(data), leadTime: leadTime(data) };
+  const holds = [...data.holds].sort((a, b) => a.started_on.localeCompare(b.started_on));
+  return {
+    ...data,
+    holds,
+    holdSummary: holdSummary(holds),
+    daysOpen: vacancyDaysOpen(data, holds),
+    leadTime: leadTime(data, new Date(), holds),
+    flowDeadline: flowDeadline(data, holds),
+  };
 }
 
 /**
@@ -172,4 +190,20 @@ export async function getVacancyPipelineSummary(vacancyId: string): Promise<Pipe
     presented: data.filter((a) => a.presented_at !== null || PRESENTED_STAGES.includes(a.stage))
       .length,
   };
+}
+
+/** The client's vacancy files stored with a vacancy (attachments of kind job_description), newest first. */
+export async function listJobFiles(vacancyId: string) {
+  await requireStaff();
+  if (!isUuid(vacancyId)) return [];
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("attachments")
+    .select("id, file_name, created_at")
+    .eq("entity_type", "vacancy")
+    .eq("entity_id", vacancyId)
+    .eq("kind", "job_description")
+    .order("created_at", { ascending: false });
+  if (error) throw new Error(`Could not load the vacancy files: ${error.message}`);
+  return data.map((f) => ({ id: f.id, fileName: f.file_name, createdAt: f.created_at }));
 }

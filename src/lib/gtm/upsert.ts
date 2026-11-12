@@ -8,6 +8,8 @@ import type {
   TablesInsert,
 } from "@/lib/database.types";
 import {
+  cleanLinkedinUrl,
+  isLinkedinCaseRepair,
   normalizeDomain,
   normalizeEmail,
   normalizeLinkedin,
@@ -64,7 +66,8 @@ export async function upsertCompany(db: Db, input: CompanyInput, source: string)
   const { data: existing, error: findError } = await db
     .from("companies")
     .select("id, name, website, legal_form, employees, sector, kvk_number, linkedin_url, city, sources")
-    .eq("domain", domain)
+    .or(`domain.eq.${domain},alias_domains.cs.{${domain}}`)
+    .limit(1)
     .maybeSingle();
   if (findError) throw findError;
 
@@ -75,7 +78,7 @@ export async function upsertCompany(db: Db, input: CompanyInput, source: string)
     employees: input.employees ?? null,
     sector: input.sector ?? null,
     kvk_number: input.kvk_number ?? null,
-    linkedin_url: input.linkedin_url ?? null,
+    linkedin_url: cleanLinkedinUrl(input.linkedin_url),
     city: input.city ?? null,
   };
 
@@ -126,13 +129,13 @@ export async function upsertContact(db: Db, input: ContactInput, source: string)
   const phone = normalizePhone(input.phone);
   const now = new Date().toISOString();
 
-  // Same person: LinkedIn URL first; without one, the same email at the same company.
+  // Same person: LinkedIn link first (any case: linkedin_key); without one, the same email at the same company.
   let query = db
     .from("contacts")
     .select("id, first_name, last_name, title, tier, linkedin_url, email, email_status, phone, phone_type, sources")
     .limit(1);
   if (input.id) query = query.eq("id", input.id);
-  else if (linkedin) query = query.eq("linkedin_url", linkedin);
+  else if (linkedin) query = query.eq("linkedin_key", linkedin);
   else if (email) query = query.eq("company_id", input.company_id).eq("email", email);
   else query = query.eq("company_id", input.company_id).eq("first_name", input.first_name ?? "").eq("last_name", input.last_name ?? "");
   const { data: found, error: findError } = await query.maybeSingle();
@@ -143,11 +146,13 @@ export async function upsertContact(db: Db, input: ContactInput, source: string)
     last_name: input.last_name?.trim() || null,
     title: input.title?.trim() || null,
     tier: input.tier ?? null,
-    linkedin_url: linkedin,
+    linkedin_url: cleanLinkedinUrl(input.linkedin_url),
   };
 
   if (found) {
     const patch: Record<string, unknown> = missingFields(found, incoming);
+    // An old Apify link stored in lowercase gets its case back.
+    if (isLinkedinCaseRepair(found.linkedin_url, incoming.linkedin_url)) patch.linkedin_url = incoming.linkedin_url;
     if (email && !found.email) {
       Object.assign(patch, { email, email_source: source, email_found_at: now, email_status: input.email_status ?? "unknown" });
     }
@@ -191,11 +196,19 @@ export type SignalInput = {
   role_group?: string | null;
   /** Date the vacancy went online (YYYY-MM-DD). */
   posted_at?: string | null;
+  /** The vacancy text. */
+  description?: string | null;
+  /** true: offline now; false or undefined with a new sighting: open again. */
+  closed?: boolean;
 };
 
-/** Same vacancy seen again only updates last_seen_at. */
-export async function upsertSignal(db: Db, input: SignalInput) {
-  const dedupeKey = signalDedupeKey({
+/**
+ * Same vacancy seen again only updates last_seen_at (and fills in the date
+ * online, role group and text when they were empty). The same link at
+ * another company is another vacancy, never an update of the first one.
+ */
+export async function upsertSignal(db: Db, input: SignalInput): Promise<{ id: string; created: boolean }> {
+  const baseKey = signalDedupeKey({
     source: input.source,
     sourceUrl: input.source_url,
     companyDomain: input.company_domain,
@@ -203,11 +216,20 @@ export async function upsertSignal(db: Db, input: SignalInput) {
   });
   const seenAt = input.seen_at ?? new Date().toISOString();
 
-  const { data: existing } = await db
+  let dedupeKey = baseKey;
+  let { data: existing } = await db
     .from("signals")
-    .select("id, role_group, posted_at")
+    .select("id, company_id, role_group, posted_at, description, closed_at")
     .eq("dedupe_key", dedupeKey)
     .maybeSingle();
+  if (existing && existing.company_id !== input.company_id) {
+    dedupeKey = `${baseKey}#${input.company_domain}`;
+    ({ data: existing } = await db
+      .from("signals")
+      .select("id, company_id, role_group, posted_at, description, closed_at")
+      .eq("dedupe_key", dedupeKey)
+      .maybeSingle());
+  }
   if (existing) {
     const { error } = await db
       .from("signals")
@@ -215,6 +237,9 @@ export async function upsertSignal(db: Db, input: SignalInput) {
         last_seen_at: seenAt,
         ...(input.role_group && !existing.role_group ? { role_group: input.role_group } : {}),
         ...(input.posted_at && !existing.posted_at ? { posted_at: input.posted_at } : {}),
+        ...(input.description && !existing.description ? { description: input.description } : {}),
+        ...(input.closed === true && !existing.closed_at ? { closed_at: seenAt } : {}),
+        ...(input.closed !== true && existing.closed_at ? { closed_at: null } : {}),
       })
       .eq("id", existing.id);
     if (error) throw error;
@@ -234,6 +259,8 @@ export async function upsertSignal(db: Db, input: SignalInput) {
       last_seen_at: seenAt,
       role_group: input.role_group ?? null,
       posted_at: input.posted_at ?? null,
+      description: input.description ?? null,
+      closed_at: input.closed ? seenAt : null,
       raw_json: (input.raw_json ?? null) as Database["public"]["Tables"]["signals"]["Insert"]["raw_json"],
     })
     .select("id")

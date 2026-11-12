@@ -1,7 +1,9 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/database.types";
-import type { CompanyRow, CompanyVacancy, ContactRow, PrimaryContact } from "@/lib/sales/rows";
+import type { CompanyRow, CompanyVacancy, ContactRow } from "@/lib/sales/rows";
+import type { CompanyFactsRow } from "@/lib/sales/leads-database";
+import { vacancyFacts } from "@/lib/sales/vacancies";
 import { parseViewConfig, type ViewConfig } from "@/lib/sales/grid";
 import type { SalesViewEntity } from "@/lib/sales/database";
 
@@ -22,29 +24,38 @@ async function all<T>(
   return out;
 }
 
-function personName(first: string | null, last: string | null): string | null {
-  return [first, last].filter(Boolean).join(" ").trim() || null;
+/**
+ * All rows, with the pages after the first fetched at the same time: the
+ * count comes with the first page, so 5,000 rows take two round trips
+ * instead of five (docs/sales.md, Snelheid). The query must have a stable
+ * order (created_at, id).
+ */
+async function allParallel<T>(
+  page: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: { message: string } | null; count?: number | null }>,
+  max = 50000,
+): Promise<T[]> {
+  const first = await page(0, 999);
+  if (first.error) throw new Error(first.error.message);
+  const rows = [...(first.data ?? [])];
+  const total = Math.min(first.count ?? rows.length, max);
+  if (rows.length < 1000 || total <= 1000) return rows;
+  const pages = [];
+  for (let from = 1000; from < total; from += 1000) pages.push(page(from, from + 999));
+  for (const result of await Promise.all(pages)) {
+    if (result.error) throw new Error(result.error.message);
+    rows.push(...(result.data ?? []));
+  }
+  return rows;
 }
 
-const CONTACT_ACTIVITY_TYPES = ["contact", "reply", "meeting"] as const;
+/** Counts, primary contact, last contact moment and open vacancies per company, in one query. */
+export async function loadCompanyFacts(db: Db): Promise<Map<string, CompanyFactsRow>> {
+  const rows = await allParallel((from, to) => db.rpc("sales_company_facts", {}, { count: "exact" }).range(from, to));
+  return new Map(rows.map((r) => [r.company_id, r]));
+}
 
-/** The latest contact moment per company (calls, mails, LinkedIn, meetings; not edits). */
-export async function latestActivityByCompany(db: Db): Promise<Map<string, { at: string; summary: string }>> {
-  const rows = await all((from, to) =>
-    db
-      .from("activities")
-      .select("company_id, date, channel, outcome, type")
-      .in("type", [...CONTACT_ACTIVITY_TYPES])
-      .not("company_id", "is", null)
-      .order("date", { ascending: false })
-      .range(from, to),
-  10000);
-  const map = new Map<string, { at: string; summary: string }>();
-  for (const r of rows) {
-    if (!r.company_id || map.has(r.company_id)) continue;
-    map.set(r.company_id, { at: r.date, summary: [r.channel, r.outcome].filter(Boolean).join(": ") });
-  }
-  return map;
+function personName(first: string | null, last: string | null): string | null {
+  return [first, last].filter(Boolean).join(" ").trim() || null;
 }
 
 /**
@@ -84,88 +95,81 @@ export async function openVacanciesByCompany(
 
 /** Every company with what the Leads and Pipeline tables show. */
 export async function loadCompanyRows(db: Db, options: { pipelineOnly?: boolean } = {}): Promise<CompanyRow[]> {
-  const [companies, contacts, signals, latest, profiles, partners] = await Promise.all([
-    all((from, to) => {
+  const [companies, facts, profiles, partners] = await Promise.all([
+    allParallel((from, to) => {
       let q = db
         .from("companies")
         .select(
           "id, name, domain, website, prio, category, description, sector, employees, city, linkedin_url, general_phone, red_flags, opening_line, source_note, icp_decision, icp_score, lead_status, lead_status_changed_at, pipeline_stage, pipeline_stage_changed_at, pipeline_entered_at, lost_reason, parked_until, profiles_due_on, owner_id, partner_id, next_action, next_action_date, pinned_at, manual_position, client_id, source, created_at",
+          { count: "exact" },
         )
         .order("created_at", { ascending: true })
+        .order("id", { ascending: true })
         .range(from, to);
       if (options.pipelineOnly) q = q.not("pipeline_stage", "is", null);
       return q;
     }),
-    all((from, to) =>
-      db
-        .from("contacts")
-        .select("id, company_id, first_name, last_name, title, phone, email, linkedin_url, is_primary")
-        .range(from, to),
-    ),
-    all((from, to) => db.from("signals").select("company_id").range(from, to)),
-    latestActivityByCompany(db),
+    loadCompanyFacts(db),
     db.from("profiles").select("id, full_name, email").in("role", ["admin", "member"]),
     db.from("partners").select("id, name"),
   ]);
 
-  const primary = new Map<string, PrimaryContact>();
-  const count = new Map<string, number>();
-  for (const c of contacts) {
-    count.set(c.company_id, (count.get(c.company_id) ?? 0) + 1);
-    if (c.is_primary || !primary.has(c.company_id)) {
-      if (!c.is_primary && primary.has(c.company_id)) continue;
-      primary.set(c.company_id, {
-        id: c.id,
-        name: personName(c.first_name, c.last_name),
-        title: c.title,
-        phone: c.phone,
-        email: c.email,
-        linkedinUrl: c.linkedin_url,
-      });
-    }
-  }
-  // Only the pipeline shows vacancies; the Leads table stays as light as it was.
+  // Only the pipeline shows the recruitment vacancies; the Leads table shows the vacancy signals.
   const vacancies = options.pipelineOnly ? await openVacanciesByCompany(db, companies) : new Map<string, CompanyVacancy[]>();
-  const signalCount = new Map<string, number>();
-  for (const s of signals) signalCount.set(s.company_id, (signalCount.get(s.company_id) ?? 0) + 1);
   const ownerName = new Map((profiles.data ?? []).map((p) => [p.id, p.full_name || p.email || null]));
   const partnerName = new Map((partners.data ?? []).map((p) => [p.id, p.name]));
+  const now = Date.now();
 
-  return companies.map((c) => ({
-    ...c,
-    red_flags: c.red_flags ?? [],
-    owner_name: c.owner_id ? (ownerName.get(c.owner_id) ?? null) : null,
-    partner_name: c.partner_id ? (partnerName.get(c.partner_id) ?? null) : null,
-    primary_contact: primary.get(c.id) ?? null,
-    contacts_count: count.get(c.id) ?? 0,
-    signals_count: signalCount.get(c.id) ?? 0,
-    last_activity_at: latest.get(c.id)?.at ?? null,
-    last_activity: latest.get(c.id)?.summary ?? null,
-    open_vacancies: vacancies.get(c.id) ?? [],
-  }));
+  return companies.map((c) => {
+    const f = facts.get(c.id);
+    return {
+      ...c,
+      red_flags: c.red_flags ?? [],
+      owner_name: c.owner_id ? (ownerName.get(c.owner_id) ?? null) : null,
+      partner_name: c.partner_id ? (partnerName.get(c.partner_id) ?? null) : null,
+      primary_contact: f?.primary_contact ?? null,
+      contacts_count: f?.contacts_count ?? 0,
+      signals_count: f?.signals_count ?? 0,
+      last_activity_at: f?.last_activity_at ?? null,
+      last_activity: f?.last_activity ?? null,
+      open_vacancies: vacancies.get(c.id) ?? [],
+      ...vacancyFacts(f?.open_vacancies ?? [], now),
+    };
+  });
 }
 
 /** Every contact, flat with the company fields the Contacts table and call lists use. */
 export async function loadContactRows(db: Db, options: { contactIds?: string[] } = {}): Promise<ContactRow[]> {
-  const [contacts, callers] = await Promise.all([
-    all((from, to) => {
+  const [contacts, callers, facts] = await Promise.all([
+    allParallel((from, to) => {
       let q = db
         .from("contacts")
         .select(
-          "id, company_id, first_name, last_name, full_name, title, tier, role, route, phone, phone_type, email, email_status, linkedin_url, status, status_changed_at, attempts, last_attempt_at, callback_at, referred_to, caller_note, assigned_caller_id, assigned_until, claimed_by, claimed_at, is_primary, pinned_at, manual_position, last_contacted_at, created_at, company:companies!contacts_company_id_fkey(name, prio, category, lead_status, pipeline_stage, city, sector, icp_decision)",
+          "id, company_id, first_name, last_name, full_name, title, tier, role, route, phone, phone_type, email, email_status, linkedin_url, linkedin_member_urn, status, status_changed_at, attempts, last_attempt_at, callback_at, referred_to, caller_note, assigned_caller_id, assigned_until, claimed_by, claimed_at, is_primary, pinned_at, manual_position, last_contacted_at, created_at, company:companies!contacts_company_id_fkey(name, prio, category, lead_status, pipeline_stage, city, sector, icp_decision)",
+          { count: "exact" },
         )
         .order("created_at", { ascending: true })
+        .order("id", { ascending: true })
         .range(from, to);
       if (options.contactIds) q = q.in("id", options.contactIds.length > 0 ? options.contactIds : ["00000000-0000-0000-0000-000000000000"]);
       return q;
     }),
     db.from("callers").select("id, name"),
+    loadCompanyFacts(db),
   ]);
   const callerName = new Map((callers.data ?? []).map((c) => [c.id, c.name]));
+  const now = Date.now();
+  const vacanciesOf = new Map<string, ReturnType<typeof vacancyFacts>>();
   return contacts.map((c) => {
     const { company, ...rest } = c;
+    let v = vacanciesOf.get(c.company_id);
+    if (!v) {
+      v = vacancyFacts(facts.get(c.company_id)?.open_vacancies ?? [], now);
+      vacanciesOf.set(c.company_id, v);
+    }
     return {
       ...rest,
+      ...v,
       full_name: c.full_name ?? personName(c.first_name, c.last_name),
       company_name: company?.name ?? "",
       company_prio: company?.prio ?? null,

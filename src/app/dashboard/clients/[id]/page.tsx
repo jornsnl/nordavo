@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, ExternalLink, Globe, Mail, Pencil, Phone, Plus } from "lucide-react";
+import { ArrowLeft, ExternalLink, Globe, Mail, Pencil, Phone, Plus, TriangleAlert } from "lucide-react";
 import { EntityExtras } from "@/components/entity/entity-extras";
 import { QuickActions, telHref, type QuickAction } from "@/components/entity/quick-actions";
 import { PageHeader } from "@/components/dashboard/page-header";
@@ -27,6 +27,8 @@ import {
 import { formatDate } from "@/lib/format";
 import { clientStatuses, optionFor, placementStatuses, vacancyStatuses } from "@/lib/labels";
 import { deleteClientAction, deleteContactAction, saveContactAction } from "../actions";
+import { clientReadiness, joinList, type ClientReadiness } from "@/lib/recruitment/client-readiness";
+import type { ClientStatus } from "@/lib/database.types";
 
 export const metadata: Metadata = {
   title: "Client",
@@ -105,6 +107,7 @@ async function ClientDetail({ params }: { params: Params }) {
       />
 
       <QuickActions label={`Quick contact with ${client.name}`} actions={quickActions} />
+      <ClientReadinessNotice status={client.status} readiness={clientReadiness({ ...client, contactCount: contacts.length })} />
 
       <RecordLayout
         entity="client"
@@ -273,5 +276,38 @@ function DetailSkeleton() {
         <ListSkeleton rows={3} />
       </div>
     </div>
+  );
+}
+
+/**
+ * What the client still needs: an owner and a contact person before it can
+ * be Active (enforced on save), city and industry as a reminder.
+ */
+function ClientReadinessNotice({ status, readiness }: { status: ClientStatus; readiness: ClientReadiness }) {
+  const { missing, warnings } = readiness;
+  if (missing.length === 0 && warnings.length === 0) return null;
+  if (missing.length > 0) {
+    const active = status === "active";
+    return (
+      <p
+        role={active ? "alert" : "status"}
+        className={`mb-4 flex items-start gap-2 rounded-2xl border px-4 py-3 text-sm sm:mb-6 ${
+          active ? "border-danger/20 bg-danger-bg text-danger" : "border-amber-600/20 bg-amber-50 text-amber-900"
+        }`}
+      >
+        <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+        <span>
+          {active ? "This client is Active but is missing " : "Before this client can be Active, add "}
+          {joinList(missing)}.
+          {warnings.length > 0 && ` Also fill in the ${joinList(warnings)}.`}
+        </span>
+      </p>
+    );
+  }
+  return (
+    <p role="status" className="mb-4 flex items-start gap-2 rounded-2xl border border-amber-600/20 bg-amber-50 px-4 py-3 text-sm text-amber-900 sm:mb-6">
+      <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+      <span>Fill in the {joinList(warnings)} of this client.</span>
+    </p>
   );
 }

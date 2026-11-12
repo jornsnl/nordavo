@@ -282,13 +282,17 @@ export function SalesBoard({
   kind,
   rows,
   onMove,
+  columns: columnsOverride,
 }: {
   kind: GridKind;
   rows: AnyRow[];
+  /** The board columns with the labels, order and hidden options of the choice list (3f93bd66). */
+  columns?: { value: string; label: string; tone: string; description?: string }[];
   /** extra holds the lost reason or the parked date when a company goes there. */
   onMove: (row: AnyRow, value: string, extra?: { lost_reason?: string; parked_until?: string }) => void;
 }) {
-  const k = kinds[kind];
+  const base = kinds[kind];
+  const k = useMemo(() => (columnsOverride ? { ...base, board: { ...base.board, columns: columnsOverride } } : base), [base, columnsOverride]);
   const sensors = useDragSensors();
   const [activeId, setActiveId] = useState<string | null>(null);
   const [lost, setLost] = useState<AnyRow | null>(null);

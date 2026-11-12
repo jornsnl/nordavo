@@ -11,6 +11,7 @@ import {
   type ActionState,
 } from "@/lib/action-state";
 import { createClient } from "@/lib/supabase/server";
+import { activeBlockedMessage, clientReadiness } from "@/lib/recruitment/client-readiness";
 
 const idSchema = z.guid();
 
@@ -54,6 +55,12 @@ export async function createClientAction(
     return { error: "Check the highlighted fields.", fieldErrors: fieldErrorsFrom(parsed.error) };
   }
 
+  // A new client has no contact persons yet, so it cannot start as Active.
+  if (parsed.data.status === "active") {
+    const { missing } = clientReadiness({ ...toRow(parsed.data), contactCount: 0 });
+    return { error: activeBlockedMessage(missing), fieldErrors: { status: "Start as Lead, add a contact person, then set it to Active." } };
+  }
+
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("clients")
@@ -79,6 +86,23 @@ export async function updateClientAction(
   }
 
   const supabase = await createClient();
+  if (parsed.data.status === "active") {
+    const { count, error: countError } = await supabase
+      .from("client_contacts")
+      .select("id", { count: "exact", head: true })
+      .eq("client_id", id);
+    if (countError) return { error: GENERIC_ERROR };
+    const { missing } = clientReadiness({ ...toRow(parsed.data), contactCount: count ?? 0 });
+    if (missing.length > 0) {
+      return {
+        error: activeBlockedMessage(missing),
+        fieldErrors: {
+          status: "Not yet: see the message above.",
+          ...(missing.includes("an owner") ? { owner_id: "Choose an owner before setting the client to Active." } : {}),
+        },
+      };
+    }
+  }
   const { error } = await supabase.from("clients").update(toRow(parsed.data)).eq("id", id);
   if (error) return { error: GENERIC_ERROR };
 
@@ -196,6 +220,14 @@ export async function deleteContactAction(
   }
 
   const supabase = await createClient();
+  // An active client keeps at least one contact person.
+  const [{ data: client }, { count }] = await Promise.all([
+    supabase.from("clients").select("status").eq("id", clientId).maybeSingle(),
+    supabase.from("client_contacts").select("id", { count: "exact", head: true }).eq("client_id", clientId),
+  ]);
+  if (client?.status === "active" && (count ?? 0) <= 1) {
+    return { error: "An active client needs at least one contact person. Add another one first, or set the client to Lead or Inactive." };
+  }
   const { error } = await supabase
     .from("client_contacts")
     .delete()

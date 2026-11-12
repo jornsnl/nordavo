@@ -7,6 +7,7 @@ import type { CompanyCategory, ContactRole, LeadStatus, PipelineStage } from "@/
 import type { Accessor, SortRule } from "@/lib/sales/grid";
 import { contactStatuses, contactTiers, icpDecisions } from "@/lib/labels";
 import { companyCategories, companyPrios, contactRoles, contactRouteOptions, leadStatuses, parseRoute, pipelineStages } from "@/lib/sales/labels";
+import type { VacancyFacts } from "@/lib/sales/vacancies";
 
 export type PrimaryContact = {
   id: string;
@@ -69,7 +70,7 @@ export type CompanyRow = {
   last_activity: string | null;
   /** Open vacancies, oldest first (the company's own and its client's). */
   open_vacancies: CompanyVacancy[];
-};
+} & VacancyFacts;
 
 /** Whole days since a YYYY-MM-DD date, or null. */
 export function daysOpen(date: string | null | undefined, now = Date.now()): number | null {
@@ -124,7 +125,9 @@ export type ContactRow = {
   manual_position: number | null;
   last_contacted_at: string | null;
   created_at: string;
-};
+  /** The LinkedIn member id (ACwAA...) next to the profile link. */
+  linkedin_member_urn?: string | null;
+} & Partial<VacancyFacts>;
 
 export type CellType = "text" | "longtext" | "number" | "select" | "multiselect" | "date" | "datetime" | "boolean" | "url" | "phone" | "email";
 
@@ -136,13 +139,16 @@ export type ColumnDef<T> = {
   field?: string;
   /** Which record an edit goes to. */
   entity?: "company" | "contact";
-  options?: { value: string; label: string }[];
+  /** hidden: kept for the label of existing values, not offered in pickers (choice lists, 3f93bd66). */
+  options?: { value: string; label: string; hidden?: boolean }[];
   width?: number;
   /** Shown when a view does not list its columns. */
   defaultVisible?: boolean;
   get: Accessor<T>;
   /** Value written for the edited text, or an error message. */
   parse?: (input: string) => { value: unknown } | { error: string };
+  /** Several links in one cell (the vacancies of a company); `get` stays the text to sort, filter and copy. */
+  links?: (row: T) => { label: string; href: string }[];
 };
 
 function opts<T extends string>(list: { value: T; label: string }[]) {
@@ -203,6 +209,27 @@ const statusOptions = opts(contactStatuses);
 const routeOptions = contactRouteOptions.map((o) => ({ value: o.value as string, label: o.label }));
 const tierOptions = contactTiers.map((t) => ({ value: t.value, label: `Tier ${t.value}` }));
 
+/** Vacancy columns shared by Leads, Contacts and the call lists (open vacancy signals of the company). */
+function vacancyColumns<T extends Partial<VacancyFacts>>(prefix: string, visible: boolean): ColumnDef<T>[] {
+  return [
+    { key: `${prefix}vacancy_count`, label: "Open vacancies", type: "number", width: 110, defaultVisible: visible, get: (r) => r.vacancy_count ?? 0 },
+    { key: `${prefix}oldest_vacancy_days`, label: "Days open (oldest)", type: "number", width: 130, defaultVisible: visible, get: (r) => r.oldest_vacancy_days ?? null },
+    { key: `${prefix}newest_vacancy_days`, label: "Days online (newest)", type: "number", width: 140, defaultVisible: false, get: (r) => r.newest_vacancy_days ?? null },
+    { key: `${prefix}oldest_vacancy_on`, label: "Oldest vacancy online since", type: "date", width: 150, defaultVisible: false, get: (r) => r.oldest_vacancy_on ?? null },
+    { key: `${prefix}newest_vacancy_on`, label: "Newest vacancy online since", type: "date", width: 150, defaultVisible: false, get: (r) => r.newest_vacancy_on ?? null },
+    {
+      key: `${prefix}vacancy_titles`,
+      label: "Vacancies (days open)",
+      type: "text",
+      width: 260,
+      defaultVisible: false,
+      get: (r) => r.vacancy_titles ?? null,
+      links: (r) =>
+        (r.vacancy_list ?? []).map((v) => ({ label: `${v.title} (${v.days ?? 0}d)`, href: v.url ?? "" })),
+    },
+  ];
+}
+
 export const companyColumns: ColumnDef<CompanyRow>[] = [
   { key: "name", label: "Company", type: "text", field: "name", entity: "company", width: 220, defaultVisible: true, get: (r) => r.name, parse: (i) => (i.trim() ? { value: i.trim() } : { error: "A company needs a name." }) },
   { key: "prio", label: "Prio", type: "select", field: "prio", entity: "company", options: prioOptions, width: 80, defaultVisible: true, get: (r) => (r.prio == null ? null : String(r.prio)), parse: prio },
@@ -228,7 +255,8 @@ export const companyColumns: ColumnDef<CompanyRow>[] = [
   { key: "owner_name", label: "Owner", type: "text", width: 140, defaultVisible: false, get: (r) => r.owner_name },
   { key: "partner_name", label: "Partner", type: "text", width: 140, defaultVisible: false, get: (r) => r.partner_name },
   { key: "contacts_count", label: "Contacts", type: "number", width: 90, defaultVisible: false, get: (r) => r.contacts_count },
-  { key: "signals_count", label: "Vacancies", type: "number", width: 90, defaultVisible: false, get: (r) => r.signals_count },
+  { key: "signals_count", label: "Signals", type: "number", width: 90, defaultVisible: false, get: (r) => r.signals_count },
+  ...vacancyColumns<CompanyRow>("", true),
   { key: "icp_score", label: "ICP score", type: "number", width: 90, defaultVisible: false, get: (r) => r.icp_score },
   { key: "lead_status_changed_at", label: "In status since", type: "datetime", width: 140, defaultVisible: false, get: (r) => r.lead_status_changed_at },
   { key: "source", label: "Source", type: "text", width: 120, defaultVisible: false, get: (r) => r.source },
@@ -287,6 +315,7 @@ export const contactColumns: ColumnDef<ContactRow>[] = [
   { key: "status_changed_at", label: "In status since", type: "datetime", width: 140, defaultVisible: false, get: (r) => r.status_changed_at },
   { key: "last_contacted_at", label: "Last contacted", type: "datetime", width: 140, defaultVisible: false, get: (r) => r.last_contacted_at },
   { key: "created_at", label: "Added", type: "datetime", width: 140, defaultVisible: false, get: (r) => r.created_at },
+  ...vacancyColumns<ContactRow>("company_", false),
 ];
 
 export function accessorsFor<T>(columns: ColumnDef<T>[]): Record<string, Accessor<T>> {

@@ -64,7 +64,12 @@ export function SearchSelect({
   const selected = options.find((o) => o.value === value) ?? null;
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return options.slice(0, 300);
+    if (!q) {
+      const first = options.slice(0, 300);
+      // The chosen value stays in the list, also when it is further down.
+      const chosen = options.find((o) => o.value === value);
+      return chosen && !first.includes(chosen) ? [chosen, ...first] : first;
+    }
     const words = q.split(/\s+/);
     return options
       .filter((o) => {
@@ -72,7 +77,7 @@ export function SearchSelect({
         return words.every((w) => hay.includes(w));
       })
       .slice(0, 300);
-  }, [options, query]);
+  }, [options, query, value]);
 
   useEffect(() => {
     if (!open) return;
@@ -83,11 +88,19 @@ export function SearchSelect({
     return () => document.removeEventListener("mousedown", onDown);
   }, [open]);
 
+  // On opening: the field gets the focus and the chosen value is scrolled into
+  // view, so you see it and its neighbours (feedback Julius, the client filter).
   useEffect(() => {
-    if (open) {
-      inputRef.current?.focus();
-    }
+    if (!open) return;
+    inputRef.current?.focus();
+    listRef.current?.querySelector<HTMLElement>('[aria-selected="true"]')?.scrollIntoView({ block: "center" });
   }, [open]);
+
+  /** Opens the list with the chosen value highlighted. */
+  const openList = () => {
+    setHighlight(Math.max(0, filtered.findIndex((o) => o.value === value)));
+    setOpen(true);
+  };
 
   useEffect(() => {
     listRef.current?.querySelector<HTMLElement>(`[data-index="${highlight}"]`)?.scrollIntoView({ block: "nearest" });
@@ -118,14 +131,11 @@ export function SearchSelect({
         aria-label={ariaLabel}
         data-invalid={invalid ? "" : undefined}
         aria-describedby={describedBy}
-        onClick={() => {
-          setOpen((o) => !o);
-          setHighlight(Math.max(0, filtered.findIndex((o) => o.value === value)));
-        }}
+        onClick={() => (open ? setOpen(false) : openList())}
         onKeyDown={(e) => {
           if (e.key === "ArrowDown" || e.key === "Enter" || e.key === " ") {
             e.preventDefault();
-            setOpen(true);
+            openList();
           }
         }}
         className="flex w-full items-center justify-between gap-2 rounded-xl border border-border bg-white px-3.5 py-2.5 text-left text-sm text-ink shadow-xs outline-none transition focus:border-brand-500 focus:ring-4 focus:ring-brand-100 disabled:bg-surface data-invalid:border-danger"
@@ -200,7 +210,7 @@ export function SearchSelect({
                   e.preventDefault();
                   choose(o.value);
                 }}
-                className={`flex cursor-pointer items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm ${i === highlight ? "bg-brand-50" : ""}`}
+                className={`flex cursor-pointer items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm ${i === highlight ? "bg-brand-50" : ""} ${o.value === value ? "font-semibold text-brand-900" : ""}`}
               >
                 <span className="min-w-0">
                   <span className="block truncate">{o.label}</span>

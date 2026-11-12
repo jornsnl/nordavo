@@ -86,9 +86,10 @@ export function fuzzyScore(query: string, text: string): number {
   const t = normalizeSearch(text);
   if (!q || !t) return 0;
   if (q === t) return 1;
-  if (t.startsWith(q)) return 0.95;
+  // A shorter text that starts with the query is the closer match ("cal": Calls before Call lists).
+  if (t.startsWith(q)) return 0.9 + 0.09 * (q.length / t.length);
   const words = t.split(" ");
-  if (words.some((w) => w.startsWith(q))) return 0.9;
+  if (words.some((w) => w.startsWith(q))) return 0.85 + 0.04 * (q.length / t.length);
   if (t.includes(q)) return 0.8;
 
   const queryWords = q.split(" ");

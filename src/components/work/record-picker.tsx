@@ -61,7 +61,7 @@ export function RecordPicker({
   }
 
   function choose(hit: RecordHit) {
-    if (hit.type === "task") return;
+    if (hit.type === "task" || hit.type === "contact" || hit.type === "page") return;
     setPicked({ type: hit.type, id: hit.id, label: hit.label });
     setQuery("");
     setHits([]);

@@ -1,6 +1,7 @@
 import "server-only";
 import { getCurrentUser, isStaff, requireStaff } from "@/lib/auth";
 import { pageEntries, searchPages } from "@/lib/search/pages";
+import { navSections } from "@/components/dashboard/nav-items";
 import { entityTypes } from "@/lib/labels";
 import { createClient } from "@/lib/supabase/server";
 
@@ -216,7 +217,7 @@ async function searchRecordsFuzzy(query: string, perGroup: number) {
 export async function searchEverything(query: string, perGroup = 5): Promise<SearchGroups> {
   const user = await getCurrentUser();
   const staff = isStaff(user);
-  const page = searchPages(query, pageEntries({ staff, modules: staff ? user.modules : [] })).map((p) => ({
+  const page = searchPages(query, pageEntries({ staff, modules: staff ? user.modules : [], sections: navSections })).map((p) => ({
     type: "page" as const,
     id: p.href,
     label: p.label,

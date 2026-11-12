@@ -8,12 +8,14 @@ import { resolveLayout, sanitizeLayout, type LayoutEntity, type ResolvedLayout, 
 
 type Row = Database["public"]["Tables"]["custom_field_definitions"]["Row"];
 
-const TABLE_OF: Record<CustomFieldEntity, "candidates" | "vacancies" | "applications" | "clients" | "placements"> = {
+const TABLE_OF: Record<CustomFieldEntity, "candidates" | "vacancies" | "applications" | "clients" | "placements" | "companies" | "contacts"> = {
   candidate: "candidates",
   vacancy: "vacancies",
   application: "applications",
   client: "clients",
   placement: "placements",
+  company: "companies",
+  contact: "contacts",
 };
 
 export function toDefinition(row: Row): CustomFieldDefinition {

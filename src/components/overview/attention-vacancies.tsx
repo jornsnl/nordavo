@@ -8,6 +8,7 @@ import {
 } from "@/lib/data/stats";
 import type { Tone } from "@/lib/labels";
 import { Badge } from "@/components/ui/badge";
+import { formatDate } from "@/lib/format";
 
 const signals: Record<AttentionSignal, { label: string; tone: Tone }> = {
   late: { label: `Over ${PROMISED_DAYS} days`, tone: "danger" },
@@ -46,6 +47,7 @@ export async function AttentionVacancies() {
                   <p className="truncate text-xs text-muted">
                     {vacancy.client?.name ?? "Unknown client"}, {vacancy.daysOpen}{" "}
                     {vacancy.daysOpen === 1 ? "day" : "days"} open
+                    {vacancy.presentationDeadline && <>, present by {formatDate(vacancy.presentationDeadline)}</>}
                   </p>
                 </div>
                 <div className="flex items-center justify-between gap-3 sm:justify-start">

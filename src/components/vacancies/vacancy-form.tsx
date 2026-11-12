@@ -1,6 +1,6 @@
 "use client";
 
-import { startTransition, useActionState } from "react";
+import { startTransition, useActionState, useState } from "react";
 import { LoaderCircle } from "lucide-react";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { Field, FormMessage, Input, Select, Textarea } from "@/components/ui/field";
@@ -9,6 +9,8 @@ import { initialActionState, type ActionState } from "@/lib/action-state";
 import type { Seniority, TalentStage, VacancySource, VacancyStatus } from "@/lib/database.types";
 import { seniorities, talentStages, vacancyStatuses } from "@/lib/labels";
 import { ownerTypeOf } from "@/lib/talent/talent-pool";
+import { istToNl } from "@/lib/recruitment/vacancy-time";
+import { todayIso } from "@/lib/format";
 import { OwnerPicker } from "./owner-picker";
 import { vacancySources } from "./talent-labels";
 
@@ -33,6 +35,9 @@ export type VacancyFormValues = {
   status: VacancyStatus;
   monthly_budget: number | null;
   desired_start_date: string | null;
+  presentation_deadline: string | null;
+  start_time_ist: string | null;
+  park_reason: string | null;
   owner_id: string | null;
 };
 
@@ -66,6 +71,10 @@ export function VacancyForm({
   const errors = state.fieldErrors ?? {};
   const invalid = (name: string) =>
     errors[name] ? { "aria-invalid": true, "aria-describedby": `${name}-error` } : {};
+  const [status, setStatus] = useState<VacancyStatus>(defaults?.status ?? "open");
+  const [startIst, setStartIst] = useState(defaults?.start_time_ist?.slice(0, 5) ?? "");
+  const nl = istToNl(startIst);
+  const wasOnHold = defaults?.status === "on_hold";
   const contactDefault =
     defaults?.client_contact_required === true ? "ja" : defaults?.client_contact_required === false ? "nee" : "";
 
@@ -112,10 +121,26 @@ export function VacancyForm({
           label="Job profile"
           htmlFor="description"
           error={errors.description}
-          hint="What the developer will do, the team and what the client cares about."
+          hint="What the developer will do, the team and what the client cares about. Formatting: ## heading, - bullet, **bold**."
           className="sm:col-span-2"
         >
           <Textarea id="description" name="description" rows={8} defaultValue={defaults?.description ?? ""} {...invalid("description")} />
+        </Field>
+        <Field
+          label="Client's vacancy (PDF or Word)"
+          htmlFor="job_file"
+          error={errors.job_file}
+          hint="Stored with the vacancy and read into the job profile and requirements that are still empty."
+          className="sm:col-span-2"
+        >
+          <Input
+            id="job_file"
+            name="job_file"
+            type="file"
+            accept=".pdf,.docx,.doc,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/msword"
+            className="file:mr-3 file:rounded-lg file:border-0 file:bg-brand-50 file:px-3 file:py-1 file:text-sm file:font-medium file:text-brand-700"
+            {...invalid("job_file")}
+          />
         </Field>
         <Field
           label="Stack"
@@ -142,7 +167,7 @@ export function VacancyForm({
           error={errors.status}
           hint="Filled or Closed sets the closing date to today."
         >
-          <Select id="status" name="status" defaultValue={defaults?.status ?? "open"} {...invalid("status")}>
+          <Select id="status" name="status" value={status} onChange={(e) => setStatus(e.target.value as VacancyStatus)} {...invalid("status")}>
             {vacancyStatuses.map((s) => (
               <option key={s.value} value={s.value}>
                 {s.label}
@@ -150,6 +175,34 @@ export function VacancyForm({
             ))}
           </Select>
         </Field>
+        {status === "on_hold" && (
+          <div className="grid gap-5 rounded-xl border border-amber-600/20 bg-amber-50/60 p-4 sm:col-span-2 sm:grid-cols-2">
+            <Field
+              label="Reason on hold"
+              htmlFor="park_reason"
+              required
+              error={errors.park_reason}
+              hint="Days open and lead time stand still while on hold."
+              className="sm:col-span-2"
+            >
+              <Textarea
+                id="park_reason"
+                name="park_reason"
+                rows={2}
+                maxLength={2000}
+                required
+                placeholder="For example: client freezes hiring until January."
+                defaultValue={defaults?.park_reason ?? ""}
+                {...invalid("park_reason")}
+              />
+            </Field>
+            {!wasOnHold && (
+              <Field label="On hold since" htmlFor="hold_start" required error={errors.hold_start}>
+                <Input id="hold_start" name="hold_start" type="date" max={todayIso()} defaultValue={todayIso()} {...invalid("hold_start")} />
+              </Field>
+            )}
+          </div>
+        )}
         <Field label="Budget per month (EUR)" htmlFor="monthly_budget" error={errors.monthly_budget}>
           <Input
             id="monthly_budget"
@@ -168,6 +221,20 @@ export function VacancyForm({
             type="date"
             defaultValue={defaults?.desired_start_date ?? ""}
             {...invalid("desired_start_date")}
+          />
+        </Field>
+        <Field
+          label="Present top 3 to 5 by"
+          htmlFor="presentation_deadline"
+          error={errors.presentation_deadline}
+          hint="Deadline to present the best 3 to 5 candidates to the client."
+        >
+          <Input
+            id="presentation_deadline"
+            name="presentation_deadline"
+            type="date"
+            defaultValue={defaults?.presentation_deadline ?? ""}
+            {...invalid("presentation_deadline")}
           />
         </Field>
         <Field label="Talent stage" htmlFor="talent_stage" required error={errors.talent_stage}>
@@ -210,7 +277,27 @@ export function VacancyForm({
         <Field label="Hours per week" htmlFor="hours" error={errors.hours}>
           <Input id="hours" name="hours" inputMode="numeric" enterKeyHint="next" placeholder="40" defaultValue={defaults?.hours ?? ""} {...invalid("hours")} />
         </Field>
-        <Field label="Time zone overlap" htmlFor="timezone_overlap" error={errors.timezone_overlap}>
+        <Field
+          label="Desired start time in India (IST)"
+          htmlFor="start_time_ist"
+          error={errors.start_time_ist}
+          hint={nl ? `Starts at ${nl.winter} NL in winter time, ${nl.summer} NL in summer time.` : "For example 12:30. The Dutch time is shown for summer and winter."}
+        >
+          <Input
+            id="start_time_ist"
+            name="start_time_ist"
+            type="time"
+            step={900}
+            value={startIst}
+            onChange={(e) => setStartIst(e.target.value)}
+            aria-describedby="start_time_ist-nl"
+            {...invalid("start_time_ist")}
+          />
+          <p id="start_time_ist-nl" className="sr-only" aria-live="polite">
+            {nl ? `${nl.winter} in the Dutch winter, ${nl.summer} in the summer` : ""}
+          </p>
+        </Field>
+        <Field label="Time zone notes" htmlFor="timezone_overlap" error={errors.timezone_overlap} hint="Optional, for example standups at 9:30 CET.">
           <Input
             id="timezone_overlap"
             name="timezone_overlap"

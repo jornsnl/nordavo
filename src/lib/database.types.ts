@@ -23,6 +23,7 @@ import type {
   SalesFunctions,
   SalesTables,
 } from "@/lib/sales/database";
+import type { LeadsFunctions } from "@/lib/sales/leads-database";
 
 export type Json =
   | string
@@ -113,7 +114,8 @@ export type PasskeyDeviceType = "singleDevice" | "multiDevice";
 export type WebauthnChallengeKind = "registration" | "authentication";
 export type McpTokenAccess = "read" | "write";
 // Custom fields (20261108050000_custom_fields_and_extras.sql)
-export type CustomFieldEntity = "candidate" | "vacancy" | "application" | "client" | "placement";
+/** company and contact: own columns of the sales tables (20261123420000_sales_custom_columns.sql). */
+export type CustomFieldEntity = "candidate" | "vacancy" | "application" | "client" | "placement" | "company" | "contact";
 /** Record pages with a layout (20261123200000_custom_fields_layouts.sql). */
 export type LayoutEntity = "candidate" | "vacancy" | "client" | "placement";
 export type CustomFieldType =
@@ -1368,6 +1370,14 @@ export type Database = {
           sequence_paused_at: string | null;
           created_at: string;
           updated_at: string;
+          /** Generated: normalize_linkedin(linkedin_url), for matching. */
+          linkedin_key: string | null;
+          /** Generated: company_name_key(name), for possible duplicates. */
+          name_key: string | null;
+          /** Generated: domain_stem(domain), for possible duplicates. */
+          domain_stem: string | null;
+          /** Domains of companies merged into this one. */
+          alias_domains: string[];
         };
         Insert: {
           id?: string;
@@ -1428,6 +1438,7 @@ export type Database = {
           sequence_paused_at?: string | null;
           created_at?: string;
           updated_at?: string;
+          alias_domains?: string[];
         };
         Update: {
           id?: string;
@@ -1488,6 +1499,7 @@ export type Database = {
           sequence_paused_at?: string | null;
           created_at?: string;
           updated_at?: string;
+          alias_domains?: string[];
         };
         Relationships: [
           {
@@ -1561,10 +1573,15 @@ export type Database = {
           full_name: string | null;
           created_at: string;
           updated_at: string;
+          /** The LinkedIn member id (ACwAA... of an Apify link), case kept. */
+          linkedin_member_urn: string | null;
+          /** Generated: normalize_linkedin(linkedin_url), unique, for matching. */
+          linkedin_key: string | null;
         };
         Insert: {
           id?: string;
           company_id: string;
+          custom_fields?: Json;
           first_name?: string | null;
           last_name?: string | null;
           title?: string | null;
@@ -1600,12 +1617,12 @@ export type Database = {
           manual_position?: number | null;
           created_at?: string;
           updated_at?: string;
+          linkedin_member_urn?: string | null;
         };
         Update: {
           id?: string;
           company_id?: string;
           custom_fields?: Json;
-          custom_fields?: Json;
           first_name?: string | null;
           last_name?: string | null;
           title?: string | null;
@@ -1641,6 +1658,7 @@ export type Database = {
           manual_position?: number | null;
           created_at?: string;
           updated_at?: string;
+          linkedin_member_urn?: string | null;
         };
         Relationships: [
           {
@@ -1673,6 +1691,10 @@ export type Database = {
           raw_json: Json | null;
           role_group: string | null;
           posted_at: string | null;
+          /** The vacancy text. */
+          description: string | null;
+          /** When the vacancy went offline; null is open. */
+          closed_at: string | null;
         };
         Insert: {
           id?: string;
@@ -1687,6 +1709,8 @@ export type Database = {
           raw_json?: Json | null;
           role_group?: string | null;
           posted_at?: string | null;
+          description?: string | null;
+          closed_at?: string | null;
         };
         Update: {
           id?: string;
@@ -1701,6 +1725,8 @@ export type Database = {
           raw_json?: Json | null;
           role_group?: string | null;
           posted_at?: string | null;
+          description?: string | null;
+          closed_at?: string | null;
         };
         Relationships: [
           {
@@ -3156,7 +3182,7 @@ export type Database = {
         Args: { p_entity: CustomFieldEntity; p_new: Json; p_old?: Json };
         Returns: CustomFieldValues;
       };
-    } & WorkFunctions & ContentFunctions & FormsFunctions & SalesFunctions & SalesFlowFunctions & AcademyFunctions & LearnFunctions & AcademyMediaFunctions & AcademyPlacementFunctions & AcademyAtsFunctions & WspFunctions;
+    } & WorkFunctions & ContentFunctions & FormsFunctions & SalesFunctions & LeadsFunctions & SalesFlowFunctions & AcademyFunctions & LearnFunctions & AcademyMediaFunctions & AcademyPlacementFunctions & AcademyAtsFunctions & WspFunctions;
     Enums: { [_ in never]: never };
     CompositeTypes: { [_ in never]: never };
   };

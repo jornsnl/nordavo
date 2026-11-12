@@ -196,3 +196,47 @@ $$;
 
 revoke execute on function public.sales_set_custom_field(text, uuid[], text, jsonb, text, uuid) from public, anon;
 grant execute on function public.sales_set_custom_field(text, uuid[], text, jsonb, text, uuid) to authenticated, service_role;
+
+-- ---------------------------------------------------------------------------
+-- 4. Deleting an archived field clears it on every record type, companies
+--    and contacts included (same rules as 20261123200000_custom_fields_layouts.sql)
+-- ---------------------------------------------------------------------------
+
+create or replace function public.delete_custom_field(p_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_def public.custom_field_definitions;
+  v_table text;
+begin
+  if (select auth.uid()) is not null and not public.is_admin() then
+    raise exception 'Only an admin can delete a field' using errcode = '42501';
+  end if;
+  select * into v_def from public.custom_field_definitions where id = p_id;
+  if not found then
+    raise exception 'Field not found' using errcode = 'P0002';
+  end if;
+  if v_def.archived_at is null then
+    raise exception 'Archive the field first, then delete it' using errcode = '22023';
+  end if;
+
+  v_table := public.custom_field_table(v_def.entity);
+  if v_table is not null and exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = v_table and column_name = 'custom_fields'
+  ) then
+    -- Companies and contacts: no change rows for a field that goes away.
+    perform set_config('sales.skip_log', 'on', true);
+    execute format('update public.%I set custom_fields = custom_fields - $1 where custom_fields ? $1', v_table) using v_def.key;
+    perform set_config('sales.skip_log', '', true);
+  end if;
+
+  delete from public.custom_field_definitions where id = p_id;
+end;
+$$;
+
+revoke execute on function public.delete_custom_field(uuid) from public, anon;
+grant execute on function public.delete_custom_field(uuid) to authenticated, service_role;

@@ -2,9 +2,10 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import Link from "next/link";
 import Form from "next/form";
-import { Briefcase, Plus, Search } from "lucide-react";
+import { ArrowDown, ArrowUp, Briefcase, Plus, Search } from "lucide-react";
 import { EmptyState } from "@/components/dashboard/empty-state";
 import { PageHeader } from "@/components/dashboard/page-header";
+import { ExportCsvLink } from "@/components/custom-fields/export-link";
 import { AutoSubmitSelects } from "@/components/entity/auto-submit";
 import { FilterChips, filterHref } from "@/components/entity/filter-chips";
 import { LeadTimeSignal } from "@/components/talent/lead-time-signal";
@@ -21,6 +22,9 @@ import { isUuid, listClientOptions } from "@/lib/data/clients";
 import { isTalentStage, isVacancyStatus, listVacancies } from "@/lib/data/vacancies";
 import { optionFor, seniorities, talentStages, vacancyStatuses } from "@/lib/labels";
 import { TALENT_POOL_LABEL } from "@/lib/talent/talent-pool";
+import { formatDate } from "@/lib/format";
+import { daysUntil } from "@/lib/recruitment/vacancy-time";
+import { isVacancySort, nextDir, sortVacancies, type SortDir, type VacancySort } from "@/lib/recruitment/vacancy-sort";
 
 export const metadata: Metadata = {
   title: "Vacancies",
@@ -43,7 +47,9 @@ function readFilters(params: Record<string, string | string[] | undefined>) {
   const stage: TalentStage | "" = isTalentStage(rawStage) ? rawStage : "";
   const statuses: VacancyStatus[] | undefined =
     status === "all" ? undefined : status ? [status] : DEFAULT_STATUSES;
-  return { q, status, client, stage, statuses };
+  const sort: VacancySort | null = isVacancySort(params.sort) ? params.sort : null;
+  const dir: SortDir = params.dir === "desc" ? "desc" : "asc";
+  return { q, status, client, stage, statuses, sort, dir };
 }
 
 export default function Page({ searchParams }: { searchParams: SearchParams }) {
@@ -54,10 +60,13 @@ export default function Page({ searchParams }: { searchParams: SearchParams }) {
         title="Vacancies"
         description="Open job profiles, from first request to three candidates within three weeks. Talent pool vacancies have no client yet and no clock."
         actions={
-          <ButtonLink href="/dashboard/vacancies/new">
-            <Plus aria-hidden="true" />
-            New vacancy
-          </ButtonLink>
+          <>
+            <ExportCsvLink href="/dashboard/vacancies/export" />
+            <ButtonLink href="/dashboard/vacancies/new">
+              <Plus aria-hidden="true" />
+              New vacancy
+            </ButtonLink>
+          </>
         }
       />
       <Suspense fallback={<Skeleton className="mb-6 h-11 w-full" />}>
@@ -72,7 +81,7 @@ export default function Page({ searchParams }: { searchParams: SearchParams }) {
 
 async function Filters({ searchParams }: { searchParams: SearchParams }) {
   const [params, clients] = await Promise.all([searchParams, listClientOptions()]);
-  const { q, status, client, stage } = readFilters(params);
+  const { q, status, client, stage, sort, dir } = readFilters(params);
   const current = { q: q || undefined, status: status || undefined, client: client || undefined, stage: stage || undefined };
   const statusChip = (label: string, value: string) => ({
     label,
@@ -115,21 +124,22 @@ async function Filters({ searchParams }: { searchParams: SearchParams }) {
           statusChip("All", "all"),
         ]}
       />
-      <div className="max-sm:hidden lg:w-48">
-        <label htmlFor="vacancy-status" className="sr-only">
-          Status
-        </label>
-        <Select id="vacancy-status" name="status" defaultValue={status}>
-          <option value="">Open and on hold</option>
-          <option value="all">All statuses</option>
-          {vacancyStatuses.map((s) => (
-            <option key={s.value} value={s.value}>
-              {s.label}
-            </option>
-          ))}
-        </Select>
-      </div>
+      {/* Every filter applies as soon as it changes; the search applies on Enter. */}
       <AutoSubmitSelects className="grid grid-cols-2 gap-3 *:min-w-0 sm:contents">
+        <div className="max-sm:hidden lg:w-48">
+          <label htmlFor="vacancy-status" className="sr-only">
+            Status
+          </label>
+          <Select id="vacancy-status" name="status" defaultValue={status}>
+            <option value="">Open and on hold</option>
+            <option value="all">All statuses</option>
+            {vacancyStatuses.map((s) => (
+              <option key={s.value} value={s.value}>
+                {s.label}
+              </option>
+            ))}
+          </Select>
+        </div>
         <label htmlFor="vacancy-client" className="sr-only">
           Client
         </label>
@@ -158,22 +168,48 @@ async function Filters({ searchParams }: { searchParams: SearchParams }) {
           ))}
         </Select>
       </AutoSubmitSelects>
-      <Button type="submit" variant="secondary" className="max-sm:hidden sm:col-span-2 lg:col-span-1">
-        Filter
-      </Button>
+      {sort && <input type="hidden" name="sort" value={sort} />}
+      {sort && <input type="hidden" name="dir" value={dir} />}
+      {/* Enter in the search field submits; no separate button needed. */}
+      <button type="submit" className="sr-only">
+        Search
+      </button>
     </Form>
   );
 }
 
 async function VacancyTable({ searchParams }: { searchParams: SearchParams }) {
-  const { q, status, client, stage, statuses } = readFilters(await searchParams);
-  const vacancies = await listVacancies({
+  const { q, status, client, stage, statuses, sort, dir } = readFilters(await searchParams);
+  const listed = await listVacancies({
     q: q || undefined,
     statuses,
     clientId: client && client !== TALENT_POOL_FILTER ? client : undefined,
     talentStage: stage || undefined,
     talentPool: client === TALENT_POOL_FILTER ? true : undefined,
   });
+
+  const ownerName = (v: (typeof listed)[number]) =>
+    v.isTalentPool ? TALENT_POOL_LABEL : (v.clientName ?? v.companyName ?? "");
+  const vacancies = sortVacancies(
+    listed,
+    (v) => ({
+      title: v.title,
+      owner: ownerName(v),
+      seniorityRank: seniorities.findIndex((s) => s.value === v.seniority),
+      statusRank: vacancyStatuses.findIndex((s) => s.value === v.status),
+      stageRank: talentStages.findIndex((s) => s.value === v.talentStage),
+      inPipeline: v.inPipeline,
+      daysOpen: v.daysOpen,
+      leadDays: v.leadTime.days,
+      flowDeadline: v.flowDeadline?.date ?? null,
+    }),
+    sort,
+    dir,
+  );
+  const filters = { q: q || undefined, status: status || undefined, client: client || undefined, stage: stage || undefined };
+  const header = (column: VacancySort, label: string, className = "") => (
+    <SortHeader column={column} label={label} className={className} sort={sort} dir={dir} filters={filters} />
+  );
 
   if (vacancies.length === 0) {
     const filtered = Boolean(q || status || client || stage);
@@ -222,15 +258,16 @@ async function VacancyTable({ searchParams }: { searchParams: SearchParams }) {
       <Table className="hidden md:block">
         <THead>
           <tr>
-            <TH>Role</TH>
-            <TH>Client or prospect</TH>
-            <TH>Seniority</TH>
-            <TH>Status</TH>
-            <TH>Stage</TH>
+            {header("role", "Role")}
+            {header("client", "Client or prospect")}
+            {header("seniority", "Seniority")}
+            {header("status", "Status")}
+            {header("stage", "Stage")}
             <TH>Stack</TH>
-            <TH className="text-right">In pipeline</TH>
-            <TH>Days open</TH>
-            <TH>Lead time</TH>
+            {header("pipeline", "In pipeline", "text-right")}
+            {header("days_open", "Days open")}
+            {header("lead_time", "Lead time")}
+            {header("flow_deadline", "Flow deadline")}
           </tr>
         </THead>
         <TBody>
@@ -293,6 +330,9 @@ async function VacancyTable({ searchParams }: { searchParams: SearchParams }) {
                 <TD>
                   <LeadTimeSignal leadTime={v.leadTime} />
                 </TD>
+                <TD>
+                  <FlowDeadline vacancy={v} />
+                </TD>
               </TR>
             );
           })}
@@ -300,9 +340,51 @@ async function VacancyTable({ searchParams }: { searchParams: SearchParams }) {
       </Table>
       <p className="mt-3 text-xs text-muted">
         Days open for status Open: green under 14 days, amber from 14 to 21 days, red over 21 days. Lead time counts from the
-        intake to the first profiles sent, with the same colours. Talent pool vacancies have no clock and do not count on the
-        dashboard or in the report.
+        intake to the first profiles sent, with the same colours. Days on hold are not counted. Flow deadline: the deadline to
+        present the top 3 to 5, or opened plus three weeks. Talent pool vacancies have no clock and do not count on the
+        dashboard or in the report. Click a column title to sort.
       </p>
     </>
+  );
+}
+
+function SortHeader({
+  column,
+  label,
+  className,
+  sort,
+  dir,
+  filters,
+}: {
+  column: VacancySort;
+  label: string;
+  className?: string;
+  sort: VacancySort | null;
+  dir: SortDir;
+  filters: Record<string, string | undefined>;
+}) {
+  const active = sort === column;
+  const href = filterHref("/dashboard/vacancies", filters, { sort: column, dir: nextDir(sort, dir, column) });
+  return (
+    <TH className={className} aria-sort={active ? (dir === "desc" ? "descending" : "ascending") : "none"}>
+      <Link href={href} scroll={false} className="inline-flex items-center gap-1 hover:text-brand-900 focus-visible:outline-2 focus-visible:outline-brand-500">
+        {label}
+        {active && (dir === "desc" ? <ArrowDown className="size-3" aria-hidden="true" /> : <ArrowUp className="size-3" aria-hidden="true" />)}
+      </Link>
+    </TH>
+  );
+}
+
+/** End date of the whole flow, red when past while fewer than three were presented. */
+function FlowDeadline({ vacancy }: { vacancy: { flowDeadline: { date: string; source: "deadline" | "three_weeks" } | null; status: VacancyStatus; presented: number } }) {
+  if (!vacancy.flowDeadline) return <span className="text-muted">No clock</span>;
+  const left = daysUntil(vacancy.flowDeadline.date);
+  const running = vacancy.status === "open" && vacancy.presented < 3;
+  const tone = !running ? "text-muted" : left < 0 ? "text-danger" : left <= 3 ? "text-amber-800" : "text-ink";
+  return (
+    <span className={`whitespace-nowrap ${tone}`} title={vacancy.flowDeadline.source === "deadline" ? "Presentation deadline" : "Opened plus three weeks"}>
+      {formatDate(vacancy.flowDeadline.date)}
+      {vacancy.flowDeadline.source === "deadline" && <span className="ml-1 text-xs text-muted">(deadline)</span>}
+    </span>
   );
 }

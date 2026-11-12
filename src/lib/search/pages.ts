@@ -1,6 +1,5 @@
 import type { PortalModule } from "@/lib/database.types";
 import { canSeePath } from "@/lib/modules";
-import { navSections } from "@/components/dashboard/nav-items";
 import { fuzzyFilter } from "./fuzzy";
 
 /**
@@ -42,10 +41,22 @@ const keywords: Record<string, string[]> = {
   "/dashboard/settings": ["instellingen", "account", "users", "gebruikers"],
 };
 
+/** The shape of the portal menu (navSections in components/dashboard/nav-items), without the icons. */
+export type MenuSection = { label?: string; items: { label: string; href: string }[] };
+
 /** Every page someone may open: the portal menu (team members, by module) and Work. */
-export function pageEntries({ staff, modules }: { staff: boolean; modules: readonly PortalModule[] | null }): PageEntry[] {
+export function pageEntries({
+  staff,
+  modules,
+  sections,
+}: {
+  staff: boolean;
+  modules: readonly PortalModule[] | null;
+  /** navSections; passed in so this file stays free of the icon components. */
+  sections: MenuSection[];
+}): PageEntry[] {
   const portal: PageEntry[] = staff
-    ? navSections.flatMap((section) =>
+    ? sections.flatMap((section) =>
         section.items
           .filter((item) => canSeePath(item.href, modules))
           .map((item) => ({ label: item.label, href: item.href, section: section.label ?? "Portal", keywords: keywords[item.href] })),
