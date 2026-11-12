@@ -33,7 +33,8 @@ export type QueueEntry = {
   listId: string | null;
 };
 
-export type QueueList = { id: string; name: string; config: ViewConfig };
+/** members: companies put on this list by triage (bucket call), called after the ones the view matches. */
+export type QueueList = { id: string; name: string; config: ViewConfig; members?: string[] };
 
 export type DueCallStep = { company_id: string; contact_id: string | null; due_date: string };
 
@@ -122,14 +123,28 @@ export function callBlockReason(row: ContactRow, rules: QueueRules): BlockReason
   return null;
 }
 
-/** The contacts of a call list, in the order of the saved view. */
-export function listContacts(rows: ContactRow[], config: ViewConfig): ContactRow[] {
-  return applyView(rows, config, {
+/**
+ * The contacts of a call list, in the order of the saved view. Companies
+ * that triage put on the list (memberCompanies) come after the matches, in
+ * the same order, even when the view's filters would leave them out.
+ */
+export function listContacts(rows: ContactRow[], config: ViewConfig, memberCompanies?: Iterable<string>): ContactRow[] {
+  const options = {
     accessors: accessorsFor(contactColumns),
     defaultSort: defaultContactSort,
-    pinnedAt: (r) => r.pinned_at,
-    manualPosition: (r) => r.manual_position,
-  });
+    pinnedAt: (r: ContactRow) => r.pinned_at,
+    manualPosition: (r: ContactRow) => r.manual_position,
+  };
+  const matched = applyView(rows, config, options);
+  const members = new Set(memberCompanies ?? []);
+  if (members.size === 0) return matched;
+  const seen = new Set(matched.map((r) => r.id));
+  const extra = applyView(
+    rows.filter((r) => members.has(r.company_id) && !seen.has(r.id) && !closedContactStatuses.includes(r.status)),
+    { ...config, filters: [], search: undefined },
+    options,
+  );
+  return [...matched, ...extra];
 }
 
 /**
@@ -175,7 +190,7 @@ export function buildQueue(input: QueueInput, rules: QueueRules): QueueEntry[] {
     input.assigned && rules.callerId
       ? input.rows.filter((r) => r.assigned_caller_id === rules.callerId && isAssignedNow(r, rules.today))
       : [];
-  const lists = input.lists.map((list) => ({ list, rows: listContacts(input.rows, list.config) }));
+  const lists = input.lists.map((list) => ({ list, rows: listContacts(input.rows, list.config, list.members) }));
 
   const reachable = new Set<string>([...assigned.map((r) => r.id), ...lists.flatMap((l) => l.rows.map((r) => r.id))]);
   const stepRows = [...input.sequenceSteps]
@@ -226,6 +241,33 @@ async function loadRules(db: Db, actorId: string, callerId: string | null, exclu
   return rules;
 }
 
+/** Companies triage put on call lists (bucket call with a list), per list. */
+export async function loadListMembers(db: Db, listIds: string[]): Promise<Map<string, string[]>> {
+  const out = new Map<string, string[]>();
+  if (listIds.length === 0) return out;
+  const { data, error } = await db
+    .from("companies")
+    .select("id, bucket_view_id")
+    .eq("bucket", "call")
+    .in("bucket_view_id", listIds)
+    .limit(20000);
+  if (error) {
+    // Before the triage migration there are no members.
+    if (!/bucket/.test(error.message)) console.error("loadListMembers", error.message);
+    return out;
+  }
+  for (const c of data ?? []) {
+    if (!c.bucket_view_id) continue;
+    out.set(c.bucket_view_id, [...(out.get(c.bucket_view_id) ?? []), c.id]);
+  }
+  return out;
+}
+
+async function withMembers<T extends QueueList>(db: Db, lists: T[]): Promise<T[]> {
+  const members = await loadListMembers(db, lists.map((l) => l.id));
+  return lists.map((l) => ({ ...l, members: members.get(l.id) ?? [] }));
+}
+
 async function dueCallSteps(db: Db, today: string): Promise<DueCallStep[]> {
   const { data, error } = await db
     .from("sequence_tasks")
@@ -270,13 +312,14 @@ export async function loadQueue(
   const rules = await loadRules(db, actorId, callerId, exclude);
   const [rows, lists, steps] = await Promise.all([
     loadContactRows(db),
-    scope.kind === "caller"
+    (scope.kind === "caller"
       ? openListsFor(db, scope.callerId, rules.today)
       : scope.kind === "list"
         ? loadViews(db, "contacts", { callListsOnly: true }).then((views) =>
             views.filter((v) => v.id === scope.listId).map((v) => ({ id: v.id, name: v.name, config: v.config })),
           )
-        : Promise.resolve([]),
+        : Promise.resolve([] as QueueList[])
+    ).then((l: QueueList[]) => withMembers(db, l)),
     scope.kind === "list" ? Promise.resolve([]) : dueCallSteps(db, rules.today),
   ]);
   const entries = buildQueue(
@@ -303,10 +346,10 @@ export async function countCallLists(
   actorId: string,
 ): Promise<{ lists: Map<string, { total: number; callable: number }>; sequenceDue: number }> {
   const rules = await loadRules(db, actorId, null, []);
-  const [rows, steps] = await Promise.all([loadContactRows(db), dueCallSteps(db, rules.today)]);
+  const [rows, steps, withLists] = await Promise.all([loadContactRows(db), dueCallSteps(db, rules.today), withMembers(db, lists)]);
   const out = new Map<string, { total: number; callable: number }>();
-  for (const list of lists) {
-    const total = listContacts(rows, list.config).length;
+  for (const list of withLists) {
+    const total = listContacts(rows, list.config, list.members).length;
     const callable = buildQueue({ rows, assigned: false, lists: [list], sequenceSteps: [], sequenceScope: "all" }, rules).length;
     out.set(list.id, { total, callable });
   }

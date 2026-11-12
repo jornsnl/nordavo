@@ -1,9 +1,11 @@
 "use client";
 
-import { startTransition, useActionState, type FormEvent } from "react";
+import { startTransition, useActionState, useRef, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { FileText, LoaderCircle } from "lucide-react";
-import { saveCandidate } from "@/app/dashboard/candidates/actions";
+import { checkCandidateDuplicates, saveCandidate } from "@/app/dashboard/candidates/actions";
+import { noticePeriodOptions, isNoticePeriod } from "@/lib/recruitment/candidate-fields";
+import type { CandidateDuplicate } from "@/lib/screening/duplicates";
 import { initialActionState } from "@/lib/action-state";
 import type { Candidate } from "@/lib/database.types";
 import { candidateStatuses } from "@/lib/labels";
@@ -29,6 +31,9 @@ type CandidateFormValues = Pick<
   | "status"
   | "owner_id"
   | "cv_path"
+  | "notice_period"
+  | "current_ctc_inr_year"
+  | "expected_ctc_inr_year"
 > &
   MatchingFieldValues;
 
@@ -64,15 +69,58 @@ export function CandidateForm({
   }
 
   const describedBy = (name: string) => (errors[name] ? `${name}-error` : undefined);
+
+  // New candidates: warn about possible duplicates (same name, email, phone or LinkedIn) before saving.
+  const [duplicates, setDuplicates] = useState<CandidateDuplicate[]>([]);
+  const formRef = useRef<HTMLFormElement>(null);
+  const checkSeq = useRef(0);
+  function checkDuplicates() {
+    if (candidate || !formRef.current) return;
+    const data = new FormData(formRef.current);
+    const value = (name: string) => String(data.get(name) ?? "").trim() || undefined;
+    const input = { full_name: value("full_name"), email: value("email"), phone: value("phone"), linkedin_url: value("linkedin_url") };
+    if (!input.full_name && !input.email && !input.phone && !input.linkedin_url) return setDuplicates([]);
+    const seq = ++checkSeq.current;
+    void checkCandidateDuplicates(input).then((found) => {
+      if (seq === checkSeq.current) setDuplicates(found);
+    });
+  }
+  const showConfirm = !candidate && (duplicates.length > 0 || Boolean(errors.confirm_duplicate));
+  const legacyNotice = candidate?.notice_period && !isNoticePeriod(candidate.notice_period) ? candidate.notice_period : null;
   const cvName = candidate?.cv_path?.split("/").pop()?.replace(/^[0-9a-f]{8}-/, "");
 
   return (
-    <form onSubmit={onSubmit} noValidate className="space-y-6">
+    <form ref={formRef} onSubmit={onSubmit} onBlur={(e) => {
+      if (e.target instanceof HTMLInputElement && ["full_name", "email", "phone", "linkedin_url"].includes(e.target.name)) checkDuplicates();
+    }} noValidate className="space-y-6">
       {candidate && <input type="hidden" name="id" value={candidate.id} />}
       {vacancyId && <input type="hidden" name="vacancy_id" value={vacancyId} />}
 
       <FormMessage error={notice} />
-      <FormMessage error={state.error} />
+      <FormMessage error={state.error} link={state.link} />
+      {showConfirm && (
+        <div role="status" className="space-y-2 rounded-2xl border border-amber-600/20 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          {duplicates.length > 0 && (
+            <>
+              <p className="font-medium">This candidate may already exist:</p>
+              <ul className="list-disc space-y-0.5 pl-5">
+                {duplicates.map((d) => (
+                  <li key={d.id}>
+                    <Link href={`/dashboard/candidates/${d.id}`} className="font-medium underline hover:no-underline" target="_blank">
+                      {d.full_name}
+                    </Link>{" "}
+                    (same {d.on})
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+          <label className="flex items-center gap-2 pointer-coarse:min-h-11">
+            <input type="checkbox" name="confirm_duplicate" className="size-4 rounded border-border accent-brand-700" />
+            This is someone else, add the candidate anyway
+          </label>
+        </div>
+      )}
 
       <Card>
         <CardHeader title="Profile" description="The basics you also show the client." />
@@ -202,9 +250,9 @@ export function CandidateForm({
             />
           </Field>
           <Field
-            label="Video-intro"
+            label="Video intro"
             htmlFor="video_url"
-            hint="Link to the video, for example Loom or YouTube."
+            hint="Loom, YouTube, Vimeo or Google Drive link. It plays on the candidate page (Overview); upload a copy there so it stays available."
             error={errors.video_url}
             className="sm:col-span-2"
           >
@@ -255,6 +303,41 @@ export function CandidateForm({
                 Remove current CV
               </label>
             )}
+          </Field>
+          <Field label="Notice period" htmlFor="notice_period" error={errors.notice_period}>
+            <Select id="notice_period" name="notice_period" defaultValue={candidate?.notice_period ?? ""}>
+              <option value="">Unknown</option>
+              {noticePeriodOptions.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+              {legacyNotice && <option value={legacyNotice}>As written before: {legacyNotice}</option>}
+            </Select>
+          </Field>
+          <Field label="Current CTC (INR per year)" htmlFor="current_ctc" hint="Optional, for example 12 LPA or 1200000." error={errors.current_ctc}>
+            <Input
+              id="current_ctc"
+              name="current_ctc"
+              inputMode="decimal"
+              autoComplete="off"
+              enterKeyHint="next"
+              defaultValue={candidate?.current_ctc_inr_year ?? ""}
+              aria-invalid={!!errors.current_ctc}
+              aria-describedby={describedBy("current_ctc")}
+            />
+          </Field>
+          <Field label="Expected CTC (INR per year)" htmlFor="expected_ctc" hint="Optional." error={errors.expected_ctc}>
+            <Input
+              id="expected_ctc"
+              name="expected_ctc"
+              inputMode="decimal"
+              autoComplete="off"
+              enterKeyHint="next"
+              defaultValue={candidate?.expected_ctc_inr_year ?? ""}
+              aria-invalid={!!errors.expected_ctc}
+              aria-describedby={describedBy("expected_ctc")}
+            />
           </Field>
           <Field label="Status" htmlFor="status" error={errors.status}>
             <Select id="status" name="status" defaultValue={candidate?.status ?? "available"}>

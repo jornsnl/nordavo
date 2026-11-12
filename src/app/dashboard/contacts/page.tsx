@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import { Upload } from "lucide-react";
 import { PageHeader } from "@/components/dashboard/page-header";
+import { ListMarker } from "@/components/leads/back-to-list";
 import { ContactTabs } from "@/components/sales/contact-tabs";
 import { SalesTable } from "@/components/sales/table-page";
 import { ButtonLink } from "@/components/ui/button";
@@ -25,6 +26,9 @@ export default function Page({ searchParams }: PageProps<"/dashboard/contacts">)
           </ButtonLink>
         }
       />
+      <Suspense fallback={null}>
+        <ListMarker />
+      </Suspense>
       <ContactTabs active="all" />
       <Suspense fallback={<ListSkeleton rows={10} />}>
         <Table searchParams={searchParams} />

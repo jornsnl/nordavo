@@ -35,6 +35,20 @@ Een plaatsing vastleggen start de Academy: de developer krijgt de hele developer
 
 Kandidaten kunnen automatisch (bij de trigger fase, standaard het shortlist-vinkje) of met de hand een korte Big Five vragenlijst krijgen. Instellingen op systeem, vacature en kandidaat; de vaste zin komt onder de vacaturetekst van het sollicitatieform als het aan staat. Scores staan alleen in het rapport en de staffweergave, nooit op het bord, in lijsten of de talentpool. Een klant ziet een rapport alleen als de kandidaat het zelf deelt. Alles in [working-style-profile.md](working-style-profile.md).
 
+## Agenda
+
+Menu Recruitment, *Agenda* (`/dashboard/agenda`, module Recruitment): één agenda met alle data die het portaal al kent. Er wordt niets dubbel ingevoerd; elk item komt uit een veld van zijn record en opent dat record.
+
+- **Weergaven:** Day, Week, Month, List (31 dagen vanaf de gekozen dag) en *All roles*: alle vacatures en plaatsingen met start, einde en duur.
+- **My agenda of Team:** *My agenda* toont wat bij jou hoort (eigenaar van de vacature of kandidaat, Nordavo contact van de plaatsing, interviewer).
+- **Filters per soort:** Vacancies, Placements, Candidates, Interviews, Holidays. Alles staat in de URL (`?view=month&date=2026-12-01&scope=mine&kinds=vacancies,interviews`), dus deelbaar.
+- **Vacatures (open en on hold):** open sinds (kleur naar dagen open: groen onder 14, oranje 14 tot 21, rood erna), intake, profielen gestuurd, eerste interview, de deadline voor de top 3 tot 5 (`presentation_deadline`, anders opening plus drie weken, opgeschoven met de dagen on hold) met resterende dagen en aantal voorgesteld, gewenste start en start.
+- **Plaatsingen:** start bij de klant met looptijd, laatste werkdag bij opzegging, einde, einde garantie, einde proeftijd en volgende check-in (rood als die voorbij is).
+- **Kandidaten:** beschikbaarheid, als daar een datum in staat (`2026-12-01`, `1-12-2026` of `1 December 2026`); interviews en klantinterviews uit de planning, in Nederlandse tijd.
+- **Feestdagen:** Nederland en Karnataka, alleen dagen die vrij zijn en alleen als er op die dag een plaatsing loopt (klant dicht of developer vrij). Uit de tabel `academy_holidays` (door Nordavo gecontroleerd); staat het jaar daar niet in, dan de berekende dagen.
+
+Code: de datumlogica is puur en getest in [src/lib/recruitment/agenda.ts](../src/lib/recruitment/agenda.ts) (`tests/agenda.test.ts`), het laden in `agenda-data.ts`, de pagina in `src/components/agenda/agenda-view.tsx`.
+
 ## Wat de klant ziet
 
 Klanten lezen niets meer rechtstreeks uit de tabellen. Het klantportaal haalt alles op via vaste databasefuncties (`portal_*`). Die geven alleen terug wat het portaal toont: naam, titel, locatie, ervaring, skills, samenvatting, video, scores en het eigen oordeel.

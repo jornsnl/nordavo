@@ -1,10 +1,13 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import Link from "next/link";
-import { ArrowLeft, ListChecks, Phone, Route } from "lucide-react";
+import { ArrowLeft, BarChart3, ListChecks, Phone, Route, Sheet } from "lucide-react";
 import { EmptyState } from "@/components/dashboard/empty-state";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { CallScreen } from "@/components/calls/call-screen";
+import { CallSheet } from "@/components/calls/call-sheet";
+import { ViewSwitch } from "@/components/calls/view-switch";
+import { loadListSheet } from "@/lib/sales/call-sheet-data";
 import { ButtonLink } from "@/components/ui/button";
 import { Card, CardBody } from "@/components/ui/card";
 import { ListSkeleton } from "@/components/ui/skeleton";
@@ -51,6 +54,31 @@ async function Calls({ searchParams }: { searchParams: PageProps<"/dashboard/cal
 
   if (scope) {
     const name = scope.kind === "sequence" ? "Sequence calls due today" : views.find((v) => v.id === list)?.name;
+    const asSheet = scope.kind === "list" && params.view === "sheet";
+    if (asSheet && scope.kind === "list") {
+      const [sheet, profile] = await Promise.all([
+        loadListSheet(db, scope.listId, user.id),
+        db.from("profiles").select("dial_template").eq("id", user.id).maybeSingle(),
+      ]);
+      return (
+        <div className="space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <Link href="/dashboard/calls" className="inline-flex min-h-11 items-center gap-1.5 text-sm font-medium text-muted hover:text-brand-700">
+              <ArrowLeft className="size-4" aria-hidden="true" />
+              All lists
+            </Link>
+            <p className="font-display text-base font-semibold text-brand-900">{name}</p>
+            <ViewSwitch screenHref={`/dashboard/calls?list=${scope.listId}`} sheetHref={`/dashboard/calls?list=${scope.listId}&view=sheet`} active="sheet" />
+          </div>
+          <CallSheet
+            rows={sheet?.rows ?? []}
+            dialTemplate={profile.error ? null : (profile.data?.dial_template ?? null)}
+            leadLinks
+            callHref={`/dashboard/calls?list=${scope.listId}`}
+          />
+        </div>
+      );
+    }
     return (
       <div className="space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
@@ -62,6 +90,9 @@ async function Calls({ searchParams }: { searchParams: PageProps<"/dashboard/cal
             All lists
           </Link>
           <p className="font-display text-base font-semibold text-brand-900">{name}</p>
+          {scope.kind === "list" && (
+            <ViewSwitch screenHref={`/dashboard/calls?list=${scope.listId}`} sheetHref={`/dashboard/calls?list=${scope.listId}&view=sheet`} active="screen" />
+          )}
         </div>
         <CallScreen
           key={list}
@@ -102,10 +133,16 @@ async function Calls({ searchParams }: { searchParams: PageProps<"/dashboard/cal
               </p>
             </div>
           </div>
-          <ButtonLink href="/dashboard/calls?list=sequence" className="max-sm:w-full" variant={counts.sequenceDue ? "primary" : "secondary"}>
-            <Phone aria-hidden="true" />
-            Start calling
-          </ButtonLink>
+          <div className="flex flex-wrap gap-2 max-sm:w-full max-sm:*:flex-1">
+            <ButtonLink href="/dashboard/calls/stats" variant="secondary">
+              <BarChart3 aria-hidden="true" />
+              Results per caller
+            </ButtonLink>
+            <ButtonLink href="/dashboard/calls?list=sequence" variant={counts.sequenceDue ? "primary" : "secondary"}>
+              <Phone aria-hidden="true" />
+              Start calling
+            </ButtonLink>
+          </div>
         </CardBody>
       </Card>
 
@@ -133,14 +170,16 @@ async function Calls({ searchParams }: { searchParams: PageProps<"/dashboard/cal
                           {c.callable} to call now · {c.total} on the list
                         </p>
                       </div>
-                      <ButtonLink
-                        href={`/dashboard/calls?list=${v.id}`}
-                        variant={c.callable ? "primary" : "secondary"}
-                        className="w-full"
-                      >
-                        <Phone aria-hidden="true" />
-                        Start calling
-                      </ButtonLink>
+                      <div className="flex gap-2 *:flex-1">
+                        <ButtonLink href={`/dashboard/calls?list=${v.id}&view=sheet`} variant="secondary">
+                          <Sheet aria-hidden="true" />
+                          Sheet
+                        </ButtonLink>
+                        <ButtonLink href={`/dashboard/calls?list=${v.id}`} variant={c.callable ? "primary" : "secondary"}>
+                          <Phone aria-hidden="true" />
+                          Start calling
+                        </ButtonLink>
+                      </div>
                     </CardBody>
                   </Card>
                 </li>

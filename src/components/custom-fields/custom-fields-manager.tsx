@@ -230,13 +230,19 @@ export function CustomFieldsManager({
         </section>
       )}
 
-      <Modal open={!!adding} onClose={() => setAdding(null)} title="Add a field">
+      <Modal
+        open={!!adding}
+        onClose={() => setAdding(null)}
+        title="Add a field"
+        description={adding ? `For every ${customFieldEntities.find((e) => e.value === adding.entity)?.label.toLowerCase() ?? "record"}.` : undefined}
+      >
         {adding && (
           <DefinitionForm
             action={createCustomField}
-            entity={adding.blockKey ? adding.entity : undefined}
+            entity={adding.entity}
             blockKey={adding.blockKey}
             blocksByEntity={blocksByEntity}
+            existingFields={definitions}
             onDone={done}
           />
         )}
@@ -248,6 +254,7 @@ export function CustomFieldsManager({
             action={updateCustomField.bind(null, editing.id)}
             field={editing}
             blocks={blocksByEntity[editing.entity]}
+            existingFields={definitions}
             onDone={done}
           />
         )}

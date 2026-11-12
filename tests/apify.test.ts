@@ -128,13 +128,13 @@ test("mapPerson reads both people actor shapes", () => {
     linkedin: "http://www.linkedin.com/in/jandevries",
     company_domain: "acme.nl",
   });
-  assert.deepEqual(a, { firstName: "Jan", lastName: "de Vries", title: "CTO", linkedinUrl: "linkedin.com/in/jandevries", companyDomain: "acme.nl" });
+  assert.deepEqual(a, { firstName: "Jan", lastName: "de Vries", title: "CTO", linkedinUrl: "https://www.linkedin.com/in/jandevries", companyDomain: "acme.nl" });
   const b = mapPerson({
     fullName: "Sanne van der Berg",
     linkedinUrl: "https://nl.linkedin.com/in/sanne-vdb/",
     currentPosition: [{ position: "Head of Data", companyName: "Acme" }],
   });
-  assert.deepEqual(b, { firstName: "Sanne", lastName: "van der Berg", title: "Head of Data", linkedinUrl: "linkedin.com/in/sanne-vdb", companyDomain: null });
+  assert.deepEqual(b, { firstName: "Sanne", lastName: "van der Berg", title: "Head of Data", linkedinUrl: "https://www.linkedin.com/in/sanne-vdb", companyDomain: null });
 });
 
 test("input builders", () => {

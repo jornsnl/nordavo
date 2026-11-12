@@ -123,6 +123,17 @@ export function AssessmentPanel({
             : "English, accent and communication, judged by a person."
         }
       >
+        <p className="mb-3 text-sm">
+          <a
+            href={`/dashboard/candidates/${card.candidate.id}#video`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-medium text-brand-700 hover:underline"
+          >
+            {card.candidate.video_url ? "Watch the video intro" : "No video link yet: add or upload it"}
+          </a>
+          <span className="text-muted"> on the candidate page (Overview).</span>
+        </p>
         <SectionForm section="video" applicationId={card.id} action={saveAssessment}>
           {(errors) => (
             <>

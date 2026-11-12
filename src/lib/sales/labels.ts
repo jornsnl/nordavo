@@ -70,10 +70,11 @@ export const companyCategories: Option<CompanyCategory>[] = [
   { value: "both", label: "Both", tone: "success" },
 ];
 
+/** One main contact per company, then the backup (stored as reserve), then extra (docs/sales.md). */
 export const contactRoles: Option<ContactRole>[] = [
   { value: "main", label: "Main", tone: "brand" },
+  { value: "reserve", label: "Backup", tone: "accent" },
   { value: "extra", label: "Extra", tone: "neutral" },
-  { value: "reserve", label: "Reserve", tone: "neutral" },
 ];
 
 /** Priority of a company in the call list, 1 is first. */

@@ -16,7 +16,8 @@ function block(title: string, description: string | undefined, questions: Questi
 }
 
 export const SOURCE_OPTIONS = ["LinkedIn", "Naukri", "Instagram (@nordavotalent)", "Indeed", "Monster", "Referral", "Other"];
-export const NOTICE_OPTIONS = ["Immediately", "Within 1 week", "Within 2 weeks", "Within 1 month", "Within 2 months", "3 months or more"];
+/** The same choices as the notice period on the candidate (src/lib/recruitment/candidate-fields.ts). */
+export const NOTICE_OPTIONS = ["Immediately", "15 days", "30 days", "45 days", "60 days", "90 days or more"];
 
 const VIDEO_HELP =
   "Upload a 1 to 2 minute intro video to Google Drive and set it to Anyone with the link can view. Tell us who you are and why this role fits you.";

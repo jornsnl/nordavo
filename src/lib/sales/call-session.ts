@@ -7,6 +7,9 @@ import type { CallOutcome } from "@/lib/sales/database";
 import { callOutcomes, labelOf } from "@/lib/sales/labels";
 import { loadQueue, type QueueEntry, type QueueScope } from "@/lib/sales/queue";
 import { companyColumns, contactColumns, type ContactRow } from "@/lib/sales/rows";
+import { pickable } from "@/lib/sales/choices";
+import { loadChoiceLists } from "@/lib/sales/flow-data";
+import { dialHref } from "@/lib/sales/telephony";
 
 // The call screen (feedback Julius, section 2.9): the next contact of a
 // queue, held while it is open, and one outcome per call. Shared by the team
@@ -70,9 +73,21 @@ export type CallCard = {
     redFlags: string[];
     generalPhone: string | null;
   };
-  /** Contact mobile, else the general number of the company. */
-  dial: { number: string; kind: "contact" | "general" } | null;
-  vacancies: { id: string; title: string | null; roleGroup: string | null; daysOpen: number | null; url: string | null }[];
+  /** Contact mobile, else the general number of the company; href follows the caller's dial template (tel: or their phone system). */
+  dial: { number: string; kind: "contact" | "general"; href: string } | null;
+  /** The outcome buttons with the labels, order and hidden flags of Settings, Sales lists. */
+  outcomes: { value: CallOutcome; label: string; description: string | null }[];
+  vacancies: {
+    id: string;
+    title: string | null;
+    roleGroup: string | null;
+    daysOpen: number | null;
+    url: string | null;
+    /** Posted date (YYYY-MM-DD) when known; the days open count from here, else from firstSeenAt. */
+    postedAt?: string | null;
+    firstSeenAt?: string;
+    description?: string | null;
+  }[];
   others: { id: string; name: string; title: string | null; phone: string | null; status: string }[];
   timeline: CallTimelineItem[];
   queue: { position: number; total: number; source: QueueEntry["source"]; listName: string | null };
@@ -154,7 +169,7 @@ const channelLabels: Record<string, string> = {
 async function loadCard(actor: CallActor, entry: QueueEntry, index: number, total: number, rows: Map<string, ContactRow>, listNames: Map<string, string>): Promise<CallCard | null> {
   const { db } = actor;
   const row = rows.get(entry.contactId);
-  const [company, signals, activities] = await Promise.all([
+  const [company, signals, activities, profile, lists] = await Promise.all([
     db
       .from("companies")
       .select("id, name, domain, website, prio, city, sector, description, opening_line, red_flags, general_phone")
@@ -162,8 +177,9 @@ async function loadCard(actor: CallActor, entry: QueueEntry, index: number, tota
       .maybeSingle(),
     db
       .from("signals")
-      .select("id, title, role_group, posted_at, first_seen_at, source_url, last_seen_at")
+      .select("id, title, role_group, posted_at, first_seen_at, source_url, last_seen_at, description, closed_at")
       .eq("company_id", entry.companyId)
+      .is("closed_at", null)
       .order("last_seen_at", { ascending: false })
       .limit(10),
     db
@@ -174,6 +190,8 @@ async function loadCard(actor: CallActor, entry: QueueEntry, index: number, tota
       .order("date", { ascending: false })
       .order("created_at", { ascending: false })
       .limit(60),
+    db.from("profiles").select("dial_template").eq("id", actor.actorId).maybeSingle(),
+    loadChoiceLists(db),
   ]);
   if (!row || !company.data) return null;
   const c = company.data;
@@ -213,11 +231,15 @@ async function loadCard(actor: CallActor, entry: QueueEntry, index: number, tota
   });
 
   const name = row.full_name || personName(row.first_name, row.last_name) || "Unknown contact";
-  const dial = row.phone?.trim()
-    ? { number: row.phone.trim(), kind: "contact" as const }
-    : c.general_phone?.trim()
-      ? { number: c.general_phone.trim(), kind: "general" as const }
-      : null;
+  const template = profile.error ? null : (profile.data?.dial_template ?? null);
+  const number = row.phone?.trim() || c.general_phone?.trim() || null;
+  const dial = number
+    ? { number, kind: row.phone?.trim() ? ("contact" as const) : ("general" as const), href: dialHref(number, template) }
+    : null;
+  const known = new Set<string>(callOutcomes.map((o) => o.value));
+  const outcomes = pickable(lists.call_outcome)
+    .filter((o) => known.has(o.value))
+    .map((o) => ({ value: o.value as CallOutcome, label: o.label, description: o.description }));
 
   const others = [...rows.values()]
     .filter((r) => r.company_id === entry.companyId && r.id !== row.id)
@@ -260,6 +282,7 @@ async function loadCard(actor: CallActor, entry: QueueEntry, index: number, tota
       generalPhone: c.general_phone,
     },
     dial,
+    outcomes: outcomes.length > 0 ? outcomes : callOutcomes.map((o) => ({ value: o.value, label: o.label, description: null })),
     vacancies: (signals.data ?? []).map((s) => {
       const since = s.posted_at ?? s.first_seen_at;
       return {
@@ -268,6 +291,9 @@ async function loadCard(actor: CallActor, entry: QueueEntry, index: number, tota
         roleGroup: s.role_group,
         daysOpen: since ? Math.max(0, Math.floor((now - new Date(since).getTime()) / 86_400_000)) : null,
         url: s.source_url && /^https?:\/\//i.test(s.source_url) ? s.source_url : null,
+        postedAt: s.posted_at,
+        firstSeenAt: s.first_seen_at,
+        description: s.description,
       };
     }),
     others,

@@ -4,7 +4,7 @@
  * Normalisation itself lives in ./normalize (shared with the flow).
  */
 
-import { normalizeDomain, normalizeEmail, normalizeLinkedin, normalizePhone, phoneTypeFor } from "./normalize";
+import { cleanLinkedinUrl, normalizeDomain, normalizeEmail, normalizeLinkedin, normalizePhone, phoneTypeFor } from "./normalize";
 
 /** Value of companies.source / contacts.source for records added in the portal. */
 export const MANUAL_SOURCE = "manual";
@@ -30,16 +30,19 @@ export function parseWebsite(value: string | null | undefined): { domain: string
   return { domain, website };
 }
 
-/** A personal LinkedIn profile ("linkedin.com/in/..."), normalised, or null. */
+/**
+ * A personal LinkedIn profile as it is stored: "https://www.linkedin.com/in/Jane-Doe"
+ * (case kept, it matters for Apify links), or null. Match on normalizeLinkedin.
+ */
 export function parseLinkedinProfile(value: string | null | undefined): string | null {
-  const url = normalizeLinkedin(value);
-  return url && /^linkedin\.com\/in\/[^/]+/.test(url) ? url : null;
+  const key = normalizeLinkedin(value);
+  return key && /^linkedin\.com\/in\/[^/]+/.test(key) ? cleanLinkedinUrl(value) : null;
 }
 
-/** A LinkedIn company page ("linkedin.com/company/..."), normalised, or null. */
+/** A LinkedIn company page as it is stored ("https://www.linkedin.com/company/acme"), or null. */
 export function parseLinkedinCompany(value: string | null | undefined): string | null {
-  const url = normalizeLinkedin(value);
-  return url && /^linkedin\.com\/(company|school|showcase)\/[^/]+/.test(url) ? url : null;
+  const key = normalizeLinkedin(value);
+  return key && /^linkedin\.com\/(company|school|showcase)\/[^/]+/.test(key) ? cleanLinkedinUrl(value) : null;
 }
 
 export type ManualContactFields = {
@@ -47,6 +50,8 @@ export type ManualContactFields = {
   last_name?: string;
   title?: string;
   tier?: 1 | 2 | 3;
+  /** Main (one per company), reserve (backup) or extra; without one the database picks the next free role. */
+  role?: "main" | "reserve" | "extra";
   email?: string;
   phone?: string;
   linkedin_url?: string;
@@ -97,6 +102,7 @@ export function manualContactRow(
       phone_type: phoneTypeFor(phone),
       source: MANUAL_SOURCE,
       sources: [MANUAL_SOURCE],
+      ...(input.role ? { role: input.role, ...(input.role === "main" ? { is_primary: true } : {}) } : {}),
     },
   };
 }
@@ -118,6 +124,8 @@ export type ManualContactRow = {
   phone_type: "mobiel" | "vast" | null;
   source: string;
   sources: string[];
+  role?: "main" | "reserve" | "extra";
+  is_primary?: boolean;
 };
 
 /** Escape % and _ so a value matches itself in an ilike filter. */

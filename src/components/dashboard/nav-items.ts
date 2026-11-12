@@ -3,6 +3,7 @@ import {
   Briefcase,
   Building2,
   CalendarCheck,
+  CalendarDays,
   Contact,
   Filter,
   GraduationCap,
@@ -68,6 +69,7 @@ export const navSections: NavSection[] = [
       { label: "Vacancies", href: "/dashboard/vacancies", icon: Briefcase },
       { label: "Candidates", href: "/dashboard/candidates", icon: Users },
       { label: "Placements", href: "/dashboard/placements", icon: Handshake },
+      { label: "Agenda", href: "/dashboard/agenda", icon: CalendarDays },
     ],
   },
   {

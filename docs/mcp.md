@@ -97,6 +97,7 @@ Lijsten geven standaard 25 en maximaal 100 rijen, met `offset` om te bladeren. R
 | `list_vacancies` / `get_vacancy` | Vacatures (standaard open en on hold) met dagen open en pipeline-omvang; detail met profiel en pipeline per fase, scores en klantbeslissing |
 | `list_candidates` / `get_candidate` | Kandidaten (zoeken op naam, functie en skills); detail met skills, sollicitaties, plaatsingen en notities |
 | `list_placements` | Plaatsingen (standaard actief en opgezegd) met tarief, garantie en volgende check-in |
+| `list_custom_fields` | De eigen velden per soort record (kandidaat, vacature, klant, plaatsing, sollicitatie, bedrijf, contact): sleutel, naam, type, opties, hulptekst en het blok op de pagina. De `get_*` en `list_*` tools van kandidaten, vacatures, klanten en plaatsingen (en de pipelinekaarten in `get_vacancy`) geven de waarden als `custom_fields` |
 | `list_tasks` | Work taken die de eigenaar van het token mag openen, op deadline, met eigenaren, reviewer, workspace, project, type, labels, startdatum, schatting, het gekoppelde record (`linked`: type, id, naam, link) en een link naar de taak in Work. Filters `mine` (eigenaar), `status` (`open` is `todo`, `in_progress` of `review`; verder `todo`, `in_progress`, `review`, `done`, `cancelled`, `all`), `due` (`overdue`, `today`, `week`, `none`), `workspace_id`, `project_id` (of `inbox`) en een gekoppeld record (`entity_type` met `entity_id`). `due_at` is UTC, `due_date` de dag in Europe/Amsterdam. `has_more` zegt of er een volgende pagina is |
 | `list_work_projects` | De workspaces en projecten waar de eigenaar taken in kan zetten: eerst de inbox, dan de privé workspaces, dan de gedeelde (Nordavo, KG), met het aantal open taken |
 | `get_activity` | Activiteitenlog van één record (inclusief pipeline en het log van de gekoppelde Work taken) of van het hele portaal; met `entity_type` `task` het log van één Work taak |
@@ -107,8 +108,8 @@ Lijsten geven standaard 25 en maximaal 100 rijen, met `offset` om te bladeren. R
 | Tool | Wat het doet |
 | --- | --- |
 | `list_companies` | Bedrijven met leadstatus, fase, prio, categorie, ICP, eigenaar, partner en volgende actie. Filters: `lead_status`, `pipeline_stage`, `in_pipeline`, `prio`, `category`, `icp`, `text`, `has_phone`, `owner_id`, `partner_id` |
-| `get_company` | Eén bedrijf met alle velden van het CRM, contacten (rol, status, primair), signalen (role group, datum online), de laatste activities, meetings, sequences en notities |
-| `list_contacts` | Contacten met rol, status, primair, telefoon, mail, pogingen en terugbeldatum. Filters op status, rol, bedrijf, leadstatus van het bedrijf, `has_phone` en tekst |
+| `get_company` | Eén bedrijf met alle velden van het CRM (ook openingszin, red flags, algemeen nummer), contacten (rol main, backup of extra, tier, status, LinkedIn link en member id), vacatures en signalen (link, tekst, `online_since`, `days_open`, gesloten), `possible_duplicates`, de laatste activities, meetings, sequences en notities |
+| `list_contacts` | Contacten met rol, tier, status, primair, telefoon, mail, LinkedIn link en member id, pogingen en terugbeldatum. Filters op status, rol, bedrijf, leadstatus van het bedrijf, `has_phone`, tekst en `linkedin_broken` (Apify links die vroeger in kleine letters zijn opgeslagen) |
 | `list_meetings` | Het meetingregister met status, datum, beller, tarief en Cal.com uid |
 | `list_call_lists` | Bellijsten met voor welke bellers ze open staan, tot wanneer en in welke volgorde, plus de bellers |
 | `list_sequences` / `get_sequence` | Sequences met stappen, goedgekeurde teksten, concepten en inschrijvingen met hun taken |
@@ -126,20 +127,23 @@ Lijsten geven standaard 25 en maximaal 100 rijen, met `offset` om te bladeren. R
 | `update_task_status` | Status van een Work taak zetten: `todo`, `in_progress`, `review` of `done`. De reviewregels van Work gelden: Done alleen door de reviewer of een admin, Review alleen met een reviewer, terug van Review of Done alleen met `comment` |
 | `add_task_comment` | Een reactie op een taak, met @vermeldingen (`mention_ids`), via `work_add_comment` |
 | `add_note` | Notitie toevoegen aan een klant, vacature, kandidaat, sollicitatie, plaatsing of GTM bedrijf |
+| `set_custom_fields` | Eigen velden van één record invullen of wissen (`null`), op sleutel of exacte naam, met dezelfde controle als het portaal (type, opties, gearchiveerd). Module Recruitment |
 
 ### Sales schrijven (tokens met *Lezen en schrijven*, eigenaar met de module Sales)
 
 | Tool | Wat het doet |
 | --- | --- |
-| `update_companies` | Leadstatus, fase (Lost met reden), prio, categorie, eigenaar, partner, volgende actie, pin en handmatige volgorde van een of meer bedrijven |
-| `update_contacts` | Status, rol, primair, functie, telefoon, mail, LinkedIn, terugbeldatum, beller en notitie van een of meer contacten |
+| `update_companies` | Openingszin, red flags, algemeen nummer, wat ze doen, LinkedIn pagina, leadstatus, fase (Lost met reden), prio, categorie, eigenaar, partner, volgende actie, pin en handmatige volgorde van een of meer bedrijven |
+| `update_contacts` | Status, rol (`main`, `backup`, `extra`), tier, primair, functie, telefoon, mail, LinkedIn (precies zoals gegeven, met https://), LinkedIn member id, terugbeldatum, beller en notitie van een of meer contacten |
+| `update_signals` | Vacatures corrigeren: datum online (`posted_at`), link, tekst, titel, role group of offline (`closed`) |
+| `merge_companies` / `merge_contacts` | Twee dubbele bedrijven of contacten samenvoegen zonder iets te verliezen (zie [sales.md](./sales.md#dubbelen-samenvoegen)) |
 | `log_activity` | Een contactmoment of reply, bijvoorbeeld uit Instantly of Seleqt, met `external_id` tegen dubbelen. Met `review` en een `suggestion` wacht een reply op Julius |
 | `create_meeting` | Een meeting, bijvoorbeeld een Cal.com boeking, met de booking uid als `external_id` |
 | `update_meeting` | Na het gesprek: status (`held`, `approved`, `rejected`, `no_show`, `cancelled`, of terug naar `planned`) met een reden of notitie, en de fee. Goedkeuren, afkeuren en de fee alleen als de eigenaar admin is, net als in het portaal. Het bedrijf gaat mee naar de juiste fase (`meetings_after_change`), de notitie staat op de meeting en op de activity van de statuswijziging, met bron `claude` (`sales_update_meeting`) |
-| `add_company` | Eén bedrijf dat niet uit Apify of Prospeo komt, met de herkomst (`origin`: `inbound`, `linkedin`, `partner`, `network`), een `source_note` en eventueel de `partner_id`. Ontdubbeld zoals `upsert_companies`; contacten kunnen mee |
-| `add_contact` | Een contact aan een bestaand bedrijf: naam, functie, mail, telefoon, LinkedIn, rol (`main`, `extra`, `reserve`) en hoofdcontactpersoon. Dezelfde LinkedIn (overal), of hetzelfde mailadres of dezelfde naam bij dit bedrijf, is dezelfde persoon: die wordt aangevuld, nooit overschreven |
+| `add_company` | Eén bedrijf dat niet uit Apify of Prospeo komt, met de herkomst (`origin`: `inbound`, `linkedin`, `partner`, `network`), een `source_note`, eventueel de `partner_id`, en `opening_line`, `red_flags` en `general_phone` als eigen velden. Ontdubbeld zoals `upsert_companies`; contacten kunnen mee. Het antwoord noemt `possible_duplicates` |
+| `add_contact` | Een contact aan een bestaand bedrijf: naam, functie, tier, mail, telefoon, LinkedIn, LinkedIn member id, rol (`main`, `backup`, `extra`) en hoofdcontactpersoon. Dezelfde LinkedIn link (in welke schrijfwijze ook) of hetzelfde member id (overal), of hetzelfde mailadres of dezelfde naam bij dit bedrijf, is dezelfde persoon: die wordt aangevuld, nooit overschreven |
 | `open_list_for_callers` / `close_list_for_callers` | Een bellijst open of dicht zetten voor bellers, met einddatum en volgorde. Alleen als de eigenaar van het token admin is |
-| `upsert_companies` | Nieuwe bedrijven met vacatures en beslissers uit Apify of Prospeo. Ontdubbeld op genormaliseerd domein, daarna op de LinkedIn pagina; bekende bedrijven worden aangevuld, nooit overschreven |
+| `upsert_companies` | Nieuwe bedrijven met vacatures (elk met eigen link, `posted_at` en tekst) en beslissers (rol, tier) uit Apify of Prospeo. Ontdubbeld op genormaliseerd domein (ook de domeinen van samengevoegde bedrijven), daarna op de LinkedIn pagina; bekende bedrijven worden aangevuld, nooit overschreven. Een bedrijf zonder website en LinkedIn, of een vacature met een link die geen webadres is, staat met de reden in `results` (`error`, `signals_failed`); de rest wordt opgeslagen |
 | `set_icp_verdict` | ICP-oordeel, score, reden, prio, categorie en openingszin; de leadstatus volgt (Ready, Review of No go) |
 | `draft_sequence_text` | Een concept voor een stap van een sequence, via `sales_draft_step` en dus in Activities op de sequence met bron `claude`; Julius keurt goed in het portaal |
 | `start_sequence` | Een actieve sequence starten voor een of meer bedrijven |

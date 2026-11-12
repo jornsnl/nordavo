@@ -1,6 +1,6 @@
 import "server-only";
 import { z } from "zod";
-import { normalizeDomain, normalizeLinkedin, splitName } from "@/lib/gtm/normalize";
+import { cleanLinkedinUrl, normalizeDomain, normalizeLinkedin, splitName } from "@/lib/gtm/normalize";
 import { parseEmployeeCount, TECH_SEARCH_ROLES } from "@/lib/gtm/signals";
 
 /**
@@ -351,14 +351,14 @@ export function mapPerson(item: ApifyItem): ScrapedPerson {
     firstName = split.first;
     lastName = split.last;
   }
-  const profile = normalizeLinkedin(
-    pickString(item, ["linkedin", "linkedinUrl", "linkedin_url", "profileUrl", "url", "publicProfileUrl"]),
-  );
+  // Kept as given (the ACwAA ids of Apify are case sensitive); the key is only for the check.
+  const raw = pickString(item, ["linkedin", "linkedinUrl", "linkedin_url", "profileUrl", "url", "publicProfileUrl"]);
+  const profile = normalizeLinkedin(raw)?.startsWith("linkedin.com/in/") ? cleanLinkedinUrl(raw) : null;
   return {
     firstName,
     lastName,
     title: pickString(item, ["job_title", "title", "jobTitle", "position", "currentPosition.0.position", "headline"]),
-    linkedinUrl: profile && profile.startsWith("linkedin.com/in/") ? profile : null,
+    linkedinUrl: profile,
     companyDomain: companyDomainFrom(
       pickString(item, ["company_domain", "companyDomain", "company_website", "companyWebsite", "organization.website_url", "currentPosition.0.companyWebsite"]),
     ),

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
-import { ListChecks, Phone, Table2 } from "lucide-react";
+import { ListChecks, Phone, Sheet, Table2 } from "lucide-react";
 import { EmptyState } from "@/components/dashboard/empty-state";
 import { PageHeader } from "@/components/dashboard/page-header";
 import { CallerListOrder, CallListToggle, ListCallersButton, UnassignCallerButton } from "@/components/calls/call-list-controls";
@@ -110,6 +110,10 @@ async function CallLists() {
                         <ButtonLink href={`/dashboard/contacts?view=${v.id}`} variant="secondary" size="sm">
                           <Table2 aria-hidden="true" />
                           Open in table
+                        </ButtonLink>
+                        <ButtonLink href={`/dashboard/calls?list=${v.id}&view=sheet`} variant="secondary" size="sm">
+                          <Sheet aria-hidden="true" />
+                          Call sheet
                         </ButtonLink>
                         <ButtonLink href={`/dashboard/calls?list=${v.id}`} size="sm">
                           <Phone aria-hidden="true" />

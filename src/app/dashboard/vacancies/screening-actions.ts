@@ -6,10 +6,12 @@ import { GENERIC_ERROR, formValues } from "@/lib/action-state";
 import { ClaudeRefusalError, hasClaude } from "@/lib/ai/claude";
 import { requireAdmin, requireStaff } from "@/lib/auth";
 import type { CandidateOrigin, CandidateSource, TablesInsert } from "@/lib/database.types";
-import { candidateImportFields, IMPORT_CHUNK_SIZE, type CandidateImportMapping } from "@/lib/screening/candidate-csv";
+import { CandidateIndex, candidateImportFields, dedupeKeys, IMPORT_CHUNK_SIZE, type CandidateImportMapping } from "@/lib/screening/candidate-csv";
 import { MAX_CV_BYTES } from "@/lib/screening/cv-text";
 import { processCvUpload, readStoredCv, validateCvFile, type CvUploadResult } from "@/lib/screening/cv-read";
-import { importCandidateRows, type CandidateImportReport } from "@/lib/screening/import";
+import { findExistingCandidates, importCandidateRows, type CandidateImportReport } from "@/lib/screening/import";
+import { findNameMatches } from "@/lib/screening/duplicates";
+import { nameKey } from "@/lib/recruitment/candidate-fields";
 import { compareSample, scoreApplications } from "@/lib/screening/score-run";
 import { isScreeningModel, linesToList } from "@/lib/screening/scoring";
 import { planTechstackMoves } from "@/lib/screening/techstack";
@@ -57,7 +59,8 @@ const mappingSchema = z.object(
 );
 
 const importSchema = z.object({
-  vacancyId: idSchema,
+  vacancyId: idSchema.nullable(),
+  skipNameMatches: z.boolean().optional(),
   rows: z.array(z.record(z.string().max(200), z.string().max(10000))).min(1, "No rows to import.").max(IMPORT_CHUNK_SIZE),
   mapping: mappingSchema,
   source: sourceSchema,
@@ -66,7 +69,9 @@ const importSchema = z.object({
 });
 
 export type CandidateImportInput = {
-  vacancyId: string;
+  /** Null: into the candidate list only (import from the candidates page). */
+  vacancyId: string | null;
+  skipNameMatches?: boolean;
   rows: Record<string, string>[];
   mapping: CandidateImportMapping;
   source: CandidateSource;
@@ -80,19 +85,70 @@ export async function importCandidatesChunkAction(
   await requireStaff();
   const parsed = importSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "The import is not valid." };
-  const { vacancyId, rows, mapping, source, origin, offset } = parsed.data;
+  const { vacancyId, rows, mapping, source, origin, offset, skipNameMatches } = parsed.data;
   if (!mapping.full_name && !(mapping.first_name || mapping.last_name)) {
     return { ok: false, error: "Map the column with the name (or first and last name)." };
   }
   try {
     const supabase = await createClient();
-    const { data: vacancy } = await supabase.from("vacancies").select("id").eq("id", vacancyId).maybeSingle();
-    if (!vacancy) return { ok: false, error: "This vacancy no longer exists." };
-    const result = await importCandidateRows(supabase, rows, mapping, { vacancyId, source, origin }, offset);
-    revalidateVacancy(vacancyId);
+    if (vacancyId) {
+      const { data: vacancy } = await supabase.from("vacancies").select("id").eq("id", vacancyId).maybeSingle();
+      if (!vacancy) return { ok: false, error: "This vacancy no longer exists." };
+    }
+    const result = await importCandidateRows(supabase, rows, mapping, { vacancyId, source, origin, skipNameMatches }, offset);
+    if (vacancyId) revalidateVacancy(vacancyId);
+    else revalidatePath("/dashboard/candidates");
     return { ok: true, result };
   } catch (error) {
     return { ok: false, error: error instanceof Error ? error.message : "Something went wrong while importing." };
+  }
+}
+
+export type ImportDuplicate = {
+  row: number;
+  name: string;
+  /** Matched on contact details: the import updates this candidate. */
+  contact: { id: string; on: string } | null;
+  /** Existing candidates with the same name and no contact match. */
+  sameName: { id: string; full_name: string; email: string | null }[];
+};
+
+const duplicateCheckSchema = z
+  .array(
+    z.object({
+      row: z.number().int().min(1),
+      full_name: z.string().max(200),
+      email: z.string().max(320).nullable(),
+      phone: z.string().max(50).nullable(),
+      linkedin_url: z.string().max(500).nullable(),
+    }),
+  )
+  .max(IMPORT_CHUNK_SIZE);
+
+/** Duplicate check before an import (feedback round 3): per row, the existing candidate on contact details or on name. */
+export async function checkImportDuplicatesAction(
+  drafts: z.input<typeof duplicateCheckSchema>,
+): Promise<{ ok: true; duplicates: ImportDuplicate[] } | { ok: false; error: string }> {
+  await requireStaff();
+  const parsed = duplicateCheckSchema.safeParse(drafts);
+  if (!parsed.success) return { ok: false, error: "The rows could not be checked." };
+  try {
+    const supabase = await createClient();
+    const keys = parsed.data.map((d) => dedupeKeys(d));
+    const [existing, byName] = await Promise.all([
+      findExistingCandidates(supabase, keys),
+      findNameMatches(supabase, parsed.data.map((d) => d.full_name)),
+    ]);
+    const index = new CandidateIndex(existing);
+    const duplicates: ImportDuplicate[] = [];
+    parsed.data.forEach((d, i) => {
+      const hit = index.find(keys[i]);
+      const sameName = hit ? [] : (byName.get(nameKey(d.full_name) ?? "") ?? []).map((m) => ({ id: m.id, full_name: m.full_name, email: m.email }));
+      if (hit || sameName.length > 0) duplicates.push({ row: d.row, name: d.full_name, contact: hit ? { id: hit.id, on: hit.on } : null, sameName });
+    });
+    return { ok: true, duplicates };
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : GENERIC_ERROR };
   }
 }
 

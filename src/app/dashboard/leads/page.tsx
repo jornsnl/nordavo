@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import { Plus, Upload } from "lucide-react";
 import { PageHeader } from "@/components/dashboard/page-header";
+import { ListMarker } from "@/components/leads/back-to-list";
 import { LeadTabs } from "@/components/leads/lead-tabs";
 import { SalesTable } from "@/components/sales/table-page";
 import { ButtonLink } from "@/components/ui/button";
@@ -33,6 +34,9 @@ export default function Page({ searchParams }: PageProps<"/dashboard/leads">) {
           </>
         }
       />
+      <Suspense fallback={null}>
+        <ListMarker />
+      </Suspense>
       <Suspense fallback={<LeadTabs active="all" reviewCount={null} />}>
         <Tabs />
       </Suspense>

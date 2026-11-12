@@ -44,6 +44,7 @@ import { regenerateBccAddress } from "./bcc-actions";
 import { CopyButton } from "@/components/talent/copy-button";
 import { bccAddressFor } from "@/lib/mail/bcc-inbound";
 import type { InboundMailStatus } from "@/lib/database.types";
+import { DialSettingCard } from "@/components/calls/dial-setting-card";
 
 export const metadata: Metadata = {
   title: "Settings",
@@ -73,6 +74,10 @@ export default function Page() {
 
         <Suspense fallback={null}>
           <Interviews />
+        </Suspense>
+
+        <Suspense fallback={null}>
+          <DialSettingCard />
         </Suspense>
 
         <Suspense fallback={null}>

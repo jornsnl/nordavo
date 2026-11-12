@@ -197,6 +197,44 @@ select pg_temp.check((select count(*) from public.custom_field_definitions) = 0,
 select pg_temp.check((select count(*) from public.candidates) = 0, 'guest sees no candidates');
 select pg_temp.check(pg_temp.fails($$select public.set_custom_field('candidate', '00000000-0000-0000-0000-0000000005f1', 'tier', '"A"')$$, 'Only the Nordavo team'), 'guest cannot use set_custom_field');
 
+select pg_temp.check((select count(*) from public.record_layouts) = 0, 'guest sees no page layouts');
+select pg_temp.check(pg_temp.fails($$insert into public.record_layouts (entity, config) values ('client', '{}')$$, 'row-level security'), 'guest cannot save a layout');
+
+reset role;
+
+-- ---------------------------------------------------------------------------
+-- Clients and placements, page layouts, deleting a field
+-- (20261123200000_custom_fields_layouts.sql)
+-- ---------------------------------------------------------------------------
+
+select pg_temp.act('judith.cf@nordavo.nl');
+set role authenticated;
+insert into public.custom_field_definitions (entity, key, label, field_type, block_key)
+  values ('client', 'payment_terms', 'Payment terms', 'number', 'b_finance');
+select pg_temp.check((select public.set_custom_field('client', '00000000-0000-0000-0000-0000000005c1', 'payment_terms', '30') ->> 'payment_terms') = '30', 'member fills a client field');
+select pg_temp.check(pg_temp.fails($$select public.set_custom_field('client', '00000000-0000-0000-0000-0000000005c1', 'payment_terms', '"thirty"')$$, 'takes a number'), 'client field is type checked');
+insert into public.record_layouts (entity, config) values ('client', '{"blocks": [{"key": "b_finance", "custom": true, "label": "Finance"}]}');
+update public.record_layouts set config = '{"blocks": []}' where entity = 'client';
+select pg_temp.check((select updated_by = '00000000-0000-0000-0000-0000000005a1' from public.record_layouts where entity = 'client'), 'layout remembers who changed it');
+select pg_temp.check(pg_temp.fails($$insert into public.record_layouts (entity, config) values ('company', '{}')$$, 'check'), 'only known record pages have a layout');
+delete from public.record_layouts where entity = 'client';
+select pg_temp.check((select count(*) from public.record_layouts where entity = 'client') = 1, 'a member cannot reset a layout');
+select pg_temp.check(pg_temp.fails($$select public.delete_custom_field((select id from public.custom_field_definitions where key = 'payment_terms'))$$, 'Only an admin'), 'a member cannot delete a field');
+reset role;
+
+select pg_temp.act('floris.cf@nordavo.nl');
+set role authenticated;
+select pg_temp.check(pg_temp.fails($$select public.delete_custom_field((select id from public.custom_field_definitions where key = 'payment_terms'))$$, 'Archive the field first'), 'only archived fields can be deleted');
+update public.custom_field_definitions set archived_at = now() where key = 'payment_terms';
+select public.delete_custom_field((select id from public.custom_field_definitions where key = 'payment_terms'));
+select pg_temp.check((select count(*) from public.custom_field_definitions where key = 'payment_terms') = 0, 'admin deletes an archived field');
+select pg_temp.check((select not (custom_fields ? 'payment_terms') from public.clients where id = '00000000-0000-0000-0000-0000000005c1'), 'its values are gone too');
+reset role;
+
+-- Back to the Work guest for the time zone checks.
+select pg_temp.act('freelancer.cf@example.com');
+set role authenticated;
+
 -- ---------------------------------------------------------------------------
 -- Work time zone: any zone Postgres knows, nothing else
 -- ---------------------------------------------------------------------------

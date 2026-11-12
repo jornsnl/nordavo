@@ -15,6 +15,8 @@ import {
 } from "@/lib/screening/cv-text";
 import { extractDocxText } from "@/lib/screening/docx";
 import { addToPipeline, findCandidateByContact } from "@/lib/screening/import";
+import { findNameMatches } from "@/lib/screening/duplicates";
+import { nameKey } from "@/lib/recruitment/candidate-fields";
 import { extractPdfText, looksLikeText } from "@/lib/screening/pdf-text";
 import { ATTACHMENTS_BUCKET, buildStoragePath } from "@/lib/storage";
 import { requestAi } from "@/lib/ai/queue";
@@ -191,7 +193,21 @@ export async function processCvUpload(db: Db, input: CvUploadInput, kind: CvFile
     linkedin_url: read.fields?.linkedin_url ?? found.linkedin_url,
   };
 
-  const existing = contact.email || contact.phone || contact.linkedin_url ? await findCandidateByContact(db, contact) : null;
+  let existing = contact.email || contact.phone || contact.linkedin_url ? await findCandidateByContact(db, contact) : null;
+  if (!existing) {
+    // No contact details in common: match on the name when exactly one candidate has it (feedback round 3).
+    const name = read.fields?.full_name ?? found.full_name;
+    const key = nameKey(name);
+    const hits = key ? ((await findNameMatches(db, [name])).get(key) ?? []) : [];
+    if (hits.length === 1) {
+      const { data } = await db
+        .from("candidates")
+        .select("id, email, phone, linkedin_url, current_title, years_experience, skills, summary, video_url, employers, source")
+        .eq("id", hits[0].id)
+        .maybeSingle();
+      existing = data;
+    }
+  }
   let candidateId: string;
   let candidateName: string;
   if (existing) {

@@ -106,6 +106,14 @@ export default function DashboardPage({ searchParams }: PageProps<"/dashboard">)
                 <CardHeader
                   title="Upcoming moments"
                   description="Check-ins, guarantee end dates and last working days."
+                  actions={
+                    <Link
+                      href="/dashboard/agenda"
+                      className="text-sm font-semibold text-brand-600 hover:text-brand-800 pointer-coarse:-my-3 pointer-coarse:inline-flex pointer-coarse:min-h-11 pointer-coarse:items-center"
+                    >
+                      Agenda
+                    </Link>
+                  }
                 />
                 <Suspense fallback={<PanelSkeleton />}>
                   <UpcomingMoments />

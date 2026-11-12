@@ -169,3 +169,6 @@ $$;
 
 revoke execute on function public.sales_log_phone_call(text, text, text, timestamptz, integer, text, boolean, text, text) from public, anon, authenticated;
 grant execute on function public.sales_log_phone_call(text, text, text, timestamptz, integer, text, boolean, text, text) to service_role;
+
+-- Everyone sets their own dial template (like the booking link).
+grant update (dial_template) on public.profiles to authenticated;
