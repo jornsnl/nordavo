@@ -94,21 +94,22 @@ function values(raw: unknown): Record<string, unknown> {
   return raw && typeof raw === "object" && !Array.isArray(raw) ? (raw as Record<string, unknown>) : {};
 }
 
+export type FlowExtras = {
+  companies: Map<string, FlowCompany>;
+  contactValues: Map<string, Record<string, unknown>>;
+  occupancy: Map<string, CompanyOccupancy[]>;
+};
+
 /**
- * Puts the extra column values on the rows of a table: bucket, source list,
- * occupancy, free, prio reason, followed and the own columns. Rows are
- * copied; a table without the new columns (migration not applied) keeps its
- * rows as they are.
+ * Loads what the extra columns need, independent of the rows, so the table
+ * page can run it in parallel with the main row load.
  */
-export async function attachFlow<T extends { id: string }>(
-  db: Db,
-  kind: "companies" | "contacts" | "pipeline",
-  rows: T[],
-  customColumns: CustomColumn[],
-): Promise<T[]> {
-  if (rows.length === 0) return rows;
-  const companyOf = (row: T) => (kind === "contacts" ? (row as unknown as { company_id: string }).company_id : row.id);
+export async function loadFlowExtras(db: Db, kind: "companies" | "contacts" | "pipeline"): Promise<FlowExtras | null> {
   try {
+    const contactDefs =
+      kind === "contacts"
+        ? await db.from("custom_field_definitions").select("key", { count: "exact", head: true }).eq("entity", "contact").is("archived_at", null)
+        : null;
     const [companies, contacts, occupancy] = await Promise.all([
       all<FlowCompany>(
         (from, to) =>
@@ -118,41 +119,58 @@ export async function attachFlow<T extends { id: string }>(
             .order("id")
             .range(from, to) as never,
       ),
-      kind === "contacts" && customColumns.some((c) => c.entity === "contact")
+      contactDefs && (contactDefs.count ?? 0) > 0
         ? all<{ id: string; custom_fields: unknown }>(
             (from, to) => db.from("contacts").select("id, custom_fields").order("id").range(from, to) as never,
           )
         : Promise.resolve([]),
       loadOccupancy(db),
     ]);
-    const byCompany = new Map(companies.map((c) => [c.id, c]));
-    const contactValues = new Map(contacts.map((c) => [c.id, values(c.custom_fields)]));
-    const companyCols = customColumns.filter((c) => c.entity === "company");
-    const contactCols = customColumns.filter((c) => c.entity === "contact");
-    const prefix = kind === "contacts" ? "company_" : "";
-
-    return rows.map((row) => {
-      const company = byCompany.get(companyOf(row));
-      const occ = occupancy.get(companyOf(row)) ?? [];
-      const running = occ.filter((o) => o.active || o.repliedAt);
-      const extra: Record<string, unknown> = {
-        flow_bucket: company?.bucket ?? null,
-        flow_source_list: company?.source_list ?? null,
-        flow_occupancy: running.length ? running.map(occupancyText).join("; ") : null,
-        flow_free: company ? isFree(company.bucket, occ) : false,
-        [`${prefix}prio_reason`]: company?.prio_reason ?? null,
-        [`${prefix}followed`]: Boolean(company?.followed_at),
-      };
-      const cv = values(company?.custom_fields);
-      for (const c of companyCols) extra[customKey("company", c.key)] = cv[c.key] ?? null;
-      if (kind === "contacts") {
-        const own = contactValues.get(row.id) ?? {};
-        for (const c of contactCols) extra[customKey("contact", c.key)] = own[c.key] ?? null;
-      }
-      return { ...row, ...extra };
-    });
+    return {
+      companies: new Map(companies.map((c) => [c.id, c])),
+      contactValues: new Map(contacts.map((c) => [c.id, values(c.custom_fields)])),
+      occupancy,
+    };
   } catch (e) {
-    console.error("attachFlow", e);
-    return rows;
+    console.error("loadFlowExtras", e);
+    return null;
   }
+}
+
+/**
+ * Puts the extra column values on the rows of a table: bucket, source list,
+ * occupancy, free, prio reason, followed and the own columns. Rows are
+ * copied; without extras (migration not applied) the rows stay as they are.
+ */
+export function applyFlow<T extends { id: string }>(
+  kind: "companies" | "contacts" | "pipeline",
+  rows: T[],
+  extras: FlowExtras | null,
+  customColumns: CustomColumn[],
+): T[] {
+  if (!extras || rows.length === 0) return rows;
+  const companyOf = (row: T) => (kind === "contacts" ? (row as unknown as { company_id: string }).company_id : row.id);
+  const companyCols = customColumns.filter((c) => c.entity === "company");
+  const contactCols = customColumns.filter((c) => c.entity === "contact");
+  const prefix = kind === "contacts" ? "company_" : "";
+  return rows.map((row) => {
+    const company = extras.companies.get(companyOf(row));
+    const occ = extras.occupancy.get(companyOf(row)) ?? [];
+    const running = occ.filter((o) => o.active || o.repliedAt);
+    const extra: Record<string, unknown> = {
+      flow_bucket: company?.bucket ?? null,
+      flow_source_list: company?.source_list ?? null,
+      flow_occupancy: running.length ? running.map(occupancyText).join("; ") : null,
+      flow_free: company ? isFree(company.bucket, occ) : false,
+      [`${prefix}prio_reason`]: company?.prio_reason ?? null,
+      [`${prefix}followed`]: Boolean(company?.followed_at),
+    };
+    const cv = values(company?.custom_fields);
+    for (const c of companyCols) extra[customKey("company", c.key)] = cv[c.key] ?? null;
+    if (kind === "contacts") {
+      const own = extras.contactValues.get(row.id) ?? {};
+      for (const c of contactCols) extra[customKey("contact", c.key)] = own[c.key] ?? null;
+    }
+    return { ...row, ...extra };
+  });
 }

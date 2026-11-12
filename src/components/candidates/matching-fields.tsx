@@ -1,4 +1,5 @@
 import type { Candidate } from "@/lib/database.types";
+import { seniorityOptions } from "@/lib/recruitment/candidate-fields";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { Field, Input, Select, Textarea } from "@/components/ui/field";
 
@@ -7,12 +8,8 @@ export type MatchingFieldValues = Pick<
   "seniority" | "employers" | "project_types" | "sectors" | "cv_text" | "english_level" | "availability" | "profile_consent"
 >;
 
-export const seniorityOptions = [
-  { value: "junior", label: "Junior" },
-  { value: "medior", label: "Medior" },
-  { value: "senior", label: "Senior" },
-  { value: "lead", label: "Lead" },
-] as const;
+/** The same list as vacancies (src/lib/recruitment/candidate-fields.ts). */
+export { seniorityOptions };
 
 export const consentOptions = [
   { value: "", label: "Unknown" },
