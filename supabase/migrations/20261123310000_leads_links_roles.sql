@@ -372,7 +372,8 @@ begin
   end loop;
 
   foreach v_flag in array regexp_split_to_array(
-    (select string_agg(x, E'\n') from jsonb_array_elements_text(v_parts -> 'red_flags') x), E'\\s*[;,\\n]\\s*'
+    -- No red flags section: string_agg gives null and FOREACH can't loop over null.
+    coalesce((select string_agg(x, E'\n') from jsonb_array_elements_text(v_parts -> 'red_flags') x), ''), E'\\s*[;,\\n]\\s*'
   ) loop
     v_flag := trim(both ' -*•.' from coalesce(v_flag, ''));
     if v_flag <> '' and lower(v_flag) not in ('none', 'geen', 'n/a', '-') then
