@@ -130,6 +130,10 @@ supabase/migrations/       SQL migraties met RLS
 
 Hiervoor is de migratie `20261026000000_security.sql` nodig en moet `SUPABASE_SECRET_KEY` op de server staan.
 
+## Migraties
+
+Staan er nieuwe migraties in `supabase/migrations` die nog niet in de database zitten, voer ze dan uit met de Supabase MCP (`apply_migration`), één bestand per keer en op volgorde. Controleer vooraf met `list_migrations` wat er al is uitgevoerd en daarna met `get_advisors` of er geen beveiligings of prestatiemeldingen bij zijn gekomen.
+
 ## Een module toevoegen
 
 1. Voeg tabellen toe via een nieuwe migratie in `supabase/migrations`, zet RLS aan en werk `src/lib/database.types.ts` bij (of genereer met `npx supabase gen types typescript`).
