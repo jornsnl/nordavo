@@ -1,6 +1,7 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/lib/database.types";
+import { allParallel } from "@/lib/sales/paging";
 import { defaultChoiceLists, mergeAllChoices, type ChoiceLists } from "@/lib/sales/choices";
 import type { OccupancyRow, SalesBucket } from "@/lib/sales/flow-database";
 import { customKey, type CustomColumn } from "@/lib/sales/grid-extras";
@@ -11,20 +12,6 @@ import { groupOccupancy, isFree, occupancyText, type CompanyOccupancy } from "@/
 // row level security applies.
 
 type Db = SupabaseClient<Database>;
-
-async function all<T>(
-  page: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>,
-  max = 30000,
-): Promise<T[]> {
-  const out: T[] = [];
-  for (let from = 0; from < max; from += 1000) {
-    const { data, error } = await page(from, from + 999);
-    if (error) throw new Error(error.message);
-    out.push(...(data ?? []));
-    if (!data || data.length < 1000) break;
-  }
-  return out;
-}
 
 /** The choice lists as the team set them up; the defaults when nothing is stored or the table is missing. */
 export async function loadChoiceLists(db: Db): Promise<ChoiceLists> {
@@ -73,7 +60,18 @@ export async function loadOccupancy(db: Db, companyIds?: string[]): Promise<Map<
     return groupOccupancy((data ?? []) as OccupancyRow[]);
   }
   try {
-    const rows = await all<OccupancyRow>((from, to) => db.from("sales_occupancy").select("*").range(from, to) as never);
+    const rows = await allParallel<OccupancyRow>(
+      (from, to) =>
+        db
+          .from("sales_occupancy")
+          .select("*", { count: "exact" })
+          .order("company_id")
+          .order("kind")
+          .order("ref_id")
+          .order("contact_id")
+          .order("since")
+          .range(from, to) as never,
+    );
     return groupOccupancy(rows);
   } catch (e) {
     console.error("loadOccupancy", e);
@@ -106,24 +104,38 @@ export type FlowExtras = {
  */
 export async function loadFlowExtras(db: Db, kind: "companies" | "contacts" | "pipeline"): Promise<FlowExtras | null> {
   try {
-    const contactDefs =
+    // Everything starts at once and every table loads its pages in parallel,
+    // so the extras cost two round trips instead of one per 1,000 rows.
+    const contactsP =
       kind === "contacts"
-        ? await db.from("custom_field_definitions").select("key", { count: "exact", head: true }).eq("entity", "contact").is("archived_at", null)
-        : null;
+        ? db
+            .from("custom_field_definitions")
+            .select("key", { count: "exact", head: true })
+            .eq("entity", "contact")
+            .is("archived_at", null)
+            .then(({ count }) =>
+              (count ?? 0) > 0
+                ? allParallel<{ id: string; custom_fields: unknown }>(
+                    (from, to) =>
+                      db
+                        .from("contacts")
+                        .select("id, custom_fields", { count: "exact" })
+                        .order("id")
+                        .range(from, to) as never,
+                  )
+                : [],
+            )
+        : Promise.resolve([] as { id: string; custom_fields: unknown }[]);
     const [companies, contacts, occupancy] = await Promise.all([
-      all<FlowCompany>(
+      allParallel<FlowCompany>(
         (from, to) =>
           db
             .from("companies")
-            .select("id, bucket, source_list, prio_reason, followed_at, custom_fields")
+            .select("id, bucket, source_list, prio_reason, followed_at, custom_fields", { count: "exact" })
             .order("id")
             .range(from, to) as never,
       ),
-      contactDefs && (contactDefs.count ?? 0) > 0
-        ? all<{ id: string; custom_fields: unknown }>(
-            (from, to) => db.from("contacts").select("id, custom_fields").order("id").range(from, to) as never,
-          )
-        : Promise.resolve([]),
+      contactsP,
       loadOccupancy(db),
     ]);
     return {
