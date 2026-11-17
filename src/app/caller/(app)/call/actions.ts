@@ -2,6 +2,7 @@
 
 import { requireCaller } from "@/lib/auth";
 import { salesBookingBase } from "@/lib/sales/booking";
+import { addCallContact, markCallPhone, updateCallContact, type ContactEdit, type PersonInput } from "@/lib/sales/call-contacts";
 import {
   type CallActor,
   type CallInput,
@@ -62,4 +63,27 @@ export async function releaseCallerCall(contactId: string): Promise<void> {
   const actor = await callerActor();
   if (!actor) return;
   await releaseCall(actor, contactId);
+}
+
+// Contacts on the call screen (7200c28b): the functions check that the caller
+// holds a contact of the same company and that only these fields change.
+
+const NOT_AVAILABLE: ContactEdit = { ok: false, error: "Calling is not available right now. Ask Nordavo to finish the setup." };
+
+export async function editCallerContact(contactId: string, input: PersonInput): Promise<ContactEdit> {
+  const actor = await callerActor();
+  if (!actor || !actor.callerId) return NOT_AVAILABLE;
+  return updateCallContact(actor, contactId, input);
+}
+
+export async function markCallerPhone(contactId: string, wrong: boolean): Promise<ContactEdit> {
+  const actor = await callerActor();
+  if (!actor || !actor.callerId) return NOT_AVAILABLE;
+  return markCallPhone(actor, contactId, wrong === true);
+}
+
+export async function addCallerContact(companyId: string, input: PersonInput): Promise<ContactEdit> {
+  const actor = await callerActor();
+  if (!actor || !actor.callerId) return NOT_AVAILABLE;
+  return addCallContact(actor, companyId, input);
 }

@@ -7,7 +7,15 @@ import { ListSkeleton } from "@/components/ui/skeleton";
 import { requireCaller } from "@/lib/auth";
 import { loadCallerSheet } from "@/lib/sales/call-sheet-data";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { logCallerCall, releaseCallerCall, skipCallerCall, startCallerCalls } from "./actions";
+import {
+  addCallerContact,
+  editCallerContact,
+  logCallerCall,
+  markCallerPhone,
+  releaseCallerCall,
+  skipCallerCall,
+  startCallerCalls,
+} from "./actions";
 
 export const metadata: Metadata = {
   title: "Call",
@@ -47,6 +55,7 @@ async function Calls({ searchParams }: { searchParams: PageProps<"/caller/call">
             log: logCallerCall,
             skip: skipCallerCall,
             release: releaseCallerCall,
+            contacts: { edit: editCallerContact, markPhone: markCallerPhone, add: addCallerContact },
           }}
         />
       )}
