@@ -90,7 +90,7 @@ function pipelineFields(a: PipelineFieldsRow) {
 }
 const placementStatus = z.enum(["active", "notice", "ended"]);
 
-const searchTypes = ["client", "vacancy", "candidate", "placement", "company", "contact"] as const;
+const searchTypes = ["client", "vacancy", "candidate", "placement", "company", "contact", "partner"] as const;
 
 /**
  * Register every tool for this token. Read tools are always there; write
@@ -135,7 +135,7 @@ function registerReadTools(server: McpServer, ctx: McpToolContext) {
     {
       title: "Search",
       description:
-        "Search the Nordavo portal by name or title across clients, vacancies, candidates (name, title), placements (by candidate name), GTM companies (name, domain) and GTM contacts (name, email). Returns ids to use with the get_* tools.",
+        "Search the Nordavo portal by name or title across clients, vacancies, candidates (name, title), placements (by candidate name), GTM companies (name, domain), GTM contacts (name, email) and partners (name, company, email). Returns ids to use with the get_* tools.",
       inputSchema: {
         query: z.string().min(2).max(80).describe("Search text, at least 2 characters."),
         types: z.array(z.enum(searchTypes)).min(1).optional().describe("Limit to these record types. Default: all."),
@@ -227,6 +227,26 @@ function registerReadTools(server: McpServer, ctx: McpToolContext) {
             .limit(limit)
             .then((r) => {
               result.company = check(r, "companies").map((c) => ({ ...c, url: url("company", c.id) }));
+            }),
+        wanted.has("partner") &&
+          db
+            .from("partners")
+            .select("id, name, company_name, email, status, last_contact_at")
+            .or(`name.ilike.${pattern},company_name.ilike.${pattern},email.ilike.${pattern}`)
+            .order("name")
+            .limit(limit)
+            .then((r) => {
+              // An account without the sales module has no partners: leave the group out instead of failing the whole search.
+              if (r.error && types === undefined) return;
+              result.partner = check(r, "partners").map((p) => ({
+                id: p.id,
+                name: p.name,
+                company: p.company_name,
+                email: p.email,
+                status: p.status,
+                last_contact_at: p.last_contact_at,
+                url: url("partner", p.id),
+              }));
             }),
         wanted.has("contact") &&
           db
@@ -721,7 +741,7 @@ function registerReadTools(server: McpServer, ctx: McpToolContext) {
     {
       title: "Tasks",
       description:
-        "List the Work tasks you can open, earliest deadline first, with owners, reviewer, workspace, project and the linked record (client, lead/company, vacancy, candidate, application or placement). Filter on your own tasks (mine), status, due window, a workspace or project (list_work_projects; inbox for your inbox) or a linked record (entity_type with entity_id). due_at is UTC; due_date is the day in Europe/Amsterdam.",
+        "List the Work tasks you can open, earliest deadline first, with owners, reviewer, workspace, project and the linked record (client, lead/company, partner, vacancy, candidate, application or placement). Filter on your own tasks (mine), status, due window, a workspace or project (list_work_projects; inbox for your inbox) or a linked record (entity_type with entity_id, for example partner). due_at is UTC; due_date is the day in Europe/Amsterdam.",
       inputSchema: {
         mine: z.boolean().default(false).describe("Only tasks the token owner is an owner of."),
         status: z

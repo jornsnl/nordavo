@@ -8,7 +8,7 @@ import { entityTypes } from "@/lib/labels";
 import { Field, Input, Select } from "@/components/ui/field";
 import { searchRecords } from "@/components/search/actions";
 
-const searchableTypes: EntityType[] = ["company", "client", "vacancy", "candidate", "placement"];
+const searchableTypes: EntityType[] = ["company", "partner", "client", "vacancy", "candidate", "placement"];
 
 export type PickedRecord = { type: EntityType; id: string; label: string };
 

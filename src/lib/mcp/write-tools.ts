@@ -135,7 +135,7 @@ export function registerWriteTools(server: McpServer, ctx: McpToolContext) {
     {
       title: "Create task",
       description:
-        "Create a Work task. Pick the project with project_id (list_work_projects shows them, private workspaces and the inbox included). Without project_id: a task linked to a record (client, lead/company, vacancy, candidate, application or placement) goes to the private project Portal records of the Nordavo team, any other task to the token owner's inbox. The token owner is the reviewer unless reviewer_id is given, and the owner unless assignee_ids is given. Only call after the user asked for it.",
+        "Create a Work task. Pick the project with project_id (list_work_projects shows them, private workspaces and the inbox included). Without project_id: a task linked to a record (client, lead/company, partner, vacancy, candidate, application or placement) goes to the private project Portal records of the Nordavo team, any other task to the token owner's inbox. The token owner is the reviewer unless reviewer_id is given, and the owner unless assignee_ids is given. Example: 'write down that I have to call John of Barry' is one task linked to the existing partner (search first, entity_type partner), without making a lead or company. Only call after the user asked for it.",
       inputSchema: {
         title: z.string().trim().min(1).max(300),
         description: z.string().max(5000).optional().describe("Markdown."),
@@ -211,7 +211,7 @@ export function registerWriteTools(server: McpServer, ctx: McpToolContext) {
     {
       title: "Change task",
       description:
-        "Change a Work task: title, description, deadline, owners (replaces them), reviewer, priority, type, labels, start date, estimate, repeat (recurrence), or move it to another project (project_id; from the inbox or a private workspace also to another workspace). Leave out what stays the same; null clears a deadline, start date, type or estimate. Status goes through update_task_status. Only call after the user asked for it.",
+        "Change a Work task: title, description, deadline, owners (replaces them), reviewer, priority, type, labels, start date, estimate, repeat (recurrence), or move it to another project (project_id; from the inbox or a private workspace also to another workspace), or link it to a record or change the link (entity_type with entity_id: client, company, partner, vacancy, candidate, application or placement; both null removes the link). Leave out what stays the same; null clears a deadline, start date, type or estimate. Status goes through update_task_status. Only call after the user asked for it.",
       inputSchema: {
         id: idSchema.describe("Task id."),
         title: z.string().trim().min(1).max(300).optional(),
@@ -228,6 +228,8 @@ export function registerWriteTools(server: McpServer, ctx: McpToolContext) {
         recurrence: z.enum(recurrenceRules).nullable().optional().describe("Repeat: daily, weekdays, weekly or monthly; null stops repeating. Needs a deadline."),
         recurrence_every: z.number().int().min(1).max(52).optional().describe("Every how many days, weeks or months (default 1)."),
         project_id: z.union([idSchema, z.literal("inbox")]).optional().describe("Move to this project (subtasks move along)."),
+        entity_type: z.enum(linkableTypes).nullable().optional().describe("Type of the record to link (requires entity_id); null with entity_id null removes the link."),
+        entity_id: idSchema.nullable().optional(),
       },
       annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
     },
@@ -235,6 +237,24 @@ export function registerWriteTools(server: McpServer, ctx: McpToolContext) {
       if (ctx.access !== "write") return denied();
       const { data: visible } = await db.rpc("work_api_can_view_task", { p_task: input.id, p_user: ctx.userId });
       if (!visible) return fail("Task not found.");
+
+      const linkGiven = input.entity_type !== undefined || input.entity_id !== undefined;
+      if (linkGiven && (input.entity_type === undefined || input.entity_id === undefined || (input.entity_type === null) !== (input.entity_id === null))) {
+        return fail("Give entity_type and entity_id together, or both null to remove the link.");
+      }
+      if (input.entity_type && input.entity_id && !(await recordExists(db, input.entity_type, input.entity_id))) {
+        return fail("The linked record does not exist.");
+      }
+      if (linkGiven) {
+        // work_set_task_link checks the module of the record and acts as the token owner.
+        const { error } = await db.rpc("work_set_task_link", {
+          p_task: input.id,
+          p_entity_type: input.entity_type ?? null,
+          p_entity_id: input.entity_id ?? null,
+          p_actor: ctx.userId,
+        });
+        if (error) return fail(`Could not change the linked record: ${error.message}`);
+      }
 
       if (input.project_id) {
         const target = input.project_id === "inbox" ? await inboxProject(db, ctx.userId) : input.project_id;
@@ -296,10 +316,10 @@ export function registerWriteTools(server: McpServer, ctx: McpToolContext) {
     {
       title: "Change task status",
       description:
-        "Set the status of a Work task: todo, in_progress, review or done. The review rules of Work apply: an owner (from todo or in_progress), the reviewer or a workspace admin can mark a task as done, from review only the reviewer or an admin, review needs a reviewer, and moving a task back from review or done needs a comment that says what still needs to happen. Only call after the user asked for it.",
+        "Set the status of a Work task: todo, in_progress, review, done or cancelled (a task made by mistake or no longer needed; only the maker, the reviewer or an admin can cancel). The review rules of Work apply: an owner (from todo or in_progress), the reviewer or a workspace admin can mark a task as done, from review only the reviewer or an admin, review needs a reviewer, and moving a task back from review or done needs a comment that says what still needs to happen. Only call after the user asked for it.",
       inputSchema: {
         id: idSchema.describe("Task id."),
-        status: z.enum(["todo", "in_progress", "review", "done"]),
+        status: z.enum(["todo", "in_progress", "review", "done", "cancelled"]),
         comment: z.string().trim().max(5000).optional().describe("Required when moving back from review or done."),
       },
       annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
@@ -319,6 +339,27 @@ export function registerWriteTools(server: McpServer, ctx: McpToolContext) {
       const { data: row } = await db.from("work_tasks").select("*").eq("id", id).single();
       const [updated] = row ? await shapeWorkTasks(db, [row], ctx.siteUrl) : [];
       return ok({ updated: updated ?? { id, status } });
+    },
+  );
+
+  // -------------------------------------------------------------------------
+  server.registerTool(
+    "delete_task",
+    {
+      title: "Delete task",
+      description:
+        "Delete a Work task that was made by mistake: it goes to the trash of Work (with its subtasks) and can be restored there for 30 days, then it is gone. Only the maker of the task or an admin of the workspace can do this; for anything else use update_task_status with cancelled. Recorded as deleted by you. Only call after the user asked for it.",
+      inputSchema: { id: idSchema.describe("Task id.") },
+      annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: false },
+    },
+    async ({ id }) => {
+      if (ctx.access !== "write") return denied();
+      const { data: visible } = await db.rpc("work_api_can_view_task", { p_task: id, p_user: ctx.userId });
+      if (!visible) return fail("Task not found.");
+      const { data: task } = await db.from("work_tasks").select("title, archived_at").eq("id", id).maybeSingle();
+      const { error } = await db.rpc("work_archive_task", { p_task: id, p_actor: ctx.userId });
+      if (error) return fail(`Could not delete the task: ${error.message}`);
+      return ok({ deleted: true, id, title: task?.title ?? null, in_trash: true, restorable_for_days: 30 });
     },
   );
 

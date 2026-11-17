@@ -137,7 +137,7 @@ async function TaskDetailView({
         <Card>
           <CardHeader
             title="Linked record"
-            description={task.record ? undefined : "Hang this task on a client, lead, vacancy, candidate or placement."}
+            description={task.record ? undefined : "Hang this task on a client, lead, partner, vacancy, candidate or placement."}
           />
           <CardBody className="space-y-4">
             {task.record && (

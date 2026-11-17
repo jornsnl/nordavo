@@ -7,6 +7,7 @@ import { fieldErrorsFrom, formValues, type ActionState } from "@/lib/action-stat
 import type { Json } from "@/lib/database.types";
 import { parseLinkedinProfile } from "@/lib/gtm/manual";
 import { normalizeEmail, normalizePhone, phoneTypeFor } from "@/lib/gtm/normalize";
+import { classifyLeadsForDelete } from "@/lib/sales/delete-leads";
 import { createClient } from "@/lib/supabase/server";
 
 /*
@@ -233,24 +234,10 @@ export async function deleteLeadsAction(ids: string[]): Promise<DeleteLeadsResul
   const parsed = z.array(uuid).min(1).max(200).safeParse(ids);
   if (!parsed.success) return { ok: false, error: "Select at least one lead." };
   const supabase = await createClient();
-  const unique = [...new Set(parsed.data)];
-
-  const [{ data: companies, error }, { data: contacted }, { data: meetings }] = await Promise.all([
-    supabase.from("companies").select("id, name, pipeline_stage, client_id").in("id", unique),
-    supabase.from("activities").select("company_id").in("company_id", unique).in("type", ["contact", "reply", "meeting"]),
-    supabase.from("meetings").select("company_id").in("company_id", unique),
-  ]);
-  if (error || !companies) return { ok: false, error: GENERIC_ERROR };
-  const approached = new Set([...(contacted ?? []), ...(meetings ?? [])].map((r) => r.company_id));
-
-  const kept: { id: string; name: string; reason: string }[] = [];
-  const deletable: string[] = [];
-  for (const c of companies) {
-    if (c.pipeline_stage) kept.push({ id: c.id, name: c.name, reason: "In the pipeline" });
-    else if (c.client_id) kept.push({ id: c.id, name: c.name, reason: "Linked to a client" });
-    else if (approached.has(c.id)) kept.push({ id: c.id, name: c.name, reason: "Already approached: send it to No go instead" });
-    else deletable.push(c.id);
-  }
+  const checked = await classifyLeadsForDelete(supabase, parsed.data);
+  if (!checked.ok) return { ok: false, error: GENERIC_ERROR };
+  const { kept } = checked;
+  const deletable = checked.deletable.map((c) => c.id);
 
   if (deletable.length > 0) {
     const { error: deleteError } = await supabase.from("companies").delete().in("id", deletable);

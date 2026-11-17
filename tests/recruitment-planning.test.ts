@@ -106,7 +106,7 @@ test("scopeDbToModules filters notes and tasks to visible record types", async (
     insert: (v: unknown) => PromiseLike<{ error: { message: string } | null }>;
   };
   notes.select("id").eq("entity_id", "x");
-  assert.deepEqual(calls[0].ops[1], ["or", ["entity_type.is.null,entity_type.not.in.(client,company)"]]);
+  assert.deepEqual(calls[0].ops[1], ["or", ["entity_type.is.null,entity_type.not.in.(client,company,partner)"]]);
 
   const blocked = await notes.insert({ entity_type: "company", entity_id: "x", body: "hi" });
   assert.match(blocked.error?.message ?? "", /Sales module/);

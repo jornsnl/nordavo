@@ -218,7 +218,7 @@ const READ_TOOLS = [
   "talent_pool_top",
   "whoami",
 ];
-const WRITE_TOOLS = ["add_note", "add_task_comment", "create_task", "mark_topper", "move_candidates", "update_task", "update_task_status"];
+const WRITE_TOOLS = ["add_note", "add_task_comment", "create_task", "delete_task", "mark_topper", "move_candidates", "update_task", "update_task_status"];
 const CONTENT_READ_TOOLS = ["content_get_post", "content_list_ideas", "content_list_media", "content_list_posts", "content_list_workspaces"];
 const CONTENT_SUGGEST_TOOLS = ["content_add_idea", "content_suggest_image_brief", "content_suggest_images", "content_suggest_media_description", "content_suggest_text"];
 const CONTENT_WRITE_TOOLS = [
