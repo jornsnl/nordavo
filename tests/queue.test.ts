@@ -5,7 +5,9 @@ import { roundRobinByCompany } from "@/lib/sales/assign";
 import {
   buildQueue,
   callBlockReason,
+  preferEntries,
   suppressionIndex,
+  type QueueEntry,
   type QueueInput,
   type QueueRules,
 } from "@/lib/sales/queue";
@@ -204,4 +206,64 @@ test("roundRobinByCompany keeps a company with one caller and spreads companies"
   assert.deepEqual(plan.get("x"), ["a1", "a2", "c1"]);
   assert.deepEqual(plan.get("y"), ["b1"]);
   assert.equal(roundRobinByCompany([{ id: "a1", company_id: "A" }], []).size, 0);
+});
+
+test("callBlockReason: a parked company waits for its date, no go keeps it out", () => {
+  const r = rules();
+  const parked = (until: string | null) => contact("a", { company_pipeline_stage: "parked", company_parked_until: until });
+  assert.equal(callBlockReason(parked("2026-11-20"), r), "in_pipeline");
+  assert.equal(callBlockReason(parked(null), r), "in_pipeline");
+  // On the day itself the company can be called again.
+  assert.equal(callBlockReason(parked(today), r), null);
+  assert.equal(callBlockReason(parked("2026-11-01"), r), null);
+  // Lost on the call screen: bucket no go (20261123600000_call_outcome_flow.sql).
+  assert.equal(callBlockReason(contact("a", { company_pipeline_stage: "lost", company_bucket: "no_go" }), r), "company_blocked");
+  assert.equal(callBlockReason(contact("a", { company_pipeline_stage: "lost", company_bucket: "free" }), r), null);
+});
+
+function entry(contactId: string, companyId: string): QueueEntry {
+  return { contactId, companyId, source: "list", listId: "l1" };
+}
+
+test("preferEntries: the rest of the company first after a person outcome, the referred contact first after Referred", () => {
+  const r = rules();
+  const a1 = contact("a1", { company_id: "A" });
+  const a2 = contact("a2", { company_id: "A" });
+  const b1 = contact("b1", { company_id: "B" });
+  const rows = new Map([a1, a2, b1].map((c) => [c.id, c]));
+  // List order: A1 (just called, excluded), B1, A2.
+  const entries = [entry("b1", "B"), entry("a2", "A")];
+
+  // Same company first, not the next company in the list.
+  assert.deepEqual(
+    preferEntries(entries, rows, r, { companyId: "A" }).map((e) => e.contactId),
+    ["a2", "b1"],
+  );
+  // Nobody else at that company: the list order stays.
+  assert.deepEqual(
+    preferEntries(entries, rows, r, { companyId: "Z" }).map((e) => e.contactId),
+    ["b1", "a2"],
+  );
+  // No preference (company outcome): untouched.
+  assert.equal(preferEntries(entries, rows, r, undefined), entries);
+
+  // A referral comes first even when it is not in the queue (not in the list view).
+  const referred = contact("r1", { company_id: "A", status: "new" });
+  const withReferred = new Map([...rows, [referred.id, referred]]);
+  assert.deepEqual(
+    preferEntries(entries, withReferred, r, { contactId: "r1", companyId: "A" }).map((e) => e.contactId),
+    ["r1", "b1", "a2"],
+  );
+  // ...unless it may not be called: then the rest of the company follows.
+  const noPhone = contact("r2", { company_id: "A", phone: null });
+  const blocked = new Map([...rows, [noPhone.id, noPhone]]);
+  assert.deepEqual(
+    preferEntries(entries, blocked, r, { contactId: "r2", companyId: "A" }).map((e) => e.contactId),
+    ["a2", "b1"],
+  );
+  // A referral that is in the queue moves to the front.
+  assert.deepEqual(
+    preferEntries(entries, rows, r, { contactId: "a2", companyId: "A" }).map((e) => e.contactId),
+    ["a2", "b1"],
+  );
 });

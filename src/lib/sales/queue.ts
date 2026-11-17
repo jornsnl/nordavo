@@ -96,7 +96,14 @@ export function callBlockReason(row: ContactRow, rules: QueueRules): BlockReason
   if (rules.exclude?.has(row.id)) return "excluded";
   if (closedContactStatuses.includes(row.status)) return "closed";
   if (row.company_lead_status === "no_go" || row.company_lead_status === "do_not_contact") return "company_blocked";
-  if (row.company_pipeline_stage != null && row.company_pipeline_stage !== "lost") return "in_pipeline";
+  // A parked company waits until its date; then it can be called again.
+  if (row.company_pipeline_stage === "parked") {
+    if (!(row.company_parked_until && row.company_parked_until <= rules.today)) return "in_pipeline";
+  } else if (row.company_pipeline_stage != null && row.company_pipeline_stage !== "lost") {
+    return "in_pipeline";
+  }
+  // Not interested on the call screen puts the company on no go (20261123600000_call_outcome_flow.sql).
+  if (row.company_bucket === "no_go") return "company_blocked";
   if (isAssignedNow(row, rules.today) && row.assigned_caller_id !== rules.callerId) return "assigned_elsewhere";
   if (
     row.claimed_by &&
@@ -297,7 +304,40 @@ export async function openListsFor(db: Db, callerId: string, today = amsterdamDa
     });
 }
 
-export type LoadedQueue = { entries: QueueEntry[]; rows: Map<string, ContactRow>; lists: QueueList[] };
+export type LoadedQueue = { entries: QueueEntry[]; rows: Map<string, ContactRow>; lists: QueueList[]; rules: QueueRules };
+
+/** Who to call first: a contact (the one a referral made) or else the others of a company. */
+export type QueuePreference = { contactId?: string | null; companyId?: string | null };
+
+/**
+ * Puts the contact the caller should reach next in front (feedback Julius,
+ * c6b258e3): after an outcome about a person (no answer, wrong number, wrong
+ * person) the next contact of the same company, after Referred the contact
+ * that was referred, else the order of the list. A preferred contact that
+ * is not in the queue (it is not in the list view) still goes first when it
+ * may be called. Pure; tested in tests/queue.test.ts.
+ */
+export function preferEntries(
+  entries: QueueEntry[],
+  rows: Map<string, ContactRow>,
+  rules: QueueRules,
+  prefer: QueuePreference | undefined,
+): QueueEntry[] {
+  if (!prefer) return entries;
+  if (prefer.contactId) {
+    const hit = entries.find((e) => e.contactId === prefer.contactId);
+    if (hit) return [hit, ...entries.filter((e) => e !== hit)];
+    const row = rows.get(prefer.contactId);
+    if (row && callBlockReason(row, rules) === null) {
+      return [{ contactId: row.id, companyId: row.company_id, source: "list", listId: null }, ...entries];
+    }
+  }
+  if (prefer.companyId) {
+    const same = entries.filter((e) => e.companyId === prefer.companyId);
+    if (same.length > 0) return [...same, ...entries.filter((e) => e.companyId !== prefer.companyId)];
+  }
+  return entries;
+}
 
 /**
  * Builds a queue. db is the session client for the team and the secret key
@@ -332,7 +372,7 @@ export async function loadQueue(
     },
     rules,
   );
-  return { entries, rows: new Map(rows.map((r) => [r.id, r])), lists };
+  return { entries, rows: new Map(rows.map((r) => [r.id, r])), lists, rules };
 }
 
 /**

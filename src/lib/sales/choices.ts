@@ -6,7 +6,7 @@
 import type { Tone } from "@/lib/labels";
 import { contactStatuses } from "@/lib/labels";
 import type { ChoiceListKey, ChoiceOptionRow } from "@/lib/sales/flow-database";
-import { callOutcomes, companyCategories, companyPrios, leadStatuses } from "@/lib/sales/labels";
+import { callOutcomes, companyCategories, companyPrios, leadStatuses, rejectReasons } from "@/lib/sales/labels";
 
 export type ChoiceOption = {
   value: string;
@@ -25,6 +25,12 @@ export const choiceListInfo: { key: ChoiceListKey; label: string; help: string; 
   { key: "lead_status", label: "Lead status", help: "The rules use these statuses: rename, explain, reorder or hide them.", extra: false },
   { key: "contact_status", label: "Contact status", help: "The call rules use these statuses: rename, explain, reorder or hide them.", extra: false },
   { key: "call_outcome", label: "Call screen outcomes", help: "Each button applies a call rule: rename, explain, reorder or hide them.", extra: false },
+  {
+    key: "reject_reason",
+    label: "Rejection reasons",
+    help: "What a caller picks at Reached: not interested. Add your own, rename or hide them. Wrong moment parks the company until a date, so it cannot be removed.",
+    extra: true,
+  },
 ];
 
 type Base = { value: string; label: string; tone: Tone; description?: string };
@@ -35,6 +41,7 @@ export const builtinChoices: Record<ChoiceListKey, Base[]> = {
   lead_status: leadStatuses,
   contact_status: contactStatuses,
   call_outcome: callOutcomes,
+  reject_reason: rejectReasons,
 };
 
 /** The built in options, overridden and extended by the stored rows, in order. */
@@ -90,6 +97,7 @@ export function mergeAllChoices(rows: Parameters<typeof mergeChoices>[1]): Choic
     lead_status: mergeChoices("lead_status", rows),
     contact_status: mergeChoices("contact_status", rows),
     call_outcome: mergeChoices("call_outcome", rows),
+    reject_reason: mergeChoices("reject_reason", rows),
   };
 }
 

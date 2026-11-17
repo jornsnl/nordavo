@@ -12,6 +12,7 @@ import {
   releaseCall,
   skipCall,
   teamScope,
+  undoCall,
 } from "@/lib/sales/call-session";
 import { createClient } from "@/lib/supabase/server";
 
@@ -57,4 +58,12 @@ export async function skipTeamCall(scope: unknown, contactId: string | null, exc
 export async function releaseTeamCall(contactId: string): Promise<void> {
   const actor = await teamActor();
   await releaseCall(actor, contactId);
+}
+
+/** Undo of the last call: ten seconds on the screen, a minute at the most in the database. */
+export async function undoTeamCall(scope: unknown, activityId: unknown, current: unknown): Promise<CallStep> {
+  const actor = await teamActor();
+  const s = teamScope(scope);
+  if (!s) return NO_SCOPE;
+  return undoCall(actor, s, typeof activityId === "string" ? activityId : "", typeof current === "string" ? current : null);
 }

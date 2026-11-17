@@ -24,7 +24,7 @@ export type TriageDestination = "incoming" | "find_number" | "call" | "mail_camp
 export type CampaignProvider = "instantly" | "seleqt" | "portal" | "other";
 export type CampaignStatus = "draft" | "active" | "paused" | "finished";
 export type CampaignMemberStatus = "queued" | "active" | "replied" | "finished" | "stopped" | "bounced" | "unsubscribed";
-export type ChoiceListKey = "prio" | "category" | "lead_status" | "contact_status" | "call_outcome";
+export type ChoiceListKey = "prio" | "category" | "lead_status" | "contact_status" | "call_outcome" | "reject_reason";
 
 export type CampaignMemberRow = {
   id: string;
@@ -53,6 +53,20 @@ export type ChoiceOptionRow = {
   tone: "neutral" | "brand" | "accent" | "success" | "warning" | "danger" | null;
   updated_by: string | null;
   updated_at: string;
+};
+
+/** One Not interested on the call screen (20261123600000_call_outcome_flow.sql). */
+export type CallRejectionRow = {
+  id: string;
+  activity_id: string | null;
+  company_id: string;
+  contact_id: string | null;
+  caller_id: string | null;
+  created_by: string | null;
+  reasons: string[];
+  reason_text: string | null;
+  parked_until: string | null;
+  created_at: string;
 };
 
 export type OccupancyRow = {
@@ -104,6 +118,11 @@ export type SalesFlowTables = {
     ]
   >;
   sales_choice_options: Table<ChoiceOptionRow, "list_key" | "value" | "label", []>;
+  call_rejections: Table<
+    CallRejectionRow,
+    "company_id",
+    [To<"call_rejections_company_id_fkey", "company_id", "companies">, To<"call_rejections_contact_id_fkey", "contact_id", "contacts">]
+  >;
 };
 
 export type SalesFlowViews = {
@@ -122,6 +141,8 @@ export type RegisterMembersResult = {
 };
 
 export type SalesFlowFunctions = {
+  /** Reverses one call within a minute (20261123600000_call_outcome_flow.sql). */
+  sales_undo_call: Fn<{ p_activity: string } & Actor, { contact_id: string; company_id: string }>;
   sales_triage: Fn<
     { p_companies: string[]; p_destination: TriageDestination; p_options?: Json; p_source?: string } & Actor,
     TriageResult

@@ -11,6 +11,7 @@ import {
   nextCall,
   releaseCall,
   skipCall,
+  undoCall,
 } from "@/lib/sales/call-session";
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -62,4 +63,16 @@ export async function releaseCallerCall(contactId: string): Promise<void> {
   const actor = await callerActor();
   if (!actor) return;
   await releaseCall(actor, contactId);
+}
+
+/** Undo of the last call: ten seconds on the screen, a minute at the most in the database. */
+export async function undoCallerCall(activityId: unknown, current: unknown): Promise<CallStep> {
+  const actor = await callerActor();
+  if (!actor || !actor.callerId) return NOT_CONFIGURED;
+  return undoCall(
+    actor,
+    { kind: "caller", callerId: actor.callerId },
+    typeof activityId === "string" ? activityId : "",
+    typeof current === "string" ? current : null,
+  );
 }

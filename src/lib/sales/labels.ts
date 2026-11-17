@@ -133,6 +133,21 @@ export const callOutcomes: (Option<CallOutcome> & { needs?: "date" | "name" })[]
   { value: "wrong_number", label: "Wrong number", tone: "danger" },
 ];
 
+/** The built in reasons for a "no" (Settings, Sales lists adds, renames and hides). */
+export const rejectReasons: Option<string>[] = [
+  { value: "no_vacancies", label: "No vacancies", tone: "neutral" },
+  { value: "has_agency", label: "Already has an agency or partner", tone: "neutral" },
+  { value: "offshore_no", label: "India or offshore is not an option", tone: "neutral" },
+  { value: "too_small", label: "Too small", tone: "neutral" },
+  { value: "too_expensive", label: "Too expensive", tone: "neutral" },
+  { value: "no_time", label: "No time or no priority", tone: "neutral" },
+  { value: "bad_experience", label: "Bad experience before", tone: "neutral" },
+  { value: "wrong_moment", label: "Wrong moment", tone: "warning", description: "Pick a date: the company is parked until then" },
+];
+
+/** The reason that parks the company until a date instead of closing it. */
+export const WRONG_MOMENT = "wrong_moment";
+
 export const callerStatuses: Option<CallerStatus>[] = [
   { value: "active", label: "Active", tone: "success" },
   { value: "paused", label: "Paused", tone: "warning" },

@@ -42,7 +42,34 @@ Teamleden bellen op `/dashboard/calls`, externe bellers op `/caller/call`. Het i
 
 Bij openen houdt het scherm het contact vast (`sales_claim_contact`): andere bellers zien het 30 minuten niet. Lukt dat niet omdat iemand anders het net opende, dan gaat het scherm door naar het volgende contact.
 
-De uitkomstknoppen zijn die van de Excel: No answer, Call back (met datum), Reached: interested, Meeting planned, Reached: not interested, Referred (met naam en eventueel functie en nummer), Wrong person en Wrong number, met een optionele notitie. Elke knop roept `sales_log_call` aan, dat alle belregels toepast (pogingen en laatste poging, de regel in Activities, drie keer geen gehoor wordt Not reached en de andere contacten gaan naar Enrich, een verkeerd nummer gaat naar Enrich, een doorverwijzing wordt een nieuw contact bij hetzelfde bedrijf, een afspraak wordt een geplande afspraak met de fee van de beller en de pipeline gaat naar Meeting planned, interesse zet de pipeline op Interested, belstappen van sequences zijn klaar). Daarna opent het volgende contact.
+De uitkomstknoppen zijn die van de Excel: No answer, Call back, Reached: interested, Meeting planned, Reached: not interested, Referred, Wrong person en Wrong number. Alleen **No answer** slaat met één tik op (met de notitie erboven). Elke andere knop opent eerst een klein venster (`src/components/calls/outcome-dialog.tsx`, ook te gebruiken in de Sheet) en pas na **Save** wordt het gesprek opgeslagen en opent het volgende contact:
+
+| Uitkomst | Het venster vraagt |
+| --- | --- |
+| Call back | datum en tijd (verplicht), met wie, notitie |
+| Reached: interested | waar de interesse in zit, de volgende stap (info mailen, terugbellen, afspraak) en wanneer (verplicht), de eigenaar (alleen team), notitie |
+| Meeting planned | waar de afspraak over gaat (verplicht, wordt de reden in het afsprakenregister), notitie; Save opent daarna de Cal.com link |
+| Reached: not interested | een of meer redenen uit de lijst en/of eigen woorden (minstens één), en of we later nog eens terug mogen met een datum |
+| Referred | naam (verplicht), functie, telefoon en mail |
+| Wrong person | werkt hier niet meer of verkeerde functie, en wie het wel is (als bekend, wordt een nieuw contact) |
+| Wrong number | het juiste nummer, als bekend |
+
+Elke knop roept `sales_log_call` aan, dat alle belregels toepast (pogingen en laatste poging, de regel in Activities, drie keer geen gehoor wordt Not reached en de andere contacten gaan naar Enrich, een verkeerd nummer gaat naar Enrich tenzij het juiste nummer bekend is, een doorverwijzing wordt een nieuw contact bij hetzelfde bedrijf, een afspraak wordt een geplande afspraak met de fee van de beller en de pipeline gaat naar Meeting planned, interesse zet de pipeline op Interested en legt de volgende stap en eigenaar bij het bedrijf, belstappen van sequences zijn klaar). Het venster en de server controleren dezelfde regels (`outcomeProblem` in `src/lib/sales/call-outcome.ts`).
+
+**Wie komt hierna.** No answer, Wrong number en Wrong person gelden de persoon: het volgende contact van hetzelfde bedrijf volgt. Call back, Interested, Meeting planned en Not interested gelden het bedrijf: de andere contacten van dat bedrijf worden in deze sessie overgeslagen en het volgende bedrijf volgt. Na Referred is het doorverwezen contact het eerstvolgende (ook als het niet in de lijst staat, zolang het gebeld mag worden). Zie `preferEntries` in `queue.ts`.
+
+**Ongedaan maken.** Na het opslaan staat 10 seconden een melding onderin het scherm met **Undo**. De melding zweeft over de pagina, dus de knoppen verschuiven niet. Het gesprek wordt meteen echt opgeslagen (het contact is dan vrijgegeven, de wachtrij klopt); Undo roept `sales_undo_call` aan, dat alles terugzet wat het gesprek veranderde (contact, andere contacten, bedrijf, sequences, campagnes, nieuw contact, geplande afspraak) en de regels uit Activities haalt, en houdt het contact opnieuw vast voor de beller. Het mag alleen door degene die het gesprek logde, binnen een minuut en zolang niemand het contact sindsdien aanraakte. Een boeking die al in Cal.com is gedaan wordt niet geannuleerd. De snapshot staat in `call_undo` (alleen de functies komen erbij).
+
+### Not interested en afwijzingen
+
+Not interested vraagt minstens één reden (de lijst **Rejection reasons** onder Settings, Sales lists: eigen redenen toevoegen, hernoemen, verbergen) of eigen woorden. Wat er gebeurt:
+
+* de reden(en) en de eigen woorden staan in `call_rejections` (en in het gesprek in Activities);
+* zonder datum: het bedrijf gaat naar **lost** (lost reason = de redenen en de eigen woorden) en bucket no go;
+* met een datum (verplicht bij de reden *Wrong moment*, optioneel bij "later nog eens"): het bedrijf wordt **geparkeerd** tot die datum (pipeline stage parked, bucket parked) en het contact wacht tot dan;
+* in beide gevallen: sequences van het bedrijf pauzeren, lopende campagneleden gaan op stopped (Claude haalt ze in Instantly en Seleqt weg) en het bedrijf komt niet meer in de wachtrij tot de datum. Een bedrijf dat al in de pipeline zit (een andere fase dan lost of parked) blijft ongemoeid; de afwijzing staat dan alleen bij het contact.
+
+Op **Call results** staat het blok **Rejections per reason**: per reden het aantal, het aandeel en per beller, voor de gekozen maand en eventueel één beller. Een klik op een reden toont de bedrijven; zonder gekozen reden staan de eigen woorden van de bellers eronder, om veelvoorkomende antwoorden later als vaste reden toe te voegen. **Latest calls** is te filteren op uitkomst, beller en periode.
 
 **Next contact** laat het huidige contact los en opent het volgende in de volgorde van de wachtrij. **Stop** laat het contact ook los.
 
@@ -144,4 +171,5 @@ Statussen: Planned, Held, Approved, Rejected, No show en Cancelled. Elke statusw
 * `tests/caller-stats.test.ts`: de tellingen per beller, de fees per maand, maandgrenzen in Amsterdamse tijd en de uitnodigingsmail.
 * `tests/sales-flow.test.ts`: de sheet, de click to call link, de webhook, de resultaten per beller, triage, bezetting, keuzelijsten, eigen kolommen en campagnes.
 * `tests/calcom.test.ts`: de Cal.com koppeling, ook de afspraak in het register en de vooraf ingevulde saleslink.
-* `supabase/tests/sales_crm.test.sql` en `supabase/tests/calls.test.sql`: de belregels, de rol in de sessie, pauzeren en stoppen, en wie afspraken goedkeurt.
+* `tests/call-outcome.test.ts`: wat elk venster vraagt, persoon of bedrijf, de reden-lijst en de telling van afwijzingen.
+* `supabase/tests/sales_crm.test.sql` en `supabase/tests/calls.test.sql`: de belregels, de rol in de sessie, pauzeren en stoppen, wie afspraken goedkeurt, Not interested (lost, geparkeerd, reden-lijst) en ongedaan maken.

@@ -331,8 +331,20 @@ export type SalesFunctions = {
       p_referred_title?: string | null;
       p_referred_phone?: string | null;
       p_note?: string | null;
+      /** 20261123600000_call_outcome_flow.sql: the details of the follow-up windows. */
+      p_callback_time?: string | null;
+      p_callback_with?: string | null;
+      p_referred_email?: string | null;
+      p_reasons?: string[] | null;
+      p_reason_text?: string | null;
+      p_reason_label?: string | null;
+      p_until?: string | null;
+      p_next_step?: string | null;
+      p_next_step_at?: string | null;
+      p_next_owner?: string | null;
+      p_new_phone?: string | null;
     } & Actor,
-    { attempts: number; status: string; new_contact_id: string | null; meeting_id: string | null }
+    { attempts: number; status: string; new_contact_id: string | null; meeting_id: string | null; activity_id: string }
   >;
   /** A caller adds a note to a contact they called (20261124800000_caller_overview.sql). */
   caller_add_call_note: Fn<{ p_contact: string; p_note: string } & Actor, string>;
