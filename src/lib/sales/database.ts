@@ -108,6 +108,7 @@ export type CallerRow = {
   phone: string | null;
   party: string | null;
   fee_per_meeting: number;
+  weekly_call_goal: number;
   status: CallerStatus;
   invited_at: string | null;
   paused_at: string | null;
@@ -333,6 +334,10 @@ export type SalesFunctions = {
     } & Actor,
     { attempts: number; status: string; new_contact_id: string | null; meeting_id: string | null }
   >;
+  /** A caller adds a note to a contact they called (20261124800000_caller_overview.sql). */
+  caller_add_call_note: Fn<{ p_contact: string; p_note: string } & Actor, string>;
+  /** A caller corrects the outcome of their own call, with a reason (20261124800000_caller_overview.sql). */
+  caller_correct_call: Fn<{ p_activity: string; p_outcome: CallOutcome; p_reason: string } & Actor, string>;
   sales_start_sequence: Fn<
     { p_sequence: string; p_company: string; p_contact?: string | null; p_start?: string | null; p_source?: string } & Actor,
     string

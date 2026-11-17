@@ -17,8 +17,11 @@ import { formatCurrency, formatDate } from "@/lib/format";
 import {
   currentMonth,
   emptyStats,
+  goalProgress,
   isMonth,
   loadCallerStats,
+  parsePeriod,
+  periodRange,
   monthLabel,
   nextMonth,
   previousMonth,
@@ -52,19 +55,38 @@ async function Callers({ searchParams }: { searchParams: PageProps<"/dashboard/s
   await requireAdmin();
   const params = await searchParams;
   const month = isMonth(params.month) ? params.month : currentMonth();
+  const rawPeriod = Array.isArray(params.period) ? params.period[0] : params.period;
+  const period = parsePeriod(rawPeriod);
   const supabase = await createClient();
-  const [{ data: callers, error }, monthStats, allStats] = await Promise.all([
+  const [{ data: callers, error }, monthStats, allStats, weekStats] = await Promise.all([
     supabase
       .from("callers")
-      .select("id, name, email, phone, party, fee_per_meeting, status, invited_at, created_at")
+      .select("id, name, email, phone, party, fee_per_meeting, weekly_call_goal, status, invited_at, created_at")
       .order("status")
       .order("name"),
-    loadCallerStats(supabase, { month }),
+    // The shown period: a week (this one), a month (with the arrows) or everything.
+    loadCallerStats(supabase, period === "week" ? { month: null, range: periodRange("week") } : period === "total" ? { month: null } : { month }),
     loadCallerStats(supabase, { month: null }),
+    loadCallerStats(supabase, { month: null, range: periodRange("week") }),
   ]);
   if (error) throw new Error(`Could not load callers: ${error.message}`);
   const list = callers ?? [];
   const canInvite = hasAdminClient();
+
+  const periodNav = (
+    <nav aria-label="Period" className="inline-flex rounded-xl bg-surface p-1 text-sm">
+      {(["week", "month", "total"] as const).map((p) => (
+        <Link
+          key={p}
+          href={`/dashboard/settings/callers?period=${p}${p === "month" ? `&month=${month}` : ""}`}
+          aria-current={period === p ? "page" : undefined}
+          className={`rounded-lg px-3.5 py-2 font-medium capitalize pointer-coarse:min-h-11 ${period === p ? "bg-white text-brand-900 shadow-sm" : "text-muted hover:text-brand-900"}`}
+        >
+          {p}
+        </Link>
+      ))}
+    </nav>
+  );
 
   const monthNav = (
     <div className="flex items-center gap-1">
@@ -96,10 +118,13 @@ async function Callers({ searchParams }: { searchParams: PageProps<"/dashboard/s
             </h2>
             <p className="mt-0.5 max-w-2xl text-sm text-muted">
               Callers only see their own call list, the call screen and their own overview, with a required authenticator app.
-              Open lists for them on Call lists. Numbers per month: called, reached, meetings and approved, with the fees earned.
+              Open lists for them on Call lists. Numbers per week, month or in total, side by side: called, reached, meetings and approved, with the fees earned and the weekly goal.
             </p>
           </div>
-          {monthNav}
+          <div className="flex flex-wrap items-center gap-3">
+            {periodNav}
+            {period === "month" && monthNav}
+          </div>
         </div>
 
         {list.length === 0 ? (
@@ -117,11 +142,11 @@ async function Callers({ searchParams }: { searchParams: PageProps<"/dashboard/s
                     leading={<Avatar name={c.name} />}
                     title={c.name}
                     subtitle={[c.party, c.email].filter(Boolean).join(" · ")}
-                    meta={`${s.called} called · ${s.reached} reached · ${s.meetings} meetings · ${s.approved} approved · ${formatCurrency(f.fees)}`}
+                    meta={`${s.called} called (week ${(weekStats.stats.get(c.id) ?? emptyStats).called}/${c.weekly_call_goal ?? 100}) · ${s.reached} reached · ${s.meetings} meetings · ${s.approved} approved · ${formatCurrency(f.fees)}`}
                     trailing={<Badge tone={status?.tone}>{status?.label ?? c.status}</Badge>}
                   >
                     <CallerControls
-                      caller={{ id: c.id, name: c.name, email: c.email, phone: c.phone, party: c.party, fee: Number(c.fee_per_meeting), status: c.status }}
+                      caller={{ id: c.id, name: c.name, email: c.email, phone: c.phone, party: c.party, fee: Number(c.fee_per_meeting), weeklyGoal: Number(c.weekly_call_goal ?? 100), status: c.status }}
                       updateAction={updateCaller}
                       statusAction={setCallerStatus}
                       resendAction={resendCallerInvite}
@@ -138,6 +163,7 @@ async function Callers({ searchParams }: { searchParams: PageProps<"/dashboard/s
                   <TH>Status</TH>
                   <TH className="text-right">Fee</TH>
                   <TH className="text-right">Called</TH>
+                  <TH className="text-right">This week</TH>
                   <TH className="text-right">Reached</TH>
                   <TH className="text-right">Meetings</TH>
                   <TH className="text-right">Approved</TH>
@@ -149,6 +175,7 @@ async function Callers({ searchParams }: { searchParams: PageProps<"/dashboard/s
                 {list.map((c) => {
                   const s = monthStats.stats.get(c.id) ?? emptyStats;
                   const all = allStats.stats.get(c.id) ?? emptyStats;
+                  const week = weekStats.stats.get(c.id) ?? emptyStats;
                   const f = monthStats.fees.get(c.id) ?? { approved: 0, fees: 0 };
                   const status = callerStatuses.find((o) => o.value === c.status);
                   return (
@@ -173,13 +200,17 @@ async function Callers({ searchParams }: { searchParams: PageProps<"/dashboard/s
                       </TD>
                       <TD className="text-right tabular-nums">{formatCurrency(Number(c.fee_per_meeting))}</TD>
                       <TD className="text-right tabular-nums">{s.called}</TD>
+                      <TD className="text-right tabular-nums">
+                        {week.called} / {c.weekly_call_goal ?? 100}
+                        <span className="block text-xs text-muted">{goalProgress(week.called, Number(c.weekly_call_goal ?? 100))}%</span>
+                      </TD>
                       <TD className="text-right tabular-nums">{s.reached}</TD>
                       <TD className="text-right tabular-nums">{s.meetings}</TD>
                       <TD className="text-right tabular-nums">{s.approved}</TD>
                       <TD className="text-right font-medium tabular-nums">{formatCurrency(f.fees)}</TD>
                       <TD>
                         <CallerControls
-                          caller={{ id: c.id, name: c.name, email: c.email, phone: c.phone, party: c.party, fee: Number(c.fee_per_meeting), status: c.status }}
+                          caller={{ id: c.id, name: c.name, email: c.email, phone: c.phone, party: c.party, fee: Number(c.fee_per_meeting), weeklyGoal: Number(c.weekly_call_goal ?? 100), status: c.status }}
                           updateAction={updateCaller}
                           statusAction={setCallerStatus}
                           resendAction={resendCallerInvite}

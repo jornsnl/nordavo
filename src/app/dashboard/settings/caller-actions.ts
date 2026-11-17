@@ -26,7 +26,14 @@ const fee = z
   .transform((v) => (v.trim() === "" ? Number.NaN : Number(v.replace(",", ".").replace(/[€\s]/g, ""))))
   .pipe(z.number({ error: "Enter an amount" }).min(0, { error: "At least 0" }).max(10000, { error: "At most 10,000" }));
 
+const weeklyGoal = z
+  .string()
+  .optional()
+  .transform((v) => (v === undefined || v.trim() === "" ? 100 : Number(v.replace(/\s/g, ""))))
+  .pipe(z.number({ error: "Enter a number" }).int({ error: "Whole number" }).min(0, { error: "At least 0" }).max(2000, { error: "At most 2000" }));
+
 const callerFields = {
+  weekly_call_goal: weeklyGoal,
   name: z.string({ error: "Enter a name" }).min(2, { error: "Enter a name" }).max(200, { error: "At most 200 characters" }),
   phone: z.string().max(50, { error: "At most 50 characters" }).optional(),
   party: z.string().max(200, { error: "At most 200 characters" }).optional(),
@@ -78,7 +85,7 @@ export async function addCaller(_prev: ActionState, formData: FormData): Promise
   if (!admin) return { error: NO_SECRET_KEY };
 
   const email = parsed.data.email.toLowerCase();
-  const { name, phone, party, fee_per_meeting } = parsed.data;
+  const { name, phone, party, fee_per_meeting, weekly_call_goal } = parsed.data;
 
   const { data: existingCaller } = await admin.from("callers").select("id").eq("email", email).maybeSingle();
   if (existingCaller) {
@@ -113,6 +120,7 @@ export async function addCaller(_prev: ActionState, formData: FormData): Promise
     phone: phone ?? null,
     party: party ?? null,
     fee_per_meeting,
+    weekly_call_goal,
     invited_at: new Date().toISOString(),
     created_by: user.id,
   });
@@ -151,11 +159,11 @@ export async function updateCaller(_prev: ActionState, formData: FormData): Prom
   await requireAdmin();
   const parsed = editSchema.safeParse(formValues(formData));
   if (!parsed.success) return { error: "Check the highlighted fields.", fieldErrors: fieldErrorsFrom(parsed.error) };
-  const { id, name, phone, party, fee_per_meeting } = parsed.data;
+  const { id, name, phone, party, fee_per_meeting, weekly_call_goal } = parsed.data;
   const supabase = await createClient();
   const { error } = await supabase
     .from("callers")
-    .update({ name, phone: phone ?? null, party: party ?? null, fee_per_meeting })
+    .update({ name, phone: phone ?? null, party: party ?? null, fee_per_meeting, weekly_call_goal })
     .eq("id", id);
   if (error) {
     console.error("updateCaller", error);
