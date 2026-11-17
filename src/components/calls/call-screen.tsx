@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState, useTransition, type ReactNode } from "react";
 import {
-  AlertTriangle,
   Briefcase,
   CalendarClock,
   History,
@@ -14,9 +13,22 @@ import {
   Users,
 } from "lucide-react";
 import { VacancyItem } from "@/components/leads/vacancy-item";
+import {
+  CheatSheet,
+  MainContact,
+  ObjectionsSection,
+  OtherContacts,
+  PrioLine,
+  QuestionsSection,
+  RedFlagsSection,
+  SignalsSection,
+  usePeople,
+  type ContactActions,
+} from "@/components/calls/call-brief-sections";
 import type { CallOutcome } from "@/lib/sales/database";
 import { buildSalesBookingUrl } from "@/lib/sales/booking";
-import { dialsInBrowser } from "@/lib/sales/telephony";
+import { dialHref, dialsInBrowser } from "@/lib/sales/telephony";
+import { callNumbers } from "@/lib/sales/call-brief";
 import type { CallCard, CallInput, CallOptions, CallStep } from "@/lib/sales/call-session";
 import { callOutcomes, companyPrios } from "@/lib/sales/labels";
 import { formatDate, formatDateTime } from "@/lib/format";
@@ -35,6 +47,8 @@ export type CallScreenActions = {
   release: (contactId: string) => Promise<void>;
   /** Puts the last call back (feedback Julius, 66065265): the activity it returned and the contact open now. */
   undo: (activityId: string, current: string | null) => Promise<CallStep>;
+  /** Change, mark and add contacts on the screen; without it the contacts are read only. */
+  contacts?: ContactActions;
 };
 
 /** How long Undo stays on the screen after saving a call. */
@@ -203,6 +217,7 @@ export function CallScreen({ actions, emptyText }: { actions: CallScreenActions;
           options={step.options}
           saveError={saveError}
           onLog={log}
+          contactActions={actions.contacts}
         />
       )}
     </div>
@@ -218,6 +233,7 @@ function ContactCall({
   onLog,
   options,
   saveError,
+  contactActions,
 }: {
   card: CallCard;
   remaining: number;
@@ -227,9 +243,13 @@ function ContactCall({
   onSkip: () => void;
   onStop: () => void;
   onLog: (input: CallInput) => void;
+  contactActions?: ContactActions;
 }) {
-  const { contact, company, dial } = card;
+  const { contact, company } = card;
   const prio = companyPrios.find((p) => p.value === String(company.prio));
+  // The contacts as the caller changes them here; the call button follows (a number marked wrong falls back to the general number).
+  const people = usePeople(card);
+  const { dial, generalDial } = callNumbers(people.main, company.generalPhone, (n) => dialHref(n, card.dialTemplate));
 
   return (
     <div className="space-y-4">
@@ -260,9 +280,10 @@ function ContactCall({
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
                     <h2 className="font-display text-xl font-bold text-brand-900 sm:text-2xl">{company.name}</h2>
-                    {prio && <Badge tone={prio.tone}>{prio.label}</Badge>}
+                    {prio && <Badge tone={prio.tone}>{company.prioInfo?.label ?? prio.label}</Badge>}
                     {contact.route && <Badge tone="brand">{contact.route}</Badge>}
                   </div>
+                  {company.prioInfo && <PrioLine prio={company.prioInfo} />}
                   <p className="mt-0.5 text-sm text-muted">
                     {[company.city, company.sector].filter(Boolean).join(" · ")}
                     {company.website && (
@@ -299,14 +320,21 @@ function ContactCall({
               ) : (
                 <p className="rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-800">No number to call.</p>
               )}
+              {generalDial && (
+                <a
+                  href={generalDial.href}
+                  {...(dialsInBrowser(generalDial.href) ? { target: "_blank", rel: "noreferrer" } : {})}
+                  className="-mt-2 flex items-center gap-2 rounded-xl border border-border px-4 py-2.5 text-sm text-ink transition hover:bg-brand-50"
+                >
+                  <Phone className="size-4 shrink-0 text-brand-600" aria-hidden="true" />
+                  <span className="font-semibold">{generalDial.number}</span>
+                  <span className="text-xs text-muted">General number of the company, if there is no answer</span>
+                </a>
+              )}
 
               <div className="flex flex-wrap items-end justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="text-lg font-semibold text-ink">{contact.name}</p>
-                  <p className="text-sm text-muted">
-                    {[contact.title, contact.status].filter(Boolean).join(" · ")}
-                    {contact.email && <> · {contact.email}</>}
-                  </p>
+                <div className="min-w-0 flex-1">
+                  <MainContact person={people.main} status={contact.status} apply={people.apply} actions={contactActions} />
                 </div>
                 <div className="text-right text-sm">
                   <p className="font-medium text-ink">
@@ -331,13 +359,22 @@ function ContactCall({
             </CardBody>
           </Card>
 
+          <CheatSheet sections={card.cheatsheet} />
+
           <OutcomePanel card={card} options={options} saveError={saveError} pending={pending} onLog={onLog} />
 
           {company.openingLine && (
             <Section title="Opening line">
               <p className="text-sm whitespace-pre-line text-ink">{company.openingLine}</p>
+              {company.openingLineOutdated && (
+                <p className="mt-2 text-xs text-amber-700">
+                  This line is about a vacancy that is not open anymore. Check the signals before you use it.
+                </p>
+              )}
             </Section>
           )}
+
+          <SignalsSection signals={card.signals} />
 
           <Section title="Vacancies" icon={<Briefcase className="size-4" aria-hidden="true" />}>
             {card.vacancies.length === 0 ? (
@@ -361,47 +398,33 @@ function ContactCall({
             )}
           </Section>
 
-          {company.redFlags.length > 0 && (
-            <Section title="Red flags" icon={<AlertTriangle className="size-4 text-danger" aria-hidden="true" />}>
-              <ul className="flex flex-wrap gap-2">
-                {company.redFlags.map((flag) => (
-                  <li key={flag}>
-                    <Badge tone="danger">{flag}</Badge>
-                  </li>
-                ))}
-              </ul>
-            </Section>
-          )}
+          <RedFlagsSection flags={company.redFlags} />
 
-          <Section title="Other contacts" icon={<Users className="size-4" aria-hidden="true" />}>
-            {card.others.length === 0 ? (
-              <p className="text-sm text-muted">No other contacts at this company.</p>
-            ) : (
-              <ul className="divide-y divide-border">
-                {card.others.map((o) => (
-                  <li key={o.id} className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm first:pt-0 last:pb-0">
-                    <span className="min-w-0">
-                      <span className="font-medium text-ink">{o.name}</span>
-                      {o.title && <span className="text-muted"> · {o.title}</span>}
-                    </span>
-                    <span className="flex items-center gap-2 text-xs text-muted">
-                      {o.phone && <span>{o.phone}</span>}
-                      <Badge>{o.status}</Badge>
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </Section>
+          <ObjectionsSection items={company.objections} />
 
-          {company.description && (
+          <QuestionsSection items={company.questions} />
+
+          <OtherContacts
+            companyId={company.id}
+            others={people.others}
+            apply={people.apply}
+            actions={contactActions}
+            icon={<Users className="size-4" aria-hidden="true" />}
+          />
+
+          {(company.description || company.facts.length > 0 || company.employees !== null) && (
             <Section title="What they do">
-              <p className="text-sm whitespace-pre-line text-ink">{company.description}</p>
+              {company.description && <p className="text-sm whitespace-pre-line text-ink">{company.description}</p>}
+              {(company.facts.length > 0 || company.employees !== null) && (
+                <p className="mt-2 text-xs text-muted">
+                  {[company.employees !== null ? `${company.employees} employees` : null, ...company.facts].filter(Boolean).join(" · ")}
+                </p>
+              )}
             </Section>
           )}
         </div>
 
-        <Timeline items={card.timeline} />
+        <Timeline items={card.timeline} last={card.lastContact} />
       </div>
     </div>
   );
@@ -539,7 +562,7 @@ function OutcomePanel({
   );
 }
 
-function Timeline({ items }: { items: CallCard["timeline"] }) {
+function Timeline({ items, last }: { items: CallCard["timeline"]; last: CallCard["lastContact"] }) {
   return (
     <Card className="self-start">
       <CardHeader
@@ -549,36 +572,36 @@ function Timeline({ items }: { items: CallCard["timeline"] }) {
             Timeline
           </span>
         }
-        description="Everything that happened with this company, newest first."
+        description="Calls, mails, LinkedIn and meetings with this company, newest first."
       />
-      <CardBody>
+      <CardBody className="space-y-3">
+        <p className={`rounded-xl px-3 py-2 text-sm ${last ? "bg-brand-50 text-brand-900" : "bg-amber-50 text-amber-800"}`}>
+          {last ? (
+            <>
+              <span className="font-medium">Last contact:</span> {formatDateTime(last.date)}
+              {last.who ? ` by ${last.who}` : ""} ({last.summary}
+              {last.contactName ? `, ${last.contactName}` : ""})
+            </>
+          ) : (
+            "Never contacted yet: no call, mail or meeting is known."
+          )}
+        </p>
         {items.length === 0 ? (
           <p className="text-sm text-muted">Nothing yet.</p>
         ) : (
           <ol className="space-y-3">
-            {items.map((item) =>
-              item.type === "change" ? (
-                <li key={item.id} className="text-xs text-muted">
-                  <span className="text-ink/70">{item.summary}</span>
-                  {" · "}
-                  {formatDateTime(item.date)}
-                  {item.who && <> · {item.who}</>}
-                </li>
-              ) : (
-                <li key={item.id} className="rounded-xl border border-border px-3 py-2 text-sm">
-                  <div className="flex flex-wrap items-baseline justify-between gap-x-3">
-                    <span className="font-medium text-ink">{item.summary}</span>
-                    <span className="text-xs text-muted">{formatDateTime(item.date)}</span>
-                  </div>
-                  {(item.contactName || item.who) && (
-                    <p className="text-xs text-muted">
-                      {[item.contactName, item.who && `by ${item.who}`].filter(Boolean).join(" · ")}
-                    </p>
-                  )}
-                  {item.notes && <p className="mt-1 text-sm whitespace-pre-line text-ink/80">{item.notes}</p>}
-                </li>
-              ),
-            )}
+            {items.map((item) => (
+              <li key={item.id} className="rounded-xl border border-border px-3 py-2 text-sm">
+                <div className="flex flex-wrap items-baseline justify-between gap-x-3">
+                  <span className="font-medium text-ink">{item.summary}</span>
+                  <span className="text-xs text-muted">{formatDateTime(item.date)}</span>
+                </div>
+                {(item.contactName || item.who) && (
+                  <p className="text-xs text-muted">{[item.contactName, item.who && `by ${item.who}`].filter(Boolean).join(" · ")}</p>
+                )}
+                {item.notes && <p className="mt-1 text-sm whitespace-pre-line text-ink/80">{item.notes}</p>}
+              </li>
+            ))}
           </ol>
         )}
       </CardBody>

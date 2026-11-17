@@ -3,6 +3,9 @@
 // line, open roles, number of vacancies, days open and links. Pure, safe for
 // client components; tested in tests/call-sheet.test.ts.
 
+import { cleanDescription, currentOpeningLine, parseRedFlags } from "@/lib/sales/call-brief";
+import { daysOnline, onlineSince } from "@/lib/sales/vacancies";
+
 export type SheetVacancy = {
   title: string | null;
   url: string | null;
@@ -18,6 +21,8 @@ export type SheetCompany = {
   generalPhone: string | null;
   website: string | null;
   linkedinUrl: string | null;
+  /** companies.description: what the company does, mixed with source lines the caller does not need. */
+  description?: string | null;
 };
 
 export type SheetContact = {
@@ -44,8 +49,18 @@ export type SheetRow = {
   title: string | null;
   phone: string | null;
   phoneKind: "contact" | "general" | null;
+  /** The general number of the company, at every contact, as a fallback. */
+  generalPhone: string | null;
+  /** The opening line as it is true today (days open counted again). */
   openingLine: string | null;
+  /** Real red flags, as whole sentences. */
   redFlags: string[];
+  /** What the company does. */
+  whatTheyDo: string | null;
+  /** Objection with the answer to give, as one text. */
+  objection: string | null;
+  /** The question for the conversation. */
+  question: string | null;
   /** Titles of the open roles, oldest first. */
   roles: string[];
   vacancyCount: number;
@@ -60,10 +75,10 @@ export type SheetRow = {
   callable: boolean;
 };
 
+/** Days online, counted like the Vacancies block of the call screen (Amsterdam days, from the posted date or else the day first seen). */
 function days(since: string | null, now: number): number | null {
   if (!since) return null;
-  const t = new Date(since.length === 10 ? `${since}T00:00:00Z` : since).getTime();
-  return Number.isFinite(t) ? Math.max(0, Math.floor((now - t) / 86_400_000)) : null;
+  return daysOnline(since.length === 10 ? since : onlineSince({ first_seen_at: since }), now);
 }
 
 function httpUrl(url: string | null | undefined): string | null {
@@ -97,6 +112,11 @@ export function buildSheetRows(
     const linkedin = httpUrl(c.linkedin_url) ?? httpUrl(company.linkedinUrl);
     if (linkedin) links.push({ label: "LinkedIn", url: linkedin });
     const oldest = open.map((v) => days(v.since, now)).filter((d): d is number => d !== null);
+    const brief = parseRedFlags(company.redFlags);
+    const opening = currentOpeningLine(
+      company.openingLine,
+      open.map((v) => ({ title: v.title, days: days(v.since, now) })),
+    );
     return [
       {
         contactId: c.id,
@@ -106,8 +126,15 @@ export function buildSheetRows(
         title: c.title,
         phone,
         phoneKind: c.phone?.trim() ? "contact" : company.generalPhone?.trim() ? "general" : null,
-        openingLine: company.openingLine,
-        redFlags: company.redFlags,
+        generalPhone: company.generalPhone?.trim() || null,
+        openingLine: opening?.text ?? null,
+        redFlags: brief.redFlags,
+        whatTheyDo: cleanDescription(company.description) ?? brief.whatTheyDo,
+        objection:
+          brief.objections
+            .map((o) => [o.objection && `Objection: ${o.objection}`, o.answer && `Answer: ${o.answer}`].filter(Boolean).join(" "))
+            .join(" ") || null,
+        question: brief.questions.join(" ") || null,
         roles: open.map((v) => v.title || "Vacancy"),
         vacancyCount: open.length,
         daysOpen: oldest.length ? Math.max(...oldest) : null,
@@ -124,12 +151,42 @@ export function buildSheetRows(
 
 /** The sheet as tab separated text, for Excel. */
 export function sheetToTsv(rows: SheetRow[]): string {
-  const head = ["Company", "Contact", "Job title", "Phone", "Opening line", "Open roles", "Vacancies", "Days open", "Red flags", "Links"];
+  const head = [
+    "Company",
+    "Contact",
+    "Job title",
+    "Phone",
+    "General number",
+    "Opening line",
+    "Open roles",
+    "Vacancies",
+    "Days open",
+    "Red flags",
+    "What they do",
+    "Objection and answer",
+    "Question",
+    "Links",
+  ];
   const clean = (v: string | number | null) => (v === null ? "" : String(v).replace(/[\t\n\r]+/g, " "));
   return [
     head.join("\t"),
     ...rows.map((r) =>
-      [r.company, r.contact, r.title, r.phone, r.openingLine, r.roles.join(", "), r.vacancyCount, r.daysOpen, r.redFlags.join(", "), r.links.map((l) => l.url).join(" ")]
+      [
+        r.company,
+        r.contact,
+        r.title,
+        r.phone,
+        r.generalPhone,
+        r.openingLine,
+        r.roles.join(", "),
+        r.vacancyCount,
+        r.daysOpen,
+        r.redFlags.join(" "),
+        r.whatTheyDo,
+        r.objection,
+        r.question,
+        r.links.map((l) => l.url).join(" "),
+      ]
         .map(clean)
         .join("\t"),
     ),

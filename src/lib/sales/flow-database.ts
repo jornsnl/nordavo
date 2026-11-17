@@ -24,7 +24,14 @@ export type TriageDestination = "incoming" | "find_number" | "call" | "mail_camp
 export type CampaignProvider = "instantly" | "seleqt" | "portal" | "other";
 export type CampaignStatus = "draft" | "active" | "paused" | "finished";
 export type CampaignMemberStatus = "queued" | "active" | "replied" | "finished" | "stopped" | "bounced" | "unsubscribed";
-export type ChoiceListKey = "prio" | "category" | "lead_status" | "contact_status" | "call_outcome" | "reject_reason";
+export type ChoiceListKey =
+  | "prio"
+  | "category"
+  | "lead_status"
+  | "contact_status"
+  | "call_outcome"
+  | "reject_reason"
+  | "signal_type";
 
 export type CampaignMemberRow = {
   id: string;

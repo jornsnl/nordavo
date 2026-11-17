@@ -1,17 +1,23 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
-import type { Database, Json } from "@/lib/database.types";
+import type { Database } from "@/lib/database.types";
 import { contactStatuses } from "@/lib/labels";
 import type { CallOutcome } from "@/lib/sales/database";
 import { callOutcomes, labelOf } from "@/lib/sales/labels";
 import { composeNote, nextSteps, outcomeProblem, outcomeScope, wrongPersonReasons } from "@/lib/sales/call-outcome";
 import { loadQueue, preferEntries, type QueueEntry, type QueuePreference, type QueueScope } from "@/lib/sales/queue";
 import { amsterdamDate } from "@/lib/sales/status";
-import { companyColumns, contactColumns, type ContactRow } from "@/lib/sales/rows";
+import type { ContactRow } from "@/lib/sales/rows";
 import { pickable } from "@/lib/sales/choices";
 import { loadChoiceLists } from "@/lib/sales/flow-data";
 import { dialHref } from "@/lib/sales/telephony";
+import { callNumbers, cleanDescription, currentOpeningLine, parseRedFlags, prioLine, type RedFlagBrief } from "@/lib/sales/call-brief";
+import { loadCheatsheet } from "@/lib/sales/cheatsheet-data";
+import type { CheatsheetSection } from "@/lib/sales/cheatsheet";
+import { buildSignals, vacancyKinds, type CallSignal } from "@/lib/sales/signals";
+import { buildContactTimeline, contactMomentTypes, lastContact, type CallTimelineItem } from "@/lib/sales/timeline";
+import { daysOnline, onlineSince } from "@/lib/sales/vacancies";
 
 // The call screen (feedback Julius, section 2.9): the next contact of a
 // queue, held while it is open, and one outcome per call. Shared by the team
@@ -33,28 +39,24 @@ export type CallActor = {
   bookingBase: string | null;
 };
 
-export type CallTimelineItem = {
+export type { CallTimelineItem };
+
+export type CallContactPerson = {
   id: string;
-  date: string;
-  type: string;
-  channel: string;
-  outcome: string | null;
-  /** Short text: the outcome label, or "Status: New to Reached" for a change. */
-  summary: string;
-  notes: string | null;
-  who: string | null;
-  contactName: string | null;
+  name: string;
+  firstName: string | null;
+  lastName: string | null;
+  title: string | null;
+  phone: string | null;
+  /** The mobile number was marked as wrong by a caller; the call screen dials the general number instead. */
+  phoneWrong: boolean;
+  email: string | null;
 };
 
 export type CallCard = {
-  contact: {
-    id: string;
-    name: string;
-    title: string | null;
+  contact: CallContactPerson & {
     role: string;
     route: string | null;
-    phone: string | null;
-    email: string | null;
     linkedinUrl: string | null;
     status: string;
     attempts: number;
@@ -67,16 +69,32 @@ export type CallCard = {
     id: string;
     name: string;
     prio: number | null;
+    /** What the prio means (Settings, Sales lists) and one line why this company has it; red flags count against it. */
+    prioInfo: { label: string; meaning: string | null; line: string } | null;
     city: string | null;
     sector: string | null;
+    employees: number | null;
     website: string | null;
+    /** What the company does: the description without source and call list lines, else what the flags say. */
     description: string | null;
+    /** The opening line as it is true today (days open counted again), see currentOpeningLine. */
     openingLine: string | null;
+    /** The line is about a vacancy that is no longer open. */
+    openingLineOutdated: boolean;
+    /** Real red flags, as whole sentences. */
     redFlags: string[];
+    /** Objections with the answer to give, and questions for the conversation (they used to hide among the red flags). */
+    objections: RedFlagBrief["objections"];
+    questions: string[];
+    facts: string[];
     generalPhone: string | null;
   };
-  /** Contact mobile, else the general number of the company; href follows the caller's dial template (tel: or their phone system). */
+  /** The number to call: the mobile of the contact, else (or when it was marked wrong) the general number; href follows the caller's dial template (tel: or their phone system). */
   dial: { number: string; kind: "contact" | "general"; href: string } | null;
+  /** The general number as a fallback, when the main number is the mobile of the contact. */
+  generalDial: { number: string; href: string } | null;
+  /** The dial template of the person calling, so the browser builds the link for a changed number. */
+  dialTemplate: string | null;
   /** The outcome buttons with the labels, order and hidden flags of Settings, Sales lists. */
   outcomes: { value: CallOutcome; label: string; description: string | null }[];
   vacancies: {
@@ -90,8 +108,15 @@ export type CallCard = {
     firstSeenAt?: string;
     description?: string | null;
   }[];
-  others: { id: string; name: string; title: string | null; phone: string | null; status: string }[];
+  /** Signals with kind, date and source, strongest first. */
+  signals: CallSignal[];
+  others: (CallContactPerson & { status: string; generalPhone: string | null })[];
+  /** Calls, mails, LinkedIn and meetings, newest first. */
   timeline: CallTimelineItem[];
+  /** The latest of them: when and by whom. */
+  lastContact: CallTimelineItem | null;
+  /** Sections of the foldable cheat sheet (Settings, Sales lists). */
+  cheatsheet: CheatsheetSection[];
   queue: { position: number; total: number; source: QueueEntry["source"]; listName: string | null };
   booking: { base: string; name: string | null; email: string | null; callerId: string | null } | null;
 };
@@ -125,132 +150,58 @@ function personName(first: string | null, last: string | null) {
   return [first, last].filter(Boolean).join(" ").trim();
 }
 
-// Field labels and option labels for change rows in the timeline.
-const fieldInfo = new Map<string, { label: string; options?: { value: string; label: string }[] }>();
-for (const col of [...companyColumns, ...contactColumns]) {
-  if (col.field && !fieldInfo.has(col.field)) fieldInfo.set(col.field, { label: col.label, options: col.options });
-}
-fieldInfo.set("status", { label: "Contact status", options: contactStatuses.map((o) => ({ value: o.value, label: o.label })) });
-fieldInfo.set("assigned_caller_id", { label: "Caller" });
-fieldInfo.set("company_id", { label: "Company" });
-
-function valueText(value: Json | null | undefined, options?: { value: string; label: string }[]): string {
-  if (value === null || value === undefined || value === "") return "empty";
-  if (Array.isArray(value)) return value.length === 0 ? "empty" : value.map((v) => valueText(v as Json, options)).join(", ");
-  if (typeof value === "string") {
-    const hit = options?.find((o) => o.value === value);
-    if (hit) return hit.label;
-    if (/^[0-9a-f-]{36}$/i.test(value)) return "set";
-    return value.length > 60 ? `${value.slice(0, 57)}...` : value;
-  }
-  if (typeof value === "boolean") return value ? "yes" : "no";
-  if (typeof value === "number") {
-    const hit = options?.find((o) => o.value === String(value));
-    return hit ? hit.label : String(value);
-  }
-  return "changed";
-}
-
-const outcomeLabels = new Map<string, string>([
-  ["afspraak", "Meeting booked"],
-  ["afspraak_goedgekeurd", "Meeting approved"],
-  ["afspraak_afgekeurd", "Meeting rejected"],
-  ["meeting_held", "Meeting held"],
-  ["meeting_no_show", "No show"],
-  ["meeting_cancelled", "Meeting cancelled"],
-  ["geen_gehoor", "No answer"],
-  ["bereikt", "Reached"],
-  ["terugbellen", "Call back"],
-  ["niet_geinteresseerd", "Not interested"],
-  ["reply_positief", "Positive reply"],
-  ["reply_neutraal", "Neutral reply"],
-  ["reply_negatief", "Negative reply"],
-  ["verstuurd", "Sent"],
-  ["bounce", "Bounce"],
-  ["afgemeld", "Unsubscribed"],
-  ["gesprek_gehad", "Call held"],
-  ["notitie", "Note"],
-  ...callOutcomes.map((o) => [o.value, o.label] as [string, string]),
-]);
-
-const channelLabels: Record<string, string> = {
-  bellen: "Call",
-  mail: "Mail",
-  linkedin: "LinkedIn",
-  meeting: "Meeting",
-  system: "System",
-};
-
 async function loadCard(actor: CallActor, entry: QueueEntry, index: number, total: number, rows: Map<string, ContactRow>, listNames: Map<string, string>): Promise<CallCard | null> {
   const { db } = actor;
   const row = rows.get(entry.contactId);
-  const [company, signals, activities, profile, lists] = await Promise.all([
+  const [company, signals, activities, profile, lists, cheatsheet, wrong] = await Promise.all([
     db
       .from("companies")
-      .select("id, name, domain, website, prio, city, sector, description, opening_line, red_flags, general_phone")
+      .select("id, name, domain, website, prio, prio_reason, city, sector, employees, description, opening_line, red_flags, general_phone")
       .eq("id", entry.companyId)
       .maybeSingle(),
     db
       .from("signals")
-      .select("id, title, role_group, posted_at, first_seen_at, source_url, last_seen_at, description, closed_at")
+      .select("id, type, title, source, role_group, posted_at, first_seen_at, source_url, last_seen_at, description, closed_at")
       .eq("company_id", entry.companyId)
       .is("closed_at", null)
       .order("last_seen_at", { ascending: false })
-      .limit(10),
+      .limit(40),
+    // Only contact moments: calls, mails, LinkedIn and meetings (no field changes or views).
     db
       .from("activities")
-      .select("id, date, type, channel, outcome, notes, field, old_value, new_value, created_by, contact_id")
+      .select("id, date, type, channel, outcome, notes, created_by, caller_id, contact_id")
       .eq("company_id", entry.companyId)
-      .neq("type", "view")
+      .in("type", [...contactMomentTypes])
       .order("date", { ascending: false })
       .order("created_at", { ascending: false })
       .limit(60),
     db.from("profiles").select("dial_template").eq("id", actor.actorId).maybeSingle(),
     loadChoiceLists(db),
+    loadCheatsheet(db),
+    // Numbers marked as wrong; without the column (migration not applied) none is.
+    db.from("contacts").select("id, phone_wrong_at").eq("company_id", entry.companyId).not("phone_wrong_at", "is", null),
   ]);
   if (!row || !company.data) return null;
   const c = company.data;
+  const wrongPhone = new Set((wrong.error ? [] : (wrong.data ?? [])).map((w) => w.id));
 
   const people = new Set((activities.data ?? []).map((a) => a.created_by).filter((v): v is string => Boolean(v)));
-  const { data: profiles } =
-    people.size > 0 ? await db.from("profiles").select("id, full_name, email").in("id", [...people]) : { data: [] };
+  const callerIds = new Set((activities.data ?? []).map((a) => a.caller_id).filter((v): v is string => Boolean(v)));
+  const [{ data: profiles }, { data: callerRows }] = await Promise.all([
+    people.size > 0 ? db.from("profiles").select("id, full_name, email").in("id", [...people]) : Promise.resolve({ data: [] }),
+    callerIds.size > 0 ? db.from("callers").select("id, name").in("id", [...callerIds]) : Promise.resolve({ data: [] }),
+  ]);
   const who = new Map((profiles ?? []).map((p) => [p.id, p.full_name || p.email?.split("@")[0] || "Someone"]));
-
-  const contactName = (id: string | null) => {
-    if (!id) return null;
-    const r = rows.get(id);
-    return r ? r.full_name || personName(r.first_name, r.last_name) || null : null;
-  };
-
-  const now = Date.now();
-  const timeline: CallTimelineItem[] = (activities.data ?? []).map((a) => {
-    let summary: string;
-    if (a.type === "change" && a.field) {
-      const info = fieldInfo.get(a.field);
-      summary = `${info?.label ?? a.field.replace(/_/g, " ")}: ${valueText(a.old_value, info?.options)} to ${valueText(a.new_value, info?.options)}`;
-    } else {
-      const outcome = a.outcome ? (outcomeLabels.get(a.outcome) ?? a.outcome) : null;
-      summary = [channelLabels[a.channel] ?? a.channel, outcome].filter(Boolean).join(": ");
-    }
-    return {
-      id: a.id,
-      date: a.date,
-      type: a.type,
-      channel: a.channel,
-      outcome: a.outcome,
-      summary,
-      notes: a.notes,
-      who: a.created_by ? (who.get(a.created_by) ?? null) : null,
-      contactName: contactName(a.contact_id),
-    };
-  });
+  const callerNames = new Map((callerRows ?? []).map((r) => [r.id, r.name]));
+  const contactNames = new Map<string, string>();
+  for (const r of rows.values()) {
+    if (r.company_id === entry.companyId) contactNames.set(r.id, r.full_name || personName(r.first_name, r.last_name) || "Unknown contact");
+  }
+  const timeline = buildContactTimeline(activities.data ?? [], who, contactNames, callerNames);
 
   const name = row.full_name || personName(row.first_name, row.last_name) || "Unknown contact";
   const template = profile.error ? null : (profile.data?.dial_template ?? null);
-  const number = row.phone?.trim() || c.general_phone?.trim() || null;
-  const dial = number
-    ? { number, kind: row.phone?.trim() ? ("contact" as const) : ("general" as const), href: dialHref(number, template) }
-    : null;
+  const { dial, generalDial } = callNumbers({ phone: row.phone, phoneWrong: wrongPhone.has(row.id) }, c.general_phone, (n) => dialHref(n, template));
   const known = new Set<string>(callOutcomes.map((o) => o.value));
   const outcomes = pickable(lists.call_outcome)
     .filter((o) => known.has(o.value))
@@ -262,19 +213,51 @@ async function loadCard(actor: CallActor, entry: QueueEntry, index: number, tota
     .map((r) => ({
       id: r.id,
       name: r.full_name || personName(r.first_name, r.last_name) || "Unknown",
+      firstName: r.first_name,
+      lastName: r.last_name,
       title: r.title,
       phone: r.phone,
+      phoneWrong: wrongPhone.has(r.id),
+      email: r.email,
       status: labelOf(contactStatuses, r.status),
+      generalPhone: c.general_phone?.trim() || null,
     }));
+
+  // Vacancies: the signal rows that are a vacancy. Days open are counted from the posted date like the Vacancies block says.
+  const openSignals = signals.data ?? [];
+  const isVacancy = (type: string) => (vacancyKinds as readonly string[]).includes(type);
+  const vacancies = openSignals
+    .filter((s) => isVacancy(s.type))
+    .map((s) => ({
+      id: s.id,
+      title: s.title,
+      roleGroup: s.role_group,
+      daysOpen: daysOnline(onlineSince({ posted_at: s.posted_at, first_seen_at: s.first_seen_at })),
+      url: s.source_url && /^https?:\/\//i.test(s.source_url) ? s.source_url : null,
+      postedAt: s.posted_at,
+      firstSeenAt: s.first_seen_at,
+      description: s.description,
+    }));
+  const summary = buildSignals(
+    openSignals.map((s) => ({ ...s, type: String(s.type) })),
+    pickable(lists.signal_type).map((o) => ({ value: o.value, label: o.label })),
+  );
+
+  const brief = parseRedFlags(c.red_flags);
+  const opening = currentOpeningLine(c.opening_line, vacancies.map((v) => ({ title: v.title, days: v.daysOpen })));
+  const prio = lists.prio.find((o) => o.value === String(c.prio));
 
   return {
     contact: {
       id: row.id,
       name,
+      firstName: row.first_name,
+      lastName: row.last_name,
       title: row.title,
       role: row.role,
       route: row.route,
       phone: row.phone,
+      phoneWrong: wrongPhone.has(row.id),
       email: row.email,
       linkedinUrl: row.linkedin_url,
       status: labelOf(contactStatuses, row.status),
@@ -288,31 +271,37 @@ async function loadCard(actor: CallActor, entry: QueueEntry, index: number, tota
       id: c.id,
       name: c.name,
       prio: c.prio,
+      prioInfo:
+        c.prio === null
+          ? null
+          : {
+              label: prio?.label ?? `P${c.prio}`,
+              meaning: prio?.description ?? null,
+              line: prioLine({ reason: c.prio_reason, strongestSignal: summary.strongestText, redFlags: brief.redFlags }),
+            },
       city: c.city,
       sector: c.sector,
+      employees: c.employees,
       website: c.website ?? (c.domain && !c.domain.startsWith("nodomain:") ? `https://${c.domain}` : null),
-      description: c.description,
-      openingLine: c.opening_line,
-      redFlags: c.red_flags ?? [],
+      description: cleanDescription(c.description) ?? brief.whatTheyDo,
+      openingLine: opening?.text ?? null,
+      openingLineOutdated: opening?.outdated ?? false,
+      redFlags: brief.redFlags,
+      objections: brief.objections,
+      questions: brief.questions,
+      facts: brief.facts,
       generalPhone: c.general_phone,
     },
     dial,
+    generalDial,
+    dialTemplate: template,
     outcomes: outcomes.length > 0 ? outcomes : callOutcomes.map((o) => ({ value: o.value, label: o.label, description: null })),
-    vacancies: (signals.data ?? []).map((s) => {
-      const since = s.posted_at ?? s.first_seen_at;
-      return {
-        id: s.id,
-        title: s.title,
-        roleGroup: s.role_group,
-        daysOpen: since ? Math.max(0, Math.floor((now - new Date(since).getTime()) / 86_400_000)) : null,
-        url: s.source_url && /^https?:\/\//i.test(s.source_url) ? s.source_url : null,
-        postedAt: s.posted_at,
-        firstSeenAt: s.first_seen_at,
-        description: s.description,
-      };
-    }),
+    vacancies,
+    signals: summary.signals,
     others,
     timeline,
+    lastContact: lastContact(timeline),
+    cheatsheet: cheatsheet.filter((s) => !s.hidden),
     queue: {
       position: index + 1,
       total,

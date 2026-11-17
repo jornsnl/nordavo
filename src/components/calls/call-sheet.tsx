@@ -76,7 +76,7 @@ export function CallSheet({
         <table className="w-max min-w-full border-collapse text-sm">
           <thead className="sticky top-0 z-10 bg-surface text-left text-xs font-semibold tracking-wide text-brand-900 uppercase">
             <tr>
-              {["#", "Company", "Contact", "Phone", "Opening line", "Open roles", "Vacancies", "Days open", "Links", "Status"].map((h) => (
+              {["#", "Company", "Contact", "Phone", "Opening line", "Open roles", "Vacancies", "Days open", "Red flags", "What they do", "Objection and answer", "Question", "Links", "Status"].map((h) => (
                 <th key={h} scope="col" className="border-b border-border px-3 py-2 whitespace-nowrap">
                   {h}
                 </th>
@@ -86,7 +86,7 @@ export function CallSheet({
           <tbody>
             {shown.length === 0 && (
               <tr>
-                <td colSpan={10} className="px-3 py-8 text-center text-muted">
+                <td colSpan={14} className="px-3 py-8 text-center text-muted">
                   Nobody on this list matches.
                 </td>
               </tr>
@@ -103,12 +103,6 @@ export function CallSheet({
                       </Link>
                     ) : (
                       <span className="font-medium text-ink">{r.company}</span>
-                    )}
-                    {r.redFlags.length > 0 && (
-                      <span className="mt-0.5 flex items-center gap-1 text-xs text-danger" title={r.redFlags.join(", ")}>
-                        <AlertTriangle className="size-3" aria-hidden="true" />
-                        {r.redFlags.join(", ")}
-                      </span>
                     )}
                   </td>
                   <td className="max-w-48 px-3 py-2">
@@ -129,11 +123,35 @@ export function CallSheet({
                       <span className="text-xs text-muted">No number</span>
                     )}
                     {r.phoneKind === "general" && <span className="block text-xs text-muted">General number</span>}
+                    {r.phoneKind === "contact" && r.generalPhone && r.generalPhone !== r.phone && (
+                      <a
+                        href={dialHref(r.generalPhone, dialTemplate)}
+                        {...(dialsInBrowser(dialHref(r.generalPhone, dialTemplate)) ? { target: "_blank", rel: "noreferrer" } : {})}
+                        className="mt-0.5 block text-xs text-brand-700 hover:underline"
+                      >
+                        General {r.generalPhone}
+                      </a>
+                    )}
                   </td>
                   <td className="max-w-80 px-3 py-2 text-xs whitespace-pre-line">{r.openingLine ?? ""}</td>
                   <td className="max-w-64 px-3 py-2 text-xs">{r.roles.join(", ")}</td>
                   <td className="px-3 py-2 text-right tabular-nums">{r.vacancyCount}</td>
                   <td className="px-3 py-2 text-right tabular-nums">{r.daysOpen ?? ""}</td>
+                  <td className="max-w-80 px-3 py-2 text-xs">
+                    {r.redFlags.length > 0 && (
+                      <ul className="space-y-1">
+                        {r.redFlags.map((f) => (
+                          <li key={f} className="flex gap-1.5">
+                            <AlertTriangle className="mt-0.5 size-3 shrink-0 text-danger" aria-hidden="true" />
+                            <span>{f}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </td>
+                  <td className="max-w-80 px-3 py-2 text-xs whitespace-pre-line">{r.whatTheyDo ?? ""}</td>
+                  <td className="max-w-80 px-3 py-2 text-xs">{r.objection ?? ""}</td>
+                  <td className="max-w-64 px-3 py-2 text-xs">{r.question ?? ""}</td>
                   <td className="max-w-56 px-3 py-2 text-xs">
                     <ul className="space-y-0.5">
                       {r.links.map((l) => (

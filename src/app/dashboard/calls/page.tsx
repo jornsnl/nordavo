@@ -15,7 +15,16 @@ import { requireModule } from "@/lib/auth";
 import { loadViews } from "@/lib/sales/data";
 import { countCallLists, type QueueScope } from "@/lib/sales/queue";
 import { createClient } from "@/lib/supabase/server";
-import { logTeamCall, releaseTeamCall, skipTeamCall, startTeamCalls, undoTeamCall } from "./actions";
+import {
+  addTeamContact,
+  editTeamContact,
+  logTeamCall,
+  markTeamPhone,
+  releaseTeamCall,
+  skipTeamCall,
+  startTeamCalls,
+  undoTeamCall,
+} from "./actions";
 
 export const metadata: Metadata = {
   title: "Calls",
@@ -107,6 +116,7 @@ async function Calls({ searchParams }: { searchParams: PageProps<"/dashboard/cal
             skip: skipTeamCall.bind(null, scope),
             release: releaseTeamCall,
             undo: undoTeamCall.bind(null, scope),
+            contacts: { edit: editTeamContact, markPhone: markTeamPhone, add: addTeamContact },
           }}
         />
       </div>

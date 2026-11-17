@@ -2,6 +2,7 @@
 
 import { requireModule } from "@/lib/auth";
 import { salesBookingBase } from "@/lib/sales/booking";
+import { addCallContact, markCallPhone, updateCallContact, type ContactEdit, type PersonInput } from "@/lib/sales/call-contacts";
 import {
   type CallActor,
   type CallInput,
@@ -66,4 +67,19 @@ export async function undoTeamCall(scope: unknown, activityId: unknown, current:
   const s = teamScope(scope);
   if (!s) return NO_SCOPE;
   return undoCall(actor, s, typeof activityId === "string" ? activityId : "", typeof current === "string" ? current : null);
+}
+
+// Contacts on the call screen (7200c28b): the same functions as for callers,
+// with the session of the team member.
+
+export async function editTeamContact(contactId: string, input: PersonInput): Promise<ContactEdit> {
+  return updateCallContact(await teamActor(), contactId, input);
+}
+
+export async function markTeamPhone(contactId: string, wrong: boolean): Promise<ContactEdit> {
+  return markCallPhone(await teamActor(), contactId, wrong === true);
+}
+
+export async function addTeamContact(companyId: string, input: PersonInput): Promise<ContactEdit> {
+  return addCallContact(await teamActor(), companyId, input);
 }

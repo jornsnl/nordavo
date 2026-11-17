@@ -556,6 +556,7 @@ export async function loadMyMeetings(db: Db, callerId: string, limit = 25): Prom
       status: m.status,
     };
   });
+}
 
 // ---------------------------------------------------------------------------
 // Rejections per reason (feedback Julius, 1018684b): every Not interested on the

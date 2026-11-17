@@ -24,6 +24,7 @@ import type {
   SalesTables,
 } from "@/lib/sales/database";
 import type { LeadsFunctions } from "@/lib/sales/leads-database";
+import type { CallScreenFunctions, CallScreenTables } from "@/lib/sales/call-screen-database";
 
 export type Json =
   | string
@@ -1578,6 +1579,8 @@ export type Database = {
           linkedin_member_urn: string | null;
           /** Generated: normalize_linkedin(linkedin_url), unique, for matching. */
           linkedin_key: string | null;
+          /** When a caller marked the mobile number as wrong; cleared when the number changes (20261124300000). */
+          phone_wrong_at: string | null;
         };
         Insert: {
           id?: string;
@@ -1619,6 +1622,7 @@ export type Database = {
           created_at?: string;
           updated_at?: string;
           linkedin_member_urn?: string | null;
+          phone_wrong_at?: string | null;
         };
         Update: {
           id?: string;
@@ -1660,6 +1664,7 @@ export type Database = {
           created_at?: string;
           updated_at?: string;
           linkedin_member_urn?: string | null;
+          phone_wrong_at?: string | null;
         };
         Relationships: [
           {
@@ -2994,7 +2999,7 @@ export type Database = {
         Update: { config?: Json; updated_by?: string | null; updated_at?: string };
         Relationships: [];
       };
-    } & WorkTables & ContentTables & FormsTables & SalesTables & SalesFlowTables & AcademyTables & AcademyMediaTables & AcademyPlacementTables & AcademyAtsTables & WspTables;
+    } & WorkTables & ContentTables & FormsTables & SalesTables & SalesFlowTables & CallScreenTables & AcademyTables & AcademyMediaTables & AcademyPlacementTables & AcademyAtsTables & WspTables;
     Views: {
       call_list_candidates: { Row: ListCandidateBase & { phone: string; linkedin_url: string | null }; Relationships: [] };
       mail_list_candidates: { Row: ListCandidateBase & { email: string }; Relationships: [] };
@@ -3183,7 +3188,7 @@ export type Database = {
         Args: { p_entity: CustomFieldEntity; p_new: Json; p_old?: Json };
         Returns: CustomFieldValues;
       };
-    } & WorkFunctions & ContentFunctions & FormsFunctions & SalesFunctions & LeadsFunctions & SalesFlowFunctions & AcademyFunctions & LearnFunctions & AcademyMediaFunctions & AcademyPlacementFunctions & AcademyAtsFunctions & WspFunctions;
+    } & WorkFunctions & ContentFunctions & FormsFunctions & SalesFunctions & LeadsFunctions & SalesFlowFunctions & CallScreenFunctions & AcademyFunctions & LearnFunctions & AcademyMediaFunctions & AcademyPlacementFunctions & AcademyAtsFunctions & WspFunctions;
     Enums: { [_ in never]: never };
     CompositeTypes: { [_ in never]: never };
   };

@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requireAdmin } from "@/lib/auth";
+import { defaultCheatsheet } from "@/lib/sales/cheatsheet";
 import { choiceListInfo } from "@/lib/sales/choices";
 import type { ChoiceListKey } from "@/lib/sales/flow-database";
 import { createClient } from "@/lib/supabase/server";
@@ -63,6 +64,55 @@ export async function saveChoiceList(input: SaveChoiceListInput): Promise<{ ok: 
     const { error: deleteError } = await db.from("sales_choice_options").delete().eq("list_key", list).in("value", gone);
     if (deleteError) return { ok: false, error: friendly(deleteError.message) };
   }
+  revalidatePath("/dashboard", "layout");
+  return { ok: true };
+}
+
+const cheatsheetSchema = z.object({
+  sections: z
+    .array(
+      z.object({
+        key: z.string().regex(/^[a-z0-9_]{1,40}$/, "Use lower case letters, digits and _."),
+        title: z.string().trim().min(1, "Give each section a title.").max(80, "Use at most 80 characters for a title."),
+        body: z.string().trim().max(4000, "Use at most 4000 characters per section."),
+        hidden: z.boolean(),
+      }),
+    )
+    .min(1)
+    .max(30),
+  removed: z.array(z.string()).max(30).default([]),
+});
+
+export type SaveCheatsheetInput = z.input<typeof cheatsheetSchema>;
+
+/** Saves the cheat sheet of the call screen (feedback Julius, 21637c48): titles, text, order and hidden flags. */
+export async function saveCheatsheet(input: SaveCheatsheetInput): Promise<{ ok: true } | { ok: false; error: string }> {
+  await requireAdmin();
+  const parsed = cheatsheetSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Check the cheat sheet." };
+  const { sections, removed } = parsed.data;
+  const keys = sections.map((s) => s.key);
+  if (new Set(keys).size !== keys.length) return { ok: false, error: "Two sections have the same key." };
+  const db = await createClient();
+  const { error } = await db
+    .from("sales_call_cheatsheet")
+    .upsert(sections.map((s, i) => ({ ...s, position: (i + 1) * 10 })), { onConflict: "key" });
+  if (error) return { ok: false, error: friendly(error.message) };
+  const gone = removed.filter((k) => !keys.includes(k));
+  if (gone.length > 0) {
+    const { error: deleteError } = await db.from("sales_call_cheatsheet").delete().in("key", gone);
+    if (deleteError) return { ok: false, error: friendly(deleteError.message) };
+  }
+  revalidatePath("/dashboard", "layout");
+  return { ok: true };
+}
+
+/** Back to the draft text of the code for every section; sections added by hand stay. */
+export async function resetCheatsheet(): Promise<{ ok: true } | { ok: false; error: string }> {
+  await requireAdmin();
+  const db = await createClient();
+  const { error } = await db.from("sales_call_cheatsheet").delete().in("key", defaultCheatsheet.map((d) => d.key));
+  if (error) return { ok: false, error: friendly(error.message) };
   revalidatePath("/dashboard", "layout");
   return { ok: true };
 }
