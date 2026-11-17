@@ -159,6 +159,10 @@ export type WorkTaskRow = {
   /** YYYY-MM-DD, a calendar day without a time zone. */
   start_on: string | null;
   estimate_minutes: number | null;
+  /** daily, weekdays, weekly or monthly; the next task is made when this one is done. */
+  recurrence: string | null;
+  recurrence_every: number;
+  recurrence_next_id: string | null;
   created_at: string;
   updated_at: string;
 };

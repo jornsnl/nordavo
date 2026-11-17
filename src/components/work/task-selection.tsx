@@ -92,9 +92,12 @@ export function TaskSelectBox({ taskId, title }: { taskId: string; title: string
   return (
     <label
       className={`relative z-10 inline-flex size-6 shrink-0 cursor-pointer items-center justify-center pointer-coarse:-m-2.5 pointer-coarse:size-11 ${
-        checked ? "" : "sm:opacity-40 sm:group-hover:opacity-100 sm:focus-within:opacity-100"
+        // Next to the round done box this looked like a second done box
+        // (feedback Sabine and Julius): with a mouse it shows only when the row
+        // is hovered or focused, or once you are selecting (touch always shows it).
+        checked || ctx.selected.size > 0 ? "" : "pointer-fine:opacity-0 pointer-fine:group-hover:opacity-100 pointer-fine:focus-within:opacity-100"
       }`}
-      title="Select for bulk complete (x)"
+      title="Select this task, to mark several as done at once (x)"
     >
       <input
         type="checkbox"

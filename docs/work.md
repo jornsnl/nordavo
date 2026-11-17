@@ -255,7 +255,21 @@ Julius wilde de functies van het takenoverzicht van Jorn (Athmium) ook in Work. 
 - **API en MCP:** `task_type`, `labels`, `start_on` (YYYY-MM-DD) en `estimate_minutes` staan in elke taak, en zijn te zetten bij `POST /tasks`, `PATCH /tasks/<id>` en de MCP tools `create_task` en `update_task` (labels vervangt de lijst).
 - **Code:** dagen en de balk in `src/lib/work/days.ts`, de weergaven in `src/components/work/task-calendar.tsx` en `task-timeline.tsx`, unit tests in `tests/work-planning.test.ts`, browsertests in `tests/e2e/planning.spec.ts`.
 
-Nog niet overgenomen uit Athmium: werkdrukweergave, terugkerende taken, checklist (Work heeft subtaken), sprints, tijdregistratie, sneltoetsen, meerdere taken tegelijk selecteren en het zijpaneel.
+Nog niet overgenomen uit Athmium: werkdrukweergave, checklist (Work heeft subtaken), sprints, tijdregistratie, sneltoetsen, meerdere taken tegelijk selecteren en het zijpaneel.
+
+## Terugkerende taken (feedback Julius)
+
+Een taak kan terugkomen: elke dag, elke werkdag, elke week of elke maand, met een interval (elke 2 weken). Instellen op de taakpagina bij de details (*Repeats* en *Every*), of via Claude (`recurrence` en `recurrence_every` bij `create_task` en `update_task`, ook in de Work API).
+
+- **Regel:** hangt aan de deadline, die dus verplicht is. Wekelijks herhaalt op de weekdag van de deadline, maandelijks op de dag van de maand (de 31e valt in een kortere maand terug op de laatste dag en komt daarna weer terug). Het kloktijdstip blijft gelijk door zomer- en wintertijd, in de tijdzone van de eigenaar.
+- **Afronden:** zodra de taak op Done gaat (afvinken, bord, reviewer die goedkeurt, API) maakt de database meteen de volgende: zelfde titel, omschrijving, prioriteit, eigenaren, reviewer, type, labels, schatting, project en gekoppeld record, status To do. De nieuwe deadline is de eerste keer na het moment van afronden, dus een taak die drie weken te laat wordt afgerond laat geen stapel verlopen kopieën achter. De afgeronde taak wijst naar de volgende (`recurrence_next_id`): heropenen en opnieuw afronden maakt geen tweede kopie. Subtaken worden niet meegekopieerd.
+- **Stoppen:** *Does not repeat* kiezen (of `recurrence: null`). Alleen een taak, geen subtaak, kan terugkomen.
+- **Code:** migratie [20261124600000_work_recurring.sql](../supabase/migrations/20261124600000_work_recurring.sql) (kolommen, `work_private.next_due`, trigger `work_tasks_spawn_next`, `work_update_task`), helper `src/lib/work/recurrence.ts`, tests `tests/work-recurrence.test.ts` en [work_recurring.test.sql](../supabase/tests/work_recurring.test.sql).
+
+## Taakpagina: direct bewerken en archiveren (feedback Julius)
+
+- Klik op de titel en typ; Enter of ergens anders klikken slaat op, Esc annuleert. Klik op de omschrijving om te bewerken (links blijven werken); als de focus het formulier verlaat wordt het opgeslagen. De knop *Edit title and description* blijft.
+- *Archive* vraagt de bevestiging op de pagina zelf in plaats van met de browserdialoog. Die kon buiten beeld blijven (geïnstalleerde app, zijpaneel) waardoor de pagina leek vast te lopen.
 
 ## Offline
 
@@ -277,7 +291,7 @@ Work werkt ook zonder verbinding, bijvoorbeeld in de trein. Dit is gebouwd voor 
 | Service worker | `public/sw.js` | Build bestanden en iconen eerst uit de cache. App pagina's altijd vers als er verbinding is; de laatste goede kopie (nooit een redirect naar inloggen, een fout of iets wat geen HTML is) wordt bewaard met de header `x-nordavo-cached-at` en getoond zonder verbinding. Een `warm` bericht bewaart de hoofdpagina's en hun build bestanden vooraf, hoogstens één keer per 5 minuten per pagina; `clear` wist de paginacache. Oude cacheversies gaan weg bij activate |
 | Lokale database | `src/lib/offline/db.ts` | IndexedDB `nordavo-offline` met `records` (laatste kopie per `task:<id>`), `meta` (aantal en tijdstip per soort, geweigerde wijzigingen), `outbox` (wachtende wijzigingen in volgorde) en `dirty` (lokaal gewijzigd, nog niet bevestigd) |
 | Overlay | `src/lib/offline/overlay.ts`, `useOfflineTasks` | Lijsten en het bord leggen de dirty taken over de serverlijst; taken die hier gemaakt zijn verschijnen meteen, op de plek waar ze horen |
-| Versturen | `src/lib/offline/sync.ts` | Elke wijziging gaat via de outbox, die meteen in volgorde wordt verstuurd. Offline, geen antwoord binnen 30 seconden of oudere wijzigingen die nog wachten: de wijziging wacht. Opnieuw bij het `online` event en elke 20 seconden. Geweigerd door de server: uit de outbox en gemeld. Na bevestiging blijft een taak 4 seconden gemarkeerd, zodat de pagina niet terugflitst |
+| Versturen | `src/lib/offline/sync.ts` | Elke wijziging gaat via de outbox, die meteen in volgorde wordt verstuurd. Offline, geen antwoord binnen 30 seconden of oudere wijzigingen die nog wachten: de wijziging wacht. Opnieuw bij het `online` event en elke 20 seconden. Geweigerd door de server: uit de outbox en gemeld. Na bevestiging blijft een taak gemarkeerd tot de lijst van de server de wijziging toont (hoogstens 12 seconden), zodat de pagina niet terugflitst |
 | Server | `src/app/work/sync-actions.ts` | Dezelfde controles en `work_*` functies als online, dus validatie, rechten, het activiteitenlog en meldingen blijven werken. Een update stuurt alleen de gewijzigde velden: wijzigingen aan andere velden van elders blijven staan, bij hetzelfde veld wint de laatste |
 | Database | `20261117000000_work_offline.sql` | `work_create_task` neemt het id dat het apparaat koos (`p_id`, idempotent: twee keer versturen geeft één taak). `work_create_task` en `work_set_status` nemen het tijdstip van de offline actie (`p_at`): geldig als het niet in de toekomst ligt en hoogstens 14 dagen oud is, anders geldt nu |
 | Indicator | Bovenbalk en menu | Groen vinkje (Synced), spinner (Syncing), Offline met het aantal wachtende wijzigingen, rood voor geweigerde wijzigingen. Tikken toont wat dit apparaat bewaart, welke pagina's offline openen en wat een verbinding nodig heeft |
@@ -309,7 +323,7 @@ Werkt in het hele portaal (`/dashboard`) en in Work, ook in het smalle zijpaneel
 | `x` | Gekozen taak selecteren om in bulk af te vinken (projectlijst) |
 | `?` | Alle sneltoetsen |
 
-- **Afvinken in lijsten:** elke taakrij heeft een rond vinkje (één klik). In de lijst van een project kies je met de vierkante vakjes meerdere taken en vink je ze samen af (*Mark as done* in de balk onderaan, `completeTasksAction`), met per taak dezelfde regels.
+- **Afvinken in lijsten:** elke taakrij heeft een rond vinkje (één klik). Het vinkje gaat door de offline outbox (`task.status` met `fallbackReview`): de taak is meteen afgevinkt en weg, de server hoort het daarna. Mag je de taak niet afronden, dan gaat hij naar Review en een melding zegt dat. Eerder wachtte het vinkje op een serveractie die de hele layout opnieuw opbouwde: dat duurde seconden en het vinkje sprong in de tussentijd terug. In de lijst van een project kies je met de vierkante vakjes (met de muis pas zichtbaar als je over de rij gaat, daarna blijven ze staan) meerdere taken en vink je ze samen af (*Mark as done* in de balk onderaan, `completeTasksAction`), met per taak dezelfde regels.
 - **Taakpagina:** een eigenaar ziet *Mark as done* en *Send to review* naast elkaar.
 - **Nieuwe taak:** de omschrijving is leeg (geen sjabloon meer), jij bent standaard eigenaar en staat bovenaan. Markdown (vet, cursief, lijsten, ook genest, checklists `- [ ]`, links) wordt getoond op de taakpagina; met *Preview* zie je het al tijdens het typen. HTML in de tekst wordt nooit uitgevoerd.
 - **Zoeken** vindt ook pagina's (menu en Work, ook op Nederlandse woorden als "vacatures") en is tolerant voor typefouten: `portal_search` (migratie `20261123010000_portal_search.sql`, pg_trgm) zoekt in leads, contactpersonen van leads en klanten, klanten, vacatures (ook op klantnaam) en kandidaten, als de ingelogde gebruiker (RLS). Zonder die migratie valt het terug op de oude zoekopdracht.

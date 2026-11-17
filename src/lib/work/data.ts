@@ -14,6 +14,7 @@ import type {
 } from "@/lib/work/database";
 import { openStatuses, priorityRank } from "@/lib/work/labels";
 import { dayIn, localInputToUtc, safeTimeZone } from "@/lib/work/time";
+import { isRecurrence, type Recurrence } from "@/lib/work/recurrence";
 import { recordKey } from "@/lib/data/search";
 import {
   linkableRecordTypes,
@@ -600,6 +601,8 @@ export type TaskDetail = {
   labels: string[];
   startOn: string | null;
   estimateMinutes: number | null;
+  recurrence: Recurrence | null;
+  recurrenceEvery: number;
   isLog: boolean;
   archivedAt: string | null;
   completedAt: string | null;
@@ -639,7 +642,7 @@ export async function getTask(taskId: string): Promise<TaskDetail> {
     .from("work_tasks")
     .select(
       `id, title, description, status, priority, due_at, is_log, archived_at, completed_at, review_requested_at,
-       task_type, labels, start_on, estimate_minutes, created_at, created_by, reviewer_id, parent_id, project_id, workspace_id,
+       task_type, labels, start_on, estimate_minutes, recurrence, recurrence_every, created_at, created_by, reviewer_id, parent_id, project_id, workspace_id,
        project:work_projects!work_tasks_project_id_workspace_id_fkey(id, name, archived_at),
        parent:parent_id(id, title),
        assignees:work_task_assignees(user_id)`,
@@ -710,6 +713,8 @@ export async function getTask(taskId: string): Promise<TaskDetail> {
     labels: task.labels ?? [],
     startOn: task.start_on,
     estimateMinutes: task.estimate_minutes,
+    recurrence: isRecurrence(task.recurrence) ? task.recurrence : null,
+    recurrenceEvery: task.recurrence_every ?? 1,
     isLog: task.is_log,
     archivedAt: task.archived_at,
     completedAt: task.completed_at,

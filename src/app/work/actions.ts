@@ -17,6 +17,7 @@ import { mayUseSignInLink, signInLinkUrl } from "@/lib/security/sign-in-link";
 import { generateInviteToken, generateWorkToken } from "@/lib/work/tokens";
 import { localInputToUtc } from "@/lib/work/time";
 import { isWorkTaskType, parseEstimate } from "@/lib/work/labels";
+import { parseRecurrence } from "@/lib/work/recurrence";
 import { canUseRecordType, isRecordType } from "@/lib/work/records";
 import { isListedTimeZone, normalizeTimeZone } from "@/lib/work/time-zones";
 
@@ -462,6 +463,13 @@ export async function updateTaskAction(taskId: string, _prev: WorkActionState, f
       return { error: "Write the estimate as 2h, 30m, 1h30 or 1.5.", fieldErrors: { estimate: "For example 2h, 30m or 1h30" } };
     }
     fields.estimate_minutes = minutes;
+  }
+  // Repeating: the rule (empty stops it) and the interval, together.
+  if (formData.has("recurrence")) {
+    const repeat = parseRecurrence(values.recurrence, values.recurrence_every);
+    if ("error" in repeat) return { error: repeat.error, fieldErrors: { recurrence: repeat.error } };
+    fields.recurrence = repeat.recurrence ?? "";
+    fields.recurrence_every = repeat.every;
   }
 
   const supabase = await createClient();
