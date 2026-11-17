@@ -217,8 +217,9 @@ Pagina: **Settings, Sales lists** (admin). Per lijst: namen, uitleg, volgorde en
 | Lead status | Hernoemen, uitleggen, volgorde, verbergen | De regels gebruiken de statussen, dus geen nieuwe |
 | Contact status | Idem | De belregels gebruiken ze |
 | Call screen outcomes | Idem, de uitleg staat onder de knop | Elke knop past een belregel toe in `sales_log_call` |
+| Signal types | Extra soorten tot 40 tekens, hernoemen, uitleggen, volgorde (= sterkte), verbergen | Geen regels hangen aan een soort; de volgorde bepaalt het sterkste signaal op het belscherm (`20261124310000_call_screen_signals_cheatsheet.sql`) |
 
-Vast blijven: de pipelinefases, de route, de rol en tier van contacten en de ICP waarden. Een verborgen optie wordt niet meer aangeboden, maar rijen die hem hebben houden hun naam. Per bedrijf staat de **reden voor de prio** (`prio_reason`) op de leadpagina en als kolom *Prio reason*; de uitleg van het prioniveau staat erbij. De lijsten staan in `sales_choice_options` (`20261123410000_sales_choice_lists.sql`, `src/lib/sales/choices.ts`).
+Vast blijven: de pipelinefases, de route, de rol en tier van contacten en de ICP waarden. Een verborgen optie wordt niet meer aangeboden, maar rijen die hem hebben houden hun naam. Per bedrijf staat de **reden voor de prio** (`prio_reason`) op de leadpagina en als kolom *Prio reason*; de uitleg van het prioniveau staat erbij. De uitleg van een prioniveau staat op het belscherm naast de prio: daar zeg je zelf wat P1, P2 en P3 betekenen. De lijsten staan in `sales_choice_options` (`20261123410000_sales_choice_lists.sql`, `src/lib/sales/choices.ts`). Onder de lijsten staat ook de **Call cheat sheet** (de spiekbrief van het belscherm, tabel `sales_call_cheatsheet`), zie [calls.md](calls.md).
 
 ## Eigen kolommen
 

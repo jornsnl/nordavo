@@ -5,6 +5,7 @@ import { buildSheetRows, type SheetCompany, type SheetRow, type SheetVacancy } f
 import { loadContactRows, loadViews } from "@/lib/sales/data";
 import { listContacts, loadListMembers, loadQueue } from "@/lib/sales/queue";
 import type { ContactRow } from "@/lib/sales/rows";
+import { vacancyKinds } from "@/lib/sales/signals";
 
 // Loaders of the call sheet (feedback Julius, 896704e2). The team sees every
 // contact of a call list, with the ones they can call now marked; an
@@ -20,10 +21,10 @@ async function companiesAndVacancies(db: Db, companyIds: string[]) {
   for (let i = 0; i < ids.length; i += 200) {
     const chunk = ids.slice(i, i + 200);
     const [co, sig] = await Promise.all([
-      db.from("companies").select("id, name, domain, website, linkedin_url, opening_line, red_flags, general_phone").in("id", chunk),
+      db.from("companies").select("id, name, domain, website, linkedin_url, opening_line, red_flags, general_phone, description").in("id", chunk),
       db
         .from("signals")
-        .select("company_id, title, source_url, posted_at, first_seen_at, closed_at")
+        .select("company_id, type, title, source_url, posted_at, first_seen_at, closed_at")
         .in("company_id", chunk)
         .is("closed_at", null)
         .order("first_seen_at", { ascending: true })
@@ -39,13 +40,16 @@ async function companiesAndVacancies(db: Db, companyIds: string[]) {
         generalPhone: c.general_phone,
         website: c.website ?? (c.domain && !c.domain.startsWith("nodomain:") ? c.domain : null),
         linkedinUrl: c.linkedin_url,
+        description: c.description,
       });
     }
     // Without the closed_at column (older database) every signal counts as open.
     const signals = sig.error
-      ? ((await db.from("signals").select("company_id, title, source_url, posted_at, first_seen_at").in("company_id", chunk).limit(5000)).data ?? [])
+      ? ((await db.from("signals").select("company_id, type, title, source_url, posted_at, first_seen_at").in("company_id", chunk).limit(5000)).data ?? [])
       : (sig.data ?? []);
     for (const s of signals) {
+      // Funding, a new CTO and other signals are not a vacancy.
+      if (!(vacancyKinds as readonly string[]).includes(s.type)) continue;
       vacancies.set(s.company_id, [
         ...(vacancies.get(s.company_id) ?? []),
         { title: s.title, url: s.source_url, since: s.posted_at ?? s.first_seen_at },
