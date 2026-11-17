@@ -55,6 +55,11 @@ const fieldLabels: Record<string, string> = {
   email_status: "Mail status",
   manual_position: "Manual order",
   draft_body: "Concept text",
+  own_contact: "Own contact",
+  no_mail: "Mail switched off",
+  no_call: "Calling switched off",
+  no_linkedin: "LinkedIn switched off",
+  contact_flag: "Contact flag",
 };
 
 const valueLabels: Record<string, { value: string; label: string }[]> = {
@@ -64,6 +69,11 @@ const valueLabels: Record<string, { value: string; label: string }[]> = {
   category: companyCategories,
   role: contactRoles,
   icp_decision: icpDecisions,
+  contact_flag: [
+    { value: "left_company", label: "left the company" },
+    { value: "wrong_person", label: "wrong person" },
+    { value: "wrong_number", label: "wrong number" },
+  ],
 };
 
 export function fieldLabel(field: string | null | undefined): string {

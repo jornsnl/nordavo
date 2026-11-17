@@ -131,6 +131,9 @@ export function flowColumnDefs<T>(entity: "companies" | "contacts"): ColumnDef<T
     { key: "flow_source_list", label: "Came in with", type: "text", width: 170, defaultVisible: false, get: (r) => read(r, "flow_source_list") as string | null },
     { key: "flow_occupancy", label: "Occupied by", type: "text", width: 240, defaultVisible: false, get: (r) => read(r, "flow_occupancy") as string | null },
     { key: "flow_free", label: "Free", type: "boolean", width: 70, defaultVisible: false, get: (r) => read(r, "flow_free") === true },
+    // Never cold outreach: pipeline, partners, network, clients. Switch it on the lead page or with Claude.
+    { key: `${company}own_contact`, label: "Own contact", type: "boolean", width: 100, defaultVisible: false, get: (r) => read(r, `${company}own_contact`) === true },
+    { key: `${company}own_contact_reason`, label: "Own contact reason", type: "text", width: 180, defaultVisible: false, get: (r) => read(r, `${company}own_contact_reason`) as string | null },
     {
       key: `${company}prio_reason`,
       label: "Prio reason",

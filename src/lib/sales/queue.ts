@@ -81,6 +81,8 @@ export type BlockReason =
   | "callback_later"
   | "called_today"
   | "company_blocked"
+  | "own_contact"
+  | "contact_blocked"
   | "in_pipeline"
   | "suppressed"
   | "no_phone"
@@ -97,6 +99,9 @@ export function callBlockReason(row: ContactRow, rules: QueueRules): BlockReason
   if (closedContactStatuses.includes(row.status)) return "closed";
   if (row.company_lead_status === "no_go" || row.company_lead_status === "do_not_contact") return "company_blocked";
   if (row.company_pipeline_stage != null && row.company_pipeline_stage !== "lost") return "in_pipeline";
+  // Own contact (partner, network, client) never gets a cold call; a contact marked left, wrong person or wrong number, or switched off for calls, neither.
+  if (row.company_own_contact) return "own_contact";
+  if (row.no_call || row.contact_flag) return "contact_blocked";
   if (isAssignedNow(row, rules.today) && row.assigned_caller_id !== rules.callerId) return "assigned_elsewhere";
   if (
     row.claimed_by &&

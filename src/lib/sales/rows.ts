@@ -93,6 +93,8 @@ export type ContactRow = {
   company_category: CompanyCategory | null;
   company_lead_status: LeadStatus;
   company_pipeline_stage: PipelineStage | null;
+  /** We have contact with this company ourselves: never called cold. */
+  company_own_contact?: boolean;
   company_city: string | null;
   company_sector: string | null;
   company_icp: IcpDecision | null;
@@ -115,6 +117,9 @@ export type ContactRow = {
   callback_at: string | null;
   referred_to: string | null;
   caller_note: string | null;
+  /** Calling switched off for this contact, or flagged left_company, wrong_person or wrong_number. */
+  no_call?: boolean;
+  contact_flag?: "left_company" | "wrong_person" | "wrong_number" | null;
   assigned_caller_id: string | null;
   assigned_caller_name: string | null;
   assigned_until: string | null;

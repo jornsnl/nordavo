@@ -145,7 +145,7 @@ export async function loadContactRows(db: Db, options: { contactIds?: string[] }
       let q = db
         .from("contacts")
         .select(
-          "id, company_id, first_name, last_name, full_name, title, tier, role, route, phone, phone_type, email, email_status, linkedin_url, linkedin_member_urn, status, status_changed_at, attempts, last_attempt_at, callback_at, referred_to, caller_note, assigned_caller_id, assigned_until, claimed_by, claimed_at, is_primary, pinned_at, manual_position, last_contacted_at, created_at, company:companies!contacts_company_id_fkey(name, prio, category, lead_status, pipeline_stage, city, sector, icp_decision)",
+          "id, company_id, first_name, last_name, full_name, title, tier, role, route, phone, phone_type, email, email_status, linkedin_url, linkedin_member_urn, status, status_changed_at, attempts, last_attempt_at, callback_at, referred_to, caller_note, assigned_caller_id, assigned_until, claimed_by, claimed_at, is_primary, pinned_at, manual_position, last_contacted_at, created_at, no_call, contact_flag, company:companies!contacts_company_id_fkey(name, prio, category, lead_status, pipeline_stage, city, sector, icp_decision, own_contact)",
           { count: "exact" },
         )
         .order("created_at", { ascending: true })
@@ -176,6 +176,7 @@ export async function loadContactRows(db: Db, options: { contactIds?: string[] }
       company_category: company?.category ?? null,
       company_lead_status: company?.lead_status ?? "new",
       company_pipeline_stage: company?.pipeline_stage ?? null,
+      company_own_contact: company?.own_contact ?? false,
       company_city: company?.city ?? null,
       company_sector: company?.sector ?? null,
       company_icp: company?.icp_decision ?? null,
