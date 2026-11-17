@@ -3,7 +3,7 @@
 import { useEffect, useRef } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { toast } from "@/components/ui/toaster";
-import { REJECTED_EVENT, RETRY_MS, SYNCED_EVENT, flush, refreshState, releaseStale } from "@/lib/offline/sync";
+import { NOTICE_EVENT, REJECTED_EVENT, RETRY_MS, SYNCED_EVENT, flush, refreshState, releaseStale } from "@/lib/offline/sync";
 import { LOCAL_NOTICE_KEY, pageInfo, warmPages } from "@/lib/offline/worker";
 
 /** Data on screen older than this is fetched again when the app comes back to the front. */
@@ -51,6 +51,7 @@ export function SyncRuntime({ warm }: { warm: string[] }) {
       const { label, error } = (event as CustomEvent<{ label: string; error: string }>).detail;
       toast(label ? `Not saved: ${label}. ${error}` : error, { tone: "error" });
     };
+    const onNotice = (event: Event) => toast((event as CustomEvent<{ text: string }>).detail.text);
     const onFront = () => {
       if (document.visibilityState !== "visible" || !navigator.onLine) return;
       if (Date.now() - freshAt.current < STALE_AFTER_MS) return;
@@ -62,6 +63,7 @@ export function SyncRuntime({ warm }: { warm: string[] }) {
     window.addEventListener("offline", onOffline);
     window.addEventListener(SYNCED_EVENT, onSynced);
     window.addEventListener(REJECTED_EVENT, onRejected);
+    window.addEventListener(NOTICE_EVENT, onNotice);
     window.addEventListener("focus", onFront);
     document.addEventListener("visibilitychange", onFront);
     return () => {
@@ -71,6 +73,7 @@ export function SyncRuntime({ warm }: { warm: string[] }) {
       window.removeEventListener("offline", onOffline);
       window.removeEventListener(SYNCED_EVENT, onSynced);
       window.removeEventListener(REJECTED_EVENT, onRejected);
+      window.removeEventListener(NOTICE_EVENT, onNotice);
       window.removeEventListener("focus", onFront);
       document.removeEventListener("visibilitychange", onFront);
     };

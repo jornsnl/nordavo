@@ -4,6 +4,7 @@ import { z } from "zod";
 import type { Database, Json } from "@/lib/database.types";
 import type { WorkStatus, WorkTaskRow } from "@/lib/work/database";
 import { parseMentions } from "@/lib/work/mentions";
+import { recurrenceRules } from "@/lib/work/recurrence";
 import type { WorkApiActor } from "@/lib/work/tokens";
 
 /**
@@ -41,6 +42,7 @@ function requireWrite(actor: WorkApiActor) {
 const uuid = z.guid();
 export const statusSchema = z.enum(["todo", "in_progress", "review", "done", "cancelled"]);
 export const prioritySchema = z.enum(["low", "normal", "high", "urgent"]);
+export const recurrenceSchema = z.enum(recurrenceRules).describe("Repeats: daily, weekdays (Mon-Fri), weekly (same weekday as the deadline) or monthly (same day). Needs a deadline; when the task is done the next one is made.");
 export const taskTypeSchema = z.enum(["call", "schedule", "meeting", "teams", "brainstorm", "programming", "design", "writing", "email", "research", "review", "admin"]);
 
 /** Type, labels, start date and estimate: the same on create and update. */
@@ -49,8 +51,10 @@ const planningFields = {
   labels: z.array(z.string().trim().min(1).max(40)).max(20).optional(),
   start_on: z.iso.date({ error: "Use a day, e.g. 2026-11-03" }).nullable().optional(),
   estimate_minutes: z.number().int().min(1).max(60_000).nullable().optional(),
+  recurrence: recurrenceSchema.nullable().optional(),
+  recurrence_every: z.number().int().min(1).max(52).optional(),
 };
-const planningKeys = ["task_type", "labels", "start_on", "estimate_minutes"] as const;
+const planningKeys = ["task_type", "labels", "start_on", "estimate_minutes", "recurrence", "recurrence_every"] as const;
 
 /** "me" or a user id. */
 function personParam(value: string | null | undefined, actor: WorkApiActor): string | null {
@@ -141,6 +145,8 @@ async function shapeTasks(db: ApiDb, actor: WorkApiActor, rows: WorkTaskRow[], s
     labels: t.labels ?? [],
     start_on: t.start_on ?? null,
     estimate_minutes: t.estimate_minutes ?? null,
+    recurrence: t.recurrence ?? null,
+    recurrence_every: t.recurrence_every ?? 1,
     workspace_id: t.workspace_id,
     project: { id: t.project_id, name: projectName.get(t.project_id) ?? null },
     parent_id: t.parent_id,

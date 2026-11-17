@@ -12,11 +12,13 @@ import {
   DescriptionEditor,
   FileRow,
   FileUpload,
+  InlineTitle,
   MoveTaskForm,
   StatusControl,
   TaskActionButtons,
   TaskFieldsForm,
 } from "@/components/work/task-controls";
+import { recurrenceLabel } from "@/lib/work/recurrence";
 import { DueLabel, LabelChips, PriorityBadge, StatusBadge, TaskRow, TypeChip, priorityBorder } from "@/components/work/task-row";
 import { RecordLinkForm } from "@/components/work/record-link-form";
 import { PrimaryContactDetails, RecordChip } from "@/components/work/task-record";
@@ -111,13 +113,19 @@ async function TaskDetailView({
       </nav>
 
       <header className={`space-y-3 pl-4 ${priorityBorder(task.priority)}`}>
-        <h1 className="font-display text-2xl font-bold tracking-tight text-brand-900 sm:text-3xl">{task.title}</h1>
+        <InlineTitle
+          action={updateTaskAction.bind(null, task.id)}
+          title={task.title}
+          editable={task.can.edit && !archived}
+          className="font-display text-2xl font-bold tracking-tight text-brand-900 sm:text-3xl"
+        />
         <div className="flex flex-wrap items-center gap-2">
           <StatusBadge status={task.status} />
           <PriorityBadge priority={task.priority} />
           <DueLabel dueAt={task.dueAt} timeZone={tz} done={task.status === "done"} />
           <TypeChip type={task.taskType} />
           {task.estimateMinutes && <span className="text-xs text-muted">Estimate {formatEstimate(task.estimateMinutes)}</span>}
+          {task.recurrence && <span className="text-xs text-muted">{recurrenceLabel(task.recurrence, task.recurrenceEvery)}</span>}
           <LabelChips labels={task.labels} />
           {task.isLog && <Badge>Logged work</Badge>}
           {archived && <Badge tone="danger">In the trash</Badge>}
@@ -317,6 +325,9 @@ async function TaskDetailView({
                 labels={task.labels}
                 startOn={task.startOn}
                 estimate={formatEstimate(task.estimateMinutes)}
+                recurrence={task.recurrence}
+                recurrenceEvery={task.recurrenceEvery}
+                repeatable={!task.parent}
                 labelSuggestions={labelSuggestions}
               />
               <dl className="mt-5 space-y-2 border-t border-border pt-4 text-xs text-muted">

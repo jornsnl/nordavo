@@ -80,6 +80,83 @@ export function StatusControl({
   );
 }
 
+/**
+ * The task title as the page heading. With edit rights, click it and type;
+ * Enter or clicking elsewhere saves, Esc cancels (feedback Julius).
+ */
+export function InlineTitle({ action, title, editable, className }: { action: WorkAction; title: string; editable: boolean; className: string }) {
+  const [editing, setEditing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [pending, start] = useTransition();
+  const cancelled = useRef(false);
+
+  if (!editable) return <h1 className={className}>{title}</h1>;
+
+  function save(value: string) {
+    const next = value.trim();
+    if (cancelled.current || next === title) {
+      cancelled.current = false;
+      setEditing(false);
+      setError(null);
+      return;
+    }
+    if (!next) {
+      setError("Add a title");
+      return;
+    }
+    const formData = new FormData();
+    formData.set("title", next);
+    start(async () => {
+      try {
+        const result = await action({}, formData);
+        if (result.error) setError(result.fieldErrors?.title ?? result.error);
+        else {
+          setError(null);
+          setEditing(false);
+        }
+      } catch {
+        setError("This did not work. Check your connection and try again.");
+      }
+    });
+  }
+
+  return (
+    <div className="space-y-1">
+      {editing ? (
+        <input
+          autoFocus
+          defaultValue={title}
+          maxLength={300}
+          aria-label="Task title"
+          aria-invalid={Boolean(error)}
+          disabled={pending}
+          onBlur={(event) => save(event.currentTarget.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") event.currentTarget.blur();
+            else if (event.key === "Escape") {
+              cancelled.current = true;
+              event.currentTarget.blur();
+            }
+          }}
+          className={`${className} w-full rounded-lg border border-brand-300 bg-white px-2 py-1 outline-none focus-visible:ring-2 focus-visible:ring-brand-500`}
+        />
+      ) : (
+        <h1 className={className}>
+          <button
+            type="button"
+            onClick={() => setEditing(true)}
+            title="Click to edit the title"
+            className="-mx-2 w-full cursor-text rounded-lg px-2 text-left hover:bg-brand-50 focus-visible:outline-2 focus-visible:outline-brand-500"
+          >
+            {title}
+          </button>
+        </h1>
+      )}
+      {error && <p className="text-xs text-danger">{error}</p>}
+    </div>
+  );
+}
+
 /** Title and description, shown as text until you click Edit. */
 export function DescriptionEditor({
   action,
@@ -97,19 +174,40 @@ export function DescriptionEditor({
 }) {
   const [editing, setEditing] = useState(editable && startEditing);
   const { state, formAction, pending, errors } = useWorkAction(action, () => setEditing(false));
+  // Opened by a click on the text: the cursor goes to the description.
+  const [focusId, setFocusId] = useState("edit_title");
 
   // "e" on the task page (PortalShortcuts).
   useEffect(() => {
     if (!editable) return;
-    const onEdit = () => setEditing(true);
+    const onEdit = () => {
+      setFocusId("edit_title");
+      setEditing(true);
+    };
     window.addEventListener(EDIT_TASK_EVENT, onEdit);
     return () => window.removeEventListener(EDIT_TASK_EVENT, onEdit);
   }, [editable]);
 
+  useEffect(() => {
+    if (editing) document.getElementById(focusId)?.focus();
+  }, [editing, focusId]);
+
   if (!editing) {
     return (
       <div className="space-y-3">
-        {description ? <Markdown text={description} /> : <p className="text-sm text-muted">No description yet.</p>}
+        {/* Click the text to edit it; links keep working. */}
+        <div
+          className={editable ? "-m-2 cursor-text rounded-lg p-2 hover:bg-brand-50/60" : undefined}
+          title={editable ? "Click to edit" : undefined}
+          onClick={(event) => {
+            if (editable && !(event.target as HTMLElement).closest("a, button, input, summary")) {
+              setFocusId("edit_description");
+              setEditing(true);
+            }
+          }}
+        >
+          {description ? <Markdown text={description} /> : <p className="text-sm text-muted">No description yet.</p>}
+        </div>
         {editable && (
           <Button size="sm" variant="secondary" onClick={() => setEditing(true)}>
             <Pencil aria-hidden="true" />
@@ -120,7 +218,25 @@ export function DescriptionEditor({
     );
   }
   return (
-    <form onSubmit={submitWithoutReset(formAction)} className="space-y-4">
+    <form
+      onSubmit={submitWithoutReset(formAction)}
+      onKeyDown={(event) => {
+        if (event.key === "Escape") setEditing(false);
+      }}
+      onBlur={(event) => {
+        // Focus left the form (not for Save, Cancel or the Preview button inside it): save what changed.
+        const form = event.currentTarget;
+        if (pending || (event.relatedTarget instanceof Node && form.contains(event.relatedTarget))) return;
+        const data = new FormData(form);
+        if (data.get("title") === title && (data.get("description") ?? "") === (description ?? "")) {
+          if (event.relatedTarget === null && document.hasFocus()) setEditing(false);
+          return;
+        }
+        if (!String(data.get("title") ?? "").trim()) return;
+        form.requestSubmit();
+      }}
+      className="space-y-4"
+    >
       <FormMessage error={state.error} />
       <Field label="Title" htmlFor="edit_title" required error={errors.title}>
         <Input id="edit_title" name="title" defaultValue={title} maxLength={300} required />
@@ -151,6 +267,9 @@ export function TaskFieldsForm({
   labels,
   startOn,
   estimate,
+  recurrence = null,
+  recurrenceEvery = 1,
+  repeatable = false,
   labelSuggestions = [],
 }: {
   action: WorkAction;
@@ -167,6 +286,11 @@ export function TaskFieldsForm({
   startOn: string | null;
   /** Formatted, like "1h 30m". */
   estimate: string;
+  /** How the task repeats (daily, weekdays, weekly, monthly), and every how many. */
+  recurrence?: string | null;
+  recurrenceEvery?: number;
+  /** Only a task, not a subtask, can repeat. */
+  repeatable?: boolean;
   /** Labels used elsewhere, offered while typing. */
   labelSuggestions?: string[];
 }) {
@@ -209,6 +333,22 @@ export function TaskFieldsForm({
             <Input id="field_estimate" name="estimate" inputMode="text" placeholder="2h" defaultValue={estimate} />
           </Field>
         </div>
+        {repeatable && (
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Repeats" htmlFor="field_recurrence" hint="Needs a deadline; done makes the next one">
+              <Select id="field_recurrence" name="recurrence" defaultValue={recurrence ?? ""}>
+                <option value="">Does not repeat</option>
+                <option value="daily">Daily</option>
+                <option value="weekdays">Every workday</option>
+                <option value="weekly">Weekly (same weekday)</option>
+                <option value="monthly">Monthly (same day)</option>
+              </Select>
+            </Field>
+            <Field label="Every" htmlFor="field_recurrence_every" hint="Days, weeks or months">
+              <Input id="field_recurrence_every" name="recurrence_every" type="number" min={1} max={52} defaultValue={recurrenceEvery} />
+            </Field>
+          </div>
+        )}
         <Field label="Type" htmlFor="field_type" hint="What kind of work it is">
           <Select id="field_type" name="task_type" defaultValue={taskType ?? ""}>
             <option value="">No type</option>
@@ -268,11 +408,21 @@ export function TaskActionButtons({
 }) {
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
-  const run = (fn: () => Promise<{ error?: string } | void>, confirmText?: string) => () => {
-    if (confirmText && !window.confirm(confirmText)) return;
+  // Archive asks on the page itself: the browser's confirm dialog can stay out
+  // of sight (installed app, side panel, a blocked dialog) and then the page
+  // seems to hang (feedback Julius).
+  const [confirming, setConfirming] = useState(false);
+  const run = (fn: () => Promise<{ error?: string } | void>) => () => {
+    setError(null);
     start(async () => {
-      const result = await fn();
-      if (result && "error" in result && result.error) setError(result.error);
+      try {
+        const result = await fn();
+        if (result && "error" in result && result.error) setError(result.error);
+      } catch {
+        setError("This did not work. Check your connection and try again.");
+      } finally {
+        setConfirming(false);
+      }
     });
   };
   return (
@@ -284,18 +434,27 @@ export function TaskActionButtons({
             Duplicate
           </Button>
         )}
-        {archive && (
-          <Button
-            size="sm"
-            variant="secondary"
-            disabled={pending}
-            onClick={run(archive, "Move this task and its subtasks to the trash? It can be restored for 30 days.")}
-          >
+        {archive && !confirming && (
+          <Button size="sm" variant="secondary" disabled={pending} onClick={() => setConfirming(true)}>
             <Archive aria-hidden="true" />
             Archive
           </Button>
         )}
       </div>
+      {archive && confirming && (
+        <div role="alertdialog" aria-label="Archive this task" className="space-y-2 rounded-xl border border-border bg-surface p-3">
+          <p className="text-sm text-ink">Move this task and its subtasks to the trash? It can be restored for 30 days.</p>
+          <div className="flex flex-wrap gap-2">
+            <Button size="sm" disabled={pending} onClick={run(archive)} autoFocus>
+              <Archive aria-hidden="true" />
+              {pending ? "Archiving" : "Archive"}
+            </Button>
+            <Button size="sm" variant="ghost" disabled={pending} onClick={() => setConfirming(false)}>
+              Cancel
+            </Button>
+          </div>
+        </div>
+      )}
       {error && <p className="text-xs text-danger">{error}</p>}
     </div>
   );

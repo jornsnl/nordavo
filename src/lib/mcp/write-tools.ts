@@ -16,6 +16,7 @@ import { amsterdamDueAt, inboxProject, shapeWorkTasks } from "@/lib/mcp/work-tas
 import type { Json } from "@/lib/database.types";
 import { workTaskTypes as taskTypeOptions } from "@/lib/work/labels";
 import type { WorkTaskType } from "@/lib/work/database";
+import { recurrenceRules } from "@/lib/work/recurrence";
 
 const workTaskTypes = taskTypeOptions.map((t) => t.value) as [WorkTaskType, ...WorkTaskType[]];
 
@@ -25,12 +26,16 @@ export function planningFields(input: {
   labels?: string[];
   start_on?: string | null;
   estimate_minutes?: number | null;
+  recurrence?: string | null;
+  recurrence_every?: number;
 }): Record<string, unknown> {
   const fields: Record<string, unknown> = {};
   if (input.task_type !== undefined) fields.task_type = input.task_type ?? "";
   if (input.labels !== undefined) fields.labels = input.labels;
   if (input.start_on !== undefined) fields.start_on = input.start_on ?? "";
   if (input.estimate_minutes !== undefined) fields.estimate_minutes = input.estimate_minutes ?? "";
+  if (input.recurrence !== undefined) fields.recurrence = input.recurrence ?? "";
+  if (input.recurrence_every !== undefined) fields.recurrence_every = input.recurrence_every;
   return fields;
 }
 
@@ -145,6 +150,8 @@ export function registerWriteTools(server: McpServer, ctx: McpToolContext) {
         labels: z.array(z.string().trim().min(1).max(40)).max(20).optional(),
         start_on: z.iso.date().optional(),
         estimate_minutes: z.number().int().min(0).max(10_000).optional(),
+        recurrence: z.enum(recurrenceRules).optional().describe("Repeat: daily, weekdays (Mon-Fri), weekly (weekday of the deadline) or monthly (day of the deadline). Needs a deadline. When the task is marked done, the next one is made."),
+        recurrence_every: z.number().int().min(1).max(52).optional().describe("Every how many days, weeks or months (default 1)."),
         entity_type: z.enum(linkableTypes).optional().describe("Type of the linked record (requires entity_id)."),
         entity_id: idSchema.optional(),
       },
@@ -204,7 +211,7 @@ export function registerWriteTools(server: McpServer, ctx: McpToolContext) {
     {
       title: "Change task",
       description:
-        "Change a Work task: title, description, deadline, owners (replaces them), reviewer, priority, type, labels, start date, estimate, or move it to another project (project_id; from the inbox or a private workspace also to another workspace). Leave out what stays the same; null clears a deadline, start date, type or estimate. Status goes through update_task_status. Only call after the user asked for it.",
+        "Change a Work task: title, description, deadline, owners (replaces them), reviewer, priority, type, labels, start date, estimate, repeat (recurrence), or move it to another project (project_id; from the inbox or a private workspace also to another workspace). Leave out what stays the same; null clears a deadline, start date, type or estimate. Status goes through update_task_status. Only call after the user asked for it.",
       inputSchema: {
         id: idSchema.describe("Task id."),
         title: z.string().trim().min(1).max(300).optional(),
@@ -218,6 +225,8 @@ export function registerWriteTools(server: McpServer, ctx: McpToolContext) {
         labels: z.array(z.string().trim().min(1).max(40)).max(20).optional().describe("Replaces the labels."),
         start_on: z.iso.date().nullable().optional(),
         estimate_minutes: z.number().int().min(0).max(10_000).nullable().optional(),
+        recurrence: z.enum(recurrenceRules).nullable().optional().describe("Repeat: daily, weekdays, weekly or monthly; null stops repeating. Needs a deadline."),
+        recurrence_every: z.number().int().min(1).max(52).optional().describe("Every how many days, weeks or months (default 1)."),
         project_id: z.union([idSchema, z.literal("inbox")]).optional().describe("Move to this project (subtasks move along)."),
       },
       annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
