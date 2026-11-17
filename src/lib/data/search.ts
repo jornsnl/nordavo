@@ -6,7 +6,7 @@ import { entityTypes } from "@/lib/labels";
 import { createClient } from "@/lib/supabase/server";
 
 /** Record types you can search for and link a task to. */
-export const searchableTypes = ["company", "client", "vacancy", "candidate", "placement"] as const;
+export const searchableTypes = ["company", "partner", "client", "vacancy", "candidate", "placement"] as const;
 export type SearchableType = (typeof searchableTypes)[number];
 
 export type RecordHit = {
@@ -112,6 +112,22 @@ async function searchType(type: SearchableType, pattern: string, limit: number):
     }));
   }
 
+  if (type === "partner") {
+    const { data } = await supabase
+      .from("partners")
+      .select("id, name, company_name")
+      .or(`name.ilike.${pattern},company_name.ilike.${pattern}`)
+      .order("name")
+      .limit(limit);
+    return (data ?? []).map((p) => ({
+      type,
+      id: p.id,
+      label: p.name,
+      sublabel: p.company_name,
+      href: entityTypes.partner.href(p.id),
+    }));
+  }
+
   // Placements are found through the name of the placed candidate.
   const { data: candidates } = await supabase
     .from("candidates")
@@ -152,6 +168,7 @@ async function searchWorkTasks(query: string, limit: number): Promise<RecordHit[
 export const emptySearchGroups: SearchGroups = {
   page: [],
   company: [],
+  partner: [],
   contact: [],
   client: [],
   vacancy: [],
@@ -233,7 +250,7 @@ export async function searchEverything(query: string, perGroup = 5): Promise<Sea
     searchType("placement", pattern, perGroup),
     searchWorkTasks(query, perGroup),
   ]);
-  return { page, ...records, placement, task };
+  return { page, ...records, partner: [], placement, task };
 }
 
 /** Search one record type, for the record picker on tasks. */

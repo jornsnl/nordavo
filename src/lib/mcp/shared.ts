@@ -32,7 +32,7 @@ export const offsetSchema = z
 export const idSchema = z.guid().describe("Record id (uuid).");
 
 /** Record types that Work tasks and notes can be linked to. */
-export const linkableTypes = ["client", "vacancy", "candidate", "application", "placement", "company"] as const;
+export const linkableTypes = ["client", "vacancy", "candidate", "application", "placement", "company", "partner"] as const;
 export type LinkableType = (typeof linkableTypes)[number];
 
 /** Compact JSON text result. */
@@ -178,6 +178,13 @@ export async function resolveLabels(
           }
         }),
     );
+  const partners = idsOf("partner");
+  if (partners.length)
+    jobs.push(
+      db.from("partners").select("id, name, company_name").in("id", partners).then(({ data }) => {
+        for (const r of data ?? []) labels.set(key("partner", r.id), r.company_name ? `${r.name} (${r.company_name})` : r.name);
+      }),
+    );
   const tasks = idsOf("task");
   if (tasks.length)
     jobs.push(
@@ -211,6 +218,7 @@ export async function recordExists(db: McpDb, type: LinkableType, id: string): P
     application: "applications",
     placement: "placements",
     company: "companies",
+    partner: "partners",
   } as const satisfies Record<LinkableType, keyof Database["public"]["Tables"]>;
   const { data, error } = await db.from(table[type]).select("id").eq("id", id).maybeSingle();
   if (error) throw new Error(`Could not check the record: ${error.message}`);

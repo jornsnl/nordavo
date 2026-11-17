@@ -104,7 +104,7 @@ export function accessError(modules: PortalModule[]): string {
 
 /** Entity types this user may not see, for a NOT IN filter. */
 function hiddenEntityTypes(modules: readonly PortalModule[]): string[] {
-  return ["client", "vacancy", "candidate", "application", "placement", "company"].filter((type) => {
+  return ["client", "vacancy", "candidate", "application", "placement", "company", "partner"].filter((type) => {
     const mod = moduleForEntity(type);
     return mod !== null && !modules.includes(mod);
   });

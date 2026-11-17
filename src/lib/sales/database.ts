@@ -292,6 +292,8 @@ export type SalesFunctions = {
     } & Actor,
     string | null
   >;
+  // Migration 20261125200000_mcp_partners.sql: create (p_id null) or change a partner, logged in Activities.
+  sales_partner_save: Fn<{ p_id: string | null; p_fields: Json; p_source?: string } & Actor, string>;
   sales_decide_reply: Fn<{ p_activity: string; p_accept: boolean; p_apply?: Json } & Actor, undefined>;
   sales_save_meeting: Fn<
     {

@@ -29,7 +29,7 @@ const groups: { key: keyof SearchGroups; label: string; icon: LucideIcon }[] = [
   { key: "task", label: "Tasks in Work", icon: CheckSquare },
 ];
 
-const emptyResults: SearchGroups = { page: [], company: [], contact: [], client: [], vacancy: [], candidate: [], placement: [], task: [] };
+const emptyResults: SearchGroups = { page: [], company: [], partner: [], contact: [], client: [], vacancy: [], candidate: [], placement: [], task: [] };
 
 const subscribeNever = () => () => {};
 
