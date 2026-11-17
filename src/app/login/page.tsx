@@ -96,7 +96,7 @@ export default function LoginPage() {
           </div>
 
           <p className="mt-8 text-sm text-muted max-sm:pt-2 max-sm:text-center">
-            No account yet, or forgot your password? Mail{" "}
+            No account yet? Mail{" "}
             <a
               href="mailto:info@nordavo.nl"
               className="font-medium text-brand-600 underline-offset-4 hover:underline"

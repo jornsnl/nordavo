@@ -33,6 +33,7 @@ import { PasskeySection } from "@/components/settings/security/passkey-section";
 import {
   changePassword,
   inviteUser,
+  resendUserLink,
   updateBookingUrl,
   updateOwnProfile,
   updateUserModules,
@@ -269,7 +270,7 @@ async function MailSection() {
     {
       label: "NEXT_PUBLIC_SITE_URL",
       value: siteUrl || null,
-      hint: "Links and the logo in mails. Must be the public https address.",
+      hint: "Links and the logo in mails. Must be the public https address. Missing or localhost in production: links use https://portal.nordavo.nl.",
       ok: siteUrl.startsWith("https://"),
     },
   ];
@@ -411,6 +412,7 @@ async function UsersSection() {
                         layout="stacked"
                       />
                     )}
+                    <ResendLinkButton userId={profile.id} name={name} email={profile.email} />
                     {mfaOn && <ResetMfaButton userId={profile.id} name={name} />}
                   </div>
                 )}
@@ -502,6 +504,7 @@ async function UsersSection() {
                         ) : (
                           modulesSummary(profile) && <p className="text-xs text-muted">{modulesSummary(profile)}</p>
                         )}
+                        <ResendLinkButton userId={profile.id} name={name} email={profile.email} />
                       </div>
                     )}
                   </TD>
@@ -530,6 +533,23 @@ async function listContentWorkspaceOptions(): Promise<{ id: string; name: string
   const supabase = await createClient();
   const { data } = await supabase.from("content_workspaces").select("id, name").is("archived_at", null).order("name");
   return data ?? [];
+}
+
+/** Forgot password or an invitation that never arrived: mail a new link (invitation or password reset). */
+function ResendLinkButton({ userId, name, email }: { userId: string; name: string; email: string | null }) {
+  if (!email) return null;
+  return (
+    <ConfirmButton
+      size="sm"
+      variant="ghost"
+      title="Send a new link?"
+      description={`${name} gets a mail at ${email}: a new invitation if they never signed in, otherwise a link to choose a new password. Earlier links stop working.`}
+      confirmLabel="Send link"
+      action={resendUserLink.bind(null, userId)}
+    >
+      Resend invite / reset password
+    </ConfirmButton>
+  );
 }
 
 function ResetMfaButton({ userId, name }: { userId: string; name: string }) {

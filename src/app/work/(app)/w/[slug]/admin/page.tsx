@@ -46,7 +46,7 @@ async function Admin({ params }: { params: Promise<{ slug: string }> }) {
   const inactive = members.filter((m) => m.deactivatedAt);
   const handover = active.filter((m) => m.role !== "guest").map((m) => ({ id: m.id, name: m.name }));
   const ws = { id: workspace.id, name: workspace.name };
-  const isPrivate = workspace.kind !== "shared";
+  const isInbox = workspace.kind === "inbox";
 
   return (
     <>
@@ -61,8 +61,10 @@ async function Admin({ params }: { params: Promise<{ slug: string }> }) {
         eyebrow="Manage"
         title={workspace.name}
         description={
-          isPrivate
-            ? "Your private workspace: only you can see it, other admins included. Nobody can be invited."
+          isInbox
+            ? "Your inbox: only you can see it, other admins included. Nobody can be invited."
+            : workspace.kind === "private"
+              ? "Your private workspace: only you and the people you invite can see it, other admins included."
             : "Members, guests, roles and access. Every change lands in the access log below."
         }
         actions={
@@ -89,7 +91,7 @@ async function Admin({ params }: { params: Promise<{ slug: string }> }) {
             <ConfirmButton run={archiveWorkspaceAction.bind(null, workspace.id, false)} label="Restore workspace" icon={false} />
           </div>
         )}
-        {!isPrivate && (
+        {!isInbox && (
         <Card>
           <CardHeader title={`People (${active.length})`} description="Admins manage everything; members see open projects; guests only their projects." />
           <ul className="divide-y divide-border">
@@ -148,7 +150,7 @@ async function Admin({ params }: { params: Promise<{ slug: string }> }) {
         )}
 
         <div className="grid gap-5 xl:grid-cols-2">
-          {!isPrivate && (
+          {!isInbox && (
           <Card>
             <CardHeader title="Invite" description="The mail has a link that lands in the workspace, or straight in the project." />
             <CardBody className="space-y-4">

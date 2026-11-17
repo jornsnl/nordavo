@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { ArrowRight, Eye, EyeOff, LoaderCircle } from "lucide-react";
 import { login, type LoginState } from "./actions";
@@ -96,6 +97,15 @@ export function LoginForm() {
           </button>
         </div>
       </div>
+
+      <p className="-mt-2 text-right text-sm">
+        <Link
+          href="/login/forgot"
+          className="inline-flex font-medium text-brand-600 underline-offset-4 hover:underline pointer-coarse:min-h-11 pointer-coarse:items-center"
+        >
+          Forgot password?
+        </Link>
+      </p>
 
       <button
         type="submit"

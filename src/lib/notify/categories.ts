@@ -11,6 +11,8 @@ export const mailCategories = [
   { value: "content_notification", label: "Content update" },
   { value: "content_summary", label: "Content Monday summary" },
   { value: "caller_invite", label: "Caller invitation" },
+  { value: "user_invite", label: "Portal invitation" },
+  { value: "password_reset", label: "Password reset" },
   { value: "academy_invite", label: "Academy invitation" },
   // Academy and ATS (docs/academy.md, ATS-koppeling)
   { value: "academy_welcome", label: "Academy welcome (placed)" },

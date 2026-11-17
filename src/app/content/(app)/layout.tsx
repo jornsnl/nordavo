@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import Link from "next/link";
-import { ClipboardList, LayoutDashboard, LogOut } from "lucide-react";
+import { ClipboardList, House, LayoutDashboard, LogOut } from "lucide-react";
 import { installableMetadata } from "@/lib/pwa/manifest";
 import { isStaff } from "@/lib/auth";
 import { initials } from "@/lib/format";
+import { listMyWorkspaces } from "@/lib/work/data";
 import { countUnreadNotifications, requireContentUser } from "@/lib/content/data";
 import { ContentShell } from "@/components/content/content-shell";
 import { ContentWorkspaceNav } from "@/components/content/workspace-nav";
@@ -24,6 +25,11 @@ export default function ContentLayout({ children }: LayoutProps<"/content">) {
             <ContentWorkspaceNav />
           </Suspense>
         }
+        workLinks={
+          <Suspense fallback={null}>
+            <WorkLinks />
+          </Suspense>
+        }
         unread={
           <Suspense fallback={null}>
             <UnreadBadge />
@@ -38,6 +44,25 @@ export default function ContentLayout({ children }: LayoutProps<"/content">) {
         {children}
       </ContentShell>
     </div>
+  );
+}
+
+/** Always a way back: Home (the Work main screen) and each of your Work workspaces. */
+async function WorkLinks() {
+  const workspaces = (await listMyWorkspaces()).filter((w) => w.kind !== "inbox");
+  const linkClass = "flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm text-brand-100/80 hover:bg-white/5 hover:text-white max-lg:min-h-11";
+  return (
+    <nav aria-label="Back to Work" className="space-y-0.5">
+      <Link href="/work" className={linkClass}>
+        <House className="size-4 shrink-0" aria-hidden="true" />
+        Home
+      </Link>
+      {workspaces.map((w) => (
+        <Link key={w.id} href={`/work/w/${w.slug}`} className={`${linkClass} pl-9`}>
+          <span className="min-w-0 truncate">{w.name}</span>
+        </Link>
+      ))}
+    </nav>
   );
 }
 
