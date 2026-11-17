@@ -27,6 +27,8 @@ export type OutcomeDialogProps = {
   companyName: string;
   /** Reasons for a "no" and who can own a next step; without them the reasons list is empty. */
   options?: CallOptions;
+  /** The Cal.com links for Meeting planned (who the meeting is with); with more than one the caller picks. */
+  bookingLinks?: { id: string; label: string }[];
   /** A note typed before the window opened. */
   initialNote?: string;
   /** True while the call is being saved. */
@@ -43,7 +45,7 @@ export type OutcomeDialogProps = {
 const hints: Partial<Record<CallOutcome, string>> = {
   call_back: "Say when and with whom, so the call back is on time.",
   reached_interested: "What are they interested in, what happens next and when?",
-  meeting_planned: "Save opens your booking page in a new tab when there is one.",
+  meeting_planned: "Save opens the calendar. The meeting only counts once the booking is made; until then the lead stays open.",
   reached_not_interested: "Pick at least one reason, or write it in your own words.",
   referred: "The referred person becomes the next contact you call.",
   wrong_person: "If you know who the right person is, add them: they become a contact.",
@@ -78,6 +80,7 @@ export function OutcomeDialog({ outcome, outcomeLabel, contactName, companyName,
 function OutcomeForm({
   outcome,
   options,
+  bookingLinks = [],
   initialNote = "",
   pending,
   error,
@@ -180,8 +183,19 @@ function OutcomeForm({
       {outcome === "meeting_planned" && (
         <>
           <Field label="What is the meeting about?" htmlFor="mt-reason" required>
-            <Textarea id="mt-reason" rows={2} maxLength={1000} value={fields.meetingReason ?? ""} onChange={(e) => set({ meetingReason: e.target.value })} placeholder="Why they want to talk, which roles" />
+            <Textarea id="mt-reason" rows={2} maxLength={1000} value={fields.meetingReason ?? ""} onChange={(e) => set({ meetingReason: e.target.value })} placeholder="For example: two Python developers, start in January" />
           </Field>
+          {bookingLinks.length > 1 && (
+            <Field label="Meeting with" htmlFor="mt-with">
+              <Select id="mt-with" value={fields.bookingLinkId ?? bookingLinks[0].id} onChange={(e) => set({ bookingLinkId: e.target.value })}>
+                {bookingLinks.map((l) => (
+                  <option key={l.id} value={l.id}>
+                    {l.label}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+          )}
           {note()}
         </>
       )}
@@ -316,7 +330,7 @@ function OutcomeForm({
         </Button>
         <Button type="submit" disabled={pending}>
           {pending && <LoaderCircle className="animate-spin" aria-hidden="true" />}
-          Save
+          {outcome === "meeting_planned" && bookingLinks.length > 0 ? "Save and open calendar" : "Save"}
         </Button>
       </div>
     </form>

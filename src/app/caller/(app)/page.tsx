@@ -80,6 +80,8 @@ async function Overview({ searchParams }: { searchParams: PageProps<"/caller">["
   const mine = results.get(`caller:${caller.callerId}`);
   const dialTemplate = profile.data?.dial_template ?? null;
   const goal = Number(row?.weekly_call_goal ?? 0);
+  // Said "Meeting planned", but no booking within the hour: the caller is told.
+  const lateBookings = meetings.filter((m) => m.late);
   const weekCalled = (weekStats.stats.get(caller.callerId) ?? emptyStats).called;
   const overdueActivities = new Set(callbacks.filter((c) => c.overdue).map((c) => c.activityId));
   const calls = [...recent].sort((a, b) => Number(overdueActivities.has(b.id)) - Number(overdueActivities.has(a.id)));
@@ -113,6 +115,22 @@ async function Overview({ searchParams }: { searchParams: PageProps<"/caller">["
           Start calling
         </ButtonLink>
       </header>
+
+      {lateBookings.length > 0 && (
+        <div role="alert" className="rounded-2xl border border-amber-300 bg-amber-50 px-5 py-4 text-sm text-amber-900">
+          <p className="font-semibold">
+            {lateBookings.length === 1 ? "A meeting is still waiting for its booking" : `${lateBookings.length} meetings are still waiting for their booking`}
+          </p>
+          <ul className="mt-1 list-disc pl-5">
+            {lateBookings.map((m) => (
+              <li key={m.id}>
+                {m.companyName ?? "Lead"}
+                {m.contactName ? `, ${m.contactName}` : ""}: planned {formatDate(m.createdAt)} and no Cal.com booking yet. It does not count until the booking is made. Call the lead again to book a time, or ask Nordavo.
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       <Card>
         <CardHeader
@@ -244,7 +262,7 @@ async function Overview({ searchParams }: { searchParams: PageProps<"/caller">["
       <Card>
         <CardHeader
           title="My meetings"
-          description="Every meeting you planned, with the status Nordavo gave it. Only approved meetings earn a fee."
+          description="Every meeting you planned, with its status: awaiting booking, planned, held, no show, moved, approved or rejected. A meeting counts once it is booked in Cal.com; only approved meetings earn a fee."
         />
         {meetings.length === 0 ? (
           <p className="px-5 py-4 text-sm text-muted">No meetings yet.</p>
@@ -255,7 +273,7 @@ async function Overview({ searchParams }: { searchParams: PageProps<"/caller">["
               return (
                 <li key={m.id} className="flex flex-wrap items-center gap-3 px-4 py-2.5 text-sm sm:px-5">
                   <span className="w-32 shrink-0 text-xs text-muted">
-                    {m.scheduledAt ? formatDateTime(m.scheduledAt) : `Planned ${formatDate(m.createdAt)}`}
+                    {m.scheduledAt ? formatDateTime(m.scheduledAt) : m.status === "awaiting_booking" ? `Waiting since ${formatDate(m.createdAt)}` : `Planned ${formatDate(m.createdAt)}`}
                   </span>
                   <span className="min-w-0 flex-1">
                     <span className="font-medium text-ink">{m.companyName ?? "Lead"}</span>

@@ -1,17 +1,21 @@
 "use server";
 
 import { requireModule } from "@/lib/auth";
-import { salesBookingBase } from "@/lib/sales/booking";
+import { loadBookingLinks } from "@/lib/sales/booking-data";
 import { addCallContact, markCallPhone, updateCallContact, type ContactEdit, type PersonInput } from "@/lib/sales/call-contacts";
 import {
   type CallActor,
   type CallInput,
   type CallStep,
+  bookingState,
+  cancelBooking,
   cleanExclude,
+  finishBooking,
   logCall,
   nextCall,
   releaseCall,
   skipCall,
+  startBooking,
   teamScope,
   undoCall,
 } from "@/lib/sales/call-session";
@@ -36,13 +40,12 @@ import { createClient } from "@/lib/supabase/server";
 async function teamActor(): Promise<CallActor> {
   const user = await requireModule("sales");
   const db = await createClient();
-  const { data: profile } = await db.from("profiles").select("booking_url").eq("id", user.id).maybeSingle();
   return {
     db,
     actorId: user.id,
     callerId: null,
     pActor: undefined,
-    bookingBase: salesBookingBase(process.env.NEXT_PUBLIC_CALCOM_SALES_URL, profile?.booking_url),
+    bookingLinks: await loadBookingLinks(db),
   };
 }
 
@@ -67,6 +70,27 @@ export async function skipTeamCall(scope: unknown, contactId: string | null, exc
   const s = teamScope(scope);
   if (!s) return NO_SCOPE;
   return skipCall(actor, s, contactId, cleanExclude(exclude));
+}
+
+// Meeting planned (Cal.com tasks, November 2026): the meeting waits for its booking before it counts.
+
+export async function startTeamBooking(input: CallInput) {
+  return startBooking(await teamActor(), input);
+}
+
+export async function teamBookingStatus(meetingId: string) {
+  return bookingState(await teamActor(), meetingId);
+}
+
+export async function finishTeamBooking(scope: unknown, contactId: string, meetingId: string, exclude: unknown): Promise<CallStep> {
+  const actor = await teamActor();
+  const s = teamScope(scope);
+  if (!s) return NO_SCOPE;
+  return finishBooking(actor, s, contactId, meetingId, cleanExclude(exclude));
+}
+
+export async function cancelTeamBooking(meetingId: string) {
+  return cancelBooking(await teamActor(), meetingId);
 }
 
 export async function releaseTeamCall(contactId: string): Promise<void> {

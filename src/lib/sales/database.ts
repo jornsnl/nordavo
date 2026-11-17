@@ -50,7 +50,7 @@ export type CallOutcome =
   | "wrong_number";
 
 export type CallerStatus = "active" | "paused" | "stopped";
-export type MeetingStatus = "planned" | "held" | "approved" | "rejected" | "no_show" | "cancelled";
+export type MeetingStatus = "awaiting_booking" | "planned" | "held" | "approved" | "rejected" | "no_show" | "cancelled";
 export type MeetingSource = "handmatig" | "calcom" | "claude" | "system";
 export type SequenceStatus = "draft" | "active" | "archived";
 export type SequenceChannel = "mail" | "linkedin" | "call";
@@ -133,6 +133,8 @@ export type MeetingRow = {
   decided_at: string | null;
   source: MeetingSource;
   external_id: string | null;
+  /** Who the meeting is with (the Cal.com link the caller picked). */
+  with_label: string | null;
   created_at: string;
   updated_at: string;
 };

@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { createHmac } from "node:crypto";
 import { parseCalWebhook, salesMeetingAction, verifyCalSignature } from "@/lib/integrations/calcom";
-import { buildSalesBookingUrl, salesBookingBase } from "@/lib/sales/booking";
+import { bookingLinksOrEnv, buildSalesBookingUrl, pickBookingLink } from "@/lib/sales/booking";
 
 const created = {
   triggerEvent: "BOOKING_CREATED",
@@ -42,6 +42,7 @@ test("parseCalWebhook maps a created booking", () => {
     attendeeEmail: "jan@acme.nl",
     attendeeName: "Jan de Vries",
     companyName: "Acme Software",
+    role: null,
     cancellationReason: null,
     contactId: null,
     callerId: null,
@@ -146,9 +147,41 @@ test("buildSalesBookingUrl prefills name, mail, note and the metadata the webhoo
   assert.equal(bare.searchParams.has("metadata[caller_id]"), false);
 });
 
-test("salesBookingBase prefers the sales link and falls back to the team member's own link", () => {
-  assert.equal(salesBookingBase("https://cal.com/nordavo/sales", "https://cal.com/julius"), "https://cal.com/nordavo/sales");
-  assert.equal(salesBookingBase("", "https://cal.com/julius"), "https://cal.com/julius");
-  assert.equal(salesBookingBase("http://insecure", null), null);
-  assert.equal(salesBookingBase(undefined, undefined), null);
+test("buildSalesBookingUrl fills the company and role questions and the awaiting meeting", () => {
+  const url = new URL(
+    buildSalesBookingUrl(
+      "https://cal.com/nordavo-support-jwoop2/kennismaking",
+      { name: "Jan", email: "jan@acme.nl", company: "Acme", role: "Python developer, Data engineer", contactId, companyId: "c0", meetingId: "m1" },
+      { companyField: "bedrijfsnaam", roleField: "welke-rol-zoek-je" },
+    ),
+  );
+  assert.equal(url.searchParams.get("bedrijfsnaam"), "Acme");
+  assert.equal(url.searchParams.get("welke-rol-zoek-je"), "Python developer, Data engineer");
+  assert.equal(url.searchParams.get("metadata[meeting_id]"), "m1");
+});
+
+test("the Settings links win over the env link; the interview link of a team member is never used", () => {
+  const settings = [
+    { id: "a", label: "Julius", url: "https://cal.com/julius/kennismaking", companyField: "bedrijfsnaam", roleField: "rol" },
+    { id: "b", label: "Floris", url: "https://cal.com/floris/kennismaking", companyField: "bedrijfsnaam", roleField: "rol" },
+  ];
+  assert.deepEqual(bookingLinksOrEnv(settings, "https://cal.com/old"), settings);
+  assert.equal(bookingLinksOrEnv([], "https://cal.com/nordavo/sales")[0].url, "https://cal.com/nordavo/sales");
+  assert.deepEqual(bookingLinksOrEnv([], "http://insecure"), []);
+  assert.deepEqual(bookingLinksOrEnv([], undefined), []);
+  assert.equal(pickBookingLink(settings, "b")?.label, "Floris");
+  assert.equal(pickBookingLink(settings, "zzz")?.label, "Julius");
+  assert.equal(pickBookingLink([], null), null);
+});
+
+test("parseCalWebhook reads the role answer in any letter case and keeps it in the fallback reason", () => {
+  const result = parseCalWebhook({
+    ...created,
+    payload: { ...created.payload, responses: { Bedrijfsnaam: "Acme Software", "Welke-rol-zoek-je": { value: "Python developer" } } },
+  });
+  assert.ok("booking" in result);
+  assert.equal(result.booking.companyName, "Acme Software");
+  assert.equal(result.booking.role, "Python developer");
+  const action = salesMeetingAction(result.booking);
+  assert.ok(action.kind === "save" && action.reason?.includes("Role: Python developer"));
 });

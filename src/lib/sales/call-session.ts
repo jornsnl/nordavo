@@ -5,6 +5,7 @@ import type { Database } from "@/lib/database.types";
 import { contactStatuses } from "@/lib/labels";
 import type { CallOutcome } from "@/lib/sales/database";
 import { callOutcomes, labelOf } from "@/lib/sales/labels";
+import type { BookingLink } from "@/lib/sales/booking";
 import { composeNote, nextSteps, outcomeProblem, outcomeScope, wrongPersonReasons } from "@/lib/sales/call-outcome";
 import { loadQueue, preferEntries, type QueueEntry, type QueuePreference, type QueueScope } from "@/lib/sales/queue";
 import { amsterdamDate } from "@/lib/sales/status";
@@ -35,8 +36,8 @@ export type CallActor = {
   callerId: string | null;
   /** Passed as p_actor: only with the secret key client. */
   pActor: string | undefined;
-  /** Cal.com link for "Meeting planned", or null when none is set. */
-  bookingBase: string | null;
+  /** The Cal.com links of Settings, General for "Meeting planned" and the agenda; empty when none is set. */
+  bookingLinks: BookingLink[];
 };
 
 export type { CallTimelineItem };
@@ -118,7 +119,8 @@ export type CallCard = {
   /** Sections of the foldable cheat sheet (Settings, Sales lists). */
   cheatsheet: CheatsheetSection[];
   queue: { position: number; total: number; source: QueueEntry["source"]; listName: string | null };
-  booking: { base: string; name: string | null; email: string | null; callerId: string | null } | null;
+  /** The Cal.com links with what the portal knows for the prefill (name, mail, company, the open roles). */
+  booking: { links: BookingLink[]; name: string | null; email: string | null; company: string; role: string | null; callerId: string | null } | null;
 };
 
 /** What the follow-up windows offer: the rejection reasons and, for the team, who can own a next step. */
@@ -343,9 +345,17 @@ async function loadCard(actor: CallActor, entry: QueueEntry, index: number, tota
       source: entry.source,
       listName: entry.listId ? (listNames.get(entry.listId) ?? null) : null,
     },
-    booking: actor.bookingBase
-      ? { base: actor.bookingBase, name, email: row.email, callerId: actor.callerId }
-      : null,
+    booking:
+      actor.bookingLinks.length > 0
+        ? {
+            links: actor.bookingLinks,
+            name,
+            email: row.email,
+            company: c.name,
+            role: [...new Set(vacancies.map((v) => v.title?.trim()).filter((t): t is string => Boolean(t)))].slice(0, 3).join(", ") || null,
+            callerId: actor.callerId,
+          }
+        : null,
   };
 }
 
@@ -419,6 +429,8 @@ export const callInputSchema = z
     nextStepAt: optionalDate,
     nextOwner: z.guid().nullish(),
     meetingReason: optionalText(1000),
+    /** The Cal.com link (who the meeting is with) picked for Meeting planned. */
+    bookingLinkId: z.string().max(60).nullish(),
     wrongReason: z.enum(wrongValues).nullish(),
     newPhone: optionalText(50),
     note: z.string().trim().max(5000).nullish(),
@@ -463,6 +475,8 @@ export async function recordCall(actor: CallActor, input: CallInput): Promise<Re
   }
   const v = parsed.data;
   const o = v.outcome;
+  // Meeting planned is only saved by the booking (startBooking, then the Cal.com booking itself).
+  if (o === "meeting_planned") return { ok: false, error: "Book the meeting in the calendar first: it counts once the booking is in." };
   // Labels of the chosen reasons, for the lost reason on the company (the list can be renamed).
   let reasonLabel: string | null = null;
   if (o === "reached_not_interested" && (v.reasons?.length ?? 0) > 0) {
@@ -521,6 +535,83 @@ export async function recordCall(actor: CallActor, input: CallInput): Promise<Re
     newContactId: data?.new_contact_id ?? null,
     handled,
   };
+}
+
+export type StartedBooking =
+  | { ok: true; meetingId: string; booked: boolean; label: string | null }
+  | { ok: false; error: string };
+
+/**
+ * Meeting planned (feedback Julius): nothing is saved as a call yet. The reason is stored on an
+ * awaiting meeting and the contact stays open; the Cal.com booking (webhook or claude-calcom) makes
+ * it a planned meeting, and only then the attempt is logged and the pipeline moves.
+ */
+export async function startBooking(actor: CallActor, input: CallInput): Promise<StartedBooking> {
+  const parsed = callInputSchema.safeParse({ ...input, outcome: "meeting_planned" });
+  if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Check the meeting." };
+  const v = parsed.data;
+  const link = actor.bookingLinks.find((l) => l.id === v.bookingLinkId) ?? null;
+  const { data, error } = await actor.db.rpc("sales_start_booking", {
+    p_contact: v.contactId,
+    p_reason: v.meetingReason ?? "",
+    p_note: v.note || null,
+    p_with: link?.label ?? null,
+    p_actor: actor.pActor,
+  });
+  if (error || !data) {
+    if (error) console.error("startBooking", error.code, error.message);
+    const known = sqlMessages.find((m) => error?.message.includes(m)) ?? (error?.message.includes("Say what the meeting is about") ? "Say what the meeting is about" : null);
+    return {
+      ok: false,
+      error: known
+        ? known === sqlMessages[0]
+          ? "This contact was released (open for more than 30 minutes or taken over). Open the next contact."
+          : known
+        : "The meeting was not saved. Please try again.",
+    };
+  }
+  return { ok: true, meetingId: data.meeting_id, booked: data.status === "planned", label: link?.label ?? null };
+}
+
+/** Where an awaiting booking stands: still awaiting, booked (with the time) or gone. */
+export type BookingState = { status: "awaiting_booking" | "planned" | "gone"; scheduledAt: string | null };
+
+export async function bookingState(actor: CallActor, meetingId: string): Promise<BookingState> {
+  if (!z.guid().safeParse(meetingId).success) return { status: "gone", scheduledAt: null };
+  const { data } = await actor.db.from("meetings").select("status, scheduled_at, caller_id").eq("id", meetingId).maybeSingle();
+  // An external caller only sees the state of their own meetings.
+  if (!data || (actor.callerId && data.caller_id !== actor.callerId)) return { status: "gone", scheduledAt: null };
+  if (data.status === "awaiting_booking") return { status: "awaiting_booking", scheduledAt: null };
+  // Planned, or moved on since (held, ...): booked. Cancelled: not.
+  return data.status === "cancelled" ? { status: "gone", scheduledAt: null } : { status: "planned", scheduledAt: data.scheduled_at };
+}
+
+/** The caller gives up on the booking; the lead stays open. */
+export async function cancelBooking(actor: CallActor, meetingId: string): Promise<boolean> {
+  if (!z.guid().safeParse(meetingId).success) return false;
+  const { data, error } = await actor.db.rpc("sales_cancel_booking", { p_meeting: meetingId, p_actor: actor.pActor });
+  if (error) console.error("cancelBooking", error.code, error.message);
+  return Boolean(data);
+}
+
+/**
+ * The booking is in: the meeting is planned and the call is logged by the database. The company is
+ * done for this session, so the next company follows (like the other company outcomes).
+ */
+export async function finishBooking(actor: CallActor, scope: QueueScope, contactId: string, meetingId: string, exclude: string[]): Promise<CallStep> {
+  if (!z.guid().safeParse(contactId).success) return { card: null, remaining: 0, error: "Unknown contact." };
+  const state = await bookingState(actor, meetingId);
+  if (state.status !== "planned") return { card: null, remaining: 0, error: "The booking is not in yet." };
+  const { data: contact } = await actor.db.from("contacts").select("company_id").eq("id", contactId).maybeSingle();
+  const handled = [contactId];
+  if (contact?.company_id) {
+    const { data: siblings } = await actor.db.from("contacts").select("id").eq("company_id", contact.company_id);
+    for (const s of siblings ?? []) if (!handled.includes(s.id)) handled.push(s.id);
+  }
+  // The database let go of the contact with the booking; this is a no-op when it already did.
+  await releaseCall(actor, contactId);
+  const next = await nextCall(actor, scope, [...exclude, ...handled]);
+  return { ...next, handled, logged: { outcome: labelOf(callOutcomes, "meeting_planned"), attempts: 0, activityId: null } };
 }
 
 /** Logs one outcome and holds the next contact. */

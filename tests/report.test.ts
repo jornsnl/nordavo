@@ -88,6 +88,8 @@ test("summarizeMeetings counts planned, held, approved, rejected, no shows and f
     meeting({ status: "rejected", created_at: "2026-10-20T10:00:00Z", scheduled_at: "2026-11-04T10:00:00Z", decided_at: "2026-11-06T10:00:00Z" }),
     meeting({ status: "no_show", created_at: "2026-10-20T10:00:00Z", scheduled_at: "2026-11-05T10:00:00Z" }),
     meeting({ status: "approved", created_at: "2026-10-01T10:00:00Z", scheduled_at: "2026-10-05T10:00:00Z", decided_at: "2026-10-06T10:00:00Z", fee: 50 }),
+    // Waiting for its Cal.com booking: not a meeting yet.
+    meeting({ status: "awaiting_booking", scheduled_at: null }),
   ];
   assert.deepEqual(summarizeMeetings(rows, period, new Date("2026-11-09T00:00:00Z")), {
     planned: 2,

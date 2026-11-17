@@ -11,12 +11,13 @@ import { Textarea } from "@/components/ui/field";
 import { dismissToast, toast } from "@/components/ui/toaster";
 import { formatDate, formatDateTime, todayIso } from "@/lib/format";
 import { contactStatuses } from "@/lib/labels";
-import { buildSalesBookingUrl } from "@/lib/sales/booking";
+import { buildSalesBookingUrl, pickBookingLink, type BookingLink } from "@/lib/sales/booking";
+import { BookingModal } from "@/components/calls/booking-modal";
 import { callNumbers } from "@/lib/sales/call-brief";
 import { needsFollowUp, type OutcomeFields } from "@/lib/sales/call-outcome";
 import type { ClaimedContact, SheetHistory, SheetLogged, SheetReloaded, SheetUndone } from "@/lib/sales/call-sheet-actions";
 import { matchesSheetFilter, sheetFilters, sheetToTsv, type SheetCompanyRow, type SheetFilter, type SheetRow } from "@/lib/sales/call-sheet";
-import type { CallInput, CallOptions, CallTimelineItem } from "@/lib/sales/call-session";
+import type { CallInput, CallOptions, CallTimelineItem, StartedBooking } from "@/lib/sales/call-session";
 import type { CallOutcome } from "@/lib/sales/database";
 import { callOutcomes, labelOf } from "@/lib/sales/labels";
 import { dialHref, dialsInBrowser } from "@/lib/sales/telephony";
@@ -42,6 +43,8 @@ export type CallSheetActions = {
   history: (companyId: string) => Promise<SheetHistory>;
   reload: (companyId: string) => Promise<SheetReloaded>;
   contacts: ContactActions;
+  /** Meeting planned: the awaiting meeting, made before the calendar opens. */
+  startBooking: (input: CallInput) => Promise<StartedBooking>;
 };
 
 /** How long Undo stays on the screen after saving a call (as on the call screen). */
@@ -73,8 +76,8 @@ export function CallSheet({
   actions: CallSheetActions;
   outcomes: OutcomeButton[];
   options: CallOptions;
-  /** The Cal.com sales link for Meeting planned, or null when none is set. */
-  booking: { base: string; callerId: string | null } | null;
+  /** The Cal.com sales links for Meeting planned, or null when none is set. */
+  booking: { links: BookingLink[]; callerId: string | null } | null;
 }) {
   const [rows, setRows] = useState(initialRows);
   const [search, setSearch] = useState("");
@@ -85,6 +88,8 @@ export function CallSheet({
   // A note typed in the row; it goes along with the next outcome of that company.
   const [notes, setNotes] = useState<Record<string, string>>({});
   const [dialog, setDialog] = useState<Dialog | null>(null);
+  // The agenda after Meeting planned: the meeting counts once the booking is in (the webhook completes it).
+  const [agenda, setAgenda] = useState<{ url: string; title: string } | null>(null);
   const [saveError, setSaveError] = useState<string>();
   const [rowError, setRowError] = useState<Record<string, string>>({});
   const [pending, startTransition] = useTransition();
@@ -196,17 +201,50 @@ export function CallSheet({
     const row = dialogRow;
     const contact = dialogContact;
     setSaveError(undefined);
-    if (fields.outcome === "meeting_planned" && booking) {
-      // Opened in the click on Save, so the browser allows the new tab.
-      const url = buildSalesBookingUrl(booking.base, {
-        name: contact.contact,
-        email: contact.email,
-        notes: [row.company, fields.meetingReason?.trim()].filter(Boolean).join(": "),
-        contactId: contact.contactId,
-        companyId: row.companyId,
-        callerId: booking.callerId,
+    if (fields.outcome === "meeting_planned") {
+      // Nothing is logged as a call yet: the meeting waits for its Cal.com booking.
+      startTransition(async () => {
+        if (!(await hold(row.companyId, contact.contactId))) {
+          setSaveError("Someone else has this contact open. Try again in a few minutes.");
+          return;
+        }
+        const started = await actions.startBooking({ ...fields, contactId: contact.contactId, note: fields.note?.trim() || null });
+        if (!started.ok) {
+          setSaveError(started.error);
+          return;
+        }
+        setNotes((n) => ({ ...n, [row.companyId]: "" }));
+        setDialog(null);
+        if (started.booked) {
+          toast("Meeting booked and saved.", { duration: UNDO_MS });
+          const reloaded = await actions.reload(row.companyId);
+          if (reloaded.ok && reloaded.row) replaceRow(reloaded.row);
+          return;
+        }
+        const link = booking ? pickBookingLink(booking.links, fields.bookingLinkId) : null;
+        if (!link) {
+          toast("Meeting saved as awaiting booking. Book it in Cal.com: it counts once the booking is in.", { duration: 8000 });
+          return;
+        }
+        setAgenda({
+          title: `Agenda: ${contact.contact}`,
+          url: buildSalesBookingUrl(
+            link.url,
+            {
+              name: contact.contact,
+              email: contact.email,
+              company: row.company,
+              role: row.roles.join(", ") || null,
+              contactId: contact.contactId,
+              companyId: row.companyId,
+              callerId: booking?.callerId ?? null,
+              meetingId: started.meetingId,
+            },
+            { companyField: link.companyField, roleField: link.roleField },
+          ),
+        });
       });
-      window.open(url, "_blank", "noopener");
+      return;
     }
     startTransition(async () => {
       if (!(await hold(row.companyId, contact.contactId))) {
@@ -532,6 +570,7 @@ export function CallSheet({
       </p>
 
       <OutcomeDialog
+        bookingLinks={booking?.links.map((l) => ({ id: l.id, label: l.label }))}
         outcome={dialog?.outcome ?? null}
         outcomeLabel={outcomes.find((o) => o.value === dialog?.outcome)?.label ?? labelOf(callOutcomes, dialog?.outcome ?? "no_answer")}
         contactName={dialogContact?.contact ?? ""}
@@ -543,6 +582,13 @@ export function CallSheet({
         error={saveError}
         onSave={save}
         onClose={() => setDialog(null)}
+      />
+      <BookingModal
+        open={agenda !== null}
+        url={agenda?.url ?? null}
+        title={agenda?.title ?? "Agenda"}
+        description="Book a time with them. The meeting counts once Cal.com confirms the booking; refresh the row after that."
+        onClose={() => setAgenda(null)}
       />
     </div>
   );
