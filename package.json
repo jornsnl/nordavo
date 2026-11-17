@@ -4,10 +4,10 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "NODE_OPTIONS=--max-old-space-size=4096 next build",
     "start": "next start",
     "lint": "eslint",
-    "typecheck": "next typegen && tsc --noEmit",
+    "typecheck": "next typegen && NODE_OPTIONS=--max-old-space-size=4096 tsc --noEmit",
     "job": "tsx --conditions=react-server scripts/run-job.ts",
     "test": "tsx --conditions=react-server --test tests/*.test.ts",
     "e2e:build": "node tests/e2e/support/with-fake-env.mjs npx next build",
