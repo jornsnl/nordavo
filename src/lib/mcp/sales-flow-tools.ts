@@ -6,6 +6,7 @@ import { accessError } from "@/lib/mcp/module-scope";
 import { check, fail, idSchema, limitSchema, ok, recordUrl, type McpToolContext } from "@/lib/mcp/shared";
 import { effectiveModules } from "@/lib/modules";
 import { isDevDataTitle } from "@/lib/sales/follow";
+import { filterOwnContactMembers, isColdDestination, splitOwnContacts, type SkippedLead } from "@/lib/sales/own-contact";
 import { groupOccupancy, occupancyText, summarizeBuckets, summarizeSourceLists } from "@/lib/sales/triage";
 import type { OccupancyRow } from "@/lib/sales/flow-database";
 
@@ -248,7 +249,7 @@ function registerWrite(server: McpServer, ctx: McpToolContext) {
     {
       title: "Leads in a campaign and replies",
       description:
-        "Who is in a campaign and who replied. Each member is found by contact_id, company_id or the email of a contact. status: active (in the campaign), replied (with replied_at and reply_outcome reply_positief, reply_neutraal or reply_negatief), finished, stopped, bounced, unsubscribed. A lead already in another running campaign is refused and named unless force is true. Log the reply text itself with log_activity.",
+        "Who is in a campaign and who replied. Each member is found by contact_id, company_id or the email of a contact. status: active (in the campaign), replied (with replied_at and reply_outcome reply_positief, reply_neutraal or reply_negatief), finished, stopped, bounced, unsubscribed. A lead already in another running campaign is refused and named unless force is true. An own contact (a company we have contact with ourselves) is never added to a campaign: it comes back under refused_own_contact. Log the reply text itself with log_activity.",
       inputSchema: {
         campaign_id: idSchema,
         members: z
@@ -273,15 +274,19 @@ function registerWrite(server: McpServer, ctx: McpToolContext) {
     async ({ campaign_id, members, force, source }) => {
       const blocked = guard();
       if (blocked) return blocked;
+      // A cold add of an own contact is skipped and named; replies and ends still register.
+      const { allowed, skipped: protectedMembers } = await filterOwnContactMembers(db, members);
+      if (allowed.length === 0) return ok({ added: 0, updated: 0, refused_own_contact: protectedMembers.map((s) => ({ id: s.id, name: s.name, reason: s.reason })) });
       const { data, error } = await db.rpc("sales_register_campaign_members", {
         p_campaign: campaign_id,
-        p_members: members as Json,
+        p_members: allowed as Json,
         p_force: force ?? false,
         p_source: source,
         p_actor: actor,
       });
       if (error) return fail(`Could not register the members: ${error.message}`);
-      return ok(data);
+      if (protectedMembers.length === 0) return ok(data);
+      return ok({ ...(data as object), refused_own_contact: protectedMembers.map((s) => ({ id: s.id, name: s.name, reason: s.reason })) });
     },
   );
 
@@ -290,7 +295,7 @@ function registerWrite(server: McpServer, ctx: McpToolContext) {
     {
       title: "Send leads to a destination",
       description:
-        "Moves one or more leads to exactly one bucket: find_number (to Max), call (view_id of a call list or caller_id of an external caller), mail_campaign or linkedin_campaign (campaign_id), parked (until, a date), no_go (reason), incoming or free. Occupied leads are skipped (and listed) unless force. Only when the user or a scheduled task asked for it.",
+        "Moves one or more leads to exactly one bucket: find_number (to Max), call (view_id of a call list or caller_id of an external caller), mail_campaign or linkedin_campaign (campaign_id), parked (until, a date), no_go (reason), incoming or free. Occupied leads are skipped (and listed) unless force. Own contacts (own_contact true: pipeline, partners, network, clients) never go to find_number, call, mail_campaign or linkedin_campaign and are skipped too. Only when the user or a scheduled task asked for it.",
       inputSchema: {
         company_ids: z.array(idSchema).min(1).max(500),
         destination: z.enum(["incoming", "find_number", "call", "mail_campaign", "linkedin_campaign", "parked", "no_go", "free"]),
@@ -306,8 +311,17 @@ function registerWrite(server: McpServer, ctx: McpToolContext) {
     async (input) => {
       const blocked = guard();
       if (blocked) return blocked;
+      // Own contacts (pipeline, partners, network, clients) never go to cold outreach.
+      let companyIds = [...new Set(input.company_ids)];
+      let protectedLeads: SkippedLead[] = [];
+      if (isColdDestination(input.destination)) {
+        const split = await splitOwnContacts(db, companyIds);
+        companyIds = split.allowed;
+        protectedLeads = split.skipped;
+        if (companyIds.length === 0) return ok({ moved: 0, skipped: protectedLeads });
+      }
       const { data, error } = await db.rpc("sales_triage", {
-        p_companies: [...new Set(input.company_ids)],
+        p_companies: companyIds,
         p_destination: input.destination,
         p_options: {
           view_id: input.view_id ?? null,
@@ -321,7 +335,8 @@ function registerWrite(server: McpServer, ctx: McpToolContext) {
         p_actor: actor,
       });
       if (error) return fail(`Could not move the leads: ${error.message}`);
-      return ok(data);
+      const result = (data ?? {}) as { moved?: number; skipped?: unknown[] };
+      return ok({ ...result, skipped: [...(result.skipped ?? []), ...protectedLeads] });
     },
   );
 

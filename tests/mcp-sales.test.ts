@@ -350,3 +350,49 @@ test("claude-requests is a job every staff member sees", async () => {
   const { jobModule } = await import("@/lib/modules");
   assert.equal(jobModule("claude-requests"), null);
 });
+
+test("update_companies own_contact goes through sales_set_own_contact, not sales_update", async () => {
+  const { db, calls } = fakeDb();
+  const { client, close } = await connect("write", { modules: ["sales"], db });
+  try {
+    const result = await call(client, "update_companies", {
+      ids: [ID_A],
+      fields: { own_contact: true, own_contact_reason: "Partner" },
+    });
+    assert.equal(result.isError, false, result.text);
+    assert.equal(calls.filter((c) => c.fn === "sales_update").length, 0);
+    const own = calls.find((c) => c.fn === "sales_set_own_contact");
+    assert.ok(own);
+    assert.deepEqual(own.args, { p_company: ID_A, p_value: true, p_reason: "Partner", p_source: "claude", p_actor: USER });
+  } finally {
+    await close();
+  }
+});
+
+test("update_contacts switches channels off through sales_set_contact_flags", async () => {
+  const { db, calls } = fakeDb();
+  const { client, close } = await connect("write", { modules: ["sales"], db });
+  try {
+    const result = await call(client, "update_contacts", {
+      ids: [ID_A],
+      fields: { no_mail: true, contact_flag: "left_company" },
+    });
+    assert.equal(result.isError, false, result.text);
+    assert.equal(calls.filter((c) => c.fn === "sales_update").length, 0);
+    const flags = calls.find((c) => c.fn === "sales_set_contact_flags");
+    assert.deepEqual(flags?.args, {
+      p_contact: ID_A,
+      p_fields: { no_mail: true, contact_flag: "left_company" },
+      p_source: "claude",
+      p_actor: USER,
+    });
+    const bad = await call(client, "update_contacts", { ids: [ID_A], fields: { contact_flag: "gone" } });
+    assert.equal(bad.isError, true);
+  } finally {
+    await close();
+  }
+});
+
+test("companyPatch leaves own contact to its own function", () => {
+  assert.deepEqual(companyPatch({ own_contact: true, own_contact_reason: "Client", prio: 2 }), { prio: 2 });
+});

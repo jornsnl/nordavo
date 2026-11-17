@@ -81,6 +81,8 @@ export type BlockReason =
   | "callback_later"
   | "called_today"
   | "company_blocked"
+  | "own_contact"
+  | "contact_blocked"
   | "in_pipeline"
   | "suppressed"
   | "no_phone"
@@ -104,6 +106,9 @@ export function callBlockReason(row: ContactRow, rules: QueueRules): BlockReason
   }
   // Not interested on the call screen puts the company on no go (20261123600000_call_outcome_flow.sql).
   if (row.company_bucket === "no_go") return "company_blocked";
+  // Own contact (partner, network, client) never gets a cold call; a contact marked left, wrong person or wrong number, or switched off for calls, neither.
+  if (row.company_own_contact) return "own_contact";
+  if (row.no_call || row.contact_flag) return "contact_blocked";
   if (isAssignedNow(row, rules.today) && row.assigned_caller_id !== rules.callerId) return "assigned_elsewhere";
   if (
     row.claimed_by &&

@@ -175,7 +175,7 @@ function name(first: string | null, last: string | null) {
 // ---------------------------------------------------------------------------
 
 const COMPANY_LIST_FIELDS =
-  "id, name, domain, city, sector, employees, prio, category, icp_decision, icp_score, lead_status, lead_status_changed_at, pipeline_stage, pipeline_stage_changed_at, lost_reason, parked_until, profiles_due_on, owner_id, partner_id, next_action, next_action_date, pinned_at, manual_position, general_phone, sequence_paused_at" as const;
+  "id, name, domain, city, sector, employees, prio, category, icp_decision, icp_score, lead_status, lead_status_changed_at, pipeline_stage, pipeline_stage_changed_at, lost_reason, parked_until, profiles_due_on, owner_id, partner_id, next_action, next_action_date, pinned_at, manual_position, general_phone, sequence_paused_at, own_contact, own_contact_reason" as const;
 
 function registerSalesReadTools(server: McpServer, ctx: McpToolContext) {
   const { db } = ctx;
@@ -187,11 +187,12 @@ function registerSalesReadTools(server: McpServer, ctx: McpToolContext) {
     {
       title: "Companies (sales)",
       description:
-        "List sales companies (leads) with lead status, pipeline stage, prio, category, ICP verdict, owner and next action. Pinned first, then by prio. Filter on lead_status, pipeline_stage (or in_pipeline), prio, category, icp, text (name or domain) and has_phone (a contact or the company has a phone number).",
+        "List sales companies (leads) with lead status, pipeline stage, prio, category, ICP verdict, owner and next action. Pinned first, then by prio. Filter on lead_status, pipeline_stage (or in_pipeline), prio, category, icp, own_contact, text (name or domain) and has_phone (a contact or the company has a phone number). own_contact true means we have contact with this company ourselves (pipeline, partner, network, client): never put such a company in a cold campaign, on a call list or in a list you build; filter own_contact false for outreach lists.",
       inputSchema: {
         lead_status: z.array(leadStatus).max(8).optional().describe("One or more lead statuses."),
         pipeline_stage: z.array(pipelineStage).max(11).optional().describe("One or more pipeline stages."),
         in_pipeline: z.boolean().optional().describe("true: only companies in the pipeline; false: only companies not in it."),
+        own_contact: z.boolean().optional().describe("false: only companies that may be approached cold; true: only the protected own contacts."),
         prio: z.array(z.number().int().min(1).max(5)).max(5).optional(),
         category: category.optional(),
         icp: icpDecision.optional().describe("ICP verdict."),
@@ -212,6 +213,7 @@ function registerSalesReadTools(server: McpServer, ctx: McpToolContext) {
         if (input.pipeline_stage?.length) q = q.in("pipeline_stage", input.pipeline_stage);
         if (input.in_pipeline === true) q = q.not("pipeline_stage", "is", null);
         if (input.in_pipeline === false) q = q.is("pipeline_stage", null);
+        if (input.own_contact !== undefined) q = q.eq("own_contact", input.own_contact);
         if (input.prio?.length) q = q.in("prio", input.prio);
         if (input.category) q = q.eq("category", input.category);
         if (input.icp) q = q.eq("icp_decision", input.icp);
@@ -284,7 +286,7 @@ function registerSalesReadTools(server: McpServer, ctx: McpToolContext) {
         await db
           .from("companies")
           .select(
-            "id, name, domain, website, city, sector, segment, employees, linkedin_url, general_phone, description, status, prio, category, icp_decision, icp_score, icp_reason, red_flags, opening_line, source, source_note, lead_status, lead_status_changed_at, pipeline_stage, pipeline_stage_changed_at, pipeline_entered_at, lost_reason, parked_until, profiles_due_on, owner_id, partner_id, next_action, next_action_date, pinned_at, manual_position, sequence_paused_at, client_id, created_at",
+            "id, name, domain, website, city, sector, segment, employees, linkedin_url, general_phone, description, status, prio, category, icp_decision, icp_score, icp_reason, red_flags, opening_line, source, source_note, lead_status, lead_status_changed_at, pipeline_stage, pipeline_stage_changed_at, pipeline_entered_at, lost_reason, parked_until, profiles_due_on, owner_id, partner_id, next_action, next_action_date, pinned_at, manual_position, sequence_paused_at, own_contact, own_contact_reason, own_contact_since, client_id, created_at",
           )
           .eq("id", id)
           .maybeSingle(),
@@ -296,7 +298,7 @@ function registerSalesReadTools(server: McpServer, ctx: McpToolContext) {
         db
           .from("contacts")
           .select(
-            "id, first_name, last_name, title, tier, role, is_primary, status, phone, phone_type, email, email_status, linkedin_url, linkedin_member_urn, attempts, last_attempt_at, callback_at, referred_to, assigned_caller_id, last_contacted_at",
+            "id, first_name, last_name, title, tier, role, is_primary, status, phone, phone_type, email, email_status, linkedin_url, linkedin_member_urn, no_mail, no_call, no_linkedin, contact_flag, attempts, last_attempt_at, callback_at, referred_to, assigned_caller_id, last_contacted_at",
           )
           .eq("company_id", id)
           .order("is_primary", { ascending: false })
@@ -399,7 +401,7 @@ function registerSalesReadTools(server: McpServer, ctx: McpToolContext) {
       let q = db
         .from("contacts")
         .select(
-          "id, company_id, first_name, last_name, title, tier, role, is_primary, status, phone, email, email_status, linkedin_url, linkedin_member_urn, attempts, last_attempt_at, callback_at, assigned_caller_id, last_contacted_at, company:companies!contacts_company_id_fkey!inner(name, lead_status, pipeline_stage)",
+          "id, company_id, first_name, last_name, title, tier, role, is_primary, status, phone, email, email_status, linkedin_url, linkedin_member_urn, no_mail, no_call, no_linkedin, contact_flag, attempts, last_attempt_at, callback_at, assigned_caller_id, last_contacted_at, company:companies!contacts_company_id_fkey!inner(name, lead_status, pipeline_stage)",
           { count: "exact" },
         );
       if (input.status?.length) q = q.in("status", input.status);
@@ -830,6 +832,8 @@ export const companyFieldsSchema = z
     general_phone: z.string().trim().max(50).nullable().optional().describe("The general (reception) number of the company."),
     description: z.string().trim().max(5000).nullable().optional().describe("What they do."),
     linkedin_url: z.string().trim().max(500).nullable().optional().describe("Company LinkedIn page; stored with https://."),
+    own_contact: z.boolean().optional().describe("true: we have contact with this company ourselves (partner, network, client): it never goes into a cold campaign, on a call list or in a list. Companies in the pipeline get it automatically. false switches it off."),
+    own_contact_reason: z.string().trim().max(500).optional().describe("Why, for example Partner, Client or Network. With own_contact true."),
   })
   .strict()
   .refine((f) => Object.keys(f).length > 0, { message: "Give at least one field to change." })
@@ -847,6 +851,8 @@ export function companyPatch(fields: z.infer<typeof companyFieldsSchema>, now = 
   const patch: Record<string, Json> = {};
   for (const [key, value] of Object.entries(fields)) {
     if (value === undefined) continue;
+    // Own contact has its own function (sales_set_own_contact), not part of sales_update.
+    if (key === "own_contact" || key === "own_contact_reason") continue;
     if (key === "pinned") patch.pinned_at = value ? now.toISOString() : null;
     else if (key === "linkedin_url") patch.linkedin_url = cleanLinkedinUrl(value as string | null);
     else if (key === "general_phone" && typeof value === "string") patch.general_phone = normalizePhone(value) ?? value;
@@ -870,6 +876,12 @@ const contactFieldsSchema = z
     assigned_caller_id: idSchema.nullable().optional(),
     assigned_until: dateSchema.nullable().optional(),
     caller_note: z.string().trim().max(5000).nullable().optional(),
+    first_name: z.string().trim().max(100).nullable().optional(),
+    last_name: z.string().trim().max(150).nullable().optional(),
+    no_mail: z.boolean().optional().describe("true: never mail this contact (also out of a mail campaign)."),
+    no_call: z.boolean().optional().describe("true: never call this contact."),
+    no_linkedin: z.boolean().optional().describe("true: never approach this contact on LinkedIn."),
+    contact_flag: z.enum(["left_company", "wrong_person", "wrong_number"]).nullable().optional().describe("Mark the contact as left the company or wrong person (not approached on any channel) or wrong number (not called); null clears it."),
   })
   .strict()
   .refine((f) => Object.keys(f).length > 0, { message: "Give at least one field to change." });
@@ -949,21 +961,42 @@ function registerSalesWriteTools(server: McpServer, ctx: McpToolContext) {
     {
       title: "Update companies",
       description:
-        "Change opening line, red flags, general number, what they do (description), company LinkedIn page, lead status, pipeline stage (contact, interested, meeting_planned, meeting_held, vacancy_drafted, agreed_paid, profiles_sent, candidate_interviews, won; or off it: lost needs lost_reason, parked needs parked_until), the date to send profiles (profiles_due_on), prio, category, owner, partner, next action, pin or manual position of one or more companies. Goes through sales_update: every change is logged in Activities with you and source claude. Only call when the user or a scheduled task asked for it.",
+        "Change opening line, red flags, general number, what they do (description), company LinkedIn page, lead status, pipeline stage (contact, interested, meeting_planned, meeting_held, vacancy_drafted, agreed_paid, profiles_sent, candidate_interviews, won; or off it: lost needs lost_reason, parked needs parked_until), the date to send profiles (profiles_due_on), prio, category, owner, partner, next action, pin or manual position of one or more companies, or mark a company as own_contact (partner, network, client: never cold outreach). Goes through sales_update: every change is logged in Activities with you and source claude. Only call when the user or a scheduled task asked for it.",
       inputSchema: { ids: idsSchema, fields: companyFieldsSchema },
       annotations: WRITE,
     },
     async ({ ids, fields }) => {
       const blocked = guard();
       if (blocked) return blocked;
-      const { data, error } = await db.rpc("sales_update", {
-        p_entity: "company",
-        p_ids: [...new Set(ids)],
-        p_fields: companyPatch(fields),
-        p_source: "claude",
-        p_actor: actor,
-      });
-      return rpcError(error, "update the companies") ?? ok({ updated: data ?? 0, requested: new Set(ids).size });
+      const unique = [...new Set(ids)];
+      const patch = companyPatch(fields);
+      let updated = 0;
+      if (Object.keys(patch).length > 0) {
+        const { data, error } = await db.rpc("sales_update", {
+          p_entity: "company",
+          p_ids: unique,
+          p_fields: patch,
+          p_source: "claude",
+          p_actor: actor,
+        });
+        const failed = rpcError(error, "update the companies");
+        if (failed) return failed;
+        updated = data ?? 0;
+      }
+      if (fields.own_contact !== undefined) {
+        for (const id of unique) {
+          const { error } = await db.rpc("sales_set_own_contact", {
+            p_company: id,
+            p_value: fields.own_contact,
+            p_reason: fields.own_contact_reason ?? null,
+            p_source: "claude",
+            p_actor: actor,
+          });
+          if (error) return fail(`Could not change own contact: ${error.message}`);
+        }
+        updated = Math.max(updated, unique.length);
+      }
+      return ok({ updated, requested: unique.length });
     },
   );
 
@@ -973,7 +1006,7 @@ function registerSalesWriteTools(server: McpServer, ctx: McpToolContext) {
     {
       title: "Update contacts",
       description:
-        "Change status, role, primary flag, title, phone, email, LinkedIn, callback date, assigned caller or caller note of one or more contacts. Goes through sales_update with source claude.",
+        "Change name, status, role, primary flag, title, phone, email, LinkedIn, callback date, assigned caller or caller note of one or more contacts, and switch channels off per contact (no_mail, no_call, no_linkedin) or flag a contact as left_company, wrong_person or wrong_number (such a contact is not approached). Goes through sales_update with source claude.",
       inputSchema: { ids: idsSchema, fields: contactFieldsSchema },
       annotations: WRITE,
     },
@@ -985,7 +1018,12 @@ function registerSalesWriteTools(server: McpServer, ctx: McpToolContext) {
       if (fields.linkedin_url && unique.length > 1) return fail("Set linkedin_url on one contact at a time.");
       if (fields.linkedin_member_urn && unique.length > 1) return fail("Set linkedin_member_urn on one contact at a time.");
       if (fields.role === "main" && unique.length > 1) return fail("A company has one main contact: set role main on one contact at a time.");
-      const { linkedin_member_urn: urn, ...rest } = fields;
+      const { linkedin_member_urn: urn, no_mail, no_call, no_linkedin, contact_flag, ...rest } = fields;
+      const flags: Record<string, Json> = {};
+      if (no_mail !== undefined) flags.no_mail = no_mail;
+      if (no_call !== undefined) flags.no_call = no_call;
+      if (no_linkedin !== undefined) flags.no_linkedin = no_linkedin;
+      if (contact_flag !== undefined) flags.contact_flag = contact_flag;
       const patch: Record<string, Json> = {};
       for (const [key, value] of Object.entries(rest)) if (value !== undefined) patch[key] = value as Json;
       if (typeof patch.phone === "string") patch.phone = normalizePhone(patch.phone) ?? patch.phone;
@@ -1004,6 +1042,13 @@ function registerSalesWriteTools(server: McpServer, ctx: McpToolContext) {
         const failed = rpcError(error, "update the contacts");
         if (failed) return /linkedin_key/.test(error?.message ?? "") ? fail("Another contact already has this LinkedIn profile. Merge the two with merge_contacts.") : failed;
         updated = data ?? 0;
+      }
+      if (Object.keys(flags).length > 0) {
+        for (const id of unique) {
+          const { error } = await db.rpc("sales_set_contact_flags", { p_contact: id, p_fields: flags, p_source: "claude", p_actor: actor });
+          if (error) return fail(`Could not change the channels of the contact: ${error.message}`);
+        }
+        updated = Math.max(updated, unique.length);
       }
       if (urn) {
         const { error } = await db.rpc("sales_set_contact_linkedin", { p_contact: unique[0], p_member_urn: urn, p_source: "claude", p_actor: actor });

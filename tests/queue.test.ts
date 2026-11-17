@@ -267,3 +267,13 @@ test("preferEntries: the rest of the company first after a person outcome, the r
     ["a2", "b1"],
   );
 });
+
+test("callBlockReason: own contacts and flagged contacts are never called cold", () => {
+  const r = rules();
+  assert.equal(callBlockReason(contact("a", { company_own_contact: true }), r), "own_contact");
+  assert.equal(callBlockReason(contact("a", { company_own_contact: false }), r), null);
+  assert.equal(callBlockReason(contact("a", { no_call: true }), r), "contact_blocked");
+  assert.equal(callBlockReason(contact("a", { contact_flag: "wrong_number" }), r), "contact_blocked");
+  assert.equal(callBlockReason(contact("a", { contact_flag: "left_company" }), r), "contact_blocked");
+  assert.equal(callBlockReason(contact("a", { contact_flag: null, no_call: false }), r), null);
+});

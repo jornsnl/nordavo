@@ -6,6 +6,7 @@ import { requireModule } from "@/lib/auth";
 import type { Json } from "@/lib/database.types";
 import type { TriageDestination } from "@/lib/sales/flow-database";
 import { amsterdamDate } from "@/lib/sales/status";
+import { isColdDestination, splitOwnContacts, type SkippedLead } from "@/lib/sales/own-contact";
 import { triageInputError } from "@/lib/sales/triage";
 import { createClient } from "@/lib/supabase/server";
 
@@ -70,8 +71,23 @@ export async function triageLeads(input: TriageInput): Promise<TriageOutcome> {
   if (problem) return { ok: false, error: problem };
 
   const db = await createClient();
+  // Own contacts never go to cold outreach: skip them here, with a message.
+  let companyIds = [...new Set(v.companyIds)];
+  let protectedLeads: SkippedLead[] = [];
+  if (isColdDestination(v.destination)) {
+    const split = await splitOwnContacts(db, companyIds);
+    companyIds = split.allowed;
+    protectedLeads = split.skipped;
+  }
+  if (companyIds.length === 0) {
+    const names = protectedLeads.slice(0, 3).map((s) => s.name).join(", ");
+    return {
+      ok: false,
+      error: `${protectedLeads.length === 1 ? "This lead is" : "These leads are"} an own contact (${names}${protectedLeads.length > 3 ? ", ..." : ""}) and cannot go into cold outreach.`,
+    };
+  }
   const { data, error } = await db.rpc("sales_triage", {
-    p_companies: [...new Set(v.companyIds)],
+    p_companies: companyIds,
     p_destination: v.destination,
     p_options: {
       view_id: v.viewId ?? null,
@@ -87,7 +103,7 @@ export async function triageLeads(input: TriageInput): Promise<TriageOutcome> {
   revalidatePath("/dashboard/inbox");
   revalidatePath("/dashboard/leads", "layout");
   const moved = data?.moved ?? 0;
-  const skipped = data?.skipped ?? [];
+  const skipped = [...(data?.skipped ?? []), ...protectedLeads];
   const message =
     `${moved} ${moved === 1 ? "lead" : "leads"} moved.` +
     (skipped.length ? ` ${skipped.length} skipped: ${skipped.slice(0, 3).map((s) => `${s.name} (${s.reason})`).join(", ")}${skipped.length > 3 ? ", ..." : ""}.` : "");

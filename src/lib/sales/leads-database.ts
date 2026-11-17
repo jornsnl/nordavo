@@ -1,6 +1,7 @@
 // Types of the Leads and Contacts functions (migrations
 // 20261123300000_leads_performance_signals.sql, 20261123310000_leads_links_roles.sql
-// and 20261123320000_leads_duplicates_merge.sql), merged into Database in
+// and 20261123320000_leads_duplicates_merge.sql and
+// 20261124700000_leads_own_contact_edit.sql), merged into Database in
 // src/lib/database.types.ts. Pure types, safe everywhere.
 
 import type { Json } from "@/lib/database.types";
@@ -58,6 +59,9 @@ export type LeadsFunctions = {
     { p_contact: string; p_linkedin_url?: string | null; p_member_urn?: string | null; p_source?: string } & Actor,
     Json
   >;
+  // Migration 20261124700000_leads_own_contact_edit.sql
+  sales_set_own_contact: Fn<{ p_company: string; p_value: boolean; p_reason?: string | null; p_source?: string } & Actor, Json>;
+  sales_set_contact_flags: Fn<{ p_contact: string; p_fields: Json; p_source?: string } & Actor, Json>;
   sales_extract_lead_notes: Fn<{ p_text: string }, Json>;
   linkedin_clean_url: Fn<{ p_value: string }, string | null>;
 };

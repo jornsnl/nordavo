@@ -137,8 +137,8 @@ Lijsten geven standaard 25 en maximaal 100 rijen, met `offset` om te bladeren. R
 
 | Tool | Wat het doet |
 | --- | --- |
-| `update_companies` | Openingszin, red flags, algemeen nummer, wat ze doen, LinkedIn pagina, leadstatus, fase (Lost met reden), prio, categorie, eigenaar, partner, volgende actie, pin en handmatige volgorde van een of meer bedrijven |
-| `update_contacts` | Status, rol (`main`, `backup`, `extra`), tier, primair, functie, telefoon, mail, LinkedIn (precies zoals gegeven, met https://), LinkedIn member id, terugbeldatum, beller en notitie van een of meer contacten |
+| `update_companies` | Openingszin, red flags, algemeen nummer, wat ze doen, LinkedIn pagina, leadstatus, fase (Lost met reden), prio, categorie, eigenaar, partner, volgende actie, pin en handmatige volgorde van een of meer bedrijven, en `own_contact` (met `own_contact_reason`): een bedrijf waar we zelf contact mee hebben komt nooit in cold outreach |
+| `update_contacts` | Status, rol (`main`, `backup`, `extra`), tier, primair, functie, telefoon, mail, LinkedIn (precies zoals gegeven, met https://), LinkedIn member id, terugbeldatum, beller en notitie van een of meer contacten, naam, en per contact `no_mail`, `no_call`, `no_linkedin` en `contact_flag` (`left_company`, `wrong_person`, `wrong_number`) |
 | `update_signals` | Vacatures corrigeren: datum online (`posted_at`), link, tekst, titel, role group of offline (`closed`) |
 | `merge_companies` / `merge_contacts` | Twee dubbele bedrijven of contacten samenvoegen zonder iets te verliezen (zie [sales.md](./sales.md#dubbelen-samenvoegen)) |
 | `log_activity` | Een contactmoment of reply, bijvoorbeeld uit Instantly of Seleqt, met `external_id` tegen dubbelen. Met `review` en een `suggestion` wacht een reply op Julius |

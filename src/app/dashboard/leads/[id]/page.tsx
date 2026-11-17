@@ -3,7 +3,7 @@ import { Suspense, type ReactNode } from "react";
 import { EntityExtras } from "@/components/entity/entity-extras";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, Briefcase, ExternalLink, ShieldAlert, TriangleAlert } from "lucide-react";
+import { ArrowLeft, Briefcase, ExternalLink, ShieldAlert, ShieldCheck, TriangleAlert } from "lucide-react";
 import { PageHeader } from "@/components/dashboard/page-header";
 import {
   IcpBadge,
@@ -45,6 +45,13 @@ import {
   updateCompanyAction,
 } from "../actions";
 import { createContactAction } from "../manual-actions";
+import {
+  deleteLeadsAction,
+  deleteSignalAction,
+  setOwnContactAction,
+  updateSignalAction,
+} from "../edit-actions";
+import { DeleteLeadsButton, DeleteSignalButton, EditSignalButton, OwnContactControl } from "@/components/leads/lead-edit-controls";
 import { mergeCompaniesAction, mergeContactsAction, searchMergeCompanies } from "../merge-actions";
 import { createClient } from "@/lib/supabase/server";
 import { leadStatuses, pipelineStages } from "@/lib/sales/labels";
@@ -113,6 +120,12 @@ async function LeadDetail({ params }: { params: Params }) {
                 Pipeline: {optionFor(pipelineStages, company.pipeline_stage).label}
               </Badge>
             )}
+            {company.own_contact && (
+              <Badge tone="brand">
+                <ShieldCheck className="size-3" aria-hidden="true" />
+                Own contact
+              </Badge>
+            )}
           </span>
         }
         description={
@@ -152,6 +165,12 @@ async function LeadDetail({ params }: { params: Params }) {
               search={searchMergeCompanies}
               action={mergeCompaniesAction.bind(null, company.id)}
             />
+            <DeleteLeadsButton
+              count={1}
+              name={company.name}
+              action={deleteLeadsAction.bind(null, [company.id])}
+              redirectTo="/dashboard/leads"
+            />
             <ButtonLink href={`/dashboard/vacancies/new?company=${company.id}`}>
               <Briefcase aria-hidden="true" />
               Add vacancy
@@ -159,6 +178,24 @@ async function LeadDetail({ params }: { params: Params }) {
           </>
         }
       />
+
+      {company.own_contact ? (
+        <div className="mb-6 flex flex-wrap items-start justify-between gap-3 rounded-xl border border-brand-200 bg-brand-50 px-4 py-3 text-sm text-brand-900">
+          <p className="flex min-w-0 flex-1 items-start gap-2">
+            <ShieldCheck className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+            <span>
+              <span className="font-medium">Own contact{company.own_contact_reason ? `: ${company.own_contact_reason}` : ""}.</span> We have contact with this
+              company ourselves, so it never goes into a cold mail campaign, on a call list or in a list Claude makes.
+              {" "}Owner: {(owners.data ?? []).find((p) => p.id === company.owner_id)?.full_name ?? (owners.data ?? []).find((p) => p.id === company.owner_id)?.email ?? "nobody yet, pick one under Owner"}.
+            </span>
+          </p>
+          <OwnContactControl ownContact reason={company.own_contact_reason} action={setOwnContactAction.bind(null, company.id)} />
+        </div>
+      ) : (
+        <div className="mb-4 flex justify-end">
+          <OwnContactControl ownContact={false} reason={null} action={setOwnContactAction.bind(null, company.id)} />
+        </div>
+      )}
 
       {duplicates.length > 0 && (
         <p className="mb-6 flex flex-wrap items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
@@ -298,7 +335,7 @@ async function LeadDetail({ params }: { params: Params }) {
           </Card>
 
           <div className="min-w-0 max-lg:order-2">
-            <SignalsCard signals={signals} />
+            <SignalsCard companyId={company.id} signals={signals} />
           </div>
 
           <div className="min-w-0 max-lg:order-3">
@@ -312,6 +349,7 @@ async function LeadDetail({ params }: { params: Params }) {
         <div className="min-w-0 space-y-6 max-lg:contents max-lg:space-y-0">
           <div className="min-w-0 max-lg:order-1">
             <ContactsPanel
+              companyId={company.id}
               contacts={contacts}
               actions={
                 <>
@@ -371,7 +409,7 @@ async function LeadDetail({ params }: { params: Params }) {
   );
 }
 
-function SignalsCard({ signals }: { signals: SignalItem[] }) {
+function SignalsCard({ companyId, signals }: { companyId: string; signals: SignalItem[] }) {
   // Open vacancies first (oldest online first), then the closed ones.
   const sorted = [...signals].sort((x, y) => Number(Boolean(x.closedAt)) - Number(Boolean(y.closedAt)));
   return (
@@ -404,7 +442,16 @@ function SignalsCard({ signals }: { signals: SignalItem[] }) {
                   roleGroup={s.roleGroup}
                 />
               </div>
-              <p className="shrink-0 text-xs text-muted sm:text-right">Last seen {formatDate(s.lastSeenAt)}</p>
+              <div className="flex shrink-0 flex-col items-start gap-1 sm:items-end">
+                <p className="text-xs text-muted">Last seen {formatDate(s.lastSeenAt)}</p>
+                <div className="-mr-2 flex items-center">
+                  <EditSignalButton
+                    signal={{ id: s.id, title: s.title, url: s.sourceUrl, description: s.description ?? null, closed: Boolean(s.closedAt) }}
+                    action={updateSignalAction.bind(null, companyId, s.id)}
+                  />
+                  <DeleteSignalButton title={s.title ?? "this signal"} action={deleteSignalAction.bind(null, companyId, s.id)} />
+                </div>
+              </div>
             </li>
           ))}
         </ol>
