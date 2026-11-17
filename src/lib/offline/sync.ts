@@ -15,6 +15,7 @@ import {
   type DirtyEntry,
 } from "./db";
 import { applyTaskOp, describeTaskOp, sendTaskOp, taskIdOf, type TaskOp } from "./task-changes";
+import { sendAgendaOp, type AgendaOp, type PendingAgendaItem } from "@/lib/offline/agenda-changes";
 import type { TaskListItem } from "@/lib/work/data";
 
 /**
@@ -28,8 +29,8 @@ import type { TaskListItem } from "@/lib/work/data";
 
 export const SEND_TIMEOUT_MS = 30_000;
 export const RETRY_MS = 20_000;
-/** A sent record stays marked this long, so the refresh with the server's version arrives first. */
-export const CONFIRM_GRACE_MS = 4_000;
+/** A sent record stays marked at most this long; lists release it sooner, once the server's own list shows the change. */
+export const CONFIRM_GRACE_MS = 12_000;
 /** A change that keeps failing on the server (not the network) is dropped after this many tries. */
 const MAX_ATTEMPTS = 3;
 
@@ -122,6 +123,8 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
 
 /** Tells the shell to fetch the page again after changes reached the server. */
 export const SYNCED_EVENT = "nordavo:synced";
+/** A change that worked with a remark: { text } (a task that went to review instead of done). */
+export const NOTICE_EVENT = "nordavo:notice";
 /** A change the server refused: { label, error }. */
 export const REJECTED_EVENT = "nordavo:rejected";
 
@@ -135,7 +138,10 @@ export async function submitTaskOp(change: TaskOp, base: TaskListItem | null = n
     // No IndexedDB (a locked down browser): send directly, like before.
     const result = await sendTaskOp(change.op, change.payload);
     if ("error" in result) window.dispatchEvent(new CustomEvent(REJECTED_EVENT, { detail: { label: "", error: result.error } }));
-    else window.dispatchEvent(new Event(SYNCED_EVENT));
+    else {
+      if (result.note) window.dispatchEvent(new CustomEvent(NOTICE_EVENT, { detail: { text: result.note } }));
+      window.dispatchEvent(new Event(SYNCED_EVENT));
+    }
     return;
   }
   const id = taskIdOf(change);
@@ -174,6 +180,29 @@ export async function submitTaskOp(change: TaskOp, base: TaskListItem | null = n
   void flush();
 }
 
+/**
+ * A point for a meeting agenda: into the outbox with the id the device chose,
+ * and shown as waiting until the server's own list has it.
+ */
+export async function submitAgendaItem(change: AgendaOp) {
+  if (!isAvailable()) {
+    const result = await sendAgendaOp(change.op, change.payload);
+    if ("error" in result) window.dispatchEvent(new CustomEvent(REJECTED_EVENT, { detail: { label: "", error: result.error } }));
+    else window.dispatchEvent(new Event(SYNCED_EVENT));
+    return;
+  }
+  const { id, meeting_id, title, at } = change.payload;
+  const key = recordKey("agenda", id);
+  const data: PendingAgendaItem = { id, meetingId: meeting_id, title, createdAt: at ?? new Date().toISOString() };
+  await enqueue(
+    { key, kind: "agenda", op: change.op, payload: change.payload, label: `Agenda point: ${title}`, createdAt: Date.now(), attempts: 0 },
+    { key, kind: "agenda", id, data, created: true, pending: 1, syncedAt: null, updatedAt: Date.now() },
+  );
+  changed();
+  await refreshState();
+  void flush();
+}
+
 async function drain(): Promise<number> {
   let sent = 0;
   for (;;) {
@@ -204,6 +233,7 @@ async function drain(): Promise<number> {
     } else {
       await finishOutbox(entry.seq, entry.key, true);
       sent++;
+      if ("note" in result && result.note) window.dispatchEvent(new CustomEvent(NOTICE_EVENT, { detail: { text: result.note } }));
       scheduleRelease(entry.key);
     }
     changed();

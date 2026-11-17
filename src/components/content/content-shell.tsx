@@ -3,7 +3,7 @@
 import { Suspense, useCallback, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Bell, CheckCheck, Home, Lightbulb, Menu, Search, Settings, X, type LucideIcon } from "lucide-react";
+import { Bell, CheckCheck, Home, House, Lightbulb, Menu, Search, Settings, X, type LucideIcon } from "lucide-react";
 import { LogoMark } from "@/components/brand/logo";
 import { TabBar, TabButton, type TabItem } from "@/components/ui/tab-bar";
 import { useDrawer } from "@/components/ui/use-drawer";
@@ -33,11 +33,14 @@ const links: { label: string; href: string; icon: LucideIcon }[] = [
  */
 export function ContentShell({
   workspaces,
+  workLinks,
   userMenu,
   unread,
   children,
 }: {
   workspaces: ReactNode;
+  /** Home and your Work workspaces, so you can always get back to them. */
+  workLinks: ReactNode;
   userMenu: ReactNode;
   unread: ReactNode;
   children: ReactNode;
@@ -55,6 +58,9 @@ export function ContentShell({
         <span className="font-display text-lg font-bold text-white">Content</span>
       </Link>
       <SidebarSearch onSearch={() => setOpen(false)} />
+      <div className="mb-6" onClick={(e) => (e.target as HTMLElement).closest("a") && setOpen(false)}>
+        {workLinks}
+      </div>
       <div className="flex-1 space-y-6 overflow-y-auto overscroll-contain" onClick={(e) => (e.target as HTMLElement).closest("a") && setOpen(false)}>
         <Suspense fallback={<NavLinks pathname={null} unread={unread} />}>
           <ActiveNavLinks unread={unread} />
@@ -80,8 +86,15 @@ export function ContentShell({
             <span className="font-display text-base font-bold text-brand-900">Content</span>
           </Link>
           <Link
+            href="/work"
+            className="ml-auto flex size-10 items-center justify-center rounded-lg text-brand-700 hover:bg-brand-50"
+            aria-label="Home (Work)"
+          >
+            <House className="size-5" aria-hidden="true" />
+          </Link>
+          <Link
             href="/content/notifications"
-            className="relative ml-auto flex size-10 items-center justify-center rounded-lg text-brand-700 hover:bg-brand-50"
+            className="relative flex size-10 items-center justify-center rounded-lg text-brand-700 hover:bg-brand-50"
             aria-label="Notifications"
           >
             <Bell className="size-5" aria-hidden="true" />

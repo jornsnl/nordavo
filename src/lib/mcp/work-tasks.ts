@@ -135,6 +135,8 @@ export async function shapeWorkTasks(db: McpDb, rows: WorkTaskRow[], siteUrl: st
       labels: t.labels,
       start_on: t.start_on,
       estimate_minutes: t.estimate_minutes,
+      recurrence: t.recurrence ?? null,
+      recurrence_every: t.recurrence_every ?? 1,
       linked: link
         ? {
             type: link.entity_type,

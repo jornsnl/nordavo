@@ -9,7 +9,7 @@ import type { ChoiceListKey } from "@/lib/sales/flow-database";
 
 const input = "h-9 w-full rounded-lg border border-border bg-white px-2 text-sm";
 
-/** One choice list: rename, explain, reorder, hide, and for prio and category add or delete options. */
+/** One choice list: rename, explain, reorder, hide, and for every list but prio add or delete options (category, rejection reasons, signal types). */
 export function ChoiceListEditor({ list, extra, options: initial }: { list: ChoiceListKey; extra: boolean; options: ChoiceOption[] }) {
   const [options, setOptions] = useState(initial);
   const [removed, setRemoved] = useState<string[]>([]);
@@ -48,8 +48,8 @@ export function ChoiceListEditor({ list, extra, options: initial }: { list: Choi
                 maxLength={80}
                 onChange={(e) => {
                   const label = e.target.value;
-                  // A new extra category takes its value from its name until it is saved.
-                  if (!o.builtin && list === "category" && !initial.some((x) => x.value === o.value)) {
+                  // A new extra option (not prio) takes its value from its name until it is saved.
+                  if (!o.builtin && list !== "prio" && !initial.some((x) => x.value === o.value)) {
                     patch(i, { label, value: choiceValueFromLabel(label, options.filter((_, j) => j !== i).map((x) => x.value)) });
                   } else patch(i, { label });
                 }}

@@ -38,6 +38,8 @@ import type { ChoiceLists } from "@/lib/sales/choices";
 import { applyChoiceLists, customColumnDefs, flowColumnDefs, type CustomColumn } from "@/lib/sales/grid-extras";
 import { AddColumnDialog } from "./add-column-dialog";
 import { TriageBar } from "./triage-bar";
+import { DeleteLeadsButton } from "@/components/leads/lead-edit-controls";
+import { deleteLeadsAction } from "@/app/dashboard/leads/edit-actions";
 
 const ROW_H = 36;
 const LEAD_W = 76; // checkbox, pin and drag handle
@@ -597,6 +599,17 @@ export function SalesWorkspace({
                     router.refresh();
                   }}
                   onError={(text) => flash("error", text)}
+                />
+              )}
+              {kind === "companies" && (
+                <DeleteLeadsButton
+                  count={selectedRows.length}
+                  name={selectedRows.length === 1 ? (selectedRows[0] as { name?: string }).name : undefined}
+                  action={() => deleteLeadsAction(selectedRows.map((r) => r.id))}
+                  onDone={(text) => {
+                    setSelected(new Set());
+                    flash("ok", text);
+                  }}
                 />
               )}
               {bulkActions?.(selectedRows, () => setSelected(new Set()))}

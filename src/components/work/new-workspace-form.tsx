@@ -38,7 +38,7 @@ export function NewWorkspaceForm({ action, kind = "shared" }: { action: WorkActi
       </Field>
       <p className="text-xs text-muted">
         {kind === "private"
-          ? "It starts with a project called Tasks. Nobody can be invited; if the address is taken, a number is added."
+          ? "It starts with a project called Tasks. Only you can see it until you invite someone (for example an assistant) from Manage or a project. If the address is taken, a number is added."
           : "You become the first admin. Invite the others from Manage."}
       </p>
       <div className="flex justify-end max-sm:*:w-full">

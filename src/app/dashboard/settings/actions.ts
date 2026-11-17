@@ -10,8 +10,10 @@ import {
   formValues,
 } from "@/lib/action-state";
 import { requireAdmin, requireStaff } from "@/lib/auth";
-import { ALL_MODULES, isPortalModule } from "@/lib/modules";
-import { env } from "@/lib/env";
+import { ALL_MODULES, isPortalModule, portalModules } from "@/lib/modules";
+import { confirmUrl, setPasswordRedirect } from "@/lib/auth-links";
+import { passwordResetMail, userInviteMail } from "@/lib/notify/account-mail";
+import { sendMail } from "@/lib/notify/mail";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import {
@@ -134,7 +136,7 @@ export async function inviteUser(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  await requireAdmin();
+  const inviter = await requireAdmin();
   const parsed = inviteSchema.safeParse(formValues(formData));
   if (!parsed.success) {
     return { error: "Check the highlighted fields.", fieldErrors: fieldErrorsFrom(parsed.error) };
@@ -157,12 +159,16 @@ export async function inviteUser(
   if (contentOnly && contentWorkspaces.length === 0) {
     return { error: "Check the highlighted fields.", fieldErrors: { content_workspaces: "Pick at least one Content workspace" } };
   }
-  const { data, error } = await admin.auth.admin.inviteUserByEmail(email.toLowerCase(), {
-    data: { full_name },
-    redirectTo: `${env.siteUrl()}/auth/confirm?next=/auth/password`,
+  // We make the link ourselves and mail it in our own words (per role), so the
+  // link always points at the public portal and the mail says what the person
+  // can do. Supabase's plain invitation mail is not used.
+  const { data, error } = await admin.auth.admin.generateLink({
+    type: "invite",
+    email: email.toLowerCase(),
+    options: { data: { full_name }, redirectTo: setPasswordRedirect() },
   });
 
-  if (error || !data.user) {
+  if (error || !data.user || !data.properties?.hashed_token) {
     console.error("inviteUser", error?.code, error?.message);
     if (error?.code === "email_exists" || error?.status === 422) {
       return {
@@ -188,7 +194,7 @@ export async function inviteUser(
     console.error("inviteUser profile", profileError);
     revalidatePath("/dashboard/settings");
     return {
-      error: `The invite was sent to ${email}, but the role was not saved. Change the role in the list below.`,
+      error: `The account for ${email} is made, but the role was not saved. Change the role in the list below.`,
     };
   }
 
@@ -205,16 +211,98 @@ export async function inviteUser(
       console.error("inviteUser content", memberError.code, memberError.message);
       revalidatePath("/dashboard/settings");
       return {
-        error: `The invite was sent to ${email}, but the Content workspaces were not saved. Add the person under Content, the workspace, Settings, People.`,
+        error: `The account for ${email} is made, but the Content workspaces were not saved. Add the person under Content, the workspace, Settings, People.`,
       };
     }
   }
 
+  let company: string | null = null;
+  if (role === "client" && client_id) {
+    const { data: client } = await admin.from("clients").select("name").eq("id", client_id).maybeSingle();
+    company = client?.name ?? null;
+  }
+  const mail = userInviteMail({
+    name: full_name,
+    url: confirmUrl(data.properties.hashed_token, "invite"),
+    invitedBy: inviter.name,
+    role: parsed.data.role,
+    company,
+    modules: role === "member" && modules.length < ALL_MODULES.length ? moduleLabels(modules) : undefined,
+    contentRole: contentOnly ? (parsed.data.content_role ?? "reviewer") : null,
+  });
+  const sent = await sendMail({ category: "user_invite", to: email, subject: mail.subject, html: mail.html, text: mail.text });
+
   revalidatePath("/dashboard/settings");
+  if (!sent) {
+    return { error: `The account for ${email} is made, but the invitation mail was not sent. Check Email in Settings, then use Resend invite on the user.` };
+  }
   return {
     ok: true,
     message: contentOnly ? `Invite sent to ${email}. They only see Content (and their own Work inbox).` : `Invite sent to ${email}.`,
   };
+}
+
+function moduleLabels(modules: string[]) {
+  return portalModules.filter((m) => modules.includes(m.value)).map((m) => m.label);
+}
+
+/**
+ * A new invitation or a password link for an existing user (feedback Julius:
+ * forgot password). Admins only. Someone who never signed in gets the invitation
+ * again; everyone else gets the password reset mail.
+ */
+export async function resendUserLink(userId: string): Promise<ActionState> {
+  const inviter = await requireAdmin();
+  if (!z.guid().safeParse(userId).success) return { error: "User not found." };
+  const admin = createAdminClient();
+  if (!admin) return { error: "Sending a link only works once SUPABASE_SECRET_KEY is set on the server." };
+
+  const { data: profile } = await admin
+    .from("profiles")
+    .select("id, email, full_name, role, client_id, modules")
+    .eq("id", userId)
+    .maybeSingle();
+  if (!profile?.email) return { error: "User not found." };
+  const { data: account } = await admin.auth.admin.getUserById(userId);
+  const neverSignedIn = !account.user?.last_sign_in_at;
+
+  const recovery = await admin.auth.admin.generateLink({ type: "recovery", email: profile.email });
+  if (recovery.error || !recovery.data.properties?.hashed_token) {
+    console.error("resendUserLink", recovery.error?.code, recovery.error?.message);
+    return { error: "No new link could be made. Please try again." };
+  }
+  const url = confirmUrl(recovery.data.properties.hashed_token, "recovery");
+  const name = profile.full_name ?? profile.email;
+
+  let mail: { subject: string; html: string; text: string };
+  if (neverSignedIn) {
+    let company: string | null = null;
+    if (profile.role === "client" && profile.client_id) {
+      const { data: client } = await admin.from("clients").select("name").eq("id", profile.client_id).maybeSingle();
+      company = client?.name ?? null;
+    }
+    const stored = (profile.modules ?? []) as string[];
+    mail = userInviteMail({
+      name,
+      url,
+      invitedBy: inviter.name,
+      role: profile.role === "client" || profile.role === "admin" || profile.role === "member" ? profile.role : "external",
+      company,
+      modules: profile.role === "member" && stored.length < ALL_MODULES.length ? moduleLabels(stored) : undefined,
+    });
+  } else {
+    mail = passwordResetMail({ name, url });
+  }
+  const sent = await sendMail({
+    category: neverSignedIn ? "user_invite" : "password_reset",
+    to: profile.email,
+    subject: mail.subject,
+    html: mail.html,
+    text: mail.text,
+  });
+  return sent
+    ? { ok: true, message: `${neverSignedIn ? "A new invitation" : "A password link"} is on its way to ${profile.email}.` }
+    : { error: "The mail was not sent. Check Email in Settings." };
 }
 
 const modulesSchema = z.object({ user_id: z.guid({ error: "User not found" }) });

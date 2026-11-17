@@ -9,6 +9,7 @@ import {
   type SyncResult,
   type SyncTaskFields,
 } from "@/app/work/sync-actions";
+import { sendAgendaOp } from "@/lib/offline/agenda-changes";
 
 /**
  * The changes to Work tasks that work offline, how each one changes the
@@ -19,7 +20,7 @@ import {
 export type TaskOp =
   | { op: "task.create"; payload: SyncCreateTask; record: TaskListItem }
   | { op: "task.update"; payload: { taskId: string; fields: SyncTaskFields } }
-  | { op: "task.status"; payload: { taskId: string; status: WorkStatus; at: string } };
+  | { op: "task.status"; payload: { taskId: string; status: WorkStatus; at: string; fallbackReview?: boolean; comment?: string } };
 
 export function taskIdOf(change: TaskOp): string {
   return change.op === "task.create" ? change.payload.id : change.payload.taskId;
@@ -67,10 +68,17 @@ export async function sendTaskOp(op: string, payload: unknown): Promise<SyncResu
       return syncUpdateTaskAction(taskId, fields);
     }
     case "task.status": {
-      const { taskId, status, at } = payload as { taskId: string; status: WorkStatus; at: string };
-      return syncSetStatusAction(taskId, status, at);
+      const { taskId, status, at, fallbackReview, comment } = payload as {
+        taskId: string;
+        status: WorkStatus;
+        at: string;
+        fallbackReview?: boolean;
+        comment?: string;
+      };
+      return syncSetStatusAction(taskId, status, at, fallbackReview, comment);
     }
     default:
+      if (op.startsWith("agenda.")) return sendAgendaOp(op, payload);
       return { error: "This change cannot be sent any more." };
   }
 }

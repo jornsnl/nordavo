@@ -54,7 +54,9 @@ export const WRITE_TOOLS: Record<string, { module: McpModule; kind: "suggest" | 
   create_task: { module: "work", kind: "write" },
   update_task: { module: "work", kind: "write" },
   update_task_status: { module: "work", kind: "write" },
+  delete_task: { module: "work", kind: "write" },
   add_task_comment: { module: "work", kind: "write" },
+  add_agenda_item: { module: "work", kind: "write" },
   // Notes on records
   add_note: { module: "records", kind: "write" },
   // Recruitment
@@ -88,6 +90,11 @@ export const WRITE_TOOLS: Record<string, { module: McpModule; kind: "suggest" | 
   register_campaign_members: { module: "sales", kind: "write" },
   triage_leads: { module: "sales", kind: "write" },
   follow_company: { module: "sales", kind: "write" },
+  add_partner: { module: "sales", kind: "write" },
+  update_partner: { module: "sales", kind: "write" },
+  log_partner_contact: { module: "sales", kind: "write" },
+  delete_company: { module: "sales", kind: "write" },
+  archive_company: { module: "sales", kind: "write" },
   // Content
   content_suggest_media_description: { module: "content", kind: "suggest" },
   content_suggest_images: { module: "content", kind: "suggest" },

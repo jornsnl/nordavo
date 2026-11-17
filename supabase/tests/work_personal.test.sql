@@ -63,9 +63,11 @@ do $$ begin
   end if;
 end $$;
 
--- Nobody else can be added, invited or made owner or reviewer.
-select pg_temp.fails($$select public.work_create_invite(pg_temp.id('home'), null, 'jorn@nordavo.nl', 'member', null, 'hash-1')$$,
-  'an invite into a private workspace');
+-- The owner can invite people (20261124500000), but nobody becomes admin, and
+-- tasks only go to people who are in the workspace.
+select public.work_create_invite(pg_temp.id('home'), null, 'sabine@example.nl', 'member', null, 'hash-1');
+select pg_temp.fails($$select public.work_create_invite(pg_temp.id('home'), null, 'jorn@nordavo.nl', 'admin', null, 'hash-2')$$,
+  'an admin invite into a private workspace');
 select pg_temp.fails($$select public.work_set_assignees(pg_temp.id('home_task'), array[pg_temp.uid('jorn@nordavo.nl')])$$,
   'another owner on a private task');
 select pg_temp.fails($$select public.work_update_task(pg_temp.id('home_task'), jsonb_build_object('reviewer_id', pg_temp.uid('jorn@nordavo.nl')))$$,

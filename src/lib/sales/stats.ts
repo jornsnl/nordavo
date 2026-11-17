@@ -164,6 +164,8 @@ function inRange(value: string | null, from: string, to: string): boolean {
 export function summarizeMeetings(rows: MeetingFigureRow[], { from, to }: { from: string; to: string }, now = new Date()): MeetingFigures {
   const out: MeetingFigures = { planned: 0, held: 0, approved: 0, rejected: 0, noShow: 0, cancelled: 0, fees: 0, upcoming: 0 };
   for (const m of rows) {
+    // Waiting for the Cal.com booking: not a meeting yet.
+    if (m.status === "awaiting_booking") continue;
     const when = m.scheduled_at ?? m.created_at;
     if (inRange(m.created_at, from, to)) out.planned += 1;
     if (["held", "approved", "rejected"].includes(m.status) && inRange(when, from, to)) out.held += 1;

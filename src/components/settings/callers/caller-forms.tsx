@@ -19,6 +19,7 @@ export type CallerFormValues = {
   phone: string | null;
   party: string | null;
   fee: number;
+  weeklyGoal: number;
   status: CallerStatus;
 };
 
@@ -72,6 +73,21 @@ function CallerFields({
           required
           disabled={disabled}
           aria-invalid={Boolean(errors.fee_per_meeting)}
+        />
+      </Field>
+      <Field
+        label="Weekly goal (call attempts)"
+        htmlFor={id("goal")}
+        error={errors.weekly_call_goal}
+        hint="How many call attempts the caller aims for per week. The caller sees the progress on the overview."
+      >
+        <Input
+          id={id("goal")}
+          name="weekly_call_goal"
+          inputMode="numeric"
+          defaultValue={String(values?.weeklyGoal ?? 100)}
+          disabled={disabled}
+          aria-invalid={Boolean(errors.weekly_call_goal)}
         />
       </Field>
     </div>

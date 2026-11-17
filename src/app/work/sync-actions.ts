@@ -19,7 +19,8 @@ import { deliverNotifications } from "@/lib/work/notify";
  * change and says so. A network failure throws, and the change waits.
  */
 
-export type SyncResult = { ok: true; id?: string } | { error: string };
+/** `note`: something to tell the user although it worked (a task that went to review instead of done). */
+export type SyncResult = { ok: true; id?: string; note?: string } | { error: string };
 
 const id = z.guid({ error: "Not found" });
 const title = z.string().trim().min(1, { error: "Add a title" }).max(300, { error: "At most 300 characters" });
@@ -116,22 +117,29 @@ export async function syncUpdateTaskAction(taskId: string, fields: SyncTaskField
   return { ok: true };
 }
 
-/** A status change, with when it happened on the device (Done at 10:05 stays 10:05). */
-export async function syncSetStatusAction(taskId: string, to: string, at?: string): Promise<SyncResult> {
+/**
+ * A status change, with when it happened on the device (Done at 10:05 stays 10:05).
+ * `comment`: needed when a finished task is opened again. `fallbackReview`: the checkbox of a list. When the rules do not let this
+ * person finish the task, it goes to review instead and the result says so.
+ */
+export async function syncSetStatusAction(taskId: string, to: string, at?: string, fallbackReview = false, comment?: string): Promise<SyncResult> {
   await requireWorkUser();
   const parsedId = id.safeParse(taskId);
   const parsedStatus = status.safeParse(to);
   const parsedAt = isoTime.optional().safeParse(at);
   if (!parsedId.success || !parsedStatus.success) return { error: WORK_GENERIC_ERROR };
   const supabase = await createClient();
-  const { error } = await supabase.rpc("work_set_status", {
-    p_task: parsedId.data,
-    p_status: parsedStatus.data,
-    // The database keeps it only when recent and not in the future.
-    p_at: parsedAt.success ? (parsedAt.data ?? null) : null,
-  });
+  // The database keeps `p_at` only when recent and not in the future.
+  const p_at = parsedAt.success ? (parsedAt.data ?? null) : null;
+  const p_comment = comment?.trim().slice(0, 2000) || undefined;
+  let note: string | undefined;
+  let { error } = await supabase.rpc("work_set_status", { p_task: parsedId.data, p_status: parsedStatus.data, p_at, p_comment });
+  if (error && fallbackReview && parsedStatus.data === "done" && error.code === "42501") {
+    ({ error } = await supabase.rpc("work_set_status", { p_task: parsedId.data, p_status: "review", p_at, p_comment }));
+    if (!error) note = "Sent to the reviewer: only an owner or the reviewer can mark it as done.";
+  }
   if (error) return { error: workErrorMessage(error) };
   queuedMail();
   revalidatePath("/work", "layout");
-  return { ok: true };
+  return { ok: true, note };
 }

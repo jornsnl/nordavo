@@ -154,6 +154,10 @@ export type CompanyContact = {
   callerNote: string | null;
   onepageId: string | null;
   lastContactedAt: string | null;
+  noMail: boolean;
+  noCall: boolean;
+  noLinkedin: boolean;
+  contactFlag: "left_company" | "wrong_person" | "wrong_number" | null;
   bellen: Contactability;
   mail: Contactability;
 };
@@ -171,11 +175,26 @@ const CHANNEL_SCOPES = {
 function explain(
   ok: boolean | null,
   channel: "bellen" | "mail",
-  contact: { id: string; email: string | null; last_contacted_at: string | null },
+  contact: {
+    id: string;
+    email: string | null;
+    last_contacted_at: string | null;
+    no_mail?: boolean;
+    no_call?: boolean;
+    contact_flag?: string | null;
+  },
   companyId: string,
   suppressions: SuppressionItem[],
+  ownContact = false,
 ): Contactability {
   if (ok === true) return { ok: true, reason: null };
+  // The reasons that are not suppression rows (migration 20261124700000).
+  if (ownContact) return { ok: false, reason: "Own contact: we have contact with this company ourselves" };
+  if (contact.contact_flag === "left_company") return { ok: false, reason: "Marked as left the company" };
+  if (contact.contact_flag === "wrong_person") return { ok: false, reason: "Marked as wrong person" };
+  if (contact.contact_flag === "wrong_number" && channel === "bellen") return { ok: false, reason: "Marked as wrong number" };
+  if (channel === "mail" && contact.no_mail) return { ok: false, reason: "Mail switched off for this contact" };
+  if (channel === "bellen" && contact.no_call) return { ok: false, reason: "Calling switched off for this contact" };
   const scopes: readonly string[] = CHANNEL_SCOPES[channel];
   const hit = suppressions.find(
     (s) =>
@@ -200,13 +219,16 @@ export async function getCompanyContacts(
   const { data, error } = await supabase
     .from("contacts")
     .select(
-      "id, first_name, last_name, title, tier, linkedin_url, linkedin_member_urn, email, email_source, email_status, email_found_at, phone, phone_type, phone_source, phone_found_at, status, role, is_primary, attempts, last_attempt_at, callback_at, referred_to, caller_note, onepage_id, last_contacted_at",
+      "id, first_name, last_name, title, tier, linkedin_url, linkedin_member_urn, email, email_source, email_status, email_found_at, phone, phone_type, phone_source, phone_found_at, status, role, is_primary, attempts, last_attempt_at, callback_at, referred_to, caller_note, onepage_id, last_contacted_at, no_mail, no_call, no_linkedin, contact_flag",
     )
     .eq("company_id", companyId)
     .order("is_primary", { ascending: false })
     .order("tier", { ascending: true, nullsFirst: false })
     .order("created_at", { ascending: true });
   if (error) throw new Error(`Could not load contacts: ${error.message}`);
+
+  const { data: company } = await supabase.from("companies").select("own_contact").eq("id", companyId).maybeSingle();
+  const ownContact = Boolean(company?.own_contact);
 
   const [suppressions, checks] = await Promise.all([
     getCompanySuppressions(companyId, data.map((c) => ({ id: c.id, email: c.email }))),
@@ -251,8 +273,12 @@ export async function getCompanyContacts(
     callerNote: c.caller_note,
     onepageId: c.onepage_id,
     lastContactedAt: c.last_contacted_at,
-    bellen: explain(checks[i].bellen, "bellen", c, companyId, suppressions),
-    mail: explain(checks[i].mail, "mail", c, companyId, suppressions),
+    noMail: c.no_mail,
+    noCall: c.no_call,
+    noLinkedin: c.no_linkedin,
+    contactFlag: c.contact_flag,
+    bellen: explain(checks[i].bellen, "bellen", c, companyId, suppressions, ownContact),
+    mail: explain(checks[i].mail, "mail", c, companyId, suppressions, ownContact),
   }));
   return { contacts, suppressions };
 }

@@ -50,7 +50,7 @@ export type CallOutcome =
   | "wrong_number";
 
 export type CallerStatus = "active" | "paused" | "stopped";
-export type MeetingStatus = "planned" | "held" | "approved" | "rejected" | "no_show" | "cancelled";
+export type MeetingStatus = "awaiting_booking" | "planned" | "held" | "approved" | "rejected" | "no_show" | "cancelled";
 export type MeetingSource = "handmatig" | "calcom" | "claude" | "system";
 export type SequenceStatus = "draft" | "active" | "archived";
 export type SequenceChannel = "mail" | "linkedin" | "call";
@@ -108,6 +108,7 @@ export type CallerRow = {
   phone: string | null;
   party: string | null;
   fee_per_meeting: number;
+  weekly_call_goal: number;
   status: CallerStatus;
   invited_at: string | null;
   paused_at: string | null;
@@ -132,6 +133,8 @@ export type MeetingRow = {
   decided_at: string | null;
   source: MeetingSource;
   external_id: string | null;
+  /** Who the meeting is with (the Cal.com link the caller picked). */
+  with_label: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -291,6 +294,8 @@ export type SalesFunctions = {
     } & Actor,
     string | null
   >;
+  // Migration 20261125200000_mcp_partners.sql: create (p_id null) or change a partner, logged in Activities.
+  sales_partner_save: Fn<{ p_id: string | null; p_fields: Json; p_source?: string } & Actor, string>;
   sales_decide_reply: Fn<{ p_activity: string; p_accept: boolean; p_apply?: Json } & Actor, undefined>;
   sales_save_meeting: Fn<
     {
@@ -330,9 +335,25 @@ export type SalesFunctions = {
       p_referred_title?: string | null;
       p_referred_phone?: string | null;
       p_note?: string | null;
+      /** 20261123600000_call_outcome_flow.sql: the details of the follow-up windows. */
+      p_callback_time?: string | null;
+      p_callback_with?: string | null;
+      p_referred_email?: string | null;
+      p_reasons?: string[] | null;
+      p_reason_text?: string | null;
+      p_reason_label?: string | null;
+      p_until?: string | null;
+      p_next_step?: string | null;
+      p_next_step_at?: string | null;
+      p_next_owner?: string | null;
+      p_new_phone?: string | null;
     } & Actor,
-    { attempts: number; status: string; new_contact_id: string | null; meeting_id: string | null }
+    { attempts: number; status: string; new_contact_id: string | null; meeting_id: string | null; activity_id: string }
   >;
+  /** A caller adds a note to a contact they called (20261124800000_caller_overview.sql). */
+  caller_add_call_note: Fn<{ p_contact: string; p_note: string } & Actor, string>;
+  /** A caller corrects the outcome of their own call, with a reason (20261124800000_caller_overview.sql). */
+  caller_correct_call: Fn<{ p_activity: string; p_outcome: CallOutcome; p_reason: string } & Actor, string>;
   sales_start_sequence: Fn<
     { p_sequence: string; p_company: string; p_contact?: string | null; p_start?: string | null; p_source?: string } & Actor,
     string

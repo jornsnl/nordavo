@@ -7,6 +7,8 @@ import { useScrollLock } from "./use-drawer";
 /**
  * Accessible modal built on the native <dialog> element.
  * Control it with `open` and `onClose`. On phones it is a bottom sheet.
+ * placement "side" is a panel against the right edge from sm up (the call
+ * sheet keeps the rows in view while an outcome is filled in).
  */
 export function Modal({
   open,
@@ -15,6 +17,7 @@ export function Modal({
   description,
   children,
   size = "md",
+  placement = "center",
 }: {
   open: boolean;
   onClose: () => void;
@@ -22,6 +25,7 @@ export function Modal({
   description?: string;
   children: ReactNode;
   size?: "md" | "lg";
+  placement?: "center" | "side";
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   const titleId = useId();
@@ -43,7 +47,9 @@ export function Modal({
       }}
       aria-labelledby={titleId}
       className={`sheet-up m-auto w-[calc(100%-2rem)] rounded-2xl border border-border bg-card p-0 text-ink shadow-2xl backdrop:bg-brand-950/50 max-sm:mb-0 max-sm:w-full max-sm:max-w-none max-sm:rounded-b-none max-sm:border-x-0 max-sm:border-b-0 ${
-        size === "lg"
+        placement === "side"
+          ? "sm:m-0 sm:ml-auto sm:h-dvh sm:max-h-none sm:w-full sm:max-w-md sm:rounded-none sm:rounded-l-2xl sm:border-y-0 sm:border-r-0"
+          : size === "lg"
           ? // Large panels (details, editors) fill the screen below md, like a native page.
             "sm:max-w-2xl max-md:m-0 max-md:h-dvh max-md:max-h-none max-md:w-full max-md:max-w-none max-md:rounded-none max-md:border-0"
           : "sm:max-w-lg"
@@ -52,8 +58,8 @@ export function Modal({
       {open && (
         <div
           className={`max-h-[85dvh] overflow-y-auto overscroll-contain max-sm:max-h-[92dvh] max-sm:pb-safe ${
-            size === "lg" ? "max-md:h-full max-md:max-h-none max-md:pt-safe max-md:pb-safe" : ""
-          }`}
+            placement === "side" ? "sm:h-full sm:max-h-none" : ""
+          } ${size === "lg" ? "max-md:h-full max-md:max-h-none max-md:pt-safe max-md:pb-safe" : ""}`}
         >
           <div aria-hidden="true" className={`flex justify-center pt-2.5 sm:hidden ${size === "lg" ? "hidden" : ""}`}>
             <span className="h-1 w-10 rounded-full bg-border" />

@@ -20,6 +20,7 @@ De interface is Engels (team in Nederland en Bangalore, freelancers overal). Tak
 | Beheer | `/work/w/<slug>/admin` | Leden en gasten, rollen, einddatum van toegang, deactiveren met overdracht van open taken, uitnodigingen, toegangslog, export |
 | Prullenbak | `/work/w/<slug>/trash` | Gearchiveerde taken, 30 dagen terug te zetten |
 | Quick log | `/work/log` | In één stap afgerond werk loggen als afgeronde taak |
+| Meetings | `/work/meetings` | Een agenda per terugkerend overleg: punten dumpen, doorlopen, besluiten vastleggen, punten als taak doorzetten, afsluiten (zie *Meetings*) |
 | Search | `/work/search` | Titel, omschrijving en opmerkingen, binnen wat je mag zien |
 | Settings | `/work/settings` | Naam, tijdzone (alle IANA zones, met zoeken en per regio), welke mails je krijgt, API tokens |
 | Inloggen | `/work/sign-in` | Google of een inloglink per mail. Gasten kunnen de link ook op `/login` aanvragen; teamleden en klanten loggen in met wachtwoord of passkey |
@@ -70,7 +71,7 @@ Julius wil Todoist en Akiflow vervangen door Work: alle taken op één plek, zak
 
 | Onderdeel | Wat |
 | --- | --- |
-| Privé workspace | Elk teamlid (portaalrol admin of member) maakt er zelf meerdere via **New private workspace** in de sidebar. Alleen de eigenaar zit erin: niemand anders kan worden uitgenodigd, toegevoegd, eigenaar of reviewer van een taak, ook niet via de API of de secret key (triggers op `work_members`, `work_project_members`, `work_invites`, `work_task_assignees` en `work_tasks`). Andere admins zien hem dus niet, want wat je in Work ziet volgt je lidmaatschap. Hij begint met een project *Tasks*. `work_workspaces.kind = 'private'`, `owner_id` |
+| Privé workspace | Elk teamlid (portaalrol admin of member) maakt er zelf meerdere via **New private workspace** in de sidebar. Alleen de eigenaar en wie de eigenaar zelf uitnodigt (bijvoorbeeld een VA) zit erin; migratie [20261124500000_work_private_invites.sql](../supabase/migrations/20261124500000_work_private_invites.sql). Alleen de eigenaar nodigt uit, niemand anders wordt admin, en taken en reviews gaan alleen naar de eigenaar en actieve leden (triggers op `work_members`, `work_project_members`, `work_invites`, `work_task_assignees` en `work_tasks`, ook voor de API en de secret key). Andere portaaladmins zien hem niet, want wat je in Work ziet volgt je lidmaatschap. De inbox blijft strikt alleen van de eigenaar. Hij begint met een project *Tasks*. `work_workspaces.kind = 'private'`, `owner_id` |
 | Inbox | Iedere gebruiker met Work (ook gasten) heeft een eigen inbox: een privé workspace met één project, gemaakt bij het eerste gebruik (`work_ensure_inbox`). Snel invoeren op My overview en `/work/add` gaat standaard naar de inbox; via de MCP ook zonder project. `kind = 'inbox'` |
 | Sorteren | Een taak uit je inbox of een privé workspace verplaats je op de taakpagina (*Move to project*) naar elk project dat je kunt openen, ook in een andere workspace; subtaken gaan mee, eigenaren en reviewer zonder toegang tot het nieuwe project vallen weg (jij wordt reviewer). Een taak uit een gedeelde workspace blijft in zijn workspace, en niemand kan iets in de privé workspace van een ander zetten |
 | Archiveren | Een workspace admin archiveert onder Manage (*Archive workspace*). Hij verdwijnt uit de sidebar en My overview; projecten en taken blijven, en onder Manage zet je hem terug (*Restore workspace*). In het toegangslog als *Workspace archived* en *Workspace restored*. De inbox kan niet worden gearchiveerd |
@@ -255,7 +256,52 @@ Julius wilde de functies van het takenoverzicht van Jorn (Athmium) ook in Work. 
 - **API en MCP:** `task_type`, `labels`, `start_on` (YYYY-MM-DD) en `estimate_minutes` staan in elke taak, en zijn te zetten bij `POST /tasks`, `PATCH /tasks/<id>` en de MCP tools `create_task` en `update_task` (labels vervangt de lijst).
 - **Code:** dagen en de balk in `src/lib/work/days.ts`, de weergaven in `src/components/work/task-calendar.tsx` en `task-timeline.tsx`, unit tests in `tests/work-planning.test.ts`, browsertests in `tests/e2e/planning.spec.ts`.
 
-Nog niet overgenomen uit Athmium: werkdrukweergave, terugkerende taken, checklist (Work heeft subtaken), sprints, tijdregistratie, sneltoetsen, meerdere taken tegelijk selecteren en het zijpaneel.
+Nog niet overgenomen uit Athmium: werkdrukweergave, checklist (Work heeft subtaken), sprints, tijdregistratie, sneltoetsen, meerdere taken tegelijk selecteren en het zijpaneel.
+
+## Terugkerende taken (feedback Julius)
+
+Een taak kan terugkomen: elke dag, elke werkdag, elke week of elke maand, met een interval (elke 2 weken). Instellen op de taakpagina bij de details (*Repeats* en *Every*), of via Claude (`recurrence` en `recurrence_every` bij `create_task` en `update_task`, ook in de Work API).
+
+- **Regel:** hangt aan de deadline, die dus verplicht is. Wekelijks herhaalt op de weekdag van de deadline, maandelijks op de dag van de maand (de 31e valt in een kortere maand terug op de laatste dag en komt daarna weer terug). Het kloktijdstip blijft gelijk door zomer- en wintertijd, in de tijdzone van de eigenaar.
+- **Afronden:** zodra de taak op Done gaat (afvinken, bord, reviewer die goedkeurt, API) maakt de database meteen de volgende: zelfde titel, omschrijving, prioriteit, eigenaren, reviewer, type, labels, schatting, project en gekoppeld record, status To do. De nieuwe deadline is de eerste keer na het moment van afronden, dus een taak die drie weken te laat wordt afgerond laat geen stapel verlopen kopieën achter. De afgeronde taak wijst naar de volgende (`recurrence_next_id`): heropenen en opnieuw afronden maakt geen tweede kopie. Subtaken worden niet meegekopieerd.
+- **Stoppen:** *Does not repeat* kiezen (of `recurrence: null`). Alleen een taak, geen subtaak, kan terugkomen.
+- **Code:** migratie [20261124600000_work_recurring.sql](../supabase/migrations/20261124600000_work_recurring.sql) (kolommen, `work_private.next_due`, trigger `work_tasks_spawn_next`, `work_update_task`), helper `src/lib/work/recurrence.ts`, tests `tests/work-recurrence.test.ts` en [work_recurring.test.sql](../supabase/tests/work_recurring.test.sql).
+
+## Taakpagina: direct bewerken en archiveren (feedback Julius)
+
+- Klik op de titel en typ; Enter of ergens anders klikken slaat op, Esc annuleert. Klik op de omschrijving om te bewerken (links blijven werken); als de focus het formulier verlaat wordt het opgeslagen. De knop *Edit title and description* blijft.
+- *Archive* vraagt de bevestiging op de pagina zelf in plaats van met de browserdialoog. Die kon buiten beeld blijven (geïnstalleerde app, zijpaneel) waardoor de pagina leek vast te lopen.
+
+## Meetings (feedback Julius)
+
+Punten voor een overleg stonden verspreid over chat, notities en losse taken. Meetings is één plek: een **agenda per terugkerend overleg** (een weekoverleg met Floris, een teamoverleg, een los gesprek), elk met eigen punten en eigen zichtbaarheid. Migratie [20261125300000_work_meetings.sql](../supabase/migrations/20261125300000_work_meetings.sql), test [work_meetings.test.sql](../supabase/tests/work_meetings.test.sql). Geen kalenderkoppeling.
+
+| Onderdeel | Wat |
+| --- | --- |
+| Meeting | Hoort bij een workspace (ook een privé workspace, niet de inbox). Naam, zichtbaarheid, wie het maakte. Starten kan elke admin en member van de workspace, geen gast. Aanpassen en afsluiten kan de maker, en bij een meeting voor de hele workspace ook een admin van de workspace (`/work/meetings/<id>/settings`) |
+| Zichtbaarheid | **Whole workspace**: elke admin en member van de workspace. **Only people I pick**: alleen de maker en de gekozen mensen. Een andere admin van de workspace ziet zo'n meeting niet (zichtbaarheid volgt de uitnodiging, niet de rol). Iedereen moet actief lid van de workspace zijn; wie de workspace verlaat, raakt de meeting kwijt. In een privé workspace gaat het alleen over de eigenaar en wie de eigenaar uitnodigde. Een gast ziet alleen een meeting waarvoor hij gekozen is |
+| Ronde (session) | Elke meeting heeft één open ronde: dat is de agenda. Afsluiten sluit de ronde en opent een nieuwe. Eerdere rondes blijven leesbaar onder *Earlier meetings* |
+| Punt | Titel, optionele notitie, wie het inbracht, aangemaakt op, bron (portal of Claude), status, besluit of notitie (met naam en tijd van wie het vastlegde), de taak waar het naar linkt en hoe vaak het al doorschoof |
+| Status | `open`, `discussed`, `dropped` (geschrapt) en `forwarded` (doorgeschoven, door het systeem gezet bij afsluiten, met een verwijzing naar het punt in de volgende ronde). Iedereen in de meeting kan een punt afvinken, schrappen, heropenen en een besluit vastleggen; de tekst van een punt wijzigt wie het inbracht of de beheerder van de meeting. Een afgesloten ronde is alleen lezen |
+| Snel dumpen | Bovenaan de meeting een invoerveld: typen, Enter. Werkt op de telefoon en offline (zie hieronder). Claude kan het ook via de MCP (`add_agenda_item`) |
+| Make task | Per punt: kies eigenaar (iemand uit de meeting), deadline, prioriteit en eventueel een andere titel. Er komt een gewone Work taak in de **inbox van die persoon** (een inbox is alleen van de eigenaar, dus bij een taak voor een ander is de eigenaar ook de reviewer), met de notitie, het besluit en de naam van de meeting in de omschrijving, en een melding *assigned*. Het punt linkt naar de taak en telt als besproken. Voor jezelf gaat het via `work_create_task`; een taak voor een ander schrijft `work_agenda_item_to_task` zelf weg in zijn inbox, omdat `work_create_task` alleen in een project werkt dat de maker kan openen. De functie accepteert ook een project (`p_project`, alleen als maker en eigenaar het kunnen openen); de interface biedt dat nog niet aan |
+| Close meeting | Sluit de ronde en zet alle punten die nog `open` zijn door naar een nieuwe ronde van dezelfde meeting: het oude punt wordt `forwarded` met een verwijzing, het nieuwe punt houdt maker, bron en eerste datum en telt `carried_count` + 1 (*Moved on 2 times*). Besproken en geschrapte punten blijven in de oude ronde met hun besluit en taak |
+
+### Rechten
+
+Zoals de rest van Work: lezen via RLS (regels één keer in `work_private.can_view_meeting` en `can_manage_meeting`), schrijven alleen via security definer functies (`work_create_meeting`, `work_update_meeting`, `work_add_agenda_item`, `work_update_agenda_item`, `work_agenda_item_to_task`, `work_close_meeting`), de API met `p_actor`. Ingelogde gebruikers hebben geen insert, update of delete op de tabellen. De secret key leest met `work_api_can_view_meeting` en `work_api_visible_meetings` voor de eigenaar van het token. De bron `claude` telt alleen voor de secret key; een ingelogde gebruiker is altijd `portal`.
+
+### Offline
+
+Een punt toevoegen gaat door dezelfde outbox als een taak (`agenda.add`, `src/lib/offline/agenda-changes.ts`): het punt krijgt zijn id op het apparaat (idempotent), staat onder het invoerveld als *Waiting to be sent* en komt één keer op de server, met het moment waarop het geschreven is (`p_at`). Wijzigen, een taak maken en afsluiten hebben een verbinding nodig.
+
+### Claude
+
+`list_agenda` (de meetings die de eigenaar van het token mag zien, of de agenda van één meeting) en `add_agenda_item`. Zie [mcp.md](mcp.md). Schrijven volgt de rechten per module: module Work, soort `write`.
+
+### Bewust niet
+
+Geen kalenderkoppeling, geen herhaling met datums, geen mail naar deelnemers bij een nieuw punt, geen verwijderen van een punt (schrappen kan), geen eigen meeting-rechten per persoon buiten de lijst van gekozen mensen. Een taak maken kan alleen in de inbox; een meeting verplaatsen naar een andere workspace kan niet.
 
 ## Offline
 
@@ -267,6 +313,7 @@ Work werkt ook zonder verbinding, bijvoorbeeld in de trein. Dit is gebouwd voor 
 | --- | --- |
 | Mijn taken, het bord en Quick log openen (de laatste kopie) | Opmerkingen, bestanden, eigenaren, taken verplaatsen tussen projecten |
 | Een taak toevoegen (de regel "Add a task") | Het formulier op de taakpagina |
+| Een punt op een meeting agenda zetten (zie *Meetings*) | Een punt wijzigen, een taak maken van een punt, de meeting afsluiten |
 | Starten, terug naar To do, naar review, klaar (actiemenu en bord) | Alle andere onderdelen van het portaal: die tonen de laatste kopie, alleen lezen |
 | Prioriteit wijzigen | |
 
@@ -277,7 +324,7 @@ Work werkt ook zonder verbinding, bijvoorbeeld in de trein. Dit is gebouwd voor 
 | Service worker | `public/sw.js` | Build bestanden en iconen eerst uit de cache. App pagina's altijd vers als er verbinding is; de laatste goede kopie (nooit een redirect naar inloggen, een fout of iets wat geen HTML is) wordt bewaard met de header `x-nordavo-cached-at` en getoond zonder verbinding. Een `warm` bericht bewaart de hoofdpagina's en hun build bestanden vooraf, hoogstens één keer per 5 minuten per pagina; `clear` wist de paginacache. Oude cacheversies gaan weg bij activate |
 | Lokale database | `src/lib/offline/db.ts` | IndexedDB `nordavo-offline` met `records` (laatste kopie per `task:<id>`), `meta` (aantal en tijdstip per soort, geweigerde wijzigingen), `outbox` (wachtende wijzigingen in volgorde) en `dirty` (lokaal gewijzigd, nog niet bevestigd) |
 | Overlay | `src/lib/offline/overlay.ts`, `useOfflineTasks` | Lijsten en het bord leggen de dirty taken over de serverlijst; taken die hier gemaakt zijn verschijnen meteen, op de plek waar ze horen |
-| Versturen | `src/lib/offline/sync.ts` | Elke wijziging gaat via de outbox, die meteen in volgorde wordt verstuurd. Offline, geen antwoord binnen 30 seconden of oudere wijzigingen die nog wachten: de wijziging wacht. Opnieuw bij het `online` event en elke 20 seconden. Geweigerd door de server: uit de outbox en gemeld. Na bevestiging blijft een taak 4 seconden gemarkeerd, zodat de pagina niet terugflitst |
+| Versturen | `src/lib/offline/sync.ts` | Elke wijziging gaat via de outbox, die meteen in volgorde wordt verstuurd. Offline, geen antwoord binnen 30 seconden of oudere wijzigingen die nog wachten: de wijziging wacht. Opnieuw bij het `online` event en elke 20 seconden. Geweigerd door de server: uit de outbox en gemeld. Na bevestiging blijft een taak gemarkeerd tot de lijst van de server de wijziging toont (hoogstens 12 seconden), zodat de pagina niet terugflitst |
 | Server | `src/app/work/sync-actions.ts` | Dezelfde controles en `work_*` functies als online, dus validatie, rechten, het activiteitenlog en meldingen blijven werken. Een update stuurt alleen de gewijzigde velden: wijzigingen aan andere velden van elders blijven staan, bij hetzelfde veld wint de laatste |
 | Database | `20261117000000_work_offline.sql` | `work_create_task` neemt het id dat het apparaat koos (`p_id`, idempotent: twee keer versturen geeft één taak). `work_create_task` en `work_set_status` nemen het tijdstip van de offline actie (`p_at`): geldig als het niet in de toekomst ligt en hoogstens 14 dagen oud is, anders geldt nu |
 | Indicator | Bovenbalk en menu | Groen vinkje (Synced), spinner (Syncing), Offline met het aantal wachtende wijzigingen, rood voor geweigerde wijzigingen. Tikken toont wat dit apparaat bewaart, welke pagina's offline openen en wat een verbinding nodig heeft |
@@ -309,7 +356,7 @@ Werkt in het hele portaal (`/dashboard`) en in Work, ook in het smalle zijpaneel
 | `x` | Gekozen taak selecteren om in bulk af te vinken (projectlijst) |
 | `?` | Alle sneltoetsen |
 
-- **Afvinken in lijsten:** elke taakrij heeft een rond vinkje (één klik). In de lijst van een project kies je met de vierkante vakjes meerdere taken en vink je ze samen af (*Mark as done* in de balk onderaan, `completeTasksAction`), met per taak dezelfde regels.
+- **Afvinken in lijsten:** elke taakrij heeft een rond vinkje (één klik). Het vinkje gaat door de offline outbox (`task.status` met `fallbackReview`): de taak is meteen afgevinkt en weg, de server hoort het daarna. Mag je de taak niet afronden, dan gaat hij naar Review en een melding zegt dat. Eerder wachtte het vinkje op een serveractie die de hele layout opnieuw opbouwde: dat duurde seconden en het vinkje sprong in de tussentijd terug. In de lijst van een project kies je met de vierkante vakjes (met de muis pas zichtbaar als je over de rij gaat, daarna blijven ze staan) meerdere taken en vink je ze samen af (*Mark as done* in de balk onderaan, `completeTasksAction`), met per taak dezelfde regels.
 - **Taakpagina:** een eigenaar ziet *Mark as done* en *Send to review* naast elkaar.
 - **Nieuwe taak:** de omschrijving is leeg (geen sjabloon meer), jij bent standaard eigenaar en staat bovenaan. Markdown (vet, cursief, lijsten, ook genest, checklists `- [ ]`, links) wordt getoond op de taakpagina; met *Preview* zie je het al tijdens het typen. HTML in de tekst wordt nooit uitgevoerd.
 - **Zoeken** vindt ook pagina's (menu en Work, ook op Nederlandse woorden als "vacatures") en is tolerant voor typefouten: `portal_search` (migratie `20261123010000_portal_search.sql`, pg_trgm) zoekt in leads, contactpersonen van leads en klanten, klanten, vacatures (ook op klantnaam) en kandidaten, als de ingelogde gebruiker (RLS). Zonder die migratie valt het terug op de oude zoekopdracht.

@@ -7,6 +7,13 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import type { CompanyContact, Contactability } from "@/lib/data/gtm-contacts";
 import { formatDate } from "@/lib/format";
+import { deleteContactAction, setContactChannelsAction, updateContactAction } from "@/app/dashboard/leads/edit-actions";
+import {
+  ContactChannelsButton,
+  contactFlagLabels,
+  DeleteContactButton,
+  EditContactButton,
+} from "@/components/leads/lead-edit-controls";
 
 function linkedinHref(url: string) {
   return /^https?:\/\//i.test(url) ? url : `https://${url}`;
@@ -29,9 +36,11 @@ function ChannelState({ label, state }: { label: string; state: Contactability }
 }
 
 export function ContactsPanel({
+  companyId,
   contacts,
   actions,
 }: {
+  companyId: string;
   contacts: CompanyContact[];
   /** Header buttons, e.g. "Add contact". */
   actions?: ReactNode;
@@ -75,7 +84,10 @@ export function ContactsPanel({
                   )}
                   {c.callerNote && <p className="mt-1 text-xs whitespace-pre-line text-ink">{c.callerNote}</p>}
                 </div>
-                <ContactStatusBadge status={c.status} />
+                <div className="flex shrink-0 flex-col items-end gap-1">
+                  <ContactStatusBadge status={c.status} />
+                  {c.contactFlag && <Badge tone="danger">{contactFlagLabels[c.contactFlag]}</Badge>}
+                </div>
               </div>
 
               <dl className="space-y-1.5 text-sm">
@@ -194,6 +206,32 @@ export function ContactsPanel({
                 <ChannelState label="Call" state={c.bellen} />
                 <ChannelState label="Mail" state={c.mail} />
               </ul>
+
+              <div className="-mx-2 flex flex-wrap items-center gap-1">
+                <EditContactButton
+                  contact={{
+                    id: c.id,
+                    firstName: c.firstName,
+                    lastName: c.lastName,
+                    title: c.title,
+                    tier: c.tier,
+                    role: c.role,
+                    email: c.email,
+                    phone: c.phone,
+                    linkedinUrl: c.linkedinUrl,
+                  }}
+                  action={updateContactAction.bind(null, companyId, c.id)}
+                />
+                <ContactChannelsButton
+                  name={c.name}
+                  mail={!c.noMail}
+                  call={!c.noCall}
+                  linkedin={!c.noLinkedin}
+                  flag={c.contactFlag}
+                  action={setContactChannelsAction.bind(null, companyId, c.id)}
+                />
+                <DeleteContactButton name={c.name} action={deleteContactAction.bind(null, companyId, c.id)} />
+              </div>
 
             </li>
           ))}

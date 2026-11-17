@@ -103,6 +103,24 @@ Vacatures zijn signalen van het type `vacature` (`public.signals`).
 - **Samenvoegen.** Op de leadpagina met **Merge**: kies de andere (een mogelijke dubbele of zoek op naam). Het bedrijf van de pagina blijft. Contacten, activities, vacatures, meetings, sequences, belstappen, vacatures uit recruitment, notities, taken, bijlagen en alles wat verder naar het andere bedrijf wijst gaat mee (elke foreign key, ook later toegevoegde, en alles met `entity_type = 'company'`). Lege velden worden aangevuld, red flags en bronnen samengevoegd, het domein van de andere blijft als alias (`alias_domains`, zodat een import hem niet opnieuw aanmaakt), en de hele oude rij staat in Activities (`merged_company`). Daarna wordt de andere verwijderd (`sales_merge_companies`). Twee contacten: **Merge** bij Contacts op de leadpagina (`sales_merge_contacts`): beide LinkedIn links blijven (link en member id), pogingen en datums nemen de hoogste, Do not contact wint, de beste rol blijft. Claude: `merge_companies` en `merge_contacts`.
 - Een koppeling die na het verplaatsen dubbel zou zijn (bijvoorbeeld twee keer dezelfde sequence voor één bedrijf), vervalt; het aantal staat in het resultaat.
 
+## Own contact (beschermde bedrijven)
+
+Een bedrijf waar we zelf contact mee hebben (pipeline, partner, netwerk, klant) krijgt **Own contact** (`companies.own_contact`, met `own_contact_reason` en `own_contact_since`; migratie `20261124700000_leads_own_contact_edit.sql`). Dat is iets anders dan Do not contact: niemand heeft gevraagd om weg te blijven, wij beschermen de relatie.
+
+- **Waar het uit blijft.** Een cold mailcampagne (Instantly, Seleqt), een bellijst (en de call queue), Find number en lijsten die Claude maakt. De database weigert het hard (triggers `campaign_members_own_contact` en `companies_own_contact_bucket`); het portaal en de MCP kijken eerst en slaan zulke leads over met een melding (`splitOwnContacts`, `filterOwnContactMembers` in `src/lib/sales/own-contact.ts`: Send to, `triage_leads` en `register_campaign_members`, dat ze teruggeeft onder `refused_own_contact`; replies en einde van een campagne registreren gewoon door). `is_suppressed` en dus `is_contactable` (de kandidatenviews en het contactblok op de leadpagina) tellen het ook mee.
+- **Vanzelf.** Zodra een bedrijf in de pipeline komt (elke fase behalve Lost) wordt het een own contact met reden "In the pipeline"; de bestaande pipeline is bij de migratie zo gezet. Gaat het naar Lost of uit de pipeline, dan valt de automatische bescherming weer weg (zodat een verloren lead weer gebeld mag worden, zoals voorheen). Een bescherming met de hand (andere reden) blijft staan.
+- **Met de hand.** Op de leadpagina **Mark as own contact** (met reden: Partner, Client, Network) en **Own contact: change** om hem uit te zetten (`sales_set_own_contact`), of via Claude met `update_companies` (`own_contact`, `own_contact_reason`). Aanzetten stopt wachtende campagnemembers, zet een bellijst-, campagne- of Find number-bucket terug naar Pipeline of Free en pauzeert sequences. Elke wijziging staat in Activities.
+- **Eigenaar en zichtbaarheid.** De eigenaar is de gewone eigenaar van het bedrijf (`owner_id`). De leadpagina toont een banner met reden en eigenaar en een badge naast de naam; in de tabellen zijn de kolommen *Own contact* en *Own contact reason* te kiezen. `list_companies` geeft het veld mee en filtert met `own_contact`.
+
+## Contacten bewerken en verwijderen
+
+Op de leadpagina, bij elk contact: **Edit** (naam, functie, tier, rol, mail, telefoon, LinkedIn; leeg maken haalt de waarde weg; gaat door `sales_update`, dus gelogd met wie en wanneer), **Channels** en een prullenbak.
+
+- **Kanalen per contact.** Mail, Call en LinkedIn aan of uit (`contacts.no_mail`, `no_call`, `no_linkedin`) en een markering *Left the company*, *Wrong person* of *Wrong number* (`contact_flag`), via `sales_set_contact_flags`. Uit betekent echt uit: `is_suppressed` houdt het contact buiten de mail- en bellijstkandidaten, een wachtend campagnemember stopt, en de call queue slaat het contact over (`callBlockReason`: `own_contact`, `contact_blocked`). Left en Wrong person gelden voor elk kanaal, Wrong number alleen voor bellen. Claude: `update_contacts` met `no_mail`, `no_call`, `no_linkedin`, `contact_flag`.
+- **Verwijderen.** Een contact (de verwijdering staat in de timeline; was het de Main, dan wordt de beste van de rest Main) en een lead (**Delete** op de leadpagina en in de leadtabel bij een selectie). Een lead die al is benaderd (call, mail, reply of meeting), in de pipeline staat of aan een klant hangt blijft staan met een melding: zet die op No go. Contacten, signalen en de timeline van een verwijderde lead gaan mee.
+- **Signalen.** Op de leadpagina bij Signals: **Edit** (titel, link, tekst, offline) en verwijderen.
+- Code: `src/app/dashboard/leads/edit-actions.ts`, `src/components/leads/lead-edit-controls.tsx`. Test: `supabase/tests/leads_own_contact.test.sql`, `tests/own-contact.test.ts`.
+
 ## Snelheid
 
 Leads (789 bedrijven) en Contacts (1.970) laadden in seconden, Contacts in meer dan 4. Oorzaken en wat er nu is:
@@ -217,8 +235,9 @@ Pagina: **Settings, Sales lists** (admin). Per lijst: namen, uitleg, volgorde en
 | Lead status | Hernoemen, uitleggen, volgorde, verbergen | De regels gebruiken de statussen, dus geen nieuwe |
 | Contact status | Idem | De belregels gebruiken ze |
 | Call screen outcomes | Idem, de uitleg staat onder de knop | Elke knop past een belregel toe in `sales_log_call` |
+| Signal types | Extra soorten tot 40 tekens, hernoemen, uitleggen, volgorde (= sterkte), verbergen | Geen regels hangen aan een soort; de volgorde bepaalt het sterkste signaal op het belscherm (`20261124310000_call_screen_signals_cheatsheet.sql`) |
 
-Vast blijven: de pipelinefases, de route, de rol en tier van contacten en de ICP waarden. Een verborgen optie wordt niet meer aangeboden, maar rijen die hem hebben houden hun naam. Per bedrijf staat de **reden voor de prio** (`prio_reason`) op de leadpagina en als kolom *Prio reason*; de uitleg van het prioniveau staat erbij. De lijsten staan in `sales_choice_options` (`20261123410000_sales_choice_lists.sql`, `src/lib/sales/choices.ts`).
+Vast blijven: de pipelinefases, de route, de rol en tier van contacten en de ICP waarden. Een verborgen optie wordt niet meer aangeboden, maar rijen die hem hebben houden hun naam. Per bedrijf staat de **reden voor de prio** (`prio_reason`) op de leadpagina en als kolom *Prio reason*; de uitleg van het prioniveau staat erbij. De uitleg van een prioniveau staat op het belscherm naast de prio: daar zeg je zelf wat P1, P2 en P3 betekenen. De lijsten staan in `sales_choice_options` (`20261123410000_sales_choice_lists.sql`, `src/lib/sales/choices.ts`). Onder de lijsten staat ook de **Call cheat sheet** (de spiekbrief van het belscherm, tabel `sales_call_cheatsheet`), zie [calls.md](calls.md).
 
 ## Eigen kolommen
 

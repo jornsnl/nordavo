@@ -47,7 +47,9 @@ async function Workspace({ params }: { params: Promise<{ slug: string }> }) {
         }
         description={
           workspace.kind !== "shared"
-            ? "Only you can see this workspace, other admins included."
+            ? workspace.kind === "inbox"
+            ? "Only you can see your inbox, other admins included."
+            : "Only you and the people you invite can see this workspace, other admins included."
             : workspace.role === "guest"
               ? "You see the projects you were added to."
               : "Open projects are visible to every member; private ones only to the people in them."

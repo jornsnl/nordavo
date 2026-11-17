@@ -34,11 +34,15 @@ Het logo is `public/email/logo-mark.png` en wordt geladen vanaf `NEXT_PUBLIC_SIT
    | `REPORT_EMAIL_TO` | ja, voor weekrapport en foutmeldingen | `julius@nordavo.nl` |
    | `MAIL_FROM_RECRUITMENT` | nee, valt terug op `MAIL_FROM` | `Nordavo Talent <talent@nordavo.nl>` |
    | `FORMS_DEFAULT_CC` | nee | `floris@nordavo.nl` |
-   | `NEXT_PUBLIC_SITE_URL` | ja, voor links en het logo | `https://portaal.nordavo.nl` |
+   | `NEXT_PUBLIC_SITE_URL` | ja, voor links en het logo | `https://portal.nordavo.nl` (ontbreekt hij of is het localhost in productie, dan gebruiken links `https://portal.nordavo.nl`, zie `src/lib/site-url.ts`) |
 
    Het adres in `MAIL_FROM` en `MAIL_FROM_RECRUITMENT` moet op een geverifieerd domein staan. Het hoeft geen echte mailbox te zijn, maar antwoorden komen daar wel aan; mails aan kandidaten zetten de verstuurder als reply-to.
 4. **Opnieuw deployen**, zodat de nieuwe variabelen geladen worden.
 5. **Testen**: ga als beheerder naar Instellingen (`/dashboard/settings`), blok **Email**. Daar zie je welke variabelen goed staan. Vul een adres in, kies de afzender en klik op **Send test mail**. Gaat het mis, dan staat de reden van Resend in de melding (bijvoorbeeld een domein dat nog niet geverifieerd is). Test elke afzender een keer.
+
+## Uitnodigingen en wachtwoord vergeten
+
+Uitnodigingen uit Settings > Users (`inviteUser`) gaan niet meer via de standaardmail van Supabase maar via Resend, per rol (client, beheerder, teamlid, gast, Content): `src/lib/notify/account-mail.ts`, categorie *Portal invitation*. De link is een eenmalige `generateLink` naar `/auth/confirm`, dus altijd op het publieke adres. Op de loginpagina staat *Forgot password?* (`/login/forgot`, categorie *Password reset*, maximaal één mail per adres per 2 minuten, altijd hetzelfde antwoord). Beheerders sturen onder Settings > Users met *Resend invite / reset password* een nieuwe link. In Supabase (Authentication > URL Configuration) moet de Site URL `https://portal.nordavo.nl` zijn en `https://portal.nordavo.nl/**` bij de Redirect URLs staan; anders valt Supabase bij een eigen mail terug op de Site URL.
 
 ## Mail log
 

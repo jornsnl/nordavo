@@ -138,7 +138,7 @@ export function TaskRow({
         {/* Above the row's link overlay, so a click ticks the box instead of opening the task. */}
         <div className="relative z-10 flex shrink-0 items-center gap-2 pt-0.5">
           <TaskSelectBox taskId={task.id} title={task.title} />
-          {task.status !== "cancelled" && <DoneCheckbox taskId={task.id} title={task.title} done={task.status === "done"} />}
+          {task.status !== "cancelled" && <DoneCheckbox taskId={task.id} title={task.title} done={task.status === "done"} task={task} />}
         </div>
         <div className="min-w-0 flex-1">
           {showContext && (

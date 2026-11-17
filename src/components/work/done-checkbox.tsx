@@ -1,18 +1,58 @@
 "use client";
 
-import { useOptimistic, useState, useTransition } from "react";
+import { useState } from "react";
 import { Check } from "lucide-react";
-import { toggleTaskDoneAction } from "@/app/work/record-actions";
+import { toast } from "@/components/ui/toaster";
+import { submitTaskOp } from "@/lib/offline/sync";
+import type { TaskListItem } from "@/lib/work/data";
 
 /**
- * Round checkbox that ticks a Work task off outside the task page (record
- * tasks block, dashboard). When only the reviewer may finish the task, it
- * goes to review instead and the note says so; refusals are shown.
+ * Round checkbox that ticks a Work task off. The tick goes through the same
+ * outbox as every other change (src/lib/offline): the box and the list change
+ * at once, the server hears about it right after. Before, it waited for a
+ * server action plus a refresh of the whole layout, which took seconds and
+ * let the box spring back in the meantime.
+ *
+ * When only the reviewer may finish the task, the server sends it to review
+ * instead and the sync runtime says so; refusals are reported there too.
+ * `task`: the task as the list shows it, so the device's copy can change.
  */
-export function DoneCheckbox({ taskId, title, done }: { taskId: string; title: string; done: boolean }) {
-  const [optimisticDone, setOptimisticDone] = useOptimistic(done);
-  const [pending, startTransition] = useTransition();
-  const [note, setNote] = useState<{ text: string; error: boolean } | null>(null);
+export function DoneCheckbox({
+  taskId,
+  title,
+  done,
+  task = null,
+}: {
+  taskId: string;
+  title: string;
+  done: boolean;
+  task?: TaskListItem | null;
+}) {
+  // What the user ticked, until the server's state (`done`) changes by itself.
+  const [local, setLocal] = useState<{ from: boolean; value: boolean } | null>(null);
+  const checked = local && local.from === done ? local.value : done;
+
+  async function toggle(next: boolean) {
+    setLocal({ from: done, value: next });
+    try {
+      await submitTaskOp(
+        {
+          op: "task.status",
+          payload: {
+            taskId,
+            status: next ? "done" : "todo",
+            at: new Date().toISOString(),
+            fallbackReview: next,
+            ...(next ? {} : { comment: "Opened again." }),
+          },
+        },
+        task,
+      );
+    } catch {
+      setLocal(null);
+      toast("This change could not be saved on this device.", { tone: "error" });
+    }
+  }
 
   return (
     <span className="relative inline-flex">
@@ -21,24 +61,14 @@ export function DoneCheckbox({ taskId, title, done }: { taskId: string; title: s
         <input
           type="checkbox"
           className="peer absolute inset-0 cursor-pointer opacity-0"
-          checked={optimisticDone}
-          aria-busy={pending}
-          aria-label={optimisticDone ? `Open ${title} again` : `Mark ${title} as done`}
-          onChange={(event) => {
-            const next = event.target.checked;
-            setNote(null);
-            startTransition(async () => {
-              setOptimisticDone(next);
-              const result = await toggleTaskDoneAction(taskId, next);
-              if (result.error) setNote({ text: result.error, error: true });
-              else if (result.message && result.message !== "Done.") setNote({ text: result.message, error: false });
-            });
-          }}
+          checked={checked}
+          aria-label={checked ? `Open ${title} again` : `Mark ${title} as done`}
+          onChange={(event) => void toggle(event.target.checked)}
         />
         <span
           aria-hidden="true"
           className={`flex size-5 items-center justify-center rounded-full border-2 transition peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-brand-500 ${
-            optimisticDone
+            checked
               ? "border-emerald-600 bg-emerald-600 text-white"
               : "border-brand-200 bg-white text-transparent hover:border-brand-500 peer-active:border-brand-500 peer-active:bg-brand-50"
           }`}
@@ -46,23 +76,6 @@ export function DoneCheckbox({ taskId, title, done }: { taskId: string; title: s
           <Check className="size-3.5" strokeWidth={3} />
         </span>
       </label>
-      {note && <DoneNote text={note.text} error={note.error} onClose={() => setNote(null)} />}
     </span>
-  );
-}
-
-function DoneNote({ text, error, onClose }: { text: string; error: boolean; onClose: () => void }) {
-  return (
-    <button
-      type="button"
-      role="status"
-      onClick={onClose}
-      title="Close"
-      className={`absolute top-7 left-0 z-20 w-56 rounded-lg px-2.5 py-1.5 text-left text-xs shadow-md ring-1 ${
-        error ? "bg-red-50 text-danger ring-red-200" : "bg-white text-ink ring-border"
-      }`}
-    >
-      {text}
-    </button>
   );
 }

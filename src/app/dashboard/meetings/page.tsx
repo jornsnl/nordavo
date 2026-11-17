@@ -83,7 +83,7 @@ async function Meetings({ searchParams }: { searchParams: Search }) {
   let query = supabase
     .from("meetings")
     .select(
-      "id, status, fee, reason, scheduled_at, created_at, source, decided_at, caller_id, company:companies!meetings_company_id_fkey(id, name), contact:contacts!meetings_contact_id_fkey(first_name, last_name, title), caller:callers!meetings_caller_id_fkey(name)",
+      "id, status, fee, reason, scheduled_at, created_at, source, with_label, decided_at, caller_id, company:companies!meetings_company_id_fkey(id, name), contact:contacts!meetings_contact_id_fkey(first_name, last_name, title), caller:callers!meetings_caller_id_fkey(name)",
     )
     .or(meetingMonthFilter(month))
     .order("scheduled_at", { ascending: false, nullsFirst: false })
@@ -242,8 +242,8 @@ async function Meetings({ searchParams }: { searchParams: Search }) {
                 <MobileListItem
                   key={m.id}
                   title={m.company?.name ?? "Company"}
-                  subtitle={[contact, m.caller?.name ? `by ${m.caller.name}` : null].filter(Boolean).join(" · ")}
-                  meta={`${m.scheduled_at ? formatDateTime(m.scheduled_at) : "No time yet"} · ${formatCurrency(Number(m.fee))}`}
+                  subtitle={[contact, m.caller?.name ? `by ${m.caller.name}` : null, m.with_label ? `with ${m.with_label}` : null].filter(Boolean).join(" · ")}
+                  meta={`${m.scheduled_at ? formatDateTime(m.scheduled_at) : m.status === "awaiting_booking" ? "Waiting for the booking" : "No time yet"} · ${formatCurrency(Number(m.fee))}`}
                   trailing={<Badge tone={s?.tone}>{s?.label ?? m.status}</Badge>}
                 >
                   {m.reason && <p className="mb-2 text-sm whitespace-pre-line text-ink/80">{m.reason}</p>}
@@ -273,7 +273,8 @@ async function Meetings({ searchParams }: { searchParams: Search }) {
                   <TR key={m.id}>
                     <TD className="whitespace-nowrap">
                       {m.scheduled_at ? formatDateTime(m.scheduled_at) : <span className="text-muted">No time yet</span>}
-                      <span className="block text-xs text-muted">{m.source === "calcom" ? "Cal.com" : m.source === "handmatig" ? "By hand" : m.source}</span>
+                      <span className="block text-xs text-muted">{m.source === "calcom" ? "Cal.com" : m.source === "handmatig" ? "By hand" : m.source}
+                        {m.with_label ? ` · with ${m.with_label}` : ""}</span>
                     </TD>
                     <TD>
                       {m.company ? (

@@ -1,13 +1,14 @@
 "use client";
 
 import { useActionState, useEffect, useRef, useState, useTransition } from "react";
-import { Check, CalendarPlus, LoaderCircle, Search, ThumbsDown, ThumbsUp, UserX, X } from "lucide-react";
+import { Check, CalendarClock, CalendarPlus, LoaderCircle, Search, ThumbsDown, ThumbsUp, UserX, X } from "lucide-react";
 import { type ActionState, initialActionState } from "@/lib/action-state";
 import type { MeetingStatus } from "@/lib/sales/database";
 import { todayIso } from "@/lib/format";
 import {
   type CompanyHit,
   addMeeting,
+  rescheduleMeeting,
   searchMeetingCompanies,
   setMeetingStatus,
   updateMeetingFee,
@@ -34,6 +35,7 @@ export function MeetingActions({
   const [pending, startTransition] = useTransition();
   const [editingFee, setEditingFee] = useState(false);
   const [feeValue, setFeeValue] = useState(String(fee));
+  const [moving, setMoving] = useState(false);
 
   function run(fn: () => Promise<ActionState>) {
     setResult({});
@@ -49,6 +51,19 @@ export function MeetingActions({
   return (
     <div className="space-y-1.5">
       <div className="flex flex-wrap gap-1.5 pointer-coarse:[&_button]:min-h-10">
+        {/* Waiting for the Cal.com booking: it counts nowhere yet. The caller or the team can give up. */}
+        {status === "awaiting_booking" && (
+          <Button size="sm" variant="ghost" onClick={set("cancelled")} disabled={pending}>
+            <X aria-hidden="true" />
+            Not booked
+          </Button>
+        )}
+        {(status === "planned" || status === "no_show") && (
+          <Button size="sm" variant="secondary" onClick={() => setMoving(true)} disabled={pending}>
+            <CalendarClock aria-hidden="true" />
+            {status === "no_show" ? "Called, new time" : "Move"}
+          </Button>
+        )}
         {status === "planned" && (
           <>
             <Button size="sm" variant="secondary" onClick={set("held")} disabled={pending}>
@@ -110,7 +125,52 @@ export function MeetingActions({
         </form>
       )}
       {result.error && <p className="text-xs text-danger">{result.error}</p>}
+      <Modal
+        open={moving}
+        onClose={() => setMoving(false)}
+        title="Move the meeting"
+        description="Log that you called and pick the new time. It stays the same meeting, with its history."
+      >
+        <RescheduleForm meetingId={meetingId} onDone={() => setMoving(false)} />
+      </Modal>
     </div>
+  );
+}
+
+/** After a no show: what happened when you called, a note and the new date and time. */
+function RescheduleForm({ meetingId, onDone }: { meetingId: string; onDone: () => void }) {
+  const [state, formAction, pending] = useActionState(rescheduleMeeting.bind(null, meetingId), initialActionState);
+  const errors = state.fieldErrors ?? {};
+  useEffect(() => {
+    if (state.ok) onDone();
+  }, [state, onDone]);
+  return (
+    <form onSubmit={submitWithoutReset(formAction)} className="space-y-4" noValidate>
+      <FormMessage error={state.error} />
+      <Field label="What happened when you called?" htmlFor="mv-outcome" required error={errors.outcome}>
+        <Select id="mv-outcome" name="outcome" defaultValue="reached">
+          <option value="reached">Reached them, agreed a new time</option>
+          <option value="no_answer">No answer</option>
+          <option value="voicemail">Left a voicemail</option>
+        </Select>
+      </Field>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field label="New date" htmlFor="mv-date" required error={errors.date}>
+          <Input id="mv-date" name="date" type="date" defaultValue={todayIso()} required />
+        </Field>
+        <Field label="New time (Amsterdam)" htmlFor="mv-time" required error={errors.time}>
+          <Input id="mv-time" name="time" type="time" defaultValue="10:00" required />
+        </Field>
+      </div>
+      <Field label="Note (optional)" htmlFor="mv-note" error={errors.note}>
+        <Textarea id="mv-note" name="note" rows={2} maxLength={2000} placeholder="Why they could not make it, who you spoke to" />
+      </Field>
+      <div className="flex justify-end max-sm:*:w-full">
+        <PendingSubmit pending={pending} pendingLabel="Saving">
+          Save new time
+        </PendingSubmit>
+      </div>
+    </form>
   );
 }
 

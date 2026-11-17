@@ -87,6 +87,8 @@ type FlowCompany = {
   source_list: string | null;
   prio_reason: string | null;
   followed_at: string | null;
+  own_contact: boolean;
+  own_contact_reason: string | null;
   custom_fields: unknown;
 };
 
@@ -115,7 +117,7 @@ export async function loadFlowExtras(db: Db, kind: "companies" | "contacts" | "p
         (from, to) =>
           db
             .from("companies")
-            .select("id, bucket, source_list, prio_reason, followed_at, custom_fields")
+            .select("id, bucket, source_list, prio_reason, followed_at, own_contact, own_contact_reason, custom_fields")
             .order("id")
             .range(from, to) as never,
       ),
@@ -164,6 +166,8 @@ export function applyFlow<T extends { id: string }>(
       flow_free: company ? isFree(company.bucket, occ) : false,
       [`${prefix}prio_reason`]: company?.prio_reason ?? null,
       [`${prefix}followed`]: Boolean(company?.followed_at),
+      [`${prefix}own_contact`]: company?.own_contact === true,
+      [`${prefix}own_contact_reason`]: company?.own_contact_reason ?? null,
     };
     const cv = values(company?.custom_fields);
     for (const c of companyCols) extra[customKey("company", c.key)] = cv[c.key] ?? null;

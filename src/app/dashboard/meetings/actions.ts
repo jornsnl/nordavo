@@ -82,6 +82,7 @@ export async function addMeeting(_prev: ActionState, formData: FormData): Promis
 const statuses: MeetingStatus[] = ["planned", "held", "approved", "rejected", "no_show", "cancelled"];
 
 const statusMessages: Record<MeetingStatus, string> = {
+  awaiting_booking: "Back to awaiting booking.",
   planned: "Back to planned.",
   held: "Marked as held.",
   approved: "Approved. The caller earns the fee.",
@@ -107,6 +108,72 @@ export async function setMeetingStatus(meetingId: string, status: MeetingStatus)
   }
   revalidate();
   return { ok: true, message: statusMessages[status] };
+}
+
+const rescheduleSchema = z.object({
+  date: z.string({ error: "Pick a date" }).regex(/^\d{4}-\d{2}-\d{2}$/, { error: "Pick a date" }),
+  time: z.string({ error: "Use a time like 14:30" }).regex(/^\d{2}:\d{2}$/, { error: "Use a time like 14:30" }),
+  outcome: z.enum(["reached", "no_answer", "voicemail"], { error: "Pick what happened" }),
+  note: z.string().max(2000, { error: "At most 2000 characters" }).optional(),
+});
+
+const calledOutcomes = {
+  reached: { outcome: "bereikt", label: "Reached them" },
+  no_answer: { outcome: "geen_gehoor", label: "No answer" },
+  voicemail: { outcome: "geen_gehoor", label: "Left a voicemail" },
+} as const;
+
+/**
+ * A no show, or a meeting that has to move: log the call to the contact (what happened, a note)
+ * and give the SAME meeting its new date and time (status back to planned). The history stays:
+ * the earlier no show, this call and the new time are all in Activities of the meeting.
+ * Moving in Cal.com itself works too (the webhook moves the meeting).
+ */
+export async function rescheduleMeeting(meetingId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  const user = await requireModule("sales");
+  if (!z.guid().safeParse(meetingId).success) return { error: GENERIC_ERROR };
+  const parsed = rescheduleSchema.safeParse(formValues(formData));
+  if (!parsed.success) return { error: "Check the highlighted fields.", fieldErrors: fieldErrorsFrom(parsed.error) };
+  const v = parsed.data;
+  const supabase = await createClient();
+  const { data: meeting } = await supabase
+    .from("meetings")
+    .select("id, status, company_id, contact_id, caller_id, scheduled_at")
+    .eq("id", meetingId)
+    .maybeSingle();
+  if (!meeting) return { error: "Meeting not found." };
+  if (!["planned", "no_show"].includes(meeting.status)) return { error: "Only a planned meeting or a no show can be moved." };
+  const when = amsterdamLocalToIso(v.date, v.time);
+  const called = calledOutcomes[v.outcome];
+  const stamp = new Intl.DateTimeFormat("en-GB", { dateStyle: "medium", timeStyle: "short", timeZone: "Europe/Amsterdam" }).format(new Date(when));
+  const notes = [`${called.label}. New time: ${stamp}.`, v.note?.trim()].filter(Boolean).join("\n");
+  const { error: logError } = await supabase.from("activities").insert({
+    company_id: meeting.company_id,
+    contact_id: meeting.contact_id,
+    caller_id: meeting.caller_id,
+    meeting_id: meeting.id,
+    channel: "bellen",
+    type: "contact",
+    direction: "outbound",
+    outcome: called.outcome,
+    notes,
+    source: "handmatig",
+    created_by: user.id,
+  });
+  if (logError) {
+    console.error("rescheduleMeeting log", logError.code, logError.message);
+    return { error: GENERIC_ERROR };
+  }
+  const { error } = await supabase
+    .from("meetings")
+    .update({ scheduled_at: when, status: "planned" })
+    .eq("id", meeting.id);
+  if (error) {
+    console.error("rescheduleMeeting", error.code, error.message);
+    return { error: GENERIC_ERROR };
+  }
+  revalidate();
+  return { ok: true, message: `Moved to ${stamp}.` };
 }
 
 const feeSchema = z

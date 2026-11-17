@@ -110,6 +110,8 @@ test("applyChoiceLists puts the configured options and parser on prio and status
     lead_status: mergeChoices("lead_status", []),
     contact_status: mergeChoices("contact_status", []),
     call_outcome: mergeChoices("call_outcome", []),
+    reject_reason: mergeChoices("reject_reason", []),
+    signal_type: mergeChoices("signal_type", []),
   };
   const cols = applyChoiceLists(companyColumns, lists);
   const prio = cols.find((c) => c.key === "prio")!;
@@ -220,7 +222,7 @@ test("the call sheet has one row per contact with roles, vacancies, days open an
   assert.deepEqual(r.links.map((l) => l.label), ["Data engineer", "Website", "LinkedIn"]);
   assert.equal(r.links[2].url, "https://linkedin.com/in/jane");
   assert.equal(r.callable, true);
-  assert.match(sheetToTsv(rows).split("\n")[1], /^Acme\tJane\tCTO\t020 123\tSaw your data roles\tJava developer, Data engineer\t2\t30/);
+  assert.match(sheetToTsv(rows).split("\n")[1], /^Acme\tJane\tCTO\t020 123\t020 123\tSaw your data roles\tJava developer, Data engineer\t2\t30/);
 });
 
 // ---------------------------------------------------------------------------
