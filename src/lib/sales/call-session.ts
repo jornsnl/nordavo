@@ -150,10 +150,65 @@ function personName(first: string | null, last: string | null) {
   return [first, last].filter(Boolean).join(" ").trim();
 }
 
+/**
+ * The contact moments of a company, newest first (calls, mails, LinkedIn,
+ * meetings), with who did them. Shared by the call screen and the call sheet
+ * (its folded out history). contactNames maps a contact id to its name.
+ */
+export async function loadCompanyTimeline(db: Db, companyId: string, contactNames: Map<string, string>): Promise<CallTimelineItem[]> {
+  // Only contact moments: calls, mails, LinkedIn and meetings (no field changes or views).
+  const { data } = await db
+    .from("activities")
+    .select("id, date, type, channel, outcome, notes, created_by, caller_id, contact_id")
+    .eq("company_id", companyId)
+    .in("type", [...contactMomentTypes])
+    .order("date", { ascending: false })
+    .order("created_at", { ascending: false })
+    .limit(60);
+  const activities = data ?? [];
+  const people = new Set(activities.map((a) => a.created_by).filter((v): v is string => Boolean(v)));
+  const callerIds = new Set(activities.map((a) => a.caller_id).filter((v): v is string => Boolean(v)));
+  const [{ data: profiles }, { data: callerRows }] = await Promise.all([
+    people.size > 0 ? db.from("profiles").select("id, full_name, email").in("id", [...people]) : Promise.resolve({ data: [] }),
+    callerIds.size > 0 ? db.from("callers").select("id, name").in("id", [...callerIds]) : Promise.resolve({ data: [] }),
+  ]);
+  const who = new Map((profiles ?? []).map((p) => [p.id, p.full_name || p.email?.split("@")[0] || "Someone"]));
+  const callerNames = new Map((callerRows ?? []).map((r) => [r.id, r.name]));
+  return buildContactTimeline(activities, who, contactNames, callerNames);
+}
+
+/** The outcome buttons with the labels, order and hidden flags of Settings, Sales lists (all outcomes when none is set). */
+export function outcomeButtons(list: Parameters<typeof pickable>[0]): { value: CallOutcome; label: string; description: string | null }[] {
+  const known = new Set<string>(callOutcomes.map((o) => o.value));
+  const buttons = pickable(list)
+    .filter((o) => known.has(o.value))
+    .map((o) => ({ value: o.value as CallOutcome, label: o.label, description: o.description }));
+  return buttons.length > 0 ? buttons : callOutcomes.map((o) => ({ value: o.value, label: o.label, description: null }));
+}
+
+/** The outcome buttons for the call sheet. */
+export async function loadOutcomeButtons(db: Db) {
+  return outcomeButtons((await loadChoiceLists(db)).call_outcome);
+}
+
+/** What happened when a contact is held: held, taken by someone else, or not allowed. */
+export type ClaimResult = "held" | "taken" | "denied" | "error";
+
+/** Holds one contact for the person calling (sales_claim_contact); nobody else gets it for 30 minutes. */
+export async function claimCall(actor: CallActor, contactId: string): Promise<ClaimResult> {
+  if (!z.guid().safeParse(contactId).success) return "error";
+  const { data, error } = await actor.db.rpc("sales_claim_contact", { p_contact: contactId, p_actor: actor.pActor });
+  if (error) {
+    console.error("claimCall", error.code, error.message);
+    return error.code === "42501" ? "denied" : "error";
+  }
+  return data ? "held" : "taken";
+}
+
 async function loadCard(actor: CallActor, entry: QueueEntry, index: number, total: number, rows: Map<string, ContactRow>, listNames: Map<string, string>): Promise<CallCard | null> {
   const { db } = actor;
   const row = rows.get(entry.contactId);
-  const [company, signals, activities, profile, lists, cheatsheet, wrong] = await Promise.all([
+  const [company, signals, profile, lists, cheatsheet, wrong] = await Promise.all([
     db
       .from("companies")
       .select("id, name, domain, website, prio, prio_reason, city, sector, employees, description, opening_line, red_flags, general_phone")
@@ -166,15 +221,6 @@ async function loadCard(actor: CallActor, entry: QueueEntry, index: number, tota
       .is("closed_at", null)
       .order("last_seen_at", { ascending: false })
       .limit(40),
-    // Only contact moments: calls, mails, LinkedIn and meetings (no field changes or views).
-    db
-      .from("activities")
-      .select("id, date, type, channel, outcome, notes, created_by, caller_id, contact_id")
-      .eq("company_id", entry.companyId)
-      .in("type", [...contactMomentTypes])
-      .order("date", { ascending: false })
-      .order("created_at", { ascending: false })
-      .limit(60),
     db.from("profiles").select("dial_template").eq("id", actor.actorId).maybeSingle(),
     loadChoiceLists(db),
     loadCheatsheet(db),
@@ -185,27 +231,16 @@ async function loadCard(actor: CallActor, entry: QueueEntry, index: number, tota
   const c = company.data;
   const wrongPhone = new Set((wrong.error ? [] : (wrong.data ?? [])).map((w) => w.id));
 
-  const people = new Set((activities.data ?? []).map((a) => a.created_by).filter((v): v is string => Boolean(v)));
-  const callerIds = new Set((activities.data ?? []).map((a) => a.caller_id).filter((v): v is string => Boolean(v)));
-  const [{ data: profiles }, { data: callerRows }] = await Promise.all([
-    people.size > 0 ? db.from("profiles").select("id, full_name, email").in("id", [...people]) : Promise.resolve({ data: [] }),
-    callerIds.size > 0 ? db.from("callers").select("id, name").in("id", [...callerIds]) : Promise.resolve({ data: [] }),
-  ]);
-  const who = new Map((profiles ?? []).map((p) => [p.id, p.full_name || p.email?.split("@")[0] || "Someone"]));
-  const callerNames = new Map((callerRows ?? []).map((r) => [r.id, r.name]));
   const contactNames = new Map<string, string>();
   for (const r of rows.values()) {
     if (r.company_id === entry.companyId) contactNames.set(r.id, r.full_name || personName(r.first_name, r.last_name) || "Unknown contact");
   }
-  const timeline = buildContactTimeline(activities.data ?? [], who, contactNames, callerNames);
+  const timeline = await loadCompanyTimeline(db, entry.companyId, contactNames);
 
   const name = row.full_name || personName(row.first_name, row.last_name) || "Unknown contact";
   const template = profile.error ? null : (profile.data?.dial_template ?? null);
   const { dial, generalDial } = callNumbers({ phone: row.phone, phoneWrong: wrongPhone.has(row.id) }, c.general_phone, (n) => dialHref(n, template));
-  const known = new Set<string>(callOutcomes.map((o) => o.value));
-  const outcomes = pickable(lists.call_outcome)
-    .filter((o) => known.has(o.value))
-    .map((o) => ({ value: o.value as CallOutcome, label: o.label, description: o.description }));
+  const outcomes = outcomeButtons(lists.call_outcome);
 
   const others = [...rows.values()]
     .filter((r) => r.company_id === entry.companyId && r.id !== row.id)
@@ -295,7 +330,7 @@ async function loadCard(actor: CallActor, entry: QueueEntry, index: number, tota
     dial,
     generalDial,
     dialTemplate: template,
-    outcomes: outcomes.length > 0 ? outcomes : callOutcomes.map((o) => ({ value: o.value, label: o.label, description: null })),
+    outcomes,
     vacancies,
     signals: summary.signals,
     others,
@@ -314,7 +349,8 @@ async function loadCard(actor: CallActor, entry: QueueEntry, index: number, tota
   };
 }
 
-async function callOptions(actor: CallActor): Promise<CallOptions> {
+/** What the follow-up windows offer; also used by the call sheet. */
+export async function callOptions(actor: Pick<CallActor, "db" | "callerId" | "actorId">): Promise<CallOptions> {
   const lists = await loadChoiceLists(actor.db);
   const reasons = pickable(lists.reject_reason).map((o) => ({ value: o.value, label: o.label, description: o.description }));
   // External callers do not see who is on the team; the next step stays with Nordavo.
@@ -338,17 +374,10 @@ export async function nextCall(actor: CallActor, scope: QueueScope, exclude: str
   const total = entries.length;
   for (let i = 0; i < Math.min(total, MAX_CLAIM_TRIES); i++) {
     const entry = entries[i];
-    const { data: held, error } = await actor.db.rpc("sales_claim_contact", {
-      p_contact: entry.contactId,
-      p_actor: actor.pActor,
-    });
-    if (error) {
-      console.error("nextCall claim", error.code, error.message);
-      if (error.code === "42501") return { card: null, remaining: 0, error: "You no longer have access to calling." };
-      continue;
-    }
-    // Opened by someone else in the meantime: skip to the next.
-    if (!held) continue;
+    const held = await claimCall(actor, entry.contactId);
+    if (held === "denied") return { card: null, remaining: 0, error: "You no longer have access to calling." };
+    // Opened by someone else in the meantime (or a hiccup): skip to the next.
+    if (held !== "held") continue;
     const card = await loadCard(actor, entry, i, total, queue.rows, listNames);
     if (card) return { card, remaining: total - i - 1, options: await callOptions(actor) };
     await releaseCall(actor, entry.contactId);
@@ -412,11 +441,25 @@ const sqlMessages = [
   "Pick someone from the team as owner",
 ];
 
-/** Logs one outcome (sales_log_call applies every call rule) and holds the next contact. */
-export async function logCall(actor: CallActor, scope: QueueScope, input: CallInput, exclude: string[]): Promise<CallStep> {
+/** What one saved outcome did; the call screen and the call sheet both build on it. */
+export type RecordedCall =
+  | {
+      ok: true;
+      input: z.output<typeof callInputSchema>;
+      companyId: string | null;
+      attempts: number;
+      activityId: string | null;
+      newContactId: string | null;
+      /** The contact called and, for outcomes about the company, all its contacts. */
+      handled: string[];
+    }
+  | { ok: false; error: string };
+
+/** Logs one outcome (sales_log_call applies every call rule). Opens no next contact. */
+export async function recordCall(actor: CallActor, input: CallInput): Promise<RecordedCall> {
   const parsed = callInputSchema.safeParse(input);
   if (!parsed.success) {
-    return { card: null, remaining: 0, error: parsed.error.issues[0]?.message ?? "Check the outcome." };
+    return { ok: false, error: parsed.error.issues[0]?.message ?? "Check the outcome." };
   }
   const v = parsed.data;
   const o = v.outcome;
@@ -453,8 +496,7 @@ export async function logCall(actor: CallActor, scope: QueueScope, input: CallIn
     console.error("logCall", error.code, error.message);
     const known = sqlMessages.find((m) => error.message.includes(m));
     return {
-      card: null,
-      remaining: 0,
+      ok: false,
       error: known
         ? known === sqlMessages[0]
           ? "This contact was released (open for more than 30 minutes or taken over). Open the next contact."
@@ -463,10 +505,6 @@ export async function logCall(actor: CallActor, scope: QueueScope, input: CallIn
     };
   }
 
-  // Person outcomes (no answer, wrong number, wrong person): the next contact of the same
-  // company. Company outcomes (call back, interested, meeting planned, not interested): the
-  // whole company is done for this session, so the next company follows. After Referred the
-  // referred contact is next.
   const { data: contact } = await actor.db.from("contacts").select("company_id").eq("id", v.contactId).maybeSingle();
   const companyId = contact?.company_id ?? null;
   const handled = [v.contactId];
@@ -474,9 +512,30 @@ export async function logCall(actor: CallActor, scope: QueueScope, input: CallIn
     const { data: siblings } = await actor.db.from("contacts").select("id").eq("company_id", companyId);
     for (const s of siblings ?? []) if (!handled.includes(s.id)) handled.push(s.id);
   }
+  return {
+    ok: true,
+    input: v,
+    companyId,
+    attempts: data?.attempts ?? 0,
+    activityId: data?.activity_id ?? null,
+    newContactId: data?.new_contact_id ?? null,
+    handled,
+  };
+}
+
+/** Logs one outcome and holds the next contact. */
+export async function logCall(actor: CallActor, scope: QueueScope, input: CallInput, exclude: string[]): Promise<CallStep> {
+  const done = await recordCall(actor, input);
+  if (!done.ok) return { card: null, remaining: 0, error: done.error };
+  const { companyId, handled } = done;
+  const o = done.input.outcome;
+  // Person outcomes (no answer, wrong number, wrong person): the next contact of the same
+  // company. Company outcomes (call back, interested, meeting planned, not interested): the
+  // whole company is done for this session, so the next company follows. After Referred the
+  // referred contact is next.
   const prefer: QueuePreference | undefined =
     o === "referred"
-      ? { contactId: data?.new_contact_id ?? null, companyId }
+      ? { contactId: done.newContactId, companyId }
       : outcomeScope[o] === "person"
         ? { companyId }
         : undefined;
@@ -484,7 +543,7 @@ export async function logCall(actor: CallActor, scope: QueueScope, input: CallIn
   return {
     ...next,
     handled,
-    logged: { outcome: labelOf(callOutcomes, o), attempts: data?.attempts ?? 0, activityId: data?.activity_id ?? null },
+    logged: { outcome: labelOf(callOutcomes, o), attempts: done.attempts, activityId: done.activityId },
   };
 }
 
@@ -494,19 +553,27 @@ const undoMessages: Record<string, string> = {
   "This contact was changed after the call": "Somebody else changed this contact after your call, so it cannot be undone.",
 };
 
+/** Puts back everything one call changed (sales_undo_call) and holds the contact again. The call sheet uses it too. */
+export async function revertCall(actor: CallActor, activityId: string): Promise<{ ok: true; contactId: string } | { ok: false; error: string }> {
+  if (!z.guid().safeParse(activityId).success) return { ok: false, error: undoMessages["Nothing to undo"] };
+  const { data, error } = await actor.db.rpc("sales_undo_call", { p_activity: activityId, p_actor: actor.pActor });
+  if (error || !data) {
+    if (error) console.error("undoCall", error.code, error.message);
+    const known = Object.keys(undoMessages).find((m) => error?.message.includes(m));
+    return { ok: false, error: known ? undoMessages[known] : "The undo did not work. Please try again." };
+  }
+  return { ok: true, contactId: data.contact_id };
+}
+
 /**
  * Undo (feedback Julius, 66065265): sales_undo_call puts back everything the call
  * changed and holds the contact again, then the contact open now (the next one) is
  * let go. When the undo is refused the screen keeps the contact it has.
  */
 export async function undoCall(actor: CallActor, scope: QueueScope, activityId: string, current: string | null): Promise<CallStep> {
-  if (!z.guid().safeParse(activityId).success) return { card: null, remaining: 0, error: undoMessages["Nothing to undo"] };
-  const { data, error } = await actor.db.rpc("sales_undo_call", { p_activity: activityId, p_actor: actor.pActor });
-  if (error || !data) {
-    if (error) console.error("undoCall", error.code, error.message);
-    const known = Object.keys(undoMessages).find((m) => error?.message.includes(m));
-    return { card: null, remaining: 0, error: known ? undoMessages[known] : "The undo did not work. Please try again." };
-  }
+  const undone = await revertCall(actor, activityId);
+  if (!undone.ok) return { card: null, remaining: 0, error: undone.error };
+  const data = { contact_id: undone.contactId };
   if (current && current !== data.contact_id) await releaseCall(actor, current);
   const queue = await loadQueue(actor.db, scope, { actorId: actor.actorId, exclude: [] });
   const row = queue.rows.get(data.contact_id);

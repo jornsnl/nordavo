@@ -33,6 +33,8 @@ export type OutcomeDialogProps = {
   pending: boolean;
   /** What went wrong on the server, shown in the window. */
   error?: string;
+  /** "side" opens the window as a panel against the right edge (the call sheet); the call screen keeps it centred. */
+  placement?: "center" | "side";
   /** Called with everything filled in; the caller adds the contact and logs the call. */
   onSave: (fields: OutcomeFields) => void;
   onClose: () => void;
@@ -48,10 +50,21 @@ const hints: Partial<Record<CallOutcome, string>> = {
   wrong_number: "If you know the right number, add it.",
 };
 
-export function OutcomeDialog({ outcome, outcomeLabel, contactName, companyName, ...rest }: OutcomeDialogProps) {
+/** Colours of the outcome buttons, by the tone of the outcome (shared by the call screen and the call sheet). */
+export const outcomeToneClasses: Record<string, string> = {
+  success: "border-emerald-600/30 bg-emerald-50 text-emerald-800 hover:bg-emerald-100",
+  danger: "border-danger/30 bg-danger-bg text-danger hover:bg-danger/10",
+  warning: "border-amber-600/30 bg-amber-50 text-amber-800 hover:bg-amber-100",
+  brand: "border-brand-200 bg-brand-50 text-brand-800 hover:bg-brand-100",
+  neutral: "border-border bg-white text-ink hover:bg-surface",
+  accent: "border-accent-500/30 bg-accent-100 text-brand-900 hover:bg-accent-100/70",
+};
+
+export function OutcomeDialog({ outcome, outcomeLabel, contactName, companyName, placement, ...rest }: OutcomeDialogProps) {
   return (
     <Modal
       open={outcome !== null}
+      placement={placement}
       onClose={rest.onClose}
       title={outcomeLabel}
       description={`${contactName}${companyName ? ` at ${companyName}` : ""}`}
@@ -70,7 +83,7 @@ function OutcomeForm({
   error,
   onSave,
   onClose,
-}: Omit<OutcomeDialogProps, "outcome" | "outcomeLabel" | "contactName" | "companyName"> & { outcome: CallOutcome }) {
+}: Omit<OutcomeDialogProps, "outcome" | "outcomeLabel" | "contactName" | "companyName" | "placement"> & { outcome: CallOutcome }) {
   const today = todayIso();
   const [fields, setFields] = useState<OutcomeFields>({
     outcome,

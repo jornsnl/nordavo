@@ -48,9 +48,9 @@ export function usePeople(card: CallCard) {
   return { main, others, apply };
 }
 
-const emptyPerson = { firstName: "", lastName: "", title: "", phone: "", email: "" };
+export const emptyPerson = { firstName: "", lastName: "", title: "", phone: "", email: "" };
 
-function PersonForm({
+export function PersonForm({
   idPrefix,
   initial,
   submitLabel,
@@ -105,7 +105,7 @@ function PersonForm({
   );
 }
 
-function initialOf(p: CallContactPerson) {
+export function initialOf(p: CallContactPerson) {
   return { firstName: p.firstName ?? "", lastName: p.lastName ?? "", title: p.title ?? "", phone: p.phone ?? "", email: p.email ?? "" };
 }
 

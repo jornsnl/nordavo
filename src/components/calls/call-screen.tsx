@@ -37,7 +37,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { Field, FormMessage, Textarea } from "@/components/ui/field";
 import { dismissToast, toast } from "@/components/ui/toaster";
-import { OutcomeDialog } from "@/components/calls/outcome-dialog";
+import { OutcomeDialog, outcomeToneClasses } from "@/components/calls/outcome-dialog";
 import { needsFollowUp, type OutcomeFields } from "@/lib/sales/call-outcome";
 
 export type CallScreenActions = {
@@ -493,14 +493,6 @@ function OutcomePanel({
     save({ outcome, note });
   }
 
-  const toneClasses: Record<string, string> = {
-    success: "border-emerald-600/30 bg-emerald-50 text-emerald-800 hover:bg-emerald-100",
-    danger: "border-danger/30 bg-danger-bg text-danger hover:bg-danger/10",
-    warning: "border-amber-600/30 bg-amber-50 text-amber-800 hover:bg-amber-100",
-    brand: "border-brand-200 bg-brand-50 text-brand-800 hover:bg-brand-100",
-    neutral: "border-border bg-white text-ink hover:bg-surface",
-    accent: "border-accent-500/30 bg-accent-100 text-brand-900 hover:bg-accent-100/70",
-  };
   const buttons = card.outcomes.map((c) => ({
     ...(callOutcomes.find((o) => o.value === c.value) ?? callOutcomes[0]),
     label: c.label,
@@ -529,7 +521,7 @@ function OutcomePanel({
               type="button"
               disabled={pending}
               onClick={(e) => press(o.value, e.timeStamp)}
-              className={`min-h-12 rounded-xl border px-3 py-2 text-sm font-semibold transition active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-brand-500 disabled:opacity-60 ${toneClasses[o.tone]}`}
+              className={`min-h-12 rounded-xl border px-3 py-2 text-sm font-semibold transition active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-brand-500 disabled:opacity-60 ${outcomeToneClasses[o.tone]}`}
             >
               {o.label}
               {o.description && <span className="block text-xs font-normal opacity-80">{o.description}</span>}

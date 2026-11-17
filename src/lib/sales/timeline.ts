@@ -177,6 +177,12 @@ const outcomeNames: Record<string, string> = {
   wrong_number: "Wrong number",
 };
 
+/** The readable name of a call or contact outcome ("no_answer" becomes "No answer"). */
+export function outcomeName(outcome: string | null | undefined): string | null {
+  if (!outcome) return null;
+  return outcomeNames[outcome] ?? outcome.replace(/_/g, " ");
+}
+
 /** "Call: No answer", "Mail: Positive reply". */
 export function describeContactMoment(row: Pick<ContactMomentRow, "channel" | "outcome" | "type">): string {
   const channel = channelNames[row.channel] ?? row.channel;

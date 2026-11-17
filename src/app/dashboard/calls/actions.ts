@@ -15,6 +15,19 @@ import {
   teamScope,
   undoCall,
 } from "@/lib/sales/call-session";
+import {
+  claimSheetContact,
+  logSheetCall,
+  reloadSheetRow,
+  sheetHistory,
+  sheetScopeFor,
+  undoSheetCall,
+  type ClaimedContact,
+  type SheetHistory,
+  type SheetLogged,
+  type SheetReloaded,
+  type SheetUndone,
+} from "@/lib/sales/call-sheet-actions";
 import { createClient } from "@/lib/supabase/server";
 
 // The call screen for the team (admins and internal users with Sales). They
@@ -82,4 +95,35 @@ export async function markTeamPhone(contactId: string, wrong: boolean): Promise<
 
 export async function addTeamContact(companyId: string, input: PersonInput): Promise<ContactEdit> {
   return addCallContact(await teamActor(), companyId, input);
+}
+
+// The call sheet (f5d4375a): the same functions as the call screen, but no
+// next contact opens; the sheet stays where it is.
+
+const NO_LIST = { ok: false, error: "Pick a call list first." } as const;
+
+export async function claimTeamSheetContact(contactId: string): Promise<ClaimedContact> {
+  return claimSheetContact(await teamActor(), contactId);
+}
+
+export async function teamSheetHistory(companyId: string): Promise<SheetHistory> {
+  return sheetHistory(await teamActor(), companyId);
+}
+
+export async function logTeamSheetCall(listId: unknown, input: CallInput): Promise<SheetLogged> {
+  const actor = await teamActor();
+  const scope = sheetScopeFor(actor, listId);
+  return scope ? logSheetCall(actor, scope, input) : NO_LIST;
+}
+
+export async function undoTeamSheetCall(listId: unknown, activityId: unknown): Promise<SheetUndone> {
+  const actor = await teamActor();
+  const scope = sheetScopeFor(actor, listId);
+  return scope ? undoSheetCall(actor, scope, typeof activityId === "string" ? activityId : "") : NO_LIST;
+}
+
+export async function reloadTeamSheetRow(listId: unknown, companyId: string): Promise<SheetReloaded> {
+  const actor = await teamActor();
+  const scope = sheetScopeFor(actor, listId);
+  return scope ? reloadSheetRow(actor, scope, companyId) : NO_LIST;
 }

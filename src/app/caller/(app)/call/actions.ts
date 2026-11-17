@@ -14,6 +14,19 @@ import {
   skipCall,
   undoCall,
 } from "@/lib/sales/call-session";
+import {
+  claimSheetContact,
+  logSheetCall,
+  reloadSheetRow,
+  sheetHistory,
+  sheetScopeFor,
+  undoSheetCall,
+  type ClaimedContact,
+  type SheetHistory,
+  type SheetLogged,
+  type SheetReloaded,
+  type SheetUndone,
+} from "@/lib/sales/call-sheet-actions";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 // The call screen for external callers. They have no table access of their
@@ -99,4 +112,40 @@ export async function addCallerContact(companyId: string, input: PersonInput): P
   const actor = await callerActor();
   if (!actor || !actor.callerId) return NOT_AVAILABLE;
   return addCallContact(actor, companyId, input);
+}
+
+// The call sheet (f5d4375a): the same functions as the call screen, but no
+// next contact opens. The scope is always the caller's own queue.
+
+const SHEET_UNAVAILABLE = { ok: false, error: "Calling is not available right now. Ask Nordavo to finish the setup." } as const;
+
+async function sheetActor() {
+  const actor = await callerActor();
+  const scope = actor ? sheetScopeFor(actor, null) : null;
+  return actor && scope ? { actor, scope } : null;
+}
+
+export async function claimCallerSheetContact(contactId: string): Promise<ClaimedContact> {
+  const a = await sheetActor();
+  return a ? claimSheetContact(a.actor, contactId) : SHEET_UNAVAILABLE;
+}
+
+export async function callerSheetHistory(companyId: string): Promise<SheetHistory> {
+  const a = await sheetActor();
+  return a ? sheetHistory(a.actor, companyId) : SHEET_UNAVAILABLE;
+}
+
+export async function logCallerSheetCall(_listId: unknown, input: CallInput): Promise<SheetLogged> {
+  const a = await sheetActor();
+  return a ? logSheetCall(a.actor, a.scope, input) : SHEET_UNAVAILABLE;
+}
+
+export async function undoCallerSheetCall(_listId: unknown, activityId: unknown): Promise<SheetUndone> {
+  const a = await sheetActor();
+  return a ? undoSheetCall(a.actor, a.scope, typeof activityId === "string" ? activityId : "") : SHEET_UNAVAILABLE;
+}
+
+export async function reloadCallerSheetRow(_listId: unknown, companyId: string): Promise<SheetReloaded> {
+  const a = await sheetActor();
+  return a ? reloadSheetRow(a.actor, a.scope, companyId) : SHEET_UNAVAILABLE;
 }

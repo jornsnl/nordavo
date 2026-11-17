@@ -5,17 +5,24 @@ import { CallSheet } from "@/components/calls/call-sheet";
 import { ViewSwitch } from "@/components/calls/view-switch";
 import { ListSkeleton } from "@/components/ui/skeleton";
 import { requireCaller } from "@/lib/auth";
+import { salesBookingBase } from "@/lib/sales/booking";
+import { callOptions, loadOutcomeButtons } from "@/lib/sales/call-session";
 import { loadCallerSheet } from "@/lib/sales/call-sheet-data";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
   addCallerContact,
+  callerSheetHistory,
+  claimCallerSheetContact,
   editCallerContact,
   logCallerCall,
+  logCallerSheetCall,
   markCallerPhone,
   releaseCallerCall,
+  reloadCallerSheetRow,
   skipCallerCall,
   startCallerCalls,
   undoCallerCall,
+  undoCallerSheetCall,
 } from "./actions";
 
 export const metadata: Metadata = {
@@ -40,7 +47,7 @@ async function Calls({ searchParams }: { searchParams: PageProps<"/caller/call">
           <h1 className="font-display text-2xl font-bold tracking-tight text-brand-900">Call</h1>
           <p className="mt-1 text-sm text-muted">
             {sheet
-              ? "Everyone in your call list, in calling order, with the opening line and open roles."
+              ? "Your call list with one row per company. Open a row to see its contacts, pick an outcome, change contacts and read the history."
               : "Tap the number to call, then pick the outcome. The next contact opens by itself."}
           </p>
         </div>
@@ -69,9 +76,31 @@ async function Sheet() {
   const caller = await requireCaller();
   const db = createAdminClient();
   if (!db) return <p className="text-sm text-muted">Calling is not available right now. Ask Nordavo to finish the setup.</p>;
-  const [rows, profile] = await Promise.all([
+  const [rows, profile, outcomes, options] = await Promise.all([
     loadCallerSheet(db, caller.callerId, caller.id),
     db.from("profiles").select("dial_template").eq("id", caller.id).maybeSingle(),
+    loadOutcomeButtons(db),
+    callOptions({ db, callerId: caller.callerId, actorId: caller.id }),
   ]);
-  return <CallSheet rows={rows} dialTemplate={profile.data?.dial_template ?? null} leadLinks={false} callHref="/caller/call" />;
+  const bookingBase = salesBookingBase(process.env.NEXT_PUBLIC_CALCOM_SALES_URL, null);
+  return (
+    <CallSheet
+      rows={rows}
+      dialTemplate={profile.data?.dial_template ?? null}
+      leadLinks={false}
+      callHref="/caller/call"
+      outcomes={outcomes}
+      options={options}
+      booking={bookingBase ? { base: bookingBase, callerId: caller.callerId } : null}
+      actions={{
+        claim: claimCallerSheetContact,
+        release: releaseCallerCall,
+        log: logCallerSheetCall.bind(null, null),
+        undo: undoCallerSheetCall.bind(null, null),
+        history: callerSheetHistory,
+        reload: reloadCallerSheetRow.bind(null, null),
+        contacts: { edit: editCallerContact, markPhone: markCallerPhone, add: addCallerContact },
+      }}
+    />
+  );
 }
