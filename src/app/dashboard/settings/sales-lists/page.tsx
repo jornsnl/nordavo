@@ -33,7 +33,7 @@ async function Lists() {
     <div className="space-y-6">
       <p className="max-w-3xl text-sm text-muted">
         The choice lists of Sales: Leads, Contacts, Pipeline, the call lists, the call screen and the lead page all use them.
-        Rename an option, explain it, change the order or hide it. Prio and category can get extra options; the statuses
+        Rename an option, explain it, change the order or hide it. Prio, category and the rejection reasons can get extra options; the statuses
         and call outcomes drive the rules, so those keep their options. Pipeline stages and routes stay fixed. Own columns
         are under General, Fields.
       </p>

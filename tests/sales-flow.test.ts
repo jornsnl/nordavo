@@ -110,6 +110,7 @@ test("applyChoiceLists puts the configured options and parser on prio and status
     lead_status: mergeChoices("lead_status", []),
     contact_status: mergeChoices("contact_status", []),
     call_outcome: mergeChoices("call_outcome", []),
+    reject_reason: mergeChoices("reject_reason", []),
   };
   const cols = applyChoiceLists(companyColumns, lists);
   const prio = cols.find((c) => c.key === "prio")!;

@@ -5,7 +5,6 @@ import {
   AlertTriangle,
   Briefcase,
   CalendarClock,
-  Check,
   History,
   LoaderCircle,
   Phone,
@@ -18,20 +17,28 @@ import { VacancyItem } from "@/components/leads/vacancy-item";
 import type { CallOutcome } from "@/lib/sales/database";
 import { buildSalesBookingUrl } from "@/lib/sales/booking";
 import { dialsInBrowser } from "@/lib/sales/telephony";
-import type { CallCard, CallInput, CallStep } from "@/lib/sales/call-session";
+import type { CallCard, CallInput, CallOptions, CallStep } from "@/lib/sales/call-session";
 import { callOutcomes, companyPrios } from "@/lib/sales/labels";
-import { formatDate, formatDateTime, todayIso } from "@/lib/format";
+import { formatDate, formatDateTime } from "@/lib/format";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
-import { Field, FormMessage, Input, Textarea } from "@/components/ui/field";
+import { Field, FormMessage, Textarea } from "@/components/ui/field";
+import { dismissToast, toast } from "@/components/ui/toaster";
+import { OutcomeDialog } from "@/components/calls/outcome-dialog";
+import { needsFollowUp, type OutcomeFields } from "@/lib/sales/call-outcome";
 
 export type CallScreenActions = {
   start: (exclude: string[]) => Promise<CallStep>;
   log: (input: CallInput, exclude: string[]) => Promise<CallStep>;
   skip: (contactId: string | null, exclude: string[]) => Promise<CallStep>;
   release: (contactId: string) => Promise<void>;
+  /** Puts the last call back (feedback Julius, 66065265): the activity it returned and the contact open now. */
+  undo: (activityId: string, current: string | null) => Promise<CallStep>;
 };
+
+/** How long Undo stays on the screen after saving a call. */
+const UNDO_MS = 10_000;
 
 const sourceLabels: Record<CallCard["queue"]["source"], string> = {
   assigned: "Assigned to you",
@@ -50,6 +57,9 @@ export function CallScreen({ actions, emptyText }: { actions: CallScreenActions;
   const [exclude, setExclude] = useState<string[]>([]);
   const [pending, startTransition] = useTransition();
   const [stopped, setStopped] = useState(false);
+  // What the last Save could not do (the follow-up window stays open and shows it).
+  const [saveError, setSaveError] = useState<string>();
+  const undoToast = useRef<number | null>(null);
   const started = useRef(false);
   const current = step?.card?.contact.id ?? null;
   const currentRef = useRef<string | null>(null);
@@ -85,6 +95,43 @@ export function CallScreen({ actions, emptyText }: { actions: CallScreenActions;
 
   function skip() {
     run(() => actions.skip(current, exclude), current);
+  }
+
+  // Saves a call and opens the next contact. The confirmation is a toast with Undo, floating
+  // over the page: nothing moves, so the buttons stay where they were (feedback Julius, 66065265).
+  function log(input: CallInput) {
+    setSaveError(undefined);
+    const before = exclude;
+    startTransition(async () => {
+      const result = await actions.log(input, before);
+      if (!result.logged) {
+        // Not saved: stay on this contact, the window shows what is wrong.
+        setSaveError(result.error ?? "The outcome was not saved. Please try again.");
+        return;
+      }
+      setExclude([...new Set([...before, ...(result.handled ?? [])])]);
+      setStep(result);
+      if (undoToast.current !== null) dismissToast(undoToast.current);
+      const activityId = result.logged.activityId;
+      undoToast.current = toast(`Saved: ${result.logged.outcome}`, {
+        duration: UNDO_MS,
+        action: activityId ? { label: "Undo", onClick: () => undo(activityId, result.handled ?? []) } : undefined,
+      });
+    });
+  }
+
+  function undo(activityId: string, handled: string[]) {
+    startTransition(async () => {
+      const result = await actions.undo(activityId, currentRef.current);
+      if (!result.card) {
+        toast(result.error ?? "The undo did not work.", { tone: "error" });
+        return;
+      }
+      setExclude((prev) => prev.filter((id) => !handled.includes(id)));
+      setSaveError(undefined);
+      setStep(result);
+      toast("Undone: the call is open again.", { tone: "info", duration: 4000 });
+    });
   }
 
   function stop() {
@@ -127,12 +174,6 @@ export function CallScreen({ actions, emptyText }: { actions: CallScreenActions;
   const card = step.card;
   return (
     <div className="space-y-4">
-      {step.logged && (
-        <p role="status" className="rounded-xl border border-emerald-600/20 bg-emerald-50 px-4 py-2.5 text-sm text-emerald-800">
-          <Check className="mr-1.5 inline size-4" aria-hidden="true" />
-          Saved: {step.logged.outcome} (attempt {step.logged.attempts}).
-        </p>
-      )}
       {step.error && <FormMessage error={step.error} />}
 
       {!card ? (
@@ -159,7 +200,9 @@ export function CallScreen({ actions, emptyText }: { actions: CallScreenActions;
           pending={pending}
           onSkip={skip}
           onStop={stop}
-          onLog={(input) => run(() => actions.log(input, exclude), card.contact.id)}
+          options={step.options}
+          saveError={saveError}
+          onLog={log}
         />
       )}
     </div>
@@ -173,10 +216,14 @@ function ContactCall({
   onSkip,
   onStop,
   onLog,
+  options,
+  saveError,
 }: {
   card: CallCard;
   remaining: number;
   pending: boolean;
+  options?: CallOptions;
+  saveError?: string;
   onSkip: () => void;
   onStop: () => void;
   onLog: (input: CallInput) => void;
@@ -284,7 +331,7 @@ function ContactCall({
             </CardBody>
           </Card>
 
-          <OutcomePanel card={card} pending={pending} onLog={onLog} />
+          <OutcomePanel card={card} options={options} saveError={saveError} pending={pending} onLog={onLog} />
 
           {company.openingLine && (
             <Section title="Opening line">
@@ -376,53 +423,51 @@ function Section({ title, icon, children }: { title: string; icon?: ReactNode; c
   );
 }
 
-function OutcomePanel({ card, pending, onLog }: { card: CallCard; pending: boolean; onLog: (input: CallInput) => void }) {
+function OutcomePanel({
+  card,
+  options,
+  saveError,
+  pending,
+  onLog,
+}: {
+  card: CallCard;
+  options?: CallOptions;
+  saveError?: string;
+  pending: boolean;
+  onLog: (input: CallInput) => void;
+}) {
+  // The note box is for No answer, which saves with one tap; the other outcomes ask in their own window.
   const [note, setNote] = useState("");
   const [open, setOpen] = useState<CallOutcome | null>(null);
-  const [callbackAt, setCallbackAt] = useState("");
-  const [referred, setReferred] = useState({ name: "", title: "", phone: "" });
-  const [error, setError] = useState<string>();
+  // A new contact may not be hit by the click that was meant for the last one.
+  const armedAt = useRef(0);
+  useEffect(() => {
+    armedAt.current = performance.now() + 600;
+  }, []);
 
-  function log(outcome: CallOutcome) {
-    setError(undefined);
-    if (outcome === "call_back" && !callbackAt) {
-      setError("Pick a date to call back.");
-      return;
-    }
-    if (outcome === "referred" && !referred.name.trim()) {
-      setError("Who were you referred to?");
-      return;
-    }
-    if (outcome === "meeting_planned" && card.booking) {
-      // Opened before the save, in the click itself, so the browser allows the new tab.
+  function save(fields: OutcomeFields) {
+    if (fields.outcome === "meeting_planned" && card.booking) {
+      // Opened in the click on Save, so the browser allows the new tab.
       const url = buildSalesBookingUrl(card.booking.base, {
         name: card.booking.name,
         email: card.booking.email,
-        notes: [`${card.company.name}`, note.trim()].filter(Boolean).join(": "),
+        notes: [`${card.company.name}`, fields.meetingReason?.trim()].filter(Boolean).join(": "),
         contactId: card.contact.id,
         companyId: card.company.id,
         callerId: card.booking.callerId,
       });
       window.open(url, "_blank", "noopener");
     }
-    onLog({
-      contactId: card.contact.id,
-      outcome,
-      callbackAt: outcome === "call_back" ? callbackAt : null,
-      referredName: outcome === "referred" ? referred.name : null,
-      referredTitle: outcome === "referred" ? referred.title : null,
-      referredPhone: outcome === "referred" ? referred.phone : null,
-      note: note.trim() || null,
-    });
+    onLog({ ...fields, contactId: card.contact.id, note: fields.note?.trim() || null });
   }
 
-  function press(outcome: CallOutcome, needs?: "date" | "name") {
-    if (needs) {
-      setError(undefined);
-      setOpen(open === outcome ? null : outcome);
+  function press(outcome: CallOutcome, clickedAt: number) {
+    if (pending || clickedAt < armedAt.current) return;
+    if (needsFollowUp(outcome)) {
+      setOpen(outcome);
       return;
     }
-    log(outcome);
+    save({ outcome, note });
   }
 
   const toneClasses: Record<string, string> = {
@@ -433,12 +478,17 @@ function OutcomePanel({ card, pending, onLog }: { card: CallCard; pending: boole
     neutral: "border-border bg-white text-ink hover:bg-surface",
     accent: "border-accent-500/30 bg-accent-100 text-brand-900 hover:bg-accent-100/70",
   };
+  const buttons = card.outcomes.map((c) => ({
+    ...(callOutcomes.find((o) => o.value === c.value) ?? callOutcomes[0]),
+    label: c.label,
+    description: c.description,
+  }));
 
   return (
     <Card>
-      <CardHeader title="Outcome" description="One tap saves the call and opens the next contact." />
+      <CardHeader title="Outcome" description="No answer saves at once. Every other outcome asks what it needs first, then saves and opens the next contact." />
       <CardBody className="space-y-4">
-        <Field label="Note (optional)" htmlFor="call-note">
+        <Field label="Note for No answer (optional)" htmlFor="call-note">
           <Textarea
             id="call-note"
             rows={2}
@@ -450,16 +500,13 @@ function OutcomePanel({ card, pending, onLog }: { card: CallCard; pending: boole
         </Field>
 
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-          {card.outcomes.map((c) => ({ ...(callOutcomes.find((o) => o.value === c.value) ?? callOutcomes[0]), label: c.label, description: c.description })).map((o) => (
+          {buttons.map((o) => (
             <button
               key={o.value}
               type="button"
               disabled={pending}
-              onClick={() => press(o.value, o.needs)}
-              aria-expanded={o.needs ? open === o.value : undefined}
-              className={`min-h-12 rounded-xl border px-3 py-2 text-sm font-semibold transition active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-brand-500 disabled:opacity-60 ${toneClasses[o.tone]} ${
-                open === o.value ? "ring-2 ring-brand-500" : ""
-              }`}
+              onClick={(e) => press(o.value, e.timeStamp)}
+              className={`min-h-12 rounded-xl border px-3 py-2 text-sm font-semibold transition active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-brand-500 disabled:opacity-60 ${toneClasses[o.tone]}`}
             >
               {o.label}
               {o.description && <span className="block text-xs font-normal opacity-80">{o.description}</span>}
@@ -467,43 +514,27 @@ function OutcomePanel({ card, pending, onLog }: { card: CallCard; pending: boole
           ))}
         </div>
 
-        {open === "call_back" && (
-          <div className="flex flex-wrap items-end gap-3 rounded-xl border border-border p-3">
-            <Field label="Call back on" htmlFor="call-back-at" className="min-w-40 flex-1">
-              <Input id="call-back-at" type="date" min={todayIso()} value={callbackAt} onChange={(e) => setCallbackAt(e.target.value)} />
-            </Field>
-            <Button onClick={() => log("call_back")} disabled={pending} className="max-sm:w-full">
-              Save call back
-            </Button>
-          </div>
-        )}
-
-        {open === "referred" && (
-          <div className="grid gap-3 rounded-xl border border-border p-3 sm:grid-cols-3">
-            <Field label="Name" htmlFor="ref-name" required>
-              <Input id="ref-name" value={referred.name} maxLength={200} onChange={(e) => setReferred({ ...referred, name: e.target.value })} />
-            </Field>
-            <Field label="Job title" htmlFor="ref-title">
-              <Input id="ref-title" value={referred.title} maxLength={200} onChange={(e) => setReferred({ ...referred, title: e.target.value })} />
-            </Field>
-            <Field label="Phone" htmlFor="ref-phone">
-              <Input id="ref-phone" type="tel" value={referred.phone} maxLength={50} onChange={(e) => setReferred({ ...referred, phone: e.target.value })} />
-            </Field>
-            <div className="sm:col-span-3 sm:flex sm:justify-end">
-              <Button onClick={() => log("referred")} disabled={pending} className="max-sm:w-full">
-                Save referral
-              </Button>
-            </div>
-          </div>
-        )}
-
         {!card.booking && (
           <p className="text-xs text-muted">
             Meeting planned saves a planned meeting. No Cal.com sales link is set, so book the time in the calendar yourself.
           </p>
         )}
-        <FormMessage error={error} />
+        {/* Only a problem with a no-answer save shows here; the other windows show their own. */}
+        {open === null && <FormMessage error={saveError} />}
       </CardBody>
+
+      <OutcomeDialog
+        outcome={open}
+        outcomeLabel={buttons.find((b) => b.value === open)?.label ?? ""}
+        contactName={card.contact.name}
+        companyName={card.company.name}
+        options={options}
+        initialNote=""
+        pending={pending}
+        error={saveError}
+        onSave={save}
+        onClose={() => setOpen(null)}
+      />
     </Card>
   );
 }

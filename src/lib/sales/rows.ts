@@ -93,6 +93,10 @@ export type ContactRow = {
   company_category: CompanyCategory | null;
   company_lead_status: LeadStatus;
   company_pipeline_stage: PipelineStage | null;
+  /** Where the lead is (companies.bucket); no_go keeps it out of the call queue. */
+  company_bucket?: string | null;
+  /** Until when a parked company waits (companies.parked_until). */
+  company_parked_until?: string | null;
   company_city: string | null;
   company_sector: string | null;
   company_icp: IcpDecision | null;

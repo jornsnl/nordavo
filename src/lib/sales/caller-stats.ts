@@ -283,8 +283,48 @@ export type RecentCall = {
   recordingUrl: string | null;
 };
 
-/** The latest calls, of one caller or of everyone, newest first. */
-export async function loadRecentCalls(db: Db, { callerId, limit = 50 }: { callerId?: string; limit?: number } = {}): Promise<RecentCall[]> {
+/** Who made a call: an external caller or a team member (profile id). */
+export type CallWho = { kind: "caller" | "team"; id: string };
+
+/** "caller:<id>" or "team:<id>" from the address bar, or null. */
+export function parseWho(value: unknown): CallWho | null {
+  if (typeof value !== "string") return null;
+  const m = /^(caller|team):([0-9a-f-]{36})$/i.exec(value);
+  return m ? { kind: m[1] as "caller" | "team", id: m[2] } : null;
+}
+
+export function whoKey(who: CallWho): string {
+  return `${who.kind}:${who.id}`;
+}
+
+/** YYYY-MM-DD from the address bar, or undefined. */
+export function parseDay(value: unknown): string | undefined {
+  return typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : undefined;
+}
+
+/** The day after a YYYY-MM-DD date. */
+function dayAfter(day: string): string {
+  const d = new Date(`${day}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + 1);
+  return d.toISOString().slice(0, 10);
+}
+
+/**
+ * The latest calls, newest first, of everyone or filtered (feedback Julius, 1018684b) on
+ * outcome, who called (an external caller or a team member) and period (days in Amsterdam
+ * time, both ends included).
+ */
+export async function loadRecentCalls(
+  db: Db,
+  {
+    callerId,
+    who,
+    outcome,
+    from,
+    to,
+    limit = 50,
+  }: { callerId?: string; who?: CallWho | null; outcome?: string; from?: string; to?: string; limit?: number } = {},
+): Promise<RecentCall[]> {
   let q = db
     .from("activities")
     .select("id, date, outcome, notes, company_id, contact_id, caller_id, created_by, recording_url")
@@ -293,6 +333,11 @@ export async function loadRecentCalls(db: Db, { callerId, limit = 50 }: { caller
     .order("date", { ascending: false })
     .limit(limit);
   if (callerId) q = q.eq("caller_id", callerId);
+  if (who?.kind === "caller") q = q.eq("caller_id", who.id);
+  if (who?.kind === "team") q = q.is("caller_id", null).eq("created_by", who.id);
+  if (outcome) q = q.eq("outcome", outcome as never);
+  if (from) q = q.gte("date", amsterdamMidnight(from));
+  if (to) q = q.lt("date", amsterdamMidnight(dayAfter(to)));
   const { data, error } = await q;
   if (error) {
     console.error("loadRecentCalls", error.message);
@@ -321,4 +366,88 @@ export async function loadRecentCalls(db: Db, { callerId, limit = 50 }: { caller
     createdBy: r.created_by,
     recordingUrl: r.recording_url ?? null,
   }));
+}
+
+// ---------------------------------------------------------------------------
+// Rejections per reason (feedback Julius, 1018684b): every Not interested on the
+// call screen with its reasons (the list under Settings, Sales lists) and the
+// caller's own words, per month and per person who called.
+// ---------------------------------------------------------------------------
+
+export type RejectionRecord = {
+  id: string;
+  created_at: string;
+  company_id: string;
+  caller_id: string | null;
+  created_by: string | null;
+  reasons: string[];
+  reason_text: string | null;
+  parked_until: string | null;
+};
+
+/** The reason key for a rejection that has only the open text. */
+export const OWN_WORDS = "_own_words";
+
+export type ReasonCount = {
+  reason: string;
+  total: number;
+  /** Count per person, keyed "caller:<id>" or "team:<id>". */
+  byWho: Map<string, number>;
+};
+
+export function rejectionWho(r: Pick<RejectionRecord, "caller_id" | "created_by">): string | null {
+  return r.caller_id ? `caller:${r.caller_id}` : r.created_by ? `team:${r.created_by}` : null;
+}
+
+/**
+ * Counts rejections per reason. A rejection with several reasons counts once under each
+ * of them; one with only the open text counts under OWN_WORDS. Reasons come out in the
+ * order of `order` (the list), the rest by count.
+ */
+export function summarizeRejections(
+  rows: Pick<RejectionRecord, "caller_id" | "created_by" | "reasons" | "reason_text">[],
+  order: string[] = [],
+): ReasonCount[] {
+  const out = new Map<string, ReasonCount>();
+  for (const r of rows) {
+    const keys = r.reasons.length > 0 ? [...new Set(r.reasons)] : [OWN_WORDS];
+    const who = rejectionWho(r);
+    for (const reason of keys) {
+      let c = out.get(reason);
+      if (!c) {
+        c = { reason, total: 0, byWho: new Map() };
+        out.set(reason, c);
+      }
+      c.total += 1;
+      if (who) c.byWho.set(who, (c.byWho.get(who) ?? 0) + 1);
+    }
+  }
+  const rank = (reason: string) => {
+    if (reason === OWN_WORDS) return order.length + 1;
+    const i = order.indexOf(reason);
+    return i >= 0 ? i : order.length;
+  };
+  return [...out.values()].sort((a, b) => rank(a.reason) - rank(b.reason) || b.total - a.total || a.reason.localeCompare(b.reason));
+}
+
+/** The rejections of a month (YYYY-MM, null for all time), newest first. */
+export async function loadRejections(db: Db, { month, who }: { month: string | null; who?: CallWho | null }): Promise<RejectionRecord[]> {
+  const range = month ? monthRange(month) : null;
+  try {
+    return await pages((from, to) => {
+      let q = db
+        .from("call_rejections")
+        .select("id, created_at, company_id, caller_id, created_by, reasons, reason_text, parked_until")
+        .order("created_at", { ascending: false })
+        .range(from, to);
+      if (who?.kind === "caller") q = q.eq("caller_id", who.id);
+      if (who?.kind === "team") q = q.is("caller_id", null).eq("created_by", who.id);
+      if (range) q = q.gte("created_at", range.from).lt("created_at", range.to);
+      return q;
+    });
+  } catch (e) {
+    // Before the migration the table is not there; the block stays empty.
+    console.error("loadRejections", e instanceof Error ? e.message : e);
+    return [];
+  }
 }
