@@ -7,6 +7,7 @@ import type { Tone } from "@/lib/labels";
 import { contactStatuses } from "@/lib/labels";
 import type { ChoiceListKey, ChoiceOptionRow } from "@/lib/sales/flow-database";
 import { callOutcomes, companyCategories, companyPrios, leadStatuses } from "@/lib/sales/labels";
+import { defaultSignalKinds } from "@/lib/sales/signals";
 
 export type ChoiceOption = {
   value: string;
@@ -20,7 +21,8 @@ export type ChoiceOption = {
 export type ChoiceLists = Record<ChoiceListKey, ChoiceOption[]>;
 
 export const choiceListInfo: { key: ChoiceListKey; label: string; help: string; extra: boolean }[] = [
-  { key: "prio", label: "Prio", help: "Levels of a company's priority, 1 is first. Add levels up to 20 and explain each one.", extra: true },
+  { key: "prio", label: "Prio", help: "Levels of a company's priority, 1 is first. Add levels up to 20 and say in the explanation what each level means: the call screen shows it next to the prio.", extra: true },
+  { key: "signal_type", label: "Signal types", help: "The kinds of signals on the call screen. The order is the strength: the first is the strongest, and the prio line and the opening line start from the strongest signal a company has. Add a kind here, then add signals of that kind (value = signals.type).", extra: true },
   { key: "category", label: "Category", help: "What kind of roles a company hires for. Add your own categories.", extra: true },
   { key: "lead_status", label: "Lead status", help: "The rules use these statuses: rename, explain, reorder or hide them.", extra: false },
   { key: "contact_status", label: "Contact status", help: "The call rules use these statuses: rename, explain, reorder or hide them.", extra: false },
@@ -35,6 +37,7 @@ export const builtinChoices: Record<ChoiceListKey, Base[]> = {
   lead_status: leadStatuses,
   contact_status: contactStatuses,
   call_outcome: callOutcomes,
+  signal_type: defaultSignalKinds,
 };
 
 /** The built in options, overridden and extended by the stored rows, in order. */
@@ -90,6 +93,7 @@ export function mergeAllChoices(rows: Parameters<typeof mergeChoices>[1]): Choic
     lead_status: mergeChoices("lead_status", rows),
     contact_status: mergeChoices("contact_status", rows),
     call_outcome: mergeChoices("call_outcome", rows),
+    signal_type: mergeChoices("signal_type", rows),
   };
 }
 

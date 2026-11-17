@@ -1,7 +1,7 @@
 import "server-only";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import type { ActivityOutcome, Database, Json } from "@/lib/database.types";
+import type { ActivityOutcome, Database, Json, SignalType } from "@/lib/database.types";
 import { amsterdamMidnight, periodRange } from "@/lib/gtm/report";
 import { extractLeadNotes } from "@/lib/gtm/lead-notes";
 import {
@@ -876,7 +876,13 @@ const contactFieldsSchema = z
 
 const signalSchema = z.object({
   title: z.string().trim().min(1).max(300).describe("Job title of the vacancy."),
-  type: z.enum(["vacature", "lang_open", "meerdere_rollen", "remote_extern", "freelance", "funding", "nieuwe_cto", "overig"]).default("vacature"),
+  type: z
+    .string()
+    .regex(/^[a-z0-9_]{1,40}$/, { error: "Use lower case letters, digits and _." })
+    .default("vacature")
+    .describe(
+      "Kind of signal: vacature, lang_open, meerdere_rollen, remote_extern, freelance, funding, nieuwe_cto, employee_growth (title: for example '21-50 to 51-100', posted_at: the date) or overig. A new kind is added under Settings, Sales lists, Signal types; use its value here.",
+    ),
   role_group: z.string().trim().max(200).optional().describe("For example Backend, Frontend, Data & BI, DevOps."),
   posted_at: dateSchema.optional().describe("Date the vacancy went online on the job board (the days open count from here)."),
   // A plain string: a link without https:// (nl.indeed.com/viewjob?jk=...) used to fail the whole call.
@@ -1744,7 +1750,8 @@ export async function upsertSalesCompany(db: McpDb, actor: string, source: "apif
       const r = await upsertSignal(db, {
         company_id: companyId,
         company_domain: companyDomain,
-        type: s.type,
+        // Any kind of the Signal types list; the database checks the format (20261124310000).
+        type: s.type as SignalType,
         title: s.title,
         // Signals know apify, prospeo, linkedin; a lead by hand files its vacancies as "overig".
         source: source === "apify" || source === "prospeo" || source === "linkedin" ? source : "overig",
