@@ -4,6 +4,7 @@ import type { McpDb } from "@/lib/mcp/shared";
 import type { McpTokenContext } from "@/lib/mcp/tokens";
 import { scopeDbToModules } from "@/lib/mcp/module-scope";
 import { registerTools } from "@/lib/mcp/tools";
+import { registerMeetingTools } from "@/lib/mcp/meeting-tools";
 import { registerSalesTools } from "@/lib/mcp/sales-tools";
 import { registerJobRunTool } from "@/lib/mcp/job-run-tool";
 import { registerRecruitmentAiTools } from "@/lib/mcp/recruitment-ai-tools";
@@ -37,7 +38,7 @@ function instructions(ctx: McpTokenContext, levels: McpAccessLevels) {
     lines.push(
       "Write tools change shared data the whole team sees. Only call them when the user asked for that specific change, never speculatively or in a loop.",
       `What an admin allows you per module: ${levelSummary(levels)}. Tools you may not use are not offered.`,
-      "Work: list_work_projects shows the workspaces and projects you can use, private ones and your inbox included. create_task without project_id or a record goes to the token owner's inbox.",
+      "Work: list_work_projects shows the workspaces and projects you can use, private ones and your inbox included. create_task without project_id or a record goes to the token owner's inbox. Meetings: list_agenda shows the agendas you may see; add_agenda_item drops a point on one.",
     );
   }
   if (modules.includes("recruitment")) {
@@ -68,6 +69,7 @@ export function createNordavoMcpServer(ctx: McpTokenContext, db: McpDb, siteUrl:
   // The db is the secret key client: scope it to the owner's modules (2.5).
   const scoped = scopeDbToModules(db, effectiveModules(ctx.role, ctx.modules));
   registerTools(server, { ...ctx, db: scoped, siteUrl });
+  registerMeetingTools(server, { ...ctx, db: scoped, siteUrl });
   registerSalesTools(server, { ...ctx, db: scoped, siteUrl });
   registerRecruitmentAiTools(server, { ...ctx, db: scoped, siteUrl });
   registerAiRequestTools(server, { ...ctx, db: scoped, siteUrl });

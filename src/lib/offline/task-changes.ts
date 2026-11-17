@@ -9,6 +9,7 @@ import {
   type SyncResult,
   type SyncTaskFields,
 } from "@/app/work/sync-actions";
+import { sendAgendaOp } from "@/lib/offline/agenda-changes";
 
 /**
  * The changes to Work tasks that work offline, how each one changes the
@@ -77,6 +78,7 @@ export async function sendTaskOp(op: string, payload: unknown): Promise<SyncResu
       return syncSetStatusAction(taskId, status, at, fallbackReview, comment);
     }
     default:
+      if (op.startsWith("agenda.")) return sendAgendaOp(op, payload);
       return { error: "This change cannot be sent any more." };
   }
 }

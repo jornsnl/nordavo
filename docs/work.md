@@ -20,6 +20,7 @@ De interface is Engels (team in Nederland en Bangalore, freelancers overal). Tak
 | Beheer | `/work/w/<slug>/admin` | Leden en gasten, rollen, einddatum van toegang, deactiveren met overdracht van open taken, uitnodigingen, toegangslog, export |
 | Prullenbak | `/work/w/<slug>/trash` | Gearchiveerde taken, 30 dagen terug te zetten |
 | Quick log | `/work/log` | In één stap afgerond werk loggen als afgeronde taak |
+| Meetings | `/work/meetings` | Een agenda per terugkerend overleg: punten dumpen, doorlopen, besluiten vastleggen, punten als taak doorzetten, afsluiten (zie *Meetings*) |
 | Search | `/work/search` | Titel, omschrijving en opmerkingen, binnen wat je mag zien |
 | Settings | `/work/settings` | Naam, tijdzone (alle IANA zones, met zoeken en per regio), welke mails je krijgt, API tokens |
 | Inloggen | `/work/sign-in` | Google of een inloglink per mail. Gasten kunnen de link ook op `/login` aanvragen; teamleden en klanten loggen in met wachtwoord of passkey |
@@ -271,6 +272,37 @@ Een taak kan terugkomen: elke dag, elke werkdag, elke week of elke maand, met ee
 - Klik op de titel en typ; Enter of ergens anders klikken slaat op, Esc annuleert. Klik op de omschrijving om te bewerken (links blijven werken); als de focus het formulier verlaat wordt het opgeslagen. De knop *Edit title and description* blijft.
 - *Archive* vraagt de bevestiging op de pagina zelf in plaats van met de browserdialoog. Die kon buiten beeld blijven (geïnstalleerde app, zijpaneel) waardoor de pagina leek vast te lopen.
 
+## Meetings (feedback Julius)
+
+Punten voor een overleg stonden verspreid over chat, notities en losse taken. Meetings is één plek: een **agenda per terugkerend overleg** (een weekoverleg met Floris, een teamoverleg, een los gesprek), elk met eigen punten en eigen zichtbaarheid. Migratie [20261125300000_work_meetings.sql](../supabase/migrations/20261125300000_work_meetings.sql), test [work_meetings.test.sql](../supabase/tests/work_meetings.test.sql). Geen kalenderkoppeling.
+
+| Onderdeel | Wat |
+| --- | --- |
+| Meeting | Hoort bij een workspace (ook een privé workspace, niet de inbox). Naam, zichtbaarheid, wie het maakte. Starten kan elke admin en member van de workspace, geen gast. Aanpassen en afsluiten kan de maker, en bij een meeting voor de hele workspace ook een admin van de workspace (`/work/meetings/<id>/settings`) |
+| Zichtbaarheid | **Whole workspace**: elke admin en member van de workspace. **Only people I pick**: alleen de maker en de gekozen mensen. Een andere admin van de workspace ziet zo'n meeting niet (zichtbaarheid volgt de uitnodiging, niet de rol). Iedereen moet actief lid van de workspace zijn; wie de workspace verlaat, raakt de meeting kwijt. In een privé workspace gaat het alleen over de eigenaar en wie de eigenaar uitnodigde. Een gast ziet alleen een meeting waarvoor hij gekozen is |
+| Ronde (session) | Elke meeting heeft één open ronde: dat is de agenda. Afsluiten sluit de ronde en opent een nieuwe. Eerdere rondes blijven leesbaar onder *Earlier meetings* |
+| Punt | Titel, optionele notitie, wie het inbracht, aangemaakt op, bron (portal of Claude), status, besluit of notitie (met naam en tijd van wie het vastlegde), de taak waar het naar linkt en hoe vaak het al doorschoof |
+| Status | `open`, `discussed`, `dropped` (geschrapt) en `forwarded` (doorgeschoven, door het systeem gezet bij afsluiten, met een verwijzing naar het punt in de volgende ronde). Iedereen in de meeting kan een punt afvinken, schrappen, heropenen en een besluit vastleggen; de tekst van een punt wijzigt wie het inbracht of de beheerder van de meeting. Een afgesloten ronde is alleen lezen |
+| Snel dumpen | Bovenaan de meeting een invoerveld: typen, Enter. Werkt op de telefoon en offline (zie hieronder). Claude kan het ook via de MCP (`add_agenda_item`) |
+| Make task | Per punt: kies eigenaar (iemand uit de meeting), deadline, prioriteit en eventueel een andere titel. Er komt een gewone Work taak in de **inbox van die persoon** (een inbox is alleen van de eigenaar, dus bij een taak voor een ander is de eigenaar ook de reviewer), met de notitie, het besluit en de naam van de meeting in de omschrijving, en een melding *assigned*. Het punt linkt naar de taak en telt als besproken. Voor jezelf gaat het via `work_create_task`; een taak voor een ander schrijft `work_agenda_item_to_task` zelf weg in zijn inbox, omdat `work_create_task` alleen in een project werkt dat de maker kan openen. De functie accepteert ook een project (`p_project`, alleen als maker en eigenaar het kunnen openen); de interface biedt dat nog niet aan |
+| Close meeting | Sluit de ronde en zet alle punten die nog `open` zijn door naar een nieuwe ronde van dezelfde meeting: het oude punt wordt `forwarded` met een verwijzing, het nieuwe punt houdt maker, bron en eerste datum en telt `carried_count` + 1 (*Moved on 2 times*). Besproken en geschrapte punten blijven in de oude ronde met hun besluit en taak |
+
+### Rechten
+
+Zoals de rest van Work: lezen via RLS (regels één keer in `work_private.can_view_meeting` en `can_manage_meeting`), schrijven alleen via security definer functies (`work_create_meeting`, `work_update_meeting`, `work_add_agenda_item`, `work_update_agenda_item`, `work_agenda_item_to_task`, `work_close_meeting`), de API met `p_actor`. Ingelogde gebruikers hebben geen insert, update of delete op de tabellen. De secret key leest met `work_api_can_view_meeting` en `work_api_visible_meetings` voor de eigenaar van het token. De bron `claude` telt alleen voor de secret key; een ingelogde gebruiker is altijd `portal`.
+
+### Offline
+
+Een punt toevoegen gaat door dezelfde outbox als een taak (`agenda.add`, `src/lib/offline/agenda-changes.ts`): het punt krijgt zijn id op het apparaat (idempotent), staat onder het invoerveld als *Waiting to be sent* en komt één keer op de server, met het moment waarop het geschreven is (`p_at`). Wijzigen, een taak maken en afsluiten hebben een verbinding nodig.
+
+### Claude
+
+`list_agenda` (de meetings die de eigenaar van het token mag zien, of de agenda van één meeting) en `add_agenda_item`. Zie [mcp.md](mcp.md). Schrijven volgt de rechten per module: module Work, soort `write`.
+
+### Bewust niet
+
+Geen kalenderkoppeling, geen herhaling met datums, geen mail naar deelnemers bij een nieuw punt, geen verwijderen van een punt (schrappen kan), geen eigen meeting-rechten per persoon buiten de lijst van gekozen mensen. Een taak maken kan alleen in de inbox; een meeting verplaatsen naar een andere workspace kan niet.
+
 ## Offline
 
 Work werkt ook zonder verbinding, bijvoorbeeld in de trein. Dit is gebouwd voor de telefoon (de app op het beginscherm), maar werkt in elke browser na het eerste bezoek.
@@ -281,6 +313,7 @@ Work werkt ook zonder verbinding, bijvoorbeeld in de trein. Dit is gebouwd voor 
 | --- | --- |
 | Mijn taken, het bord en Quick log openen (de laatste kopie) | Opmerkingen, bestanden, eigenaren, taken verplaatsen tussen projecten |
 | Een taak toevoegen (de regel "Add a task") | Het formulier op de taakpagina |
+| Een punt op een meeting agenda zetten (zie *Meetings*) | Een punt wijzigen, een taak maken van een punt, de meeting afsluiten |
 | Starten, terug naar To do, naar review, klaar (actiemenu en bord) | Alle andere onderdelen van het portaal: die tonen de laatste kopie, alleen lezen |
 | Prioriteit wijzigen | |
 

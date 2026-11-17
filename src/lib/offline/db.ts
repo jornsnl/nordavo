@@ -14,7 +14,7 @@
 export const DB_NAME = "nordavo-offline";
 const DB_VERSION = 1;
 
-export type RecordKind = "task";
+export type RecordKind = "task" | "agenda";
 export const recordKey = (kind: RecordKind, id: string) => `${kind}:${id}`;
 
 export type MetaEntry = { kind: RecordKind; count: number; savedAt: number };
