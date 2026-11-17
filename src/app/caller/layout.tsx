@@ -28,7 +28,9 @@ export default function CallerLayout({ children }: LayoutProps<"/caller">) {
             <Logo />
           </Link>
           <div className="ml-auto flex items-center gap-1 sm:gap-3">
-            <CallerNav />
+            <Suspense fallback={null}>
+              <CallerNav />
+            </Suspense>
             <span aria-hidden="true" className="hidden h-6 w-px bg-border sm:block" />
             <Suspense fallback={<Skeleton className="hidden h-4 w-24 sm:block" />}>
               <CallerName />
