@@ -32,7 +32,7 @@ alter table public.signals add constraint signals_type_format check (type ~ '^[a
 
 alter table public.sales_choice_options drop constraint if exists sales_choice_options_list_key_check;
 alter table public.sales_choice_options add constraint sales_choice_options_list_key_check
-  check (list_key in ('prio', 'category', 'lead_status', 'contact_status', 'call_outcome', 'signal_type'));
+  check (list_key in ('prio', 'category', 'lead_status', 'contact_status', 'call_outcome', 'reject_reason', 'signal_type'));
 
 create or replace function public.sales_choice_builtin(p_list text, p_value text)
 returns boolean
@@ -46,6 +46,7 @@ as $$
     when 'lead_status' then p_value in ('new', 'review', 'ready', 'enrich', 'in_sequence', 'cooled_down', 'no_go', 'do_not_contact')
     when 'contact_status' then p_value in ('new', 'qualified', 'enrich', 'enriched', 'in_outreach', 'reached', 'not_reached', 'not_interested', 'do_not_contact')
     when 'call_outcome' then p_value in ('no_answer', 'call_back', 'reached_interested', 'meeting_planned', 'reached_not_interested', 'referred', 'wrong_person', 'wrong_number')
+    when 'reject_reason' then p_value in ('no_vacancies', 'has_agency', 'offshore_no', 'too_small', 'too_expensive', 'no_time', 'bad_experience', 'wrong_moment')
     when 'signal_type' then p_value in ('funding', 'nieuwe_cto', 'employee_growth', 'meerdere_rollen', 'lang_open', 'vacature', 'remote_extern', 'freelance', 'overig')
     else false
   end;
@@ -67,7 +68,7 @@ begin
   new.description := nullif(btrim(new.description), '');
   new.builtin := public.sales_choice_builtin(new.list_key, new.value);
   if not new.builtin then
-    if new.list_key not in ('prio', 'category', 'signal_type') then
+    if new.list_key not in ('prio', 'category', 'reject_reason', 'signal_type') then
       raise exception 'This list has fixed options: rename, explain, reorder or hide them' using errcode = '22023';
     end if;
     if new.list_key = 'prio' and (new.value !~ '^[0-9]{1,2}$' or new.value::integer not between 1 and 20) then
