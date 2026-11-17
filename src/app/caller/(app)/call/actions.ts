@@ -1,17 +1,21 @@
 "use server";
 
 import { requireCaller } from "@/lib/auth";
-import { salesBookingBase } from "@/lib/sales/booking";
+import { loadBookingLinks } from "@/lib/sales/booking-data";
 import { addCallContact, markCallPhone, updateCallContact, type ContactEdit, type PersonInput } from "@/lib/sales/call-contacts";
 import {
   type CallActor,
   type CallInput,
   type CallStep,
+  bookingState,
+  cancelBooking,
   cleanExclude,
+  finishBooking,
   logCall,
   nextCall,
   releaseCall,
   skipCall,
+  startBooking,
   undoCall,
 } from "@/lib/sales/call-session";
 import {
@@ -45,7 +49,7 @@ async function callerActor(): Promise<CallActor | null> {
     actorId: caller.id,
     callerId: caller.callerId,
     pActor: caller.id,
-    bookingBase: salesBookingBase(process.env.NEXT_PUBLIC_CALCOM_SALES_URL, null),
+    bookingLinks: await loadBookingLinks(db),
   };
 }
 
@@ -71,6 +75,32 @@ export async function skipCallerCall(contactId: string | null, exclude: unknown)
   const actor = await callerActor();
   if (!actor || !actor.callerId) return NOT_CONFIGURED;
   return skipCall(actor, { kind: "caller", callerId: actor.callerId }, contactId, cleanExclude(exclude));
+}
+
+// Meeting planned: the meeting waits for its Cal.com booking before it counts.
+
+export async function startCallerBooking(input: CallInput) {
+  const actor = await callerActor();
+  if (!actor || !actor.callerId) return { ok: false, error: NOT_CONFIGURED.error ?? "Not available." } as const;
+  return startBooking(actor, input);
+}
+
+export async function callerBookingStatus(meetingId: string) {
+  const actor = await callerActor();
+  if (!actor || !actor.callerId) return { status: "gone", scheduledAt: null } as const;
+  return bookingState(actor, meetingId);
+}
+
+export async function finishCallerBooking(contactId: string, meetingId: string, exclude: unknown): Promise<CallStep> {
+  const actor = await callerActor();
+  if (!actor || !actor.callerId) return NOT_CONFIGURED;
+  return finishBooking(actor, { kind: "caller", callerId: actor.callerId }, contactId, meetingId, cleanExclude(exclude));
+}
+
+export async function cancelCallerBooking(meetingId: string) {
+  const actor = await callerActor();
+  if (!actor || !actor.callerId) return false;
+  return cancelBooking(actor, meetingId);
 }
 
 export async function releaseCallerCall(contactId: string): Promise<void> {

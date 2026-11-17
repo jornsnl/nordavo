@@ -31,11 +31,13 @@ test("summarizeCallers counts called, reached, meetings and approved per caller"
       { caller_id: "a", status: "planned" },
       { caller_id: "a", status: "approved" },
       { caller_id: "a", status: "cancelled" },
+      // Said "Meeting planned" but the Cal.com booking is not in: counts nowhere.
+      { caller_id: "a", status: "awaiting_booking" },
       { caller_id: "b", status: "rejected" },
     ],
   );
-  assert.deepEqual(stats.get("a"), { called: 4, reached: 2, callbacks: 0, interested: 1, meetings: 2, held: 1, approved: 1 });
-  assert.deepEqual(stats.get("b"), { called: 1, reached: 1, callbacks: 0, interested: 0, meetings: 1, held: 1, approved: 0 });
+  assert.deepEqual(stats.get("a"), { called: 4, reached: 2, callbacks: 0, interested: 1, meetings: 2, planned: 1, held: 1, approved: 1 });
+  assert.deepEqual(stats.get("b"), { called: 1, reached: 1, callbacks: 0, interested: 0, meetings: 1, planned: 0, held: 1, approved: 0 });
   assert.equal(stats.size, 2);
 });
 

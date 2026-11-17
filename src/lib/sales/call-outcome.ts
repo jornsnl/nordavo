@@ -65,6 +65,8 @@ export type OutcomeFields = {
   nextStepAt?: string | null;
   nextOwner?: string | null;
   meetingReason?: string | null;
+  /** The Cal.com link (who the meeting is with) picked for Meeting planned. */
+  bookingLinkId?: string | null;
   wrongReason?: WrongPersonReason | null;
   newPhone?: string | null;
   note?: string | null;

@@ -67,7 +67,7 @@ const contactRoleInput = z
   .transform((v) => contactRoleFrom(v) ?? "extra")
   .describe("main (one per company, the primary contact), backup or extra.");
 const tierInput = z.number().int().min(1).max(3).describe("1 CTO or head of engineering or data, 2 owner or director, 3 recruiter or HR.");
-const meetingStatus = z.enum(values(meetingStatuses));
+const meetingStatus = z.enum(values(meetingStatuses.filter((s) => s.value !== "awaiting_booking")));
 const sequenceStatus = z.enum(values(sequenceStatuses));
 const icpDecision = z.enum(["GO", "NO_GO", "REVIEW"]);
 const contactStatus = z.enum([
@@ -1134,7 +1134,7 @@ function registerSalesWriteTools(server: McpServer, ctx: McpToolContext) {
     {
       title: "Create meeting",
       description:
-        "Save a meeting in the Meetings register, for example a Cal.com booking. With external_id (the booking uid) the same booking twice is a no-op, and a planned meeting of the same company from the call screen in the last 14 days is filled in instead of duplicated. Moves the company to Meeting planned.",
+        "Save a meeting in the Meetings register, for example a Cal.com booking. With external_id (the booking uid) the same booking twice is a no-op, and a meeting of the same contact that waits for its booking (awaiting_booking, from Meeting planned on the call screen, or planned from the last 14 days) is filled in instead of duplicated: it gets the time and becomes planned, and only then does the call count. Moves the company to Meeting planned.",
       inputSchema: {
         company_id: idSchema.optional(),
         contact_id: idSchema.optional(),

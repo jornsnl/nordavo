@@ -18,6 +18,8 @@ import { MobileList, MobileListItem } from "@/components/ui/mobile-list";
 import { TBody, TD, TH, THead, TR, Table } from "@/components/ui/table";
 import { ConfirmButton } from "@/components/candidates/confirm-button";
 import { BookingLinkForm } from "@/components/settings/booking-link-form";
+import { SalesBookingLinks } from "@/components/settings/sales-booking-links";
+import { loadBookingLinks } from "@/lib/sales/booking-data";
 import { InviteForm } from "@/components/settings/invite-form";
 import { ModulesEditor } from "@/components/settings/modules-editor";
 import { PasswordForm } from "@/components/settings/password-form";
@@ -75,6 +77,10 @@ export default function Page() {
 
         <Suspense fallback={null}>
           <Interviews />
+        </Suspense>
+
+        <Suspense fallback={null}>
+          <SalesBooking />
         </Suspense>
 
         <Suspense fallback={null}>
@@ -144,6 +150,27 @@ async function Interviews() {
       />
       <CardBody className="py-5">
         <BookingLinkForm action={updateBookingUrl} bookingUrl={profile.bookingUrl} />
+      </CardBody>
+    </Card>
+  );
+}
+
+/** The Cal.com links for sales meetings (admin): where callers send a lead to book a time. */
+async function SalesBooking() {
+  const user = await getCurrentUser();
+  if (user.role !== "admin") return null;
+  const db = await createClient();
+  const { data } = await db.from("sales_booking_links").select("id").limit(1);
+  // The links of Settings only: an env fallback is not editable here.
+  const links = (data ?? []).length > 0 ? await loadBookingLinks(db) : [];
+  return (
+    <Card>
+      <CardHeader
+        title="Sales meetings"
+        description="The Cal.com links callers send a lead to from Meeting planned and the Agenda button. With more than one link, the caller picks who the meeting is with."
+      />
+      <CardBody className="py-5">
+        <SalesBookingLinks links={links} />
       </CardBody>
     </Card>
   );

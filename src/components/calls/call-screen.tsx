@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useTransition, type ReactNode } from "reac
 import {
   Briefcase,
   CalendarClock,
+  CalendarDays,
   History,
   LoaderCircle,
   Phone,
@@ -26,10 +27,11 @@ import {
   type ContactActions,
 } from "@/components/calls/call-brief-sections";
 import type { CallOutcome } from "@/lib/sales/database";
-import { buildSalesBookingUrl } from "@/lib/sales/booking";
+import { buildSalesBookingUrl, pickBookingLink } from "@/lib/sales/booking";
+import { BookingModal } from "@/components/calls/booking-modal";
 import { dialHref, dialsInBrowser } from "@/lib/sales/telephony";
 import { callNumbers } from "@/lib/sales/call-brief";
-import type { CallCard, CallInput, CallOptions, CallStep } from "@/lib/sales/call-session";
+import type { BookingState, CallCard, CallInput, CallOptions, CallStep, StartedBooking } from "@/lib/sales/call-session";
 import { callOutcomes, companyPrios } from "@/lib/sales/labels";
 import { formatDate, formatDateTime } from "@/lib/format";
 import { Badge } from "@/components/ui/badge";
@@ -49,7 +51,21 @@ export type CallScreenActions = {
   undo: (activityId: string, current: string | null) => Promise<CallStep>;
   /** Change, mark and add contacts on the screen; without it the contacts are read only. */
   contacts?: ContactActions;
+  /** Meeting planned: the awaiting meeting, its state, finishing it once booked and giving up. */
+  booking: {
+    start: (input: CallInput) => Promise<StartedBooking>;
+    status: (meetingId: string) => Promise<BookingState>;
+    finish: (contactId: string, meetingId: string, exclude: string[]) => Promise<CallStep>;
+    cancel: (meetingId: string) => Promise<boolean>;
+  };
 };
+
+/** A "Meeting planned" that waits for the Cal.com booking. The lead stays open on the screen. */
+type Awaiting = { meetingId: string; contactId: string; label: string | null; since: number };
+
+/** How often the screen asks whether the booking is in, and when it says the booking is late. */
+const POLL_MS = 4_000;
+const LATE_MS = 15 * 60_000;
 
 /** How long Undo stays on the screen after saving a call. */
 const UNDO_MS = 10_000;
@@ -73,6 +89,10 @@ export function CallScreen({ actions, emptyText }: { actions: CallScreenActions;
   const [stopped, setStopped] = useState(false);
   // What the last Save could not do (the follow-up window stays open and shows it).
   const [saveError, setSaveError] = useState<string>();
+  // The agenda (Cal.com) in a window: opened by the Agenda button, or after Meeting planned (then with the awaiting meeting).
+  const [agenda, setAgenda] = useState<{ linkId: string | null } | null>(null);
+  const [awaiting, setAwaiting] = useState<Awaiting | null>(null);
+  const [late, setLate] = useState(false);
   const undoToast = useRef<number | null>(null);
   const started = useRef(false);
   const current = step?.card?.contact.id ?? null;
@@ -116,12 +136,21 @@ export function CallScreen({ actions, emptyText }: { actions: CallScreenActions;
   function log(input: CallInput) {
     setSaveError(undefined);
     const before = exclude;
+    // Another outcome than the awaited meeting: the awaiting meeting is given up.
+    const wait = awaiting;
     startTransition(async () => {
+      if (wait && wait.contactId === input.contactId) {
+        await actions.booking.cancel(wait.meetingId);
+      }
       const result = await actions.log(input, before);
       if (!result.logged) {
         // Not saved: stay on this contact, the window shows what is wrong.
         setSaveError(result.error ?? "The outcome was not saved. Please try again.");
         return;
+      }
+      if (wait) {
+        setAwaiting(null);
+        setAgenda(null);
       }
       setExclude([...new Set([...before, ...(result.handled ?? [])])]);
       setStep(result);
@@ -146,6 +175,91 @@ export function CallScreen({ actions, emptyText }: { actions: CallScreenActions;
       setStep(result);
       toast("Undone: the call is open again.", { tone: "info", duration: 4000 });
     });
+  }
+
+  // The booking comes in through Cal.com (webhook or the Claude task); the meeting is planned
+  // then, and only then the call counts. Ask for it while it is awaited.
+  const awaitingRef = useRef<Awaiting | null>(null);
+  useEffect(() => {
+    awaitingRef.current = awaiting;
+  }, [awaiting]);
+  const excludeRef = useRef<string[]>([]);
+  useEffect(() => {
+    excludeRef.current = exclude;
+  }, [exclude]);
+  useEffect(() => {
+    if (!awaiting) return;
+    let busy = false;
+    const timer = setInterval(async () => {
+      const wait = awaitingRef.current;
+      if (!wait || busy) return;
+      busy = true;
+      try {
+        const state = await actions.booking.status(wait.meetingId);
+        if (awaitingRef.current?.meetingId !== wait.meetingId) return;
+        if (state.status === "planned") {
+          booked(wait);
+        } else if (state.status === "gone") {
+          setAwaiting(null);
+          setAgenda(null);
+          setSaveError("The meeting was cancelled. The lead is still open.");
+        } else if (Date.now() - wait.since > LATE_MS) {
+          setLate(true);
+        }
+      } finally {
+        busy = false;
+      }
+    }, POLL_MS);
+    return () => clearInterval(timer);
+    // booked is stable enough: it reads refs and the latest actions.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [awaiting?.meetingId]);
+
+  // The booking is in: the database logged the call, so open the next company.
+  function booked(wait: Awaiting) {
+    setAwaiting(null);
+    setAgenda(null);
+    setLate(false);
+    startTransition(async () => {
+      const result = await actions.booking.finish(wait.contactId, wait.meetingId, excludeRef.current);
+      if (result.error && !result.card && !result.logged) {
+        setSaveError(result.error);
+        return;
+      }
+      setExclude([...new Set([...excludeRef.current, ...(result.handled ?? [])])]);
+      setStep(result);
+      toast("Meeting booked and saved.", { duration: UNDO_MS });
+    });
+  }
+
+  // Save in the Meeting planned window: nothing is logged yet, the meeting waits for its booking.
+  function startBooking(input: CallInput, linkId: string | null) {
+    setSaveError(undefined);
+    startTransition(async () => {
+      const result = await actions.booking.start(input);
+      if (!result.ok) {
+        setSaveError(result.error);
+        return;
+      }
+      const wait: Awaiting = { meetingId: result.meetingId, contactId: input.contactId, label: result.label, since: Date.now() };
+      if (result.booked) {
+        // Already booked through the agenda button: the database completed it.
+        booked(wait);
+        return;
+      }
+      setLate(false);
+      setAwaiting(wait);
+      setAgenda({ linkId });
+    });
+  }
+
+  function cancelBooking() {
+    const wait = awaiting;
+    if (!wait) return;
+    setAwaiting(null);
+    setAgenda(null);
+    setLate(false);
+    void actions.booking.cancel(wait.meetingId);
   }
 
   function stop() {
@@ -217,10 +331,81 @@ export function CallScreen({ actions, emptyText }: { actions: CallScreenActions;
           options={step.options}
           saveError={saveError}
           onLog={log}
+          onBook={startBooking}
+          onAgenda={() => setAgenda({ linkId: null })}
+          awaiting={awaiting && awaiting.contactId === card.contact.id ? awaiting : null}
+          late={late}
+          onCancelBooking={cancelBooking}
           contactActions={actions.contacts}
         />
       )}
+
+      {card?.booking && (
+        <AgendaWindow
+          key={`${card.contact.id}:${agenda?.linkId ?? ""}`}
+          card={card}
+          open={agenda !== null}
+          linkId={agenda?.linkId ?? null}
+          meetingId={awaiting && awaiting.contactId === card.contact.id ? awaiting.meetingId : null}
+          awaiting={awaiting !== null}
+          onClose={() => setAgenda(null)}
+        />
+      )}
     </div>
+  );
+}
+
+/** The Cal.com agenda in a window, prefilled with what the portal knows about the lead. */
+function AgendaWindow({
+  card,
+  open,
+  linkId,
+  meetingId,
+  awaiting,
+  onClose,
+}: {
+  card: CallCard;
+  open: boolean;
+  linkId: string | null;
+  meetingId: string | null;
+  awaiting: boolean;
+  onClose: () => void;
+}) {
+  const booking = card.booking;
+  const [picked, setPicked] = useState<string | null>(null);
+  if (!booking) return null;
+  const link = pickBookingLink(booking.links, picked ?? linkId);
+  const url = link
+    ? buildSalesBookingUrl(
+        link.url,
+        {
+          name: booking.name,
+          email: booking.email,
+          company: booking.company,
+          role: booking.role,
+          contactId: card.contact.id,
+          companyId: card.company.id,
+          callerId: booking.callerId,
+          meetingId,
+        },
+        { companyField: link.companyField, roleField: link.roleField },
+      )
+    : null;
+  return (
+    <BookingModal
+      open={open}
+      url={url}
+      title={`Agenda: ${card.contact.name}`}
+      description={
+        awaiting && meetingId
+          ? "Book a time with them. This screen notices the booking and opens the next company."
+          : "Look at the calendar with them. Nothing is saved until you book or pick an outcome."
+      }
+      onClose={onClose}
+      links={booking.links.length > 1 ? booking.links.map((l) => ({ id: l.id, label: l.label })) : undefined}
+      activeLink={link?.id}
+      onPickLink={setPicked}
+    />
   );
 }
 
@@ -234,6 +419,11 @@ function ContactCall({
   options,
   saveError,
   contactActions,
+  onBook,
+  onAgenda,
+  awaiting,
+  late,
+  onCancelBooking,
 }: {
   card: CallCard;
   remaining: number;
@@ -244,6 +434,11 @@ function ContactCall({
   onStop: () => void;
   onLog: (input: CallInput) => void;
   contactActions?: ContactActions;
+  onBook: (input: CallInput, linkId: string | null) => void;
+  onAgenda: () => void;
+  awaiting: Awaiting | null;
+  late: boolean;
+  onCancelBooking: () => void;
 }) {
   const { contact, company } = card;
   const prio = companyPrios.find((p) => p.value === String(company.prio));
@@ -261,6 +456,13 @@ function ContactCall({
           {remaining > 0 ? ` · ${remaining} after this one` : " · last one"}
         </p>
         <div className="flex gap-2 max-sm:w-full max-sm:*:flex-1">
+          {/* Always there: look at the agenda with the prospect, no outcome is saved. */}
+          {card.booking && (
+            <Button variant="secondary" size="sm" onClick={onAgenda}>
+              <CalendarDays aria-hidden="true" />
+              Agenda
+            </Button>
+          )}
           <Button variant="secondary" size="sm" onClick={onStop} disabled={pending}>
             <Square aria-hidden="true" />
             Stop
@@ -361,7 +563,34 @@ function ContactCall({
 
           <CheatSheet sections={card.cheatsheet} />
 
-          <OutcomePanel card={card} options={options} saveError={saveError} pending={pending} onLog={onLog} />
+          {awaiting && (
+            <Card className="border-amber-300 bg-amber-50">
+              <CardBody className="flex flex-wrap items-center justify-between gap-3 py-4">
+                <div className="min-w-0 text-sm text-amber-900">
+                  <p className="inline-flex items-center gap-2 font-semibold">
+                    <LoaderCircle className="size-4 animate-spin" aria-hidden="true" />
+                    Waiting for the booking{awaiting.label ? ` with ${awaiting.label}` : ""}
+                  </p>
+                  <p className="mt-0.5 text-xs">
+                    {late
+                      ? "The booking is not in yet. Book it in the agenda, or give up: the lead stays open and nothing is counted."
+                      : "The meeting counts once Cal.com confirms the booking. This screen opens the next company by itself."}
+                  </p>
+                </div>
+                <div className="flex gap-2 max-sm:w-full max-sm:*:flex-1">
+                  <Button size="sm" variant="secondary" onClick={onAgenda}>
+                    <CalendarDays aria-hidden="true" />
+                    Open agenda
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={onCancelBooking}>
+                    Not booked
+                  </Button>
+                </div>
+              </CardBody>
+            </Card>
+          )}
+
+          <OutcomePanel card={card} options={options} saveError={saveError} pending={pending} onLog={onLog} onBook={onBook} />
 
           {company.openingLine && (
             <Section title="Opening line">
@@ -452,12 +681,14 @@ function OutcomePanel({
   saveError,
   pending,
   onLog,
+  onBook,
 }: {
   card: CallCard;
   options?: CallOptions;
   saveError?: string;
   pending: boolean;
   onLog: (input: CallInput) => void;
+  onBook: (input: CallInput, linkId: string | null) => void;
 }) {
   // The note box is for No answer, which saves with one tap; the other outcomes ask in their own window.
   const [note, setNote] = useState("");
@@ -469,17 +700,11 @@ function OutcomePanel({
   }, []);
 
   function save(fields: OutcomeFields) {
-    if (fields.outcome === "meeting_planned" && card.booking) {
-      // Opened in the click on Save, so the browser allows the new tab.
-      const url = buildSalesBookingUrl(card.booking.base, {
-        name: card.booking.name,
-        email: card.booking.email,
-        notes: [`${card.company.name}`, fields.meetingReason?.trim()].filter(Boolean).join(": "),
-        contactId: card.contact.id,
-        companyId: card.company.id,
-        callerId: card.booking.callerId,
-      });
-      window.open(url, "_blank", "noopener");
+    if (fields.outcome === "meeting_planned") {
+      // Nothing is logged as a call yet: the meeting waits for its Cal.com booking.
+      const linkId = fields.bookingLinkId ?? card.booking?.links[0]?.id ?? null;
+      onBook({ ...fields, contactId: card.contact.id, note: fields.note?.trim() || null }, linkId);
+      return;
     }
     onLog({ ...fields, contactId: card.contact.id, note: fields.note?.trim() || null });
   }
@@ -531,7 +756,7 @@ function OutcomePanel({
 
         {!card.booking && (
           <p className="text-xs text-muted">
-            Meeting planned saves a planned meeting. No Cal.com sales link is set, so book the time in the calendar yourself.
+            No Cal.com sales link is set (Settings, General). Meeting planned still waits for a booking: it counts once Cal.com confirms it.
           </p>
         )}
         {/* Only a problem with a no-answer save shows here; the other windows show their own. */}
@@ -544,6 +769,7 @@ function OutcomePanel({
         contactName={card.contact.name}
         companyName={card.company.name}
         options={options}
+        bookingLinks={card.booking?.links.map((l) => ({ id: l.id, label: l.label }))}
         initialNote=""
         pending={pending}
         error={saveError}

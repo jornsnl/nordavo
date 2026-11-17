@@ -5,21 +5,25 @@ import { CallSheet } from "@/components/calls/call-sheet";
 import { ViewSwitch } from "@/components/calls/view-switch";
 import { ListSkeleton } from "@/components/ui/skeleton";
 import { requireCaller } from "@/lib/auth";
-import { salesBookingBase } from "@/lib/sales/booking";
+import { loadBookingLinks } from "@/lib/sales/booking-data";
 import { callOptions, loadOutcomeButtons } from "@/lib/sales/call-session";
 import { loadCallerSheet } from "@/lib/sales/call-sheet-data";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
   addCallerContact,
+  callerBookingStatus,
   callerSheetHistory,
+  cancelCallerBooking,
   claimCallerSheetContact,
   editCallerContact,
+  finishCallerBooking,
   logCallerCall,
   logCallerSheetCall,
   markCallerPhone,
   releaseCallerCall,
   reloadCallerSheetRow,
   skipCallerCall,
+  startCallerBooking,
   startCallerCalls,
   undoCallerCall,
   undoCallerSheetCall,
@@ -64,6 +68,12 @@ async function Calls({ searchParams }: { searchParams: PageProps<"/caller/call">
             skip: skipCallerCall,
             release: releaseCallerCall,
             undo: undoCallerCall,
+            booking: {
+              start: startCallerBooking,
+              status: callerBookingStatus,
+              finish: finishCallerBooking,
+              cancel: cancelCallerBooking,
+            },
             contacts: { edit: editCallerContact, markPhone: markCallerPhone, add: addCallerContact },
           }}
         />
@@ -76,13 +86,13 @@ async function Sheet() {
   const caller = await requireCaller();
   const db = createAdminClient();
   if (!db) return <p className="text-sm text-muted">Calling is not available right now. Ask Nordavo to finish the setup.</p>;
-  const [rows, profile, outcomes, options] = await Promise.all([
+  const [rows, profile, outcomes, options, bookingLinks] = await Promise.all([
     loadCallerSheet(db, caller.callerId, caller.id),
     db.from("profiles").select("dial_template").eq("id", caller.id).maybeSingle(),
     loadOutcomeButtons(db),
     callOptions({ db, callerId: caller.callerId, actorId: caller.id }),
+    loadBookingLinks(db),
   ]);
-  const bookingBase = salesBookingBase(process.env.NEXT_PUBLIC_CALCOM_SALES_URL, null);
   return (
     <CallSheet
       rows={rows}
@@ -91,8 +101,9 @@ async function Sheet() {
       callHref="/caller/call"
       outcomes={outcomes}
       options={options}
-      booking={bookingBase ? { base: bookingBase, callerId: caller.callerId } : null}
+      booking={bookingLinks.length > 0 ? { links: bookingLinks, callerId: caller.callerId } : null}
       actions={{
+        startBooking: startCallerBooking,
         claim: claimCallerSheetContact,
         release: releaseCallerCall,
         log: logCallerSheetCall.bind(null, null),

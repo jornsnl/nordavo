@@ -13,6 +13,19 @@ export type CheatsheetRow = {
   updated_at: string;
 };
 
+/** The Cal.com links for sales meetings (20261125100000_meeting_booking_flow.sql). */
+export type BookingLinkRow = {
+  id: string;
+  label: string;
+  url: string;
+  /** Cal.com question identifiers that get the company and the role (?bedrijfsnaam=...). */
+  company_field: string;
+  role_field: string;
+  position: number;
+  created_at: string;
+  updated_at: string;
+};
+
 type Rel = {
   foreignKeyName: string;
   columns: string[];
@@ -30,6 +43,7 @@ type Table<Row, Required extends keyof Row, Relationships extends Rel[]> = {
 
 export type CallScreenTables = {
   sales_call_cheatsheet: Table<CheatsheetRow, "key" | "title" | "body", []>;
+  sales_booking_links: Table<BookingLinkRow, "label" | "url", []>;
 };
 
 type Fn<Args, Returns> = { Args: Args; Returns: Returns };
@@ -49,6 +63,13 @@ export type CallContactResult = {
 };
 
 export type CallScreenFunctions = {
+  /** "Meeting planned": makes the awaiting meeting with the reason and keeps the contact open. */
+  sales_start_booking: Fn<
+    { p_contact: string; p_reason: string; p_note?: string | null; p_with?: string | null } & Actor,
+    { meeting_id: string; status: "awaiting_booking" | "planned" }
+  >;
+  /** Gives up an awaiting meeting; returns whether it changed. */
+  sales_cancel_booking: Fn<{ p_meeting: string } & Actor, boolean>;
   /** Name, job title, mobile number and mail of one contact; a caller needs to hold a contact of the same company. */
   sales_caller_update_contact: Fn<
     {

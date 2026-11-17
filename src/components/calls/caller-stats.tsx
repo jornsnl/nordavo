@@ -7,8 +7,8 @@ const tiles: { key: keyof CallerStats; label: string }[] = [
   { key: "reached", label: "Reached" },
   { key: "callbacks", label: "Call back" },
   { key: "interested", label: "Interested" },
-  { key: "meetings", label: "Meetings planned" },
-  { key: "held", label: "Meetings held" },
+  { key: "planned", label: "Planned" },
+  { key: "held", label: "Held" },
   { key: "approved", label: "Approved" },
 ];
 

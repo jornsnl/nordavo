@@ -13,7 +13,9 @@ import { amsterdamDate, promoteContactStatus } from "@/lib/sales/status";
  * in the register (public.meetings through sales_save_meeting, the booking
  * uid as external id) with a note in the timeline. A booking from the call
  * screen carries metadata[contact_id] and metadata[caller_id] and fills in
- * the planned meeting that "Meeting planned" created.
+ * the awaiting meeting that "Meeting planned" created: it gets the time, the
+ * source Cal.com and becomes planned, and only then the call counts
+ * (supabase/migrations/20261125100000_meeting_booking_flow.sql).
  *
  * Endpoint: POST /api/webhooks/calcom, configured in Cal.com under
  * Settings, Developer, Webhooks with CALCOM_WEBHOOK_SECRET as secret.
@@ -77,6 +79,8 @@ export type CalBooking = {
   attendeeEmail: string;
   attendeeName: string | null;
   companyName: string | null;
+  /** The answer to "Welke rol zoek je?". */
+  role: string | null;
   cancellationReason: string | null;
   /** metadata[contact_id] and metadata[caller_id] of the prefilled sales link (src/lib/sales/booking.ts). */
   contactId: string | null;
@@ -114,7 +118,8 @@ export function parseCalWebhook(json: unknown): { booking: CalBooking } | { igno
       startTime: payload.startTime ?? null,
       attendeeEmail: email,
       attendeeName: attendee?.name?.trim() || null,
-      companyName: responseText(payload.responses, ["company", "bedrijf", "companyName", "organisation"]),
+      companyName: responseText(payload.responses, ["company", "bedrijf", "bedrijfsnaam", "companyName", "organisation"]),
+      role: responseText(payload.responses, ["welke-rol-zoek-je", "welke_rol_zoek_je", "rol", "role"]),
       cancellationReason: payload.cancellationReason ?? null,
       contactId: uuidOrNull(payload.metadata?.contact_id),
       callerId: uuidOrNull(payload.metadata?.caller_id),
@@ -136,7 +141,13 @@ export type SalesMeetingAction =
   | { kind: "cancel"; externalId: string };
 
 export function salesMeetingAction(booking: CalBooking): SalesMeetingAction {
-  const reason = booking.title?.trim() ? `Booked in Cal.com: ${booking.title.trim()}` : "Booked in Cal.com";
+  // The reason the caller gave stays on the awaiting meeting (coalesce in sales_save_meeting); this is the fallback.
+  const reason = [
+    booking.title?.trim() ? `Booked in Cal.com: ${booking.title.trim()}` : "Booked in Cal.com",
+    booking.role ? `Role: ${booking.role}` : null,
+  ]
+    .filter(Boolean)
+    .join(". ");
   if (booking.trigger === "BOOKING_CANCELLED") return { kind: "cancel", externalId: booking.uid };
   if (booking.trigger === "BOOKING_RESCHEDULED") {
     return {
@@ -154,7 +165,9 @@ export function salesMeetingAction(booking: CalBooking): SalesMeetingAction {
 /** Booking question answers are either strings or { value } objects. */
 function responseText(responses: Record<string, unknown> | null | undefined, keys: string[]): string | null {
   for (const key of keys) {
-    const raw = responses?.[key];
+    // Cal.com names the question after its label, in any letter case.
+    const found = Object.keys(responses ?? {}).find((k) => k.toLowerCase() === key.toLowerCase());
+    const raw = found ? responses?.[found] : undefined;
     const value =
       typeof raw === "string" ? raw : raw && typeof raw === "object" && "value" in raw ? (raw as { value: unknown }).value : null;
     if (typeof value === "string" && value.trim()) return value.trim();
@@ -232,7 +245,8 @@ async function recordSalesMeeting(
         .update({
           external_id: action.externalId,
           scheduled_at: action.scheduledAt,
-          ...(meeting.status === "cancelled" ? { status: "planned" as const } : {}),
+          // Moved again in Cal.com after a cancellation or a no show: it is planned again.
+          ...(meeting.status === "cancelled" || meeting.status === "no_show" ? { status: "planned" as const } : {}),
         })
         .eq("id", meeting.id);
       if (moveError) throw moveError;

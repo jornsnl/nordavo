@@ -12,22 +12,26 @@ import { ButtonLink } from "@/components/ui/button";
 import { Card, CardBody } from "@/components/ui/card";
 import { ListSkeleton } from "@/components/ui/skeleton";
 import { requireModule } from "@/lib/auth";
-import { salesBookingBase } from "@/lib/sales/booking";
+import { loadBookingLinks } from "@/lib/sales/booking-data";
 import { callOptions, loadOutcomeButtons } from "@/lib/sales/call-session";
 import { loadViews } from "@/lib/sales/data";
 import { countCallLists, type QueueScope } from "@/lib/sales/queue";
 import { createClient } from "@/lib/supabase/server";
 import {
   addTeamContact,
+  cancelTeamBooking,
   claimTeamSheetContact,
   editTeamContact,
+  finishTeamBooking,
   logTeamCall,
   logTeamSheetCall,
   markTeamPhone,
   releaseTeamCall,
   reloadTeamSheetRow,
   skipTeamCall,
+  startTeamBooking,
   startTeamCalls,
+  teamBookingStatus,
   teamSheetHistory,
   undoTeamCall,
   undoTeamSheetCall,
@@ -72,13 +76,13 @@ async function Calls({ searchParams }: { searchParams: PageProps<"/dashboard/cal
     const name = scope.kind === "sequence" ? "Sequence calls due today" : views.find((v) => v.id === list)?.name;
     const asSheet = scope.kind === "list" && params.view === "sheet";
     if (asSheet && scope.kind === "list") {
-      const [sheet, profile, outcomes, options] = await Promise.all([
+      const [sheet, profile, outcomes, options, bookingLinks] = await Promise.all([
         loadListSheet(db, scope.listId, user.id),
-        db.from("profiles").select("dial_template, booking_url").eq("id", user.id).maybeSingle(),
+        db.from("profiles").select("dial_template").eq("id", user.id).maybeSingle(),
         loadOutcomeButtons(db),
         callOptions({ db, callerId: null, actorId: user.id }),
+        loadBookingLinks(db),
       ]);
-      const bookingBase = salesBookingBase(process.env.NEXT_PUBLIC_CALCOM_SALES_URL, profile.data?.booking_url);
       return (
         <div className="space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
@@ -96,8 +100,9 @@ async function Calls({ searchParams }: { searchParams: PageProps<"/dashboard/cal
             callHref={`/dashboard/calls?list=${scope.listId}`}
             outcomes={outcomes}
             options={options}
-            booking={bookingBase ? { base: bookingBase, callerId: null } : null}
+            booking={bookingLinks.length > 0 ? { links: bookingLinks, callerId: null } : null}
             actions={{
+              startBooking: startTeamBooking,
               claim: claimTeamSheetContact,
               release: releaseTeamCall,
               log: logTeamSheetCall.bind(null, scope.listId),
@@ -138,6 +143,12 @@ async function Calls({ searchParams }: { searchParams: PageProps<"/dashboard/cal
             skip: skipTeamCall.bind(null, scope),
             release: releaseTeamCall,
             undo: undoTeamCall.bind(null, scope),
+            booking: {
+              start: startTeamBooking,
+              status: teamBookingStatus,
+              finish: finishTeamBooking.bind(null, scope),
+              cancel: cancelTeamBooking,
+            },
             contacts: { edit: editTeamContact, markPhone: markTeamPhone, add: addTeamContact },
           }}
         />

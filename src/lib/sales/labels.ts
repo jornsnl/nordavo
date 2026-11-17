@@ -155,6 +155,7 @@ export const callerStatuses: Option<CallerStatus>[] = [
 ];
 
 export const meetingStatuses: Option<MeetingStatus>[] = [
+  { value: "awaiting_booking", label: "Awaiting booking", tone: "warning" },
   { value: "planned", label: "Planned", tone: "brand" },
   { value: "held", label: "Held", tone: "accent" },
   { value: "approved", label: "Approved", tone: "success" },

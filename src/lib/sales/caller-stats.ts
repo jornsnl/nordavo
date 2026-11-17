@@ -18,8 +18,10 @@ export type CallerStats = {
   /** Outcome Call back / Reached: interested. */
   callbacks: number;
   interested: number;
-  /** Meetings that are not cancelled, of which held (held, approved or rejected afterwards) and approved. */
+  /** Booked meetings (not cancelled, not awaiting the booking), of which still planned, held (held, approved or rejected afterwards) and approved. */
   meetings: number;
+  /** Booked and not held yet (status Planned). */
+  planned: number;
   held: number;
   approved: number;
 };
@@ -28,7 +30,7 @@ export type CallerMonth = { approved: number; fees: number };
 /** Outcomes where the caller spoke to someone. */
 export const reachedOutcomes = ["reached_interested", "meeting_planned", "reached_not_interested", "referred", "wrong_person"];
 
-export const emptyStats: CallerStats = { called: 0, reached: 0, callbacks: 0, interested: 0, meetings: 0, held: 0, approved: 0 };
+export const emptyStats: CallerStats = { called: 0, reached: 0, callbacks: 0, interested: 0, meetings: 0, planned: 0, held: 0, approved: 0 };
 
 export function summarizeCallers(
   calls: { caller_id: string | null; outcome: string | null }[],
@@ -52,9 +54,11 @@ export function summarizeCallers(
     if (c.outcome === "reached_interested") s.interested += 1;
   }
   for (const m of meetings) {
-    if (!m.caller_id || m.status === "cancelled") continue;
+    // A meeting that waits for its Cal.com booking does not count (Julius): it counts once booked.
+    if (!m.caller_id || m.status === "cancelled" || m.status === "awaiting_booking") continue;
     const s = get(m.caller_id);
     s.meetings += 1;
+    if (m.status === "planned") s.planned += 1;
     if (m.status === "held" || m.status === "approved" || m.status === "rejected") s.held += 1;
     if (m.status === "approved") s.approved += 1;
   }
@@ -322,7 +326,7 @@ export function summarizeCallResults(
     who.outcomes[o] = (who.outcomes[o] ?? 0) + 1;
   }
   for (const m of meetings) {
-    if (m.status === "cancelled") continue;
+    if (m.status === "cancelled" || m.status === "awaiting_booking") continue;
     const who = m.caller_id ? get("caller", m.caller_id) : m.booked_by ? get("team", m.booked_by) : null;
     if (!who) continue;
     who.meetings += 1;
@@ -526,7 +530,12 @@ export type MyMeeting = {
   reason: string | null;
   fee: number;
   status: MeetingStatus;
+  /** Said Meeting planned more than an hour ago and the Cal.com booking is still not in: the caller is warned. */
+  late: boolean;
 };
+
+/** How long a meeting may wait for its booking before the caller is warned. */
+const LATE_BOOKING_MS = 60 * 60_000;
 
 /** The meetings of one caller, newest first, with the status the team gave them. */
 export async function loadMyMeetings(db: Db, callerId: string, limit = 25): Promise<MyMeeting[]> {
@@ -554,6 +563,7 @@ export async function loadMyMeetings(db: Db, callerId: string, limit = 25): Prom
       reason: m.reason,
       fee: Number(m.fee ?? 0),
       status: m.status,
+      late: m.status === "awaiting_booking" && Date.now() - new Date(m.created_at).getTime() > LATE_BOOKING_MS,
     };
   });
 }
