@@ -55,6 +55,7 @@ export const WRITE_TOOLS: Record<string, { module: McpModule; kind: "suggest" | 
   update_task: { module: "work", kind: "write" },
   update_task_status: { module: "work", kind: "write" },
   add_task_comment: { module: "work", kind: "write" },
+  add_agenda_item: { module: "work", kind: "write" },
   // Notes on records
   add_note: { module: "records", kind: "write" },
   // Recruitment

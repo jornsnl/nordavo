@@ -284,6 +284,57 @@ export type WorkTaskLinkRow = {
   created_at: string;
 };
 
+
+export type WorkMeetingVisibility = "workspace" | "invited";
+export type WorkAgendaStatus = "open" | "discussed" | "dropped" | "forwarded";
+
+export type WorkMeetingRow = {
+  id: string;
+  workspace_id: string;
+  name: string;
+  visibility: WorkMeetingVisibility;
+  created_by: string | null;
+  archived_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type WorkMeetingMemberRow = {
+  meeting_id: string;
+  user_id: string;
+  added_by: string | null;
+  created_at: string;
+};
+
+export type WorkMeetingSessionRow = {
+  id: string;
+  meeting_id: string;
+  opened_at: string;
+  closed_at: string | null;
+  closed_by: string | null;
+};
+
+export type WorkAgendaItemRow = {
+  id: string;
+  meeting_id: string;
+  session_id: string;
+  title: string;
+  note: string | null;
+  added_by: string | null;
+  source: "portal" | "claude";
+  status: WorkAgendaStatus;
+  decision: string | null;
+  decided_by: string | null;
+  decided_at: string | null;
+  task_id: string | null;
+  carried_from: string | null;
+  carried_count: number;
+  forwarded_to: string | null;
+  position: number;
+  created_at: string;
+  updated_at: string;
+};
+
 export type WorkTables = {
   work_task_links: Table<
     WorkTaskLinkRow,
@@ -405,6 +456,20 @@ export type WorkTables = {
   >;
   work_notification_prefs: Table<WorkNotificationPrefsRow, "user_id", []>;
   work_api_tokens: Table<WorkApiTokenRow, "user_id" | "name" | "token_hash" | "token_prefix", []>;
+  work_meetings: Table<WorkMeetingRow, "workspace_id" | "name", [To<"work_meetings_workspace_id_fkey", "workspace_id", "work_workspaces">, ToProfile<"work_meetings_created_by_fkey", "created_by">]>;
+  work_meeting_members: Table<WorkMeetingMemberRow, "meeting_id" | "user_id", [To<"work_meeting_members_meeting_id_fkey", "meeting_id", "work_meetings">, ToProfile<"work_meeting_members_user_id_fkey", "user_id">]>;
+  work_meeting_sessions: Table<WorkMeetingSessionRow, "meeting_id", [To<"work_meeting_sessions_meeting_id_fkey", "meeting_id", "work_meetings">]>;
+  work_agenda_items: Table<
+    WorkAgendaItemRow,
+    "meeting_id" | "session_id" | "title",
+    [
+      To<"work_agenda_items_meeting_id_fkey", "meeting_id", "work_meetings">,
+      To<"work_agenda_items_session_id_fkey", "session_id", "work_meeting_sessions">,
+      To<"work_agenda_items_task_id_fkey", "task_id", "work_tasks">,
+      ToProfile<"work_agenda_items_added_by_fkey", "added_by">,
+      ToProfile<"work_agenda_items_decided_by_fkey", "decided_by">,
+    ]
+  >;
 };
 
 type Fn<Args, Returns> = { Args: Args; Returns: Returns };
@@ -580,6 +645,43 @@ export type WorkFunctions = {
     },
     WorkTaskRow[]
   >;
+  work_create_meeting: Fn<
+    { p_workspace: string; p_name: string; p_visibility?: WorkMeetingVisibility; p_members?: string[] } & Actor,
+    string
+  >;
+  work_update_meeting: Fn<
+    { p_meeting: string; p_name: string; p_visibility: WorkMeetingVisibility; p_members?: string[]; p_archived?: boolean } & Actor,
+    undefined
+  >;
+  work_add_agenda_item: Fn<
+    {
+      p_meeting: string;
+      p_title: string;
+      p_note?: string | null;
+      /** Chosen by the device (offline): the same id twice makes one point. */
+      p_id?: string | null;
+      p_at?: string | null;
+      /** Only counts for the API (secret key). */
+      p_source?: "portal" | "claude";
+    } & Actor,
+    string
+  >;
+  work_update_agenda_item: Fn<{ p_item: string; p_fields: Json } & Actor, undefined>;
+  work_agenda_item_to_task: Fn<
+    {
+      p_item: string;
+      p_owner?: string | null;
+      p_due_at?: string | null;
+      p_project?: string | null;
+      p_title?: string | null;
+      p_priority?: WorkPriority;
+    } & Actor,
+    string
+  >;
+  work_close_meeting: Fn<{ p_meeting: string } & Actor, string>;
+  work_can_view_meeting: Fn<{ p_meeting: string }, boolean>;
+  work_api_can_view_meeting: Fn<{ p_meeting: string; p_user: string }, boolean>;
+  work_api_visible_meetings: Fn<{ p_user: string }, WorkMeetingRow[]>;
   work_claim_notifications: Fn<{ p_delivery: WorkDelivery; p_limit?: number }, WorkNotificationRow[]>;
   work_finish_notifications: Fn<{ p_ids: number[]; p_sent: boolean }, undefined>;
   work_daily_checks: Fn<Record<string, never>, Json>;

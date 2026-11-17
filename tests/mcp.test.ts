@@ -211,6 +211,7 @@ const READ_TOOLS = [
   "list_candidates",
   "list_clients",
   "list_placements",
+  "list_agenda",
   "list_tasks",
   "list_vacancies",
   "list_work_projects",
@@ -218,7 +219,7 @@ const READ_TOOLS = [
   "talent_pool_top",
   "whoami",
 ];
-const WRITE_TOOLS = ["add_note", "add_task_comment", "create_task", "mark_topper", "move_candidates", "update_task", "update_task_status"];
+const WRITE_TOOLS = ["add_agenda_item", "add_note", "add_task_comment", "create_task", "mark_topper", "move_candidates", "update_task", "update_task_status"];
 const CONTENT_READ_TOOLS = ["content_get_post", "content_list_ideas", "content_list_media", "content_list_posts", "content_list_workspaces"];
 const CONTENT_SUGGEST_TOOLS = ["content_add_idea", "content_suggest_image_brief", "content_suggest_images", "content_suggest_media_description", "content_suggest_text"];
 const CONTENT_WRITE_TOOLS = [
@@ -288,8 +289,8 @@ test("rights per module: read hides the module's write tools, suggest keeps the 
   const { names } = await listToolNames("write", { ...all, content: "suggest", work: "read" });
   for (const tool of CONTENT_SUGGEST_TOOLS) assert.ok(names.includes(tool), `${tool} stays with suggest`);
   for (const tool of ["content_create_post", "content_update_post", "content_record_results"]) assert.ok(!names.includes(tool), `${tool} needs write`);
-  for (const tool of ["create_task", "update_task", "add_task_comment", "update_task_status"]) assert.ok(!names.includes(tool), `${tool} is off with read`);
-  assert.ok(names.includes("list_tasks") && names.includes("list_work_projects"), "reading Work stays");
+  for (const tool of ["create_task", "update_task", "add_task_comment", "update_task_status", "add_agenda_item"]) assert.ok(!names.includes(tool), `${tool} is off with read`);
+  assert.ok(names.includes("list_tasks") && names.includes("list_work_projects") && names.includes("list_agenda"), "reading Work stays");
   assert.ok(names.includes("add_company"), "other modules keep their rights");
 });
 

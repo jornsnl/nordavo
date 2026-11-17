@@ -15,6 +15,7 @@ import {
   type DirtyEntry,
 } from "./db";
 import { applyTaskOp, describeTaskOp, sendTaskOp, taskIdOf, type TaskOp } from "./task-changes";
+import { sendAgendaOp, type AgendaOp, type PendingAgendaItem } from "@/lib/offline/agenda-changes";
 import type { TaskListItem } from "@/lib/work/data";
 
 /**
@@ -173,6 +174,29 @@ export async function submitTaskOp(change: TaskOp, base: TaskListItem | null = n
     // Without a copy of the task (never listed on this device) only the outbox
     // holds the change; nothing to lay over a list.
     dirty,
+  );
+  changed();
+  await refreshState();
+  void flush();
+}
+
+/**
+ * A point for a meeting agenda: into the outbox with the id the device chose,
+ * and shown as waiting until the server's own list has it.
+ */
+export async function submitAgendaItem(change: AgendaOp) {
+  if (!isAvailable()) {
+    const result = await sendAgendaOp(change.op, change.payload);
+    if ("error" in result) window.dispatchEvent(new CustomEvent(REJECTED_EVENT, { detail: { label: "", error: result.error } }));
+    else window.dispatchEvent(new Event(SYNCED_EVENT));
+    return;
+  }
+  const { id, meeting_id, title, at } = change.payload;
+  const key = recordKey("agenda", id);
+  const data: PendingAgendaItem = { id, meetingId: meeting_id, title, createdAt: at ?? new Date().toISOString() };
+  await enqueue(
+    { key, kind: "agenda", op: change.op, payload: change.payload, label: `Agenda point: ${title}`, createdAt: Date.now(), attempts: 0 },
+    { key, kind: "agenda", id, data, created: true, pending: 1, syncedAt: null, updatedAt: Date.now() },
   );
   changed();
   await refreshState();

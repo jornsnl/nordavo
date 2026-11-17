@@ -18,7 +18,7 @@ import { listCachedPages, type CachedPage } from "@/lib/offline/worker";
 
 const SERVER_STATE: SyncState = { phase: "synced", pending: 0, rejected: 0, lastSyncedAt: null };
 
-const kindLabel: Record<MetaEntry["kind"], string> = { task: "Work tasks" };
+const kindLabel: Record<MetaEntry["kind"], string> = { task: "Work tasks", agenda: "Agenda points" };
 
 function when(ms: number | null) {
   if (!ms) return "";
