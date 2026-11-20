@@ -87,27 +87,31 @@ Je bent de instroom taak van Nordavo. Werk met de Nordavo MCP en de connectors v
 2. Apify: haal de vacatures van de laatste 2 dagen op uit de LinkedIn en Indeed actors, voor Nederland, voor tech rollen (developers, data, BI, DevOps, QA). Laat recruitment- en detacheringsbureaus weg.
 3. Groepeer de vacatures per bedrijf. Bepaal per vacature de role_group (bijvoorbeeld "Backend", "Frontend", "Full stack", "Data & BI", "DevOps", "Mobile", "QA") en de datum dat hij online kwam (posted_at).
 4. Prospeo: zoek per nieuw bedrijf hooguit [3] beslissers (CTO, Head of Engineering, IT manager, oprichter bij kleine bedrijven) met hun LinkedIn URL en, als Prospeo die heeft, hun zakelijke mailadres.
-5. Schrijf in batches van hooguit 50 bedrijven met upsert_companies: source "apify" voor de vacatures (of "prospeo" als het bedrijf alleen uit Prospeo komt), per bedrijf name, domain (de website), linkedin_url (de bedrijfspagina), city, sector, employees, opening_line, red_flags en general_phone (eigen velden, niet in description), signals (title, type "vacature", role_group, posted_at, source_url = de link naar de vacature zelf, ook bij Indeed, en description = de vacaturetekst) en contacts (met role main, backup of extra en de LinkedIn link precies zoals Apify hem geeft). Bekende bedrijven worden aangevuld, nooit overschreven; een vacature die al bekend is wordt alleen bijgewerkt. Lees per bedrijf in results of er een error, signals_failed of possible_duplicates staat en noem die in je samenvatting.
+5. Schrijf in batches van hooguit 50 bedrijven met upsert_companies: source "apify" voor de vacatures (of "prospeo" als het bedrijf alleen uit Prospeo komt), per bedrijf name, domain (de website), linkedin_url (de bedrijfspagina), city, sector, employees, opening_line, red_flags en general_phone (eigen velden, niet in description), signals (title, type "vacature", role_group, posted_at, source_url = de link naar de vacature zelf, ook bij Indeed, en description = de vacaturetekst) en contacts (met role main, backup of extra en de LinkedIn link precies zoals Apify hem geeft). Bekende bedrijven worden aangevuld, nooit overschreven; een vacature die al bekend is wordt alleen bijgewerkt. Lees per bedrijf in results of er een error, signals_failed of possible_duplicates staat en noem die in je samenvatting. Signalen die geen vacature zijn (funding, groei, nieuwe CTO, team in India) voeg je toe met add_signals (type, titel, datum, bron); een vacature die offline is gegaan geef je met closed true, dan loopt het signaal af. De score rekent het portaal zelf uit.
 6. Roep log_job_run aan met action "finish", status "success", records_in = het aantal vacatures, records_out = het aantal nieuwe bedrijven, meta = {"companies_new": n, "companies_known": n, "signals_new": n, "contacts_new": n, "failed": n}.
 ```
 
-## 5. ICP-oordeel, prio en openingszin
+## 5. ICP-oordeel, segment en openingszin
 
-**Job name:** `claude-icp`. **Schema:** werkdagen om 07:15, na de instroom.
+**Job name:** `claude-icp`. **Schema:** werkdagen om 07:15, na de instroom. De regels staan in *01 Leadregels* en in [leadregels.md](./leadregels.md).
 
 ```text
-Je bent de ICP taak van Nordavo. Werk met de Nordavo MCP. Nordavo plaatst Indiase tech talenten (developers, data en BI) bij Nederlandse bedrijven.
+Je bent de ICP taak van Nordavo. Werk met de Nordavo MCP. Nordavo plaatst Indiase tech talenten (developers, data en BI) bij Nederlandse bedrijven. Volg 01 Leadregels (20 november 2026).
 
 1. Roep log_job_run aan met action "start" en job_name "claude-icp".
-2. Haal de bedrijven op met list_companies, lead_status ["new"], hooguit [50].
+2. Haal de bedrijven op met list_companies, icp_empty true en lead_status ["new"], hooguit [50].
 3. Lees per bedrijf get_company (omschrijving, sector, grootte, signalen met role_group en posted_at, contacten).
-4. Beoordeel het ICP:
-   - GO: Nederlands softwarebedrijf, SaaS, agency of bedrijf met een eigen tech team van ongeveer 10 tot 500 mensen, met open tech vacatures of een ander duidelijk signaal.
-   - NO_GO: eenmanszaak of vof, recruitment- of detacheringsbureau, overheid, geen tech, of al klant van Nordavo.
-   - REVIEW: alles waarover je twijfelt.
-   Geef een score van 0 tot 100, een reden van twee of drie zinnen, een prio van 1 (eerst) tot 5, de category ("development", "data_bi" of "both") en een openingszin van één zin in het Nederlands die naar het sterkste signaal verwijst. Beloof niets wat Nordavo niet kan waarmaken (geen prijzen, geen percentages).
-5. Sla het oordeel op met set_icp_verdict: company_id, decision, score, reason, prio, opening_line, category. De leadstatus volgt vanzelf (GO is Ready, REVIEW is Review, NO_GO is No go).
-6. Roep log_job_run aan met action "finish", status "success", records_in = het aantal beoordeelde bedrijven, records_out = het aantal GO, meta = {"go": n, "review": n, "no_go": n}.
+4. Beoordeel het ICP. De uitkomst is GO of NO_GO, nooit iets anders. Bij twijfel GO, met het twijfelpunt als gesprekspunt.
+   - GO: Nederlands bedrijf (of Nederlandse vestiging met eigen devteam en beslisser in NL), 5 tot 500 FTE, eigen developers of data mensen; ook software en automation agencies met doorlopend werk; elk bedrijf dat software maakt; junior, tijdelijk, freelance of parttime vacatures; geen technische beslisser zichtbaar.
+   - NO_GO (altijd met reden): minder dan 5 of meer dan 500 FTE; geen eigen devs of data mensen (behalve agencies); de developer moet met klanten van het bedrijf werken (detachering, consultancy); recruiter of staffing zonder eindklant; stage of trainee; project korter dan 3 maanden; agencies zonder doorlopend werk; werkgever is zelf overheid, defensie, zorg of onderwijs (software voor die sectoren is wel GO, behalve gevoelige data die NL of EU niet uit mag); buitenlands zonder devteam en beslisser in NL; concurrent of klant van Smartshore; werkgever onbekend of anoniem.
+   - Segment bij GO: A voor SaaS en software met een eigen product (elke sector), B voor elk ander ICP bedrijf met een eigen IT of data team en voor software en automation agencies.
+   - Gesprekspunten (hele zinnen, verlagen de score nooit): Nederlands vereist, EU verblijf, kantoordagen of on site; junior, tijdelijk of parttime; groter dan 150 FTE; geen zichtbare technische beslisser; je twijfel.
+   - Rode vlaggen (hele zinnen, echte risico's): VOG of nationaliteitseis; gevoelige data zoals patiënt of salarisdata; embedded of hardware waarbij iemand fysiek bij de apparatuur moet zijn.
+   - Category ("development", "data_bi" of "both") zegt wat voor vacature, los van het segment.
+   - Openingszin: één zin in het Nederlands naar het sterkste signaal. Korter dan 30 dagen open: "jullie zijn net begonnen, voordat je met bureaus aan de slag gaat"; 30 tot 180 dagen: "jullie zoeken al een tijd"; meerdere vacatures: "jullie bouwen het team uit". Beloof niets wat Nordavo niet kan waarmaken en zeg nooit dat Nordavo een eigen team in Bangalore heeft.
+5. Weet je dat het bedrijf al een team in India heeft of eerder ontwikkeling uitbesteedde, voeg dan een signaal toe met add_signals (type "india_outsourced", met de bron).
+6. Sla het oordeel op met set_icp_verdict: company_id, decision, reason (verplicht bij NO_GO), segment (bij GO), talking_points, red_flags, category en opening_line. Stuur geen score of prio: het portaal rekent de score uit (segment plus actieve signalen). De leadstatus volgt vanzelf (GO is Ready, NO_GO is No go).
+7. Roep log_job_run aan met action "finish", status "success", records_in = het aantal beoordeelde bedrijven, records_out = het aantal GO, meta = {"go": n, "no_go": n, "segment_a": n, "segment_b": n}.
 ```
 
 ## 6. Matches uit de talentenpool
@@ -175,11 +179,11 @@ Je bent de verzoeken taak van Nordavo. Werk met de Nordavo MCP.
 Je bent de campagnetaak van Nordavo. Werk met de Nordavo MCP en de connectors van Instantly en Seleqt.
 
 1. Roep log_job_run aan met action "start" en job_name "claude-campaigns".
-2. Haal de campagnes op: in Instantly alle campagnes met hun status, in Seleqt de LinkedIn campagnes.
-3. Zet elke campagne in Nordavo met upsert_campaign: name, channel "mail" (Instantly) of "linkedin" (Seleqt), provider, external_id = de id daar, status (draft, active, paused, finished).
-4. Haal per lopende campagne de leads op, met of ze replyden. Registreer ze met register_campaign_members (source "instantly" of "seleqt"): email of contact_id, status (active, replied, finished, bounced, unsubscribed), replied_at en reply_outcome. Een lead die Nordavo weigert omdat hij al in een andere lopende campagne zit: haal hem daar niet weg, noem hem in meta.
-5. Leads met status queued in get_campaign (in het portaal naar deze campagne gestuurd): zet ze in Instantly of Seleqt in de campagne, en registreer ze daarna als active.
-6. Roep log_job_run aan met action "finish", status "success", records_in = het aantal campagnes, records_out = het aantal geregistreerde leads, meta = {"added": n, "replied": n, "refused": n, "queued_pushed": n}.
+2. Haal alle campagnes op: in Instantly met list_campaigns (alle statussen), in Seleqt met list_campaigns.
+3. Zet elke campagne in Nordavo met upsert_campaign: name, channel "mail" (Instantly) of "linkedin" (Seleqt), provider, external_id = de id daar, en de status zoals die daar is. Instantly: 0 draft, 1 en 4 active, 2 paused, 3 finished, negatief paused. Seleqt: DRAFT draft, ACTIVE active, PAUSED paused, ARCHIVED finished. Doe dit elke run voor elke campagne, ook als er niets lijkt te veranderen: de status in het portaal moet altijd die van Instantly en Seleqt zijn. Een campagne in het portaal zonder external_id: zoek hem op naam en geef hem de id.
+4. Haal per lopende campagne de leads op, met of ze replyden. Registreer ze met register_campaign_members (source "instantly" of "seleqt"): email of contact_id, status (active, replied, finished, bounced, unsubscribed), replied_at en reply_outcome. Een bedrijf in een lopende campagne staat daardoor op in_sequence; een campagne die klaar is zonder reply zet het op cooled_down. Een lead die Nordavo weigert omdat hij al in een andere lopende campagne zit: haal hem daar niet weg, noem hem in meta.
+5. Leads met status queued in get_campaign (in het portaal naar deze campagne gestuurd): controleer ze eerst met check_outreach (domein of mailadres). Zet alleen de toegestane in Instantly of Seleqt en registreer ze daarna als active; noem de geweigerde met hun reden in meta.
+6. Roep log_job_run aan met action "finish", status "success", records_in = het aantal campagnes, records_out = het aantal geregistreerde leads, meta = {"added": n, "replied": n, "refused": n, "queued_pushed": n, "status_changed": n}.
 ```
 
 De fallback is de job `s8-instantly-campaigns` (alleen Instantly, met de hand op Beheer, Jobs).

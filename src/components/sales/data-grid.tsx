@@ -149,8 +149,8 @@ export function SalesWorkspace({
   const [views, setViews] = useState(initialViews);
   const [viewId, setViewId] = useState<string | null>(initialViewId);
   const savedConfig = useMemo<ViewConfig>(
-    () => views.find((v) => v.id === viewId)?.config ?? { filters: [], sort: [] },
-    [views, viewId],
+    () => views.find((v) => v.id === viewId)?.config ?? { filters: k.defaultFilters ?? [], sort: [] },
+    [views, viewId, k.defaultFilters],
   );
   const [config, setConfig] = useState<ViewConfig>(savedConfig);
   const [mode, setMode] = useState<"table" | "board">(initialMode);
@@ -331,7 +331,7 @@ export function SalesWorkspace({
 
   const selectView = (id: string | null) => {
     setViewId(id);
-    const next = views.find((v) => v.id === id)?.config ?? { filters: [], sort: [] };
+    const next = views.find((v) => v.id === id)?.config ?? { filters: k.defaultFilters ?? [], sort: [] };
     setConfig(next);
     setSelected(new Set());
     const params = new URLSearchParams(searchParams.toString());

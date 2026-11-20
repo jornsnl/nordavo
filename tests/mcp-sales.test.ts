@@ -264,11 +264,11 @@ test("sales_stats custom needs from and to", async () => {
 
 test("icpLeadStatus follows the verdict only for companies not approached yet", () => {
   assert.equal(icpLeadStatus("GO", "new"), "ready");
-  assert.equal(icpLeadStatus("REVIEW", "new"), "review");
   assert.equal(icpLeadStatus("NO_GO", "ready"), "no_go");
   assert.equal(icpLeadStatus("GO", "ready"), null);
   assert.equal(icpLeadStatus("GO", "in_sequence"), null);
-  assert.equal(icpLeadStatus("GO", "in_sequence", "review"), "review");
+  assert.equal(icpLeadStatus("NO_GO", "no_go"), null);
+  assert.equal(icpLeadStatus("GO", "no_go"), "ready");
 });
 
 test("companyPatch turns pinned into pinned_at and keeps null to clear", () => {

@@ -126,14 +126,15 @@ export async function listLeads(filters: LeadFilters): Promise<{ items: LeadList
   return { items, total: count ?? items.length };
 }
 
-/** Number of companies waiting for Julius in the review queue. */
+/** Number of companies without ICP verdict yet (the queue on Leads, ICP to judge). */
 export async function countReview(): Promise<number> {
   await requireStaff();
   const supabase = await createClient();
   const { count, error } = await supabase
     .from("companies")
     .select("id", { count: "exact", head: true })
-    .eq("icp_decision", "REVIEW");
+    .is("icp_decision", null)
+    .eq("lead_status", "new");
   if (error) throw new Error(`Could not load review list: ${error.message}`);
   return count ?? 0;
 }
@@ -153,6 +154,8 @@ export type SignalItem = {
   /** When it went offline; null is open. */
   closedAt?: string | null;
   roleGroup?: string | null;
+  /** Until when the signal counts (leadregels, deel 4); null while open. */
+  validUntil?: string | null;
 };
 
 function toSignal(s: {
@@ -193,7 +196,7 @@ export type ReviewItem = {
   signals: SignalItem[];
 };
 
-/** The review queue: REVIEW companies, highest score first. */
+/** The ICP queue: companies without verdict that are still new, newest first. */
 export async function listReviewQueue(limit = 50): Promise<ReviewItem[]> {
   await requireStaff();
   const supabase = await createClient();
@@ -202,9 +205,9 @@ export async function listReviewQueue(limit = 50): Promise<ReviewItem[]> {
     .select(
       "id, name, domain, website, legal_form, employees, sector, city, segment, icp_score, icp_reason, red_flags, opening_line, client_contact_risk, signals(id, type, title, source_url, source, first_seen_at, last_seen_at)",
     )
-    .eq("icp_decision", "REVIEW")
-    .order("icp_score", { ascending: false, nullsFirst: false })
-    .order("created_at", { ascending: true })
+    .is("icp_decision", null)
+    .eq("lead_status", "new")
+    .order("created_at", { ascending: false })
     .order("last_seen_at", { referencedTable: "signals", ascending: false })
     .limit(10, { referencedTable: "signals" })
     .limit(limit);
@@ -251,7 +254,7 @@ export async function getCompanySignals(companyId: string): Promise<SignalItem[]
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("signals")
-    .select("id, type, title, source_url, source, first_seen_at, last_seen_at, posted_at, description, closed_at, role_group")
+    .select("id, type, title, source_url, source, first_seen_at, last_seen_at, posted_at, description, closed_at, role_group, valid_until")
     .eq("company_id", companyId)
     .order("last_seen_at", { ascending: false })
     .limit(100);
@@ -262,6 +265,7 @@ export async function getCompanySignals(companyId: string): Promise<SignalItem[]
     description: s.description,
     closedAt: s.closed_at,
     roleGroup: s.role_group,
+    validUntil: s.valid_until,
   }));
 }
 

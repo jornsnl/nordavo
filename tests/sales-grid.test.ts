@@ -61,11 +61,14 @@ test("stored views are read defensively", () => {
 });
 
 test("column parsers validate what is typed or pasted", () => {
-  const prio = companyColumns.find((c) => c.key === "prio")!;
-  assert.deepEqual(prio.parse!("P2"), { value: 2 });
-  assert.ok("error" in prio.parse!("9"));
+  const segment = companyColumns.find((c) => c.key === "segment")!;
+  assert.deepEqual(segment.parse!("Segment A"), { value: "A" });
+  assert.deepEqual(segment.parse!("b"), { value: "B" });
+  assert.ok("error" in segment.parse!("saas"));
   const status = companyColumns.find((c) => c.key === "lead_status")!;
   assert.deepEqual(status.parse!("In sequence"), { value: "in_sequence" });
+  assert.deepEqual(status.parse!("Nu niet"), { value: "nu_niet" });
+  assert.ok("error" in status.parse!("Review"), "review is gone");
   assert.ok("error" in status.parse!(""));
   const callback = contactColumns.find((c) => c.key === "callback_at")!;
   assert.deepEqual(callback.parse!("30-11-2026"), { value: "2026-11-30" });

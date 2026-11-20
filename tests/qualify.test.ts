@@ -4,21 +4,22 @@ import { enforceRules, QUALIFY_SYSTEM, qualifyInput, qualifySchema, ruleBasedDec
 
 const sample = {
   decision: "GO",
-  segment: "saas",
-  score: 78,
+  segment: "A",
   reason: "SaaS bedrijf met 40 medewerkers en twee open backend vacatures.",
   client_contact_risk: false,
+  talking_points: ["Ze vragen Nederlands: bespreek hoe dat werkt met Engels."],
   red_flags: [],
   opening_line: "Ik zag dat jullie al een tijd een senior backend developer zoeken.",
 };
 
 test("qualifySchema parses a sample answer", () => {
   assert.deepEqual(qualifySchema.parse(sample), sample);
-  assert.equal(qualifySchema.parse({ ...sample, segment: null, decision: "REVIEW" }).segment, null);
+  assert.equal(qualifySchema.parse({ ...sample, segment: null, decision: "NO_GO" }).segment, null);
+  // There is no REVIEW any more (leadregels, 20 November 2026).
+  assert.throws(() => qualifySchema.parse({ ...sample, decision: "REVIEW" }));
 });
 
 test("qualifySchema rejects out of range or unknown values", () => {
-  assert.throws(() => qualifySchema.parse({ ...sample, score: 120 }));
   assert.throws(() => qualifySchema.parse({ ...sample, decision: "MAYBE" }));
   assert.throws(() => qualifySchema.parse({ ...sample, segment: "consultancy" }));
   const { opening_line: _omit, ...missing } = sample;
@@ -27,8 +28,11 @@ test("qualifySchema rejects out of range or unknown values", () => {
 });
 
 test("enforceRules: client contact risk is always NO_GO", () => {
-  assert.equal(enforceRules({ ...qualifySchema.parse(sample), client_contact_risk: true }).decision, "NO_GO");
+  const risky = enforceRules({ ...qualifySchema.parse(sample), client_contact_risk: true });
+  assert.equal(risky.decision, "NO_GO");
+  assert.equal(risky.segment, null, "a NO_GO has no segment");
   assert.equal(enforceRules(qualifySchema.parse(sample)).decision, "GO");
+  assert.equal(enforceRules({ ...qualifySchema.parse(sample), segment: null }).segment, "B", "a GO always gets a segment");
 });
 
 test("ruleBasedDecision: under 5 employees is NO_GO without Claude", () => {
@@ -38,7 +42,7 @@ test("ruleBasedDecision: under 5 employees is NO_GO without Claude", () => {
 });
 
 test("system prompt holds the ICP rules and stays free of record data", () => {
-  for (const phrase of ["REVIEW", "client_contact_risk", "eenmanszaak", "EU verblijf", "Minder dan 5 medewerkers", "eigen team in Bangalore"]) {
+  for (const phrase of ["geen REVIEW", "client_contact_risk", "eenmanszaak", "EU verblijf", "Minder dan 5 FTE", "eigen team in Bangalore", "A: SaaS", "talking_points"]) {
     assert.ok(QUALIFY_SYSTEM.includes(phrase), phrase);
   }
   assert.doesNotMatch(QUALIFY_SYSTEM, /\b20\d\d-\d\d-\d\d\b/);

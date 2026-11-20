@@ -88,7 +88,7 @@ export function goPerSegment(rows: { segment: Segment | null; icp_decision: stri
 }
 
 function segmentLabel(segment: Segment | null) {
-  return segment ? optionFor(segments, segment).label : "No segment";
+  return segment ? `Segment ${optionFor(segments, segment).label}` : "No segment";
 }
 
 function countBy<T>(rows: T[], key: (row: T) => string, label: (key: string) => string): CountRow[] {

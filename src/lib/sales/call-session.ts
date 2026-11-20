@@ -213,7 +213,7 @@ async function loadCard(actor: CallActor, entry: QueueEntry, index: number, tota
   const [company, signals, profile, lists, cheatsheet, wrong] = await Promise.all([
     db
       .from("companies")
-      .select("id, name, domain, website, prio, prio_reason, city, sector, employees, description, opening_line, red_flags, general_phone")
+      .select("id, name, domain, website, prio_reason, icp_score, segment, city, sector, employees, description, opening_line, red_flags, talking_points, general_phone")
       .eq("id", entry.companyId)
       .maybeSingle(),
     db
@@ -282,7 +282,6 @@ async function loadCard(actor: CallActor, entry: QueueEntry, index: number, tota
 
   const brief = parseRedFlags(c.red_flags);
   const opening = currentOpeningLine(c.opening_line, vacancies.map((v) => ({ title: v.title, days: v.daysOpen })));
-  const prio = lists.prio.find((o) => o.value === String(c.prio));
 
   return {
     contact: {
@@ -307,13 +306,14 @@ async function loadCard(actor: CallActor, entry: QueueEntry, index: number, tota
     company: {
       id: c.id,
       name: c.name,
-      prio: c.prio,
+      // Prio is no longer shown (leadregels, deel 5): the score of the company and one line why.
+      prio: null,
       prioInfo:
-        c.prio === null
+        c.icp_score === null
           ? null
           : {
-              label: prio?.label ?? `P${c.prio}`,
-              meaning: prio?.description ?? null,
+              label: `Score ${c.icp_score}${c.segment ? `, segment ${c.segment}` : ""}`,
+              meaning: null,
               line: prioLine({ reason: c.prio_reason, strongestSignal: summary.strongestText, redFlags: brief.redFlags }),
             },
       city: c.city,
@@ -325,7 +325,8 @@ async function loadCard(actor: CallActor, entry: QueueEntry, index: number, tota
       openingLineOutdated: opening?.outdated ?? false,
       redFlags: brief.redFlags,
       objections: brief.objections,
-      questions: brief.questions,
+      // Talking points of the ICP verdict first, then the questions read from the old red flags.
+      questions: [...(c.talking_points ?? []), ...brief.questions],
       facts: brief.facts,
       generalPhone: c.general_phone,
     },
@@ -451,6 +452,7 @@ const sqlMessages = [
   "Pick a date to get back in touch",
   "Pick a date in the future",
   "Pick someone from the team as owner",
+  "Write a short note",
 ];
 
 /** What one saved outcome did; the call screen and the call sheet both build on it. */
@@ -497,7 +499,7 @@ export async function recordCall(actor: CallActor, input: CallInput): Promise<Re
     p_reasons: o === "reached_not_interested" ? (v.reasons ?? []) : null,
     p_reason_text: o === "reached_not_interested" ? v.reasonText || null : null,
     p_reason_label: reasonLabel,
-    p_until: o === "reached_not_interested" ? (v.until ?? null) : null,
+    p_until: o === "reached_not_interested" || o === "not_now" ? (v.until ?? null) : null,
     p_next_step: o === "reached_interested" ? (nextSteps.find((s) => s.value === v.nextStep)?.label ?? null) : null,
     p_next_step_at: o === "reached_interested" ? (v.nextStepAt ?? null) : null,
     // External callers do not pick an owner: the next step stays with Nordavo.

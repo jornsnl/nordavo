@@ -97,7 +97,7 @@ test("lists with fixed options never take extra ones", () => {
     { list_key: "lead_status", value: "new", label: "Binnengekomen", description: null, position: 10, hidden: false, tone: null },
     { list_key: "lead_status", value: "custom", label: "Custom", description: null, position: 5, hidden: false, tone: null },
   ]);
-  assert.equal(status.length, 8);
+  assert.equal(status.length, 9);
   assert.equal(status[0].label, "Binnengekomen");
   assert.equal(choiceValueFromLabel("Data & AI"), "data_ai");
   assert.equal(choiceValueFromLabel("Data & AI", ["data_ai"]), "data_ai_2");
@@ -113,7 +113,10 @@ test("applyChoiceLists puts the configured options and parser on prio and status
     reject_reason: mergeChoices("reject_reason", []),
     signal_type: mergeChoices("signal_type", []),
   };
-  const cols = applyChoiceLists(companyColumns, lists);
+  // Prio left the Leads table (leadregels, deel 5); a column on the prio field still gets the list.
+  const prioColumn = { key: "prio", label: "Prio", type: "select" as const, field: "prio", entity: "company" as const, get: () => null };
+  const cols = applyChoiceLists([...companyColumns, prioColumn], lists);
+  assert.equal(companyColumns.some((c) => c.key === "prio"), false, "no prio column in the Leads table");
   const prio = cols.find((c) => c.key === "prio")!;
   assert.equal(prio.options?.length, 6);
   assert.deepEqual(prio.parse!("P6"), { value: 6 });

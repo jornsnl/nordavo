@@ -35,7 +35,7 @@ export const choiceListInfo: { key: ChoiceListKey; label: string; help: string; 
   },
 ];
 
-type Base = { value: string; label: string; tone: Tone; description?: string };
+type Base = { value: string; label: string; tone: Tone; description?: string; legacy?: boolean };
 
 export const builtinChoices: Record<ChoiceListKey, Base[]> = {
   prio: companyPrios,
@@ -60,7 +60,8 @@ export function mergeChoices(key: ChoiceListKey, rows: Pick<ChoiceOptionRow, "li
       label: r?.label ?? b.label,
       description: r ? r.description : (b.description ?? null),
       tone: (r?.tone as Tone | null) ?? b.tone,
-      hidden: r?.hidden ?? false,
+      // A legacy option (the old Not interested button) is hidden unless Settings shows it again.
+      hidden: r?.hidden ?? b.legacy ?? false,
       builtin: true,
       position: r?.position ?? (i + 1) * 10,
     };

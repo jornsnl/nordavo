@@ -2,7 +2,7 @@ import Link from "next/link";
 
 type Tab = "all" | "replies" | "review";
 
-/** Tabs above the leads pages: all leads, replies to review (2.7) and the ICP review queue. */
+/** Tabs above the leads pages: all leads, replies to review (2.7) and the companies without ICP verdict. */
 export function LeadTabs({
   active,
   reviewCount,
@@ -45,8 +45,8 @@ export function LeadTabs({
         className={tab(active === "review")}
         aria-current={active === "review" ? "page" : undefined}
       >
-        ICP review
-        {count(reviewCount, "companies to review")}
+        ICP to judge
+        {count(reviewCount, "companies to judge")}
       </Link>
     </nav>
   );

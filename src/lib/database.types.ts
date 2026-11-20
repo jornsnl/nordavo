@@ -24,6 +24,7 @@ import type {
   SalesTables,
 } from "@/lib/sales/database";
 import type { LeadsFunctions } from "@/lib/sales/leads-database";
+import type { LeadregelsFunctions, LeadregelsTables } from "@/lib/sales/leadregels-database";
 import type { CallScreenFunctions, CallScreenTables } from "@/lib/sales/call-screen-database";
 
 export type Json =
@@ -135,8 +136,10 @@ export type CustomFieldValues = { [key: string]: string | number | boolean | str
 export type ActivityAction = "created" | "updated" | "deleted" | "stage_changed" | "status_changed";
 
 // GTM
-export type Segment = "saas" | "productie" | "agency_automation" | "agency_overig";
-export type IcpDecision = "GO" | "NO_GO" | "REVIEW";
+/** Segment of a GO company (leadregels 20 November 2026): A SaaS and software, B other ICP. */
+export type Segment = "A" | "B";
+/** Empty (null) is not judged yet; there is no REVIEW (leadregels 20 November 2026). */
+export type IcpDecision = "GO" | "NO_GO";
 export type CompanyStatus = "nieuw" | "actief" | "klant" | "verloren" | "uitgesloten";
 export type EmailStatus = "valid" | "invalid" | "catch_all" | "unknown";
 export type PhoneType = "mobiel" | "vast";
@@ -1374,6 +1377,10 @@ export type Database = {
           own_contact: boolean;
           own_contact_reason: string | null;
           own_contact_since: string | null;
+          talking_points: string[];
+          recontact_from: string | null;
+          declined_channel: "bellen" | "mail" | "linkedin" | null;
+          contact_order_manual: boolean;
           created_at: string;
           updated_at: string;
           /** Generated: normalize_linkedin(linkedin_url), for matching. */
@@ -1445,6 +1452,10 @@ export type Database = {
           own_contact?: boolean;
           own_contact_reason?: string | null;
           own_contact_since?: string | null;
+          talking_points?: string[];
+          recontact_from?: string | null;
+          declined_channel?: "bellen" | "mail" | "linkedin" | null;
+          contact_order_manual?: boolean;
           created_at?: string;
           updated_at?: string;
           alias_domains?: string[];
@@ -1509,6 +1520,10 @@ export type Database = {
           own_contact?: boolean;
           own_contact_reason?: string | null;
           own_contact_since?: string | null;
+          talking_points?: string[];
+          recontact_from?: string | null;
+          declined_channel?: "bellen" | "mail" | "linkedin" | null;
+          contact_order_manual?: boolean;
           created_at?: string;
           updated_at?: string;
           alias_domains?: string[];
@@ -1724,6 +1739,8 @@ export type Database = {
           description: string | null;
           /** When the vacancy went offline; null is open. */
           closed_at: string | null;
+          /** Until when the signal counts (20261126000000_leadregels.sql); null is while open. */
+          valid_until: string | null;
         };
         Insert: {
           id?: string;
@@ -1740,6 +1757,7 @@ export type Database = {
           posted_at?: string | null;
           description?: string | null;
           closed_at?: string | null;
+          valid_until?: string | null;
         };
         Update: {
           id?: string;
@@ -1756,6 +1774,7 @@ export type Database = {
           posted_at?: string | null;
           description?: string | null;
           closed_at?: string | null;
+          valid_until?: string | null;
         };
         Relationships: [
           {
@@ -3022,7 +3041,7 @@ export type Database = {
         Update: { config?: Json; updated_by?: string | null; updated_at?: string };
         Relationships: [];
       };
-    } & WorkTables & ContentTables & FormsTables & SalesTables & SalesFlowTables & CallScreenTables & AcademyTables & AcademyMediaTables & AcademyPlacementTables & AcademyAtsTables & WspTables;
+    } & WorkTables & ContentTables & FormsTables & SalesTables & SalesFlowTables & CallScreenTables & LeadregelsTables & AcademyTables & AcademyMediaTables & AcademyPlacementTables & AcademyAtsTables & WspTables;
     Views: {
       call_list_candidates: { Row: ListCandidateBase & { phone: string; linkedin_url: string | null }; Relationships: [] };
       mail_list_candidates: { Row: ListCandidateBase & { email: string }; Relationships: [] };
@@ -3211,7 +3230,7 @@ export type Database = {
         Args: { p_entity: CustomFieldEntity; p_new: Json; p_old?: Json };
         Returns: CustomFieldValues;
       };
-    } & WorkFunctions & ContentFunctions & FormsFunctions & SalesFunctions & LeadsFunctions & SalesFlowFunctions & CallScreenFunctions & AcademyFunctions & LearnFunctions & AcademyMediaFunctions & AcademyPlacementFunctions & AcademyAtsFunctions & WspFunctions;
+    } & WorkFunctions & ContentFunctions & FormsFunctions & SalesFunctions & LeadsFunctions & LeadregelsFunctions & SalesFlowFunctions & CallScreenFunctions & AcademyFunctions & LearnFunctions & AcademyMediaFunctions & AcademyPlacementFunctions & AcademyAtsFunctions & WspFunctions;
     Enums: { [_ in never]: never };
     CompositeTypes: { [_ in never]: never };
   };

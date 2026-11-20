@@ -86,6 +86,8 @@ export const WRITE_TOOLS: Record<string, { module: McpModule; kind: "suggest" | 
   update_sequence_tasks: { module: "sales", kind: "write" },
   update_signals: { module: "sales", kind: "write" },
   upsert_companies: { module: "sales", kind: "write" },
+  add_signals: { module: "sales", kind: "write" },
+  apply_contact_order: { module: "sales", kind: "write" },
   upsert_campaign: { module: "sales", kind: "write" },
   register_campaign_members: { module: "sales", kind: "write" },
   triage_leads: { module: "sales", kind: "write" },

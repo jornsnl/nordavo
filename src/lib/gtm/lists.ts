@@ -107,7 +107,7 @@ export function filterSummary(filterUsed: Json | null | undefined): string {
   if (!filterUsed || typeof filterUsed !== "object" || Array.isArray(filterUsed)) return "No filter";
   const f = filterUsed as Record<string, Json | undefined>;
   const parts: string[] = [];
-  if (typeof f.segment === "string") parts.push(optionFor(segments, f.segment as Segment).label);
+  if (typeof f.segment === "string") parts.push(`Segment ${optionFor(segments, f.segment as Segment).label}`);
   if (typeof f.signal_type === "string") parts.push(optionFor(signalTypes, f.signal_type as SignalType).label);
   if (typeof f.tier === "number") parts.push(`tier ${f.tier}`);
   if (typeof f.min_score === "number") parts.push(`score ${f.min_score}+`);

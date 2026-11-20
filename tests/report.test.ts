@@ -144,32 +144,32 @@ test("figuresPerCaller splits external callers and team members", () => {
 
 test("countLeadStatuses lists every lead status", () => {
   const counts = countLeadStatuses([{ lead_status: "new" }, { lead_status: "new" }, { lead_status: "ready" }]);
-  assert.equal(counts.length, 8);
+  assert.equal(counts.length, 9);
   assert.equal(counts.find((c) => c.status === "new")?.count, 2);
   assert.equal(counts.find((c) => c.status === "no_go")?.count, 0);
 });
 
 test("goPerSegment computes GO percentage per segment in segment order", () => {
   const rows = goPerSegment([
-    { segment: "productie", icp_decision: "NO_GO" },
-    { segment: "saas", icp_decision: "GO" },
-    { segment: "saas", icp_decision: "GO" },
-    { segment: "saas", icp_decision: "REVIEW" },
+    { segment: "B", icp_decision: "NO_GO" },
+    { segment: "A", icp_decision: "GO" },
+    { segment: "A", icp_decision: "GO" },
+    { segment: "A", icp_decision: "NO_GO" },
     { segment: null, icp_decision: "NO_GO" },
-    { segment: "saas", icp_decision: null },
+    { segment: "A", icp_decision: null },
   ]);
   assert.deepEqual(rows, [
-    { segment: "saas", label: "SaaS", total: 3, go: 2, review: 1, noGo: 0, goPct: 67 },
-    { segment: "productie", label: "Manufacturing", total: 1, go: 0, review: 0, noGo: 1, goPct: 0 },
+    { segment: "A", label: "Segment A", total: 3, go: 2, review: 0, noGo: 1, goPct: 67 },
+    { segment: "B", label: "Segment B", total: 1, go: 0, review: 0, noGo: 1, goPct: 0 },
     { segment: "onbekend", label: "No segment", total: 1, go: 0, review: 0, noGo: 1, goPct: 0 },
   ]);
 });
 
 test("attributionBreakdown groups meetings by signal, segment and channel", () => {
   const result = attributionBreakdown([
-    { segment: "saas", channel: "bellen", signal_type: "vacature" },
-    { segment: "saas", channel: "mail", signal_type: "lang_open" },
-    { segment: "agency_automation", channel: "bellen", signal_type: "vacature" },
+    { segment: "A", channel: "bellen", signal_type: "vacature" },
+    { segment: "A", channel: "mail", signal_type: "lang_open" },
+    { segment: "B", channel: "bellen", signal_type: "vacature" },
     { segment: null, channel: "meeting", signal_type: null },
   ]);
   assert.deepEqual(result.bySignal, [
@@ -177,7 +177,7 @@ test("attributionBreakdown groups meetings by signal, segment and channel", () =
     { key: "onbekend", label: "No signal", count: 1 },
     { key: "lang_open", label: "Open for long", count: 1 },
   ]);
-  assert.deepEqual(result.bySegment[0], { key: "saas", label: "SaaS", count: 2 });
+  assert.deepEqual(result.bySegment[0], { key: "A", label: "Segment A", count: 2 });
   assert.deepEqual(result.byChannel[0], { key: "bellen", label: "Call", count: 2 });
 });
 
@@ -246,14 +246,14 @@ test("renderReportHtml puts warnings first and escapes data", () => {
   const report: WeeklyReport = {
     period: { from: "2026-10-17T10:00:00Z", to: "2026-10-24T10:00:00Z" },
     newCompanies: 12,
-    goPerSegment: goPerSegment([{ segment: "saas", icp_decision: "GO" }]),
+    goPerSegment: goPerSegment([{ segment: "A", icp_decision: "GO" }]),
     activity: summarizeSalesActivity(activities),
     meetings: meetingFigures,
     pipeline: pipelineFigures,
     perCaller: [],
     repliesToReview: 2,
     funnel: buildFunnel(summarizeSalesActivity(activities), meetingFigures, pipelineFigures),
-    attribution: attributionBreakdown([{ segment: "saas", channel: "bellen", signal_type: "vacature" }]),
+    attribution: attributionBreakdown([{ segment: "A", channel: "bellen", signal_type: "vacature" }]),
     leadTimes: leadTimeRows([vacancy({ id: "late", title: "Dev <script>" })], now),
     warnings: ["Dev <script> at Acme has been running for 23 days"],
   };

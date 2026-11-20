@@ -12,8 +12,8 @@ import {
 import { checkOpeningLine, openingLineInput } from "@/lib/ai/prompts/opening-line";
 
 test("parseListFilter reads valid values and ignores the rest", () => {
-  assert.deepEqual(parseListFilter({ segment: "saas", signal: "lang_open", tier: "1", min_score: "60", limit: "50" }), {
-    segment: "saas",
+  assert.deepEqual(parseListFilter({ segment: "A", signal: "lang_open", tier: "1", min_score: "60", limit: "50" }), {
+    segment: "A",
     signalType: "lang_open",
     tier: 1,
     minScore: 60,
@@ -23,13 +23,13 @@ test("parseListFilter reads valid values and ignores the rest", () => {
   assert.equal(parseListFilter({ limit: "99999" }).limit, 1000);
   assert.equal(parseListFilter({}, 100).limit, 100);
   assert.equal(parseListFilter({ signal_type: "funding" }).signalType, "funding");
-  assert.equal(parseListFilter({ segment: ["productie", "saas"] }).segment, "productie");
+  assert.equal(parseListFilter({ segment: ["B", "A"] }).segment, "B");
 });
 
 test("filterToJson and filterSummary round-trip for the export history", () => {
-  const json = filterToJson({ segment: "saas", signalType: "vacature", tier: 1, minScore: 70, limit: 100 }, { deliver: "sheet" });
-  assert.deepEqual(json, { limit: 100, segment: "saas", signal_type: "vacature", tier: 1, min_score: 70, deliver: "sheet" });
-  assert.equal(filterSummary(json), "SaaS, Vacancy, tier 1, score 70+, max 100");
+  const json = filterToJson({ segment: "A", signalType: "vacature", tier: 1, minScore: 70, limit: 100 }, { deliver: "sheet" });
+  assert.deepEqual(json, { limit: 100, segment: "A", signal_type: "vacature", tier: 1, min_score: 70, deliver: "sheet" });
+  assert.equal(filterSummary(json), "Segment A, Vacancy, tier 1, score 70+, max 100");
   assert.equal(filterSummary({}), "No filter");
   assert.equal(filterSummary(null), "No filter");
 });
@@ -72,7 +72,7 @@ test("openingLineInput names exactly one signal", () => {
   const input = openingLineInput({
     companyName: "Acme",
     domain: "acme.nl",
-    segment: "saas",
+    segment: "A",
     firstName: "Jan",
     title: "CTO",
     signalType: "lang_open",

@@ -139,15 +139,15 @@ export function EditContactButton({ contact, action }: { contact: EditableContac
               <Field label="Tier" htmlFor="tier" error={e.tier}>
                 <Select id="tier" name="tier" defaultValue={contact.tier ? String(contact.tier) : ""}>
                   <option value="">No tier</option>
-                  <option value="1">Tier 1: CTO, Head of Engineering or Data</option>
-                  <option value="2">Tier 2: owner or director</option>
-                  <option value="3">Tier 3: recruiter or HR</option>
+                  <option value="1">Tier 1: technisch (CTO, head of engineering, data of IT, tech lead)</option>
+                  <option value="2">Tier 2: eigenaar of directie (CEO, founder, directeur)</option>
+                  <option value="3">Tier 3: HR of recruitment (alleen zonder tier 1 en 2)</option>
                 </Select>
               </Field>
               <Field label="Role" htmlFor="role" error={e.role}>
                 <Select id="role" name="role" defaultValue={contact.role}>
-                  <option value="main">Main</option>
-                  <option value="reserve">Backup</option>
+                  <option value="main">Contact 1</option>
+                  <option value="reserve">Contact 2</option>
                   <option value="extra">Extra</option>
                 </Select>
               </Field>
@@ -427,7 +427,15 @@ export function DeleteLeadsButton({
   );
 }
 
-export type EditableSignal = { id: string; title: string | null; url: string | null; description: string | null; closed: boolean };
+export type EditableSignal = {
+  id: string;
+  title: string | null;
+  url: string | null;
+  description: string | null;
+  closed: boolean;
+  postedAt?: string | null;
+  validUntil?: string | null;
+};
 
 export function EditSignalButton({ signal, action }: { signal: EditableSignal; action: FormAction }) {
   return (
@@ -437,7 +445,7 @@ export function EditSignalButton({ signal, action }: { signal: EditableSignal; a
       variant="ghost"
       ariaLabel={`Edit signal ${signal.title ?? ""}`.trim()}
       title="Edit signal"
-      description="Change the title, link or text of this vacancy, or mark it offline."
+      description="Change the title, link, date or text of this signal, until when it counts, or mark it offline (it expires)."
       action={action}
       modalSize="lg"
     >
@@ -454,9 +462,17 @@ export function EditSignalButton({ signal, action }: { signal: EditableSignal; a
             <Field label="Text" htmlFor="signal-description" error={e.description}>
               <Textarea id="signal-description" name="description" rows={8} defaultValue={signal.description ?? ""} />
             </Field>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Field label="Date (online since)" htmlFor="signal-posted" error={e.posted_at}>
+                <Input id="signal-posted" name="posted_at" type="date" defaultValue={signal.postedAt ?? ""} />
+              </Field>
+              <Field label="Valid until" htmlFor="signal-valid" hint="Empty: while it is open." error={e.valid_until}>
+                <Input id="signal-valid" name="valid_until" type="date" defaultValue={signal.validUntil ?? ""} />
+              </Field>
+            </div>
             <label className="flex items-center gap-2 text-sm">
               <input type="checkbox" name="closed" defaultChecked={signal.closed} className="size-4" />
-              This vacancy is offline
+              Offline: this signal no longer counts
             </label>
           </>
         );

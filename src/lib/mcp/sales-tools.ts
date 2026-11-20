@@ -19,6 +19,8 @@ import { contactRoleFrom, linkedinPatch, personKeys } from "@/lib/sales/contact-
 import { findSalesContact } from "@/lib/sales/contact-match";
 import { duplicateWarning, type SimilarCompany } from "@/lib/sales/duplicates";
 import { daysOnline, onlineSince } from "@/lib/sales/vacancies";
+import { describeSignal, loadSignalPoints } from "@/lib/sales/score-data";
+import { formatScore, parseScore } from "@/lib/sales/score";
 import { accessError } from "@/lib/mcp/module-scope";
 import {
   check,
@@ -40,6 +42,7 @@ import { companyCategories, contactRoles, leadStatuses, meetingStatuses, pipelin
 import { countLeadStatuses, loadSalesFigures } from "@/lib/sales/stats";
 import { registerPartnerTools, PARTNER_READ_TOOLS, PARTNER_WRITE_TOOLS } from "@/lib/mcp/partner-tools";
 import { registerSalesFlowTools, SALES_FLOW_READ_TOOLS, SALES_FLOW_WRITE_TOOLS } from "@/lib/mcp/sales-flow-tools";
+import { LEADREGELS_READ_TOOLS, LEADREGELS_WRITE_TOOLS, registerLeadregelsTools } from "@/lib/mcp/leadregels-tools";
 
 /**
  * MCP tools for the sales CRM (feedback Julius, part 7): Claude reads the
@@ -70,7 +73,22 @@ const contactRoleInput = z
 const tierInput = z.number().int().min(1).max(3).describe("1 CTO or head of engineering or data, 2 owner or director, 3 recruiter or HR.");
 const meetingStatus = z.enum(values(meetingStatuses.filter((s) => s.value !== "awaiting_booking")));
 const sequenceStatus = z.enum(values(sequenceStatuses));
-const icpDecision = z.enum(["GO", "NO_GO", "REVIEW"]);
+const icpDecision = z.enum(["GO", "NO_GO"]);
+/** Segment of a GO company (leadregels, deel 2). */
+const segmentSchema = z
+  .enum(["A", "B"])
+  .describe("A: SaaS or software company with its own product, any sector. B: any other ICP company with its own IT or data team, and software and automation agencies. Only with GO.");
+const scoreGroupSchema = z.enum(["90_100", "80_89", "60_79", "50_59", "lt_50"]);
+/** The score range of a score group. */
+const scoreGroupRange: Record<z.infer<typeof scoreGroupSchema>, [number, number]> = {
+  "90_100": [90, 100],
+  "80_89": [80, 89],
+  "60_79": [60, 79],
+  "50_59": [50, 59],
+  lt_50: [0, 49],
+};
+/** Whole sentences, one per item (talking points and red flags). */
+const sentencesSchema = z.array(z.string().trim().min(1).max(300)).max(30);
 const contactStatus = z.enum([
   "new",
   "qualified",
@@ -126,6 +144,7 @@ export const SALES_READ_TOOLS = [
   "sales_stats",
   ...SALES_FLOW_READ_TOOLS,
   ...PARTNER_READ_TOOLS,
+  ...LEADREGELS_READ_TOOLS,
 ] as const;
 
 export const SALES_WRITE_TOOLS = [
@@ -149,6 +168,7 @@ export const SALES_WRITE_TOOLS = [
   "upsert_companies",
   ...SALES_FLOW_WRITE_TOOLS,
   ...PARTNER_WRITE_TOOLS,
+  ...LEADREGELS_WRITE_TOOLS,
 ] as const;
 
 /** Where a lead added by hand through Claude came from (companies.source). */
@@ -165,6 +185,8 @@ export function registerSalesTools(server: McpServer, ctx: McpToolContext) {
   registerSalesFlowTools(server, ctx);
   // Partners and repairing mistakes (feedback 68123bae).
   registerPartnerTools(server, ctx);
+  // Signals, check_outreach and the contact order (leadregels, 20 November 2026).
+  registerLeadregelsTools(server, ctx);
 }
 
 function rpcError(error: { message: string } | null, what: string) {
@@ -180,7 +202,7 @@ function name(first: string | null, last: string | null) {
 // ---------------------------------------------------------------------------
 
 const COMPANY_LIST_FIELDS =
-  "id, name, domain, city, sector, employees, prio, category, icp_decision, icp_score, lead_status, lead_status_changed_at, pipeline_stage, pipeline_stage_changed_at, lost_reason, parked_until, profiles_due_on, owner_id, partner_id, next_action, next_action_date, pinned_at, manual_position, general_phone, sequence_paused_at, own_contact, own_contact_reason" as const;
+  "id, name, domain, city, sector, employees, category, icp_decision, icp_reason, segment, icp_score, lead_status, lead_status_changed_at, recontact_from, declined_channel, pipeline_stage, pipeline_stage_changed_at, lost_reason, parked_until, profiles_due_on, owner_id, partner_id, next_action, next_action_date, pinned_at, manual_position, general_phone, sequence_paused_at, own_contact, own_contact_reason" as const;
 
 function registerSalesReadTools(server: McpServer, ctx: McpToolContext) {
   const { db } = ctx;
@@ -192,15 +214,18 @@ function registerSalesReadTools(server: McpServer, ctx: McpToolContext) {
     {
       title: "Companies (sales)",
       description:
-        "List sales companies (leads) with lead status, pipeline stage, prio, category, ICP verdict, owner and next action. Pinned first, then by prio. Filter on lead_status, pipeline_stage (or in_pipeline), prio, category, icp, own_contact, text (name or domain) and has_phone (a contact or the company has a phone number). own_contact true means we have contact with this company ourselves (pipeline, partner, network, client): never put such a company in a cold campaign, on a call list or in a list you build; filter own_contact false for outreach lists.",
+        "List sales companies (leads) with lead status (and recontact_from: the date a cooled down, nee_geen_interesse or nu_niet company may be approached again), pipeline stage, ICP verdict (GO, NO_GO with its reason in icp_reason, or empty: not judged yet), segment (A or B), score (icp_score, 0 to 100: segment base plus active signals), category, owner and next action. Pinned first, then by score, highest first. Filter on lead_status, pipeline_stage (or in_pipeline), icp (or icp_empty for not judged yet), segment, score_group or min_score, category, own_contact, text (name or domain) and has_phone (a contact or the company has a phone number). own_contact true means we have contact with this company ourselves (pipeline, partner, network, client): never put such a company in a cold campaign, on a call list or in a list you build; filter own_contact false for outreach lists.",
       inputSchema: {
-        lead_status: z.array(leadStatus).max(8).optional().describe("One or more lead statuses."),
+        lead_status: z.array(leadStatus).max(9).optional().describe("One or more lead statuses."),
         pipeline_stage: z.array(pipelineStage).max(11).optional().describe("One or more pipeline stages."),
         in_pipeline: z.boolean().optional().describe("true: only companies in the pipeline; false: only companies not in it."),
         own_contact: z.boolean().optional().describe("false: only companies that may be approached cold; true: only the protected own contacts."),
-        prio: z.array(z.number().int().min(1).max(5)).max(5).optional(),
         category: category.optional(),
         icp: icpDecision.optional().describe("ICP verdict."),
+        icp_empty: z.boolean().optional().describe("true: only companies without ICP verdict yet."),
+        segment: segmentSchema.optional(),
+        score_group: scoreGroupSchema.optional().describe("90_100, 80_89, 60_79, 50_59 or lt_50 (under 50)."),
+        min_score: z.number().int().min(0).max(100).optional(),
         text: z.string().max(80).optional().describe("Part of the name or domain."),
         has_phone: z.boolean().optional(),
         owner_id: idSchema.optional(),
@@ -219,15 +244,21 @@ function registerSalesReadTools(server: McpServer, ctx: McpToolContext) {
         if (input.in_pipeline === true) q = q.not("pipeline_stage", "is", null);
         if (input.in_pipeline === false) q = q.is("pipeline_stage", null);
         if (input.own_contact !== undefined) q = q.eq("own_contact", input.own_contact);
-        if (input.prio?.length) q = q.in("prio", input.prio);
         if (input.category) q = q.eq("category", input.category);
         if (input.icp) q = q.eq("icp_decision", input.icp);
+        if (input.icp_empty) q = q.is("icp_decision", null);
+        if (input.segment) q = q.eq("segment", input.segment);
+        if (input.score_group) {
+          const [min, max] = scoreGroupRange[input.score_group];
+          q = q.gte("icp_score", min).lte("icp_score", max);
+        }
+        if (input.min_score !== undefined) q = q.gte("icp_score", input.min_score);
         if (input.owner_id) q = q.eq("owner_id", input.owner_id);
         if (input.partner_id) q = q.eq("partner_id", input.partner_id);
         if (pattern) q = q.or(`name.ilike.${pattern},domain.ilike.${pattern}`);
         return q
           .order("pinned_at", { ascending: false, nullsFirst: false })
-          .order("prio", { ascending: true, nullsFirst: false })
+          .order("icp_score", { ascending: false, nullsFirst: false })
           .order("name");
       };
 
@@ -282,7 +313,7 @@ function registerSalesReadTools(server: McpServer, ctx: McpToolContext) {
     {
       title: "Company (sales)",
       description:
-        "One sales company with lead status, pipeline stage, prio, category, ICP verdict and reason, opening line, red flags, general number, owner, partner, next action, its contacts (role main, backup (reserve) or extra, tier, status, primary, LinkedIn link and member id), vacancies and other signals (link, text, date online, days open, closed), possible duplicate companies, the last activities, meetings, sequences and notes. Use list_companies or search to find ids.",
+        "One sales company with lead status (recontact_from: when it may be approached again), pipeline stage, ICP verdict and reason, segment, score with its breakdown (score.parts), category, opening line, talking points, red flags, general number, owner, partner, next action, its contacts (role main, backup (reserve) or extra, tier, status, primary, LinkedIn link and member id), vacancies and other signals (link, text, date online, days open, closed), possible duplicate companies, the last activities, meetings, sequences and notes. Use list_companies or search to find ids.",
       inputSchema: { id: idSchema },
       annotations: READ_ONLY,
     },
@@ -291,7 +322,7 @@ function registerSalesReadTools(server: McpServer, ctx: McpToolContext) {
         await db
           .from("companies")
           .select(
-            "id, name, domain, website, city, sector, segment, employees, linkedin_url, general_phone, description, status, prio, category, icp_decision, icp_score, icp_reason, red_flags, opening_line, source, source_note, lead_status, lead_status_changed_at, pipeline_stage, pipeline_stage_changed_at, pipeline_entered_at, lost_reason, parked_until, profiles_due_on, owner_id, partner_id, next_action, next_action_date, pinned_at, manual_position, sequence_paused_at, own_contact, own_contact_reason, own_contact_since, client_id, created_at",
+            "id, name, domain, website, city, sector, segment, employees, linkedin_url, general_phone, description, status, category, icp_decision, icp_score, icp_reason, talking_points, red_flags, opening_line, recontact_from, declined_channel, contact_order_manual, source, source_note, lead_status, lead_status_changed_at, pipeline_stage, pipeline_stage_changed_at, pipeline_entered_at, lost_reason, parked_until, profiles_due_on, owner_id, partner_id, next_action, next_action_date, pinned_at, manual_position, sequence_paused_at, own_contact, own_contact_reason, own_contact_since, client_id, created_at",
           )
           .eq("id", id)
           .maybeSingle(),
@@ -311,7 +342,7 @@ function registerSalesReadTools(server: McpServer, ctx: McpToolContext) {
           .limit(50),
         db
           .from("signals")
-          .select("id, type, title, role_group, posted_at, source, source_url, description, closed_at, first_seen_at, last_seen_at")
+          .select("id, type, title, role_group, posted_at, source, source_url, description, closed_at, valid_until, first_seen_at, last_seen_at")
           .eq("company_id", id)
           .order("last_seen_at", { ascending: false })
           .limit(30),
@@ -347,17 +378,37 @@ function registerSalesReadTools(server: McpServer, ctx: McpToolContext) {
 
       const activityRows = check(activities, "activities");
       const actors = await peopleNames(db, activityRows.map((a) => a.created_by));
+      const [score, campaigns, points] = await Promise.all([
+        db.rpc("sales_company_score", { p_company: id }),
+        db
+          .from("campaign_members")
+          .select("status, added_at, ended_at, replied_at, reply_outcome, contact_id, campaign:campaigns!campaign_members_campaign_id_fkey(id, name, provider, channel, status)")
+          .eq("company_id", id)
+          .order("added_at", { ascending: false })
+          .limit(30),
+        loadSignalPoints(db),
+      ]);
       return ok({
         ...company,
         icp_reason: clip(company.icp_reason, 1000),
+        score: score.data ?? null,
+        campaigns: (campaigns.data ?? []).map((m) => ({
+          campaign_id: m.campaign?.id ?? null,
+          campaign: m.campaign?.name ?? null,
+          provider: m.campaign?.provider ?? null,
+          campaign_status: m.campaign?.status ?? null,
+          member_status: m.status,
+          contact_id: m.contact_id,
+          added_at: m.added_at,
+          ended_at: m.ended_at,
+          replied_at: m.replied_at,
+          reply_outcome: m.reply_outcome,
+        })),
         owner: company.owner_id ? (people.get(company.owner_id) ?? null) : null,
         partner: company.partner_id ? (partners.get(company.partner_id) ?? null) : null,
         url: url("company", company.id),
         contacts: check(contacts, "contacts").map((c) => ({ ...c, name: name(c.first_name, c.last_name) })),
-        signals: check(signals, "signals").map((sig) => {
-          const since = onlineSince(sig);
-          return { ...sig, description: clip(sig.description, 2000), online_since: since, days_open: sig.closed_at ? null : daysOnline(since) };
-        }),
+        signals: check(signals, "signals").map((sig) => ({ ...describeSignal(sig, points), description: clip(sig.description, 2000) })),
         possible_duplicates: await similarCompanies(db, company.name, company.domain, company.id),
         last_activities: activityRows.map((a) => ({
           ...a,
@@ -391,7 +442,7 @@ function registerSalesReadTools(server: McpServer, ctx: McpToolContext) {
         status: z.array(contactStatus).max(9).optional(),
         role: contactRole.optional(),
         company_id: idSchema.optional(),
-        company_lead_status: z.array(leadStatus).max(8).optional(),
+        company_lead_status: z.array(leadStatus).max(9).optional(),
         primary_only: z.boolean().optional(),
         has_phone: z.boolean().optional(),
         text: z.string().max(80).optional(),
@@ -819,13 +870,23 @@ async function partnerNames(db: McpDb, ids: (string | null)[]): Promise<Map<stri
 
 export const companyFieldsSchema = z
   .object({
-    lead_status: leadStatus.optional(),
+    lead_status: leadStatus
+      .optional()
+      .describe(
+        "new, enrich, ready, in_sequence, cooled_down, nee_geen_interesse (no or no interest: three months, give declined_channel), nu_niet (not now: until recontact_from, default three months), no_go or do_not_contact (final: only an admin turns it back).",
+      ),
+    recontact_from: dateSchema.optional().describe("With nee_geen_interesse, nu_niet or cooled_down: the day the company may be approached again."),
+    declined_channel: z.enum(["bellen", "mail", "linkedin"]).optional().describe("With nee_geen_interesse: the channel where they said no."),
+    icp_decision: icpDecision.nullable().optional().describe("GO, NO_GO (needs icp_reason) or null (not judged)."),
+    icp_reason: z.string().trim().min(1).max(2000).optional(),
+    segment: segmentSchema.nullable().optional(),
+    talking_points: sentencesSchema.optional().describe("Talking points, whole sentences (replaces the list)."),
     pipeline_stage: pipelineStage.nullable().optional().describe("null takes the company out of the pipeline."),
     lost_reason: z.string().trim().min(1).max(2000).optional().describe("Required with pipeline_stage lost."),
     parked_until: dateSchema.optional().describe("Required with pipeline_stage parked: the day to get in touch again."),
     profiles_due_on: dateSchema.nullable().optional().describe("The day the profiles go out (stage agreed_paid sets it three weeks ahead)."),
-    prio: z.number().int().min(1).max(5).nullable().optional(),
-    category: category.nullable().optional(),
+    prio: z.number().int().min(1).max(5).nullable().optional().describe("Not used any more: the score sets the order."),
+    category: category.nullable().optional().describe("What kind of vacancy (development, data_bi, both); separate from the segment."),
     owner_id: idSchema.nullable().optional().describe("A team member (profile id)."),
     partner_id: idSchema.nullable().optional(),
     next_action: z.string().trim().max(500).nullable().optional(),
@@ -833,7 +894,7 @@ export const companyFieldsSchema = z
     pinned: z.boolean().optional().describe("Pin to the top of the lists, or unpin."),
     manual_position: z.number().nullable().optional().describe("Manual order in the lists (lower is higher)."),
     opening_line: z.string().trim().max(2000).nullable().optional().describe("Opening line for calls and mail."),
-    red_flags: z.array(z.string().trim().min(1).max(300)).max(30).optional().describe("Red flags, one per item (replaces the list)."),
+    red_flags: sentencesSchema.optional().describe("Real red flags, whole sentences (replaces the list)."),
     general_phone: z.string().trim().max(50).nullable().optional().describe("The general (reception) number of the company."),
     description: z.string().trim().max(5000).nullable().optional().describe("What they do."),
     linkedin_url: z.string().trim().max(500).nullable().optional().describe("Company LinkedIn page; stored with https://."),
@@ -849,6 +910,10 @@ export const companyFieldsSchema = z
   .refine((f) => f.pipeline_stage !== "parked" || Boolean(f.parked_until), {
     message: "A parked company needs parked_until, the day to get in touch again.",
     path: ["parked_until"],
+  })
+  .refine((f) => f.icp_decision !== "NO_GO" || Boolean(f.icp_reason), {
+    message: "A NO_GO needs an icp_reason.",
+    path: ["icp_reason"],
   });
 
 /** The p_fields of sales_update for a company. Pure, unit tested. */
@@ -898,7 +963,7 @@ const signalSchema = z.object({
     .regex(/^[a-z0-9_]{1,40}$/, { error: "Use lower case letters, digits and _." })
     .default("vacature")
     .describe(
-      "Kind of signal: vacature, lang_open, meerdere_rollen, remote_extern, freelance, funding, nieuwe_cto, employee_growth (title: for example '21-50 to 51-100', posted_at: the date) or overig. A new kind is added under Settings, Sales lists, Signal types; use its value here.",
+      "Kind of signal: vacature (a dev or data vacancy), india_outsourced (team in India or outsourced before), funding, employee_growth (title: for example '21-50 to 51-100', posted_at: the date), nieuwe_cto, via_recruiter, stack_match, overname_product, interactie, ontslagen, remote_extern, freelance or overig. Several vacancies and a vacancy open 60 days are derived from the vacancies: do not add them. Points per kind are in Settings, Sales lists, Signal points. A new kind is added under Settings, Sales lists, Signal types; use its value here.",
     ),
   role_group: z.string().trim().max(200).optional().describe("For example Backend, Frontend, Data & BI, DevOps."),
   posted_at: dateSchema.optional().describe("Date the vacancy went online on the job board (the days open count from here)."),
@@ -910,7 +975,8 @@ const signalSchema = z.object({
     .optional()
     .describe("Link to the vacancy itself (Indeed viewjob?jk=..., LinkedIn jobs/view/..., the company site). Every vacancy its own link."),
   description: z.string().trim().max(20000).optional().describe("The vacancy text."),
-  closed: z.boolean().optional().describe("true: the vacancy is offline."),
+  closed: z.boolean().optional().describe("true: the vacancy is offline (the signal expires)."),
+  valid_until: dateSchema.optional().describe("Until when the signal counts. Default: open vacancies while open, other kinds the days set in Settings (funding a year, new CTO six months)."),
 });
 
 const personSchema = z.object({
@@ -935,7 +1001,8 @@ export const upsertCompanySchema = z.object({
   employees: z.number().int().min(0).max(1_000_000).optional(),
   description: z.string().trim().max(5000).optional().describe("What they do. Put the opening line, red flags and general number in their own fields."),
   opening_line: z.string().trim().max(2000).optional().describe("Opening line for calls and mail."),
-  red_flags: z.array(z.string().trim().min(1).max(300)).max(30).optional().describe("Red flags, one per item."),
+  red_flags: sentencesSchema.optional().describe("Real red flags, whole sentences."),
+  talking_points: sentencesSchema.optional().describe("Talking points, whole sentences."),
   general_phone: z.string().trim().max(50).optional().describe("The general (reception) number."),
   signals: z.array(signalSchema).max(50).default([]),
   contacts: z
@@ -1418,7 +1485,7 @@ function registerSalesWriteTools(server: McpServer, ctx: McpToolContext) {
     {
       title: "Update vacancies (signals)",
       description:
-        "Correct vacancies (signals) of a company: the date it went online (posted_at, the days open count from here), the link to the vacancy, its text, or closed (offline). Use get_company for the ids.",
+        "Correct vacancies and other signals of a company: the date it went online (posted_at, the days open count from here), the link, its text, closed (offline: the signal expires) or valid_until (until when it counts for the score). Use get_company or list_signals for the ids; add_signals adds new ones.",
       inputSchema: {
         ids: z.array(idSchema).min(1).max(100),
         fields: z
@@ -1429,6 +1496,7 @@ function registerSalesWriteTools(server: McpServer, ctx: McpToolContext) {
             closed: z.boolean().optional(),
             title: z.string().trim().min(1).max(300).optional(),
             role_group: z.string().trim().max(200).nullable().optional(),
+            valid_until: dateSchema.nullable().optional().describe("Until when the signal counts; null: while open."),
           })
           .strict()
           .refine((f) => Object.keys(f).length > 0, { message: "Give at least one field to change." }),
@@ -1459,30 +1527,39 @@ function registerSalesWriteTools(server: McpServer, ctx: McpToolContext) {
     {
       title: "Set ICP verdict",
       description:
-        "Record the ICP verdict of a company: decision (GO, NO_GO, REVIEW), score 0 to 100, reason, prio 1 to 5, opening line for calls and mail. The lead status follows (GO is ready, REVIEW is review, NO_GO is no go) while the company is still new, review or ready; give lead_status to choose. Logged with source claude.",
+        "Record the ICP verdict of a company (leadregels, deel 1 and 2). decision GO or NO_GO; there is no REVIEW: in doubt choose GO and put the doubt in talking_points. A NO_GO always needs a short reason (shown in the lead list). With GO give the segment: A (SaaS or software with its own product, any sector, base 50) or B (any other ICP company with its own IT or data team, or a software or automation agency with ongoing work, base 30). The score is computed by the portal from the segment and the active signals: do not send one. talking_points and red_flags are lists of whole sentences (they replace the lists): talking points never lower the score (Dutch required, EU residence, office days, junior, temporary or part time, over 150 FTE, no technical decision maker visible); red flags are real risks (VOG or nationality, sensitive data, embedded or hardware on site). The lead status follows while the company was only judged (new, ready or no go): GO is ready, NO_GO is no go. Logged with source claude.",
       inputSchema: {
         company_id: idSchema,
         decision: icpDecision,
-        score: z.number().int().min(0).max(100).optional(),
-        reason: z.string().trim().min(1).max(2000),
-        prio: z.number().int().min(1).max(5).optional(),
+        reason: z.string().trim().min(1).max(2000).optional().describe("Required with NO_GO: the reason shown in the lead list. With GO a short motivation."),
+        segment: segmentSchema.optional().describe("Required with GO: A or B."),
+        talking_points: sentencesSchema.optional().describe("Talking points, whole sentences (replaces the list)."),
+        red_flags: sentencesSchema.optional().describe("Real red flags, whole sentences (replaces the list)."),
         opening_line: z.string().trim().max(500).optional(),
-        category: category.optional(),
-        lead_status: z.enum(["review", "ready", "no_go"]).optional(),
+        category: category.optional().describe("What kind of vacancy: development, data_bi or both. Separate from the segment."),
+        score: z.number().int().min(0).max(100).optional().describe("Ignored: the portal computes the score."),
+        prio: z.number().int().min(1).max(5).optional().describe("Ignored: prio is no longer used, the score sets the order."),
       },
       annotations: WRITE,
     },
     async (input) => {
       const blocked = guard();
       if (blocked) return blocked;
+      if (input.decision === "GO" && !input.segment) return fail("A GO needs a segment: A or B.");
+      if (input.decision === "NO_GO" && input.segment) return fail("A NO_GO has no segment.");
+      if (input.decision === "NO_GO" && !input.reason) return fail("A NO_GO needs a short reason.");
       const company = check(await db.from("companies").select("id, lead_status").eq("id", input.company_id).maybeSingle(), "company");
       if (!company || Array.isArray(company)) return fail("Company not found.");
-      const fields: Record<string, Json> = { icp_decision: input.decision, icp_reason: input.reason };
-      if (input.score !== undefined) fields.icp_score = input.score;
-      if (input.prio !== undefined) fields.prio = input.prio;
+      const fields: Record<string, Json> = {
+        icp_decision: input.decision,
+        ...(input.reason !== undefined ? { icp_reason: input.reason } : {}),
+        segment: input.decision === "GO" ? (input.segment ?? null) : null,
+      };
+      if (input.talking_points !== undefined) fields.talking_points = input.talking_points;
+      if (input.red_flags !== undefined) fields.red_flags = input.red_flags;
       if (input.opening_line !== undefined) fields.opening_line = input.opening_line;
       if (input.category !== undefined) fields.category = input.category;
-      const derived = icpLeadStatus(input.decision, company.lead_status, input.lead_status);
+      const derived = icpLeadStatus(input.decision, company.lead_status);
       if (derived) fields.lead_status = derived;
       const { error } = await db.rpc("sales_update", {
         p_entity: "company",
@@ -1491,7 +1568,19 @@ function registerSalesWriteTools(server: McpServer, ctx: McpToolContext) {
         p_source: "claude",
         p_actor: actor,
       });
-      return rpcError(error, "save the verdict") ?? ok({ company_id: input.company_id, lead_status: derived ?? company.lead_status });
+      if (error) return rpcError(error, "save the verdict")!;
+      const after = check(
+        await db.from("companies").select("lead_status, segment, icp_score").eq("id", input.company_id).maybeSingle(),
+        "company",
+      );
+      const score = await db.rpc("sales_company_score", { p_company: input.company_id });
+      return ok({
+        company_id: input.company_id,
+        lead_status: after?.lead_status ?? derived ?? company.lead_status,
+        segment: after?.segment ?? null,
+        score: after?.icp_score ?? null,
+        score_breakdown: formatScore(parseScore(score.data)),
+      });
     },
   );
 
@@ -1672,15 +1761,10 @@ function registerSalesWriteTools(server: McpServer, ctx: McpToolContext) {
   );
 }
 
-/** Lead status after an ICP verdict. Only moves companies that are not being approached yet. Pure. */
-export function icpLeadStatus(
-  decision: "GO" | "NO_GO" | "REVIEW",
-  current: LeadStatus,
-  chosen?: "review" | "ready" | "no_go",
-): LeadStatus | null {
-  if (chosen) return chosen;
-  if (!["new", "review", "ready"].includes(current)) return null;
-  const next: LeadStatus = decision === "GO" ? "ready" : decision === "REVIEW" ? "review" : "no_go";
+/** Lead status after an ICP verdict. Only moves companies that were only judged (new, ready, no go). Pure. */
+export function icpLeadStatus(decision: "GO" | "NO_GO", current: LeadStatus): LeadStatus | null {
+  if (!["new", "ready", "no_go"].includes(current)) return null;
+  const next: LeadStatus = decision === "GO" ? "ready" : "no_go";
   return next === current ? null : next;
 }
 
@@ -1709,7 +1793,7 @@ async function companyByDomain<F extends string>(db: McpDb, domain: string, fiel
 export async function upsertSalesCompany(db: McpDb, actor: string, source: "apify" | "prospeo" | LeadOrigin, input: UpsertCompanyInput) {
   const domain = normalizeDomain(input.domain);
   const linkedinKey = normalizeLinkedin(input.linkedin_url);
-  const fields = "id, name, domain, website, city, sector, employees, linkedin_url, description, opening_line, red_flags, general_phone, sources" as const;
+  const fields = "id, name, domain, website, city, sector, employees, linkedin_url, description, opening_line, red_flags, talking_points, general_phone, sources" as const;
 
   let existing = domain ? await companyByDomain(db, domain, fields) : null;
   if (!existing && linkedinKey) {
@@ -1729,6 +1813,7 @@ export async function upsertSalesCompany(db: McpDb, actor: string, source: "apif
     description: notes ? notes.description : (input.description ?? null),
     opening_line: input.opening_line ?? notes?.opening_line ?? null,
     red_flags: input.red_flags?.length ? input.red_flags : notes?.red_flags.length ? notes.red_flags : null,
+    talking_points: input.talking_points?.length ? input.talking_points : null,
     general_phone: (() => {
       const raw = input.general_phone ?? notes?.general_phone ?? null;
       return raw ? (normalizePhone(raw) ?? raw).slice(0, 50) : null;
@@ -1766,7 +1851,7 @@ export async function upsertSalesCompany(db: McpDb, actor: string, source: "apif
     companyDomain = domain ?? `nodomain:${input.name.toLowerCase().replace(/\s+/g, " ").trim().slice(0, 180)}`;
     const { data, error } = await db
       .from("companies")
-      .insert({ ...incoming, red_flags: incoming.red_flags ?? [], domain: companyDomain, source, sources: [source], lead_status: "new" })
+      .insert({ ...incoming, red_flags: incoming.red_flags ?? [], talking_points: incoming.talking_points ?? [], domain: companyDomain, source, sources: [source], lead_status: "new" })
       .select("id")
       .single();
     if (error) {
@@ -1810,6 +1895,7 @@ export async function upsertSalesCompany(db: McpDb, actor: string, source: "apif
         posted_at: s.posted_at ?? null,
         description: s.description ?? null,
         closed: s.closed,
+        valid_until: s.valid_until ?? null,
       });
       if (r.created) signalsNew += 1;
       else signalsSeenAgain += 1;

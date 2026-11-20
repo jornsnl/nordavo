@@ -170,16 +170,20 @@ export const profileRoles: Option<ProfileRole>[] = [
 // GTM
 // ---------------------------------------------------------------------------
 
-export const segments: Option<Segment>[] = [
-  { value: "saas", label: "SaaS", tone: "brand" },
-  { value: "productie", label: "Manufacturing", tone: "neutral" },
-  { value: "agency_automation", label: "Automation agency", tone: "accent" },
-  { value: "agency_overig", label: "Other agency", tone: "neutral" },
+/** Segment of a GO company (leadregels, deel 2). What kind of company; category says what kind of vacancy. */
+export const segments: (Option<Segment> & { description: string })[] = [
+  { value: "A", label: "A", tone: "brand", description: "SaaS en softwarebedrijven met een eigen product, in elke sector. Basis 50." },
+  {
+    value: "B",
+    label: "B",
+    tone: "accent",
+    description: "Elk ander ICP bedrijf met een eigen IT of data team, plus software en automation agencies. Basis 30.",
+  },
 ];
 
+/** The ICP verdict: empty is not judged yet; NO_GO always has a reason (leadregels, deel 1). */
 export const icpDecisions: Option<IcpDecision>[] = [
   { value: "GO", label: "GO", tone: "success" },
-  { value: "REVIEW", label: "Review", tone: "warning" },
   { value: "NO_GO", label: "No go", tone: "danger" },
 ];
 
@@ -206,9 +210,9 @@ export const contactStatuses: Option<ContactStatus>[] = [
 
 /** Contact tiers: who to approach first. */
 export const contactTiers: Option<"1" | "2" | "3">[] = [
-  { value: "1", label: "Tier 1: CTO, Head of Engineering or Data", tone: "accent" },
-  { value: "2", label: "Tier 2: owner or director", tone: "brand" },
-  { value: "3", label: "Tier 3: recruiter or HR", tone: "neutral" },
+  { value: "1", label: "Tier 1: technisch (CTO, head of engineering, data of IT, tech lead)", tone: "accent" },
+  { value: "2", label: "Tier 2: eigenaar of directie (CEO, founder, directeur)", tone: "brand" },
+  { value: "3", label: "Tier 3: HR of recruitment", tone: "neutral" },
 ];
 
 export const emailStatuses: Option<EmailStatus>[] = [

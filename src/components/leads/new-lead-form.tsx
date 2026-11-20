@@ -7,7 +7,6 @@ import { FormActions } from "@/components/entity/form-actions";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { Field, FormMessage, Input, Select, Textarea } from "@/components/ui/field";
 import { initialActionState } from "@/lib/action-state";
-import { segments } from "@/lib/labels";
 import { invalidProps } from "./action-modal";
 
 /** "Add lead": a company entered by hand. On success the action opens the new lead. */
@@ -61,21 +60,6 @@ export function NewLeadForm() {
         </Field>
         <Field label="City" htmlFor="city" error={e.city}>
           <Input id="city" name="city" autoComplete="address-level2" {...invalidProps(state, "city")} />
-        </Field>
-        <Field
-          label="Segment"
-          htmlFor="segment"
-          hint="Leave empty to let the qualification decide."
-          error={e.segment}
-        >
-          <Select id="segment" name="segment" defaultValue="">
-            <option value="">No segment</option>
-            {segments.map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
-              </option>
-            ))}
-          </Select>
         </Field>
         <Field
           label="Legal form"

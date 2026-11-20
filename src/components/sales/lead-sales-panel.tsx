@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Star } from "lucide-react";
 import type { Json } from "@/lib/database.types";
 import type { CompanyCategory, LeadStatus, PipelineStage } from "@/lib/sales/database";
-import { companyCategories, companyPrios, labelOf, leadStatuses, pipelineEntryStages, pipelineFlow, pipelineStages } from "@/lib/sales/labels";
+import { companyCategories, labelOf, leadStatuses, pipelineEntryStages, pipelineFlow, pipelineStages } from "@/lib/sales/labels";
 import { Button } from "@/components/ui/button";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { SearchSelect } from "@/components/ui/search-select";
@@ -19,8 +19,9 @@ export type LeadSalesFields = {
   lost_reason: string | null;
   parked_until: string | null;
   profiles_due_on: string | null;
-  prio: number | null;
   category: CompanyCategory | null;
+  recontact_from: string | null;
+  declined_channel: "bellen" | "mail" | "linkedin" | null;
   owner_id: string | null;
   partner_id: string | null;
   next_action: string | null;
@@ -28,9 +29,11 @@ export type LeadSalesFields = {
   description: string | null;
   general_phone: string | null;
   opening_line: string | null;
-  red_flags: string[];
   source_note: string | null;
 };
+
+/** Statuses that wait until a date (leadregels, deel 5). */
+const datedStatuses: LeadStatus[] = ["cooled_down", "nee_geen_interesse", "nu_niet"];
 
 type Option = { id: string; name: string };
 
@@ -39,9 +42,10 @@ const control =
   "mt-1 block w-full rounded-xl border border-border bg-white px-3 py-2 text-sm text-ink shadow-xs outline-none focus:border-brand-500 focus:ring-4 focus:ring-brand-100";
 
 /**
- * The sales side of a lead: lead status, pipeline stage, prio, owner, partner,
- * primary contact and the fields from the call list. Every field saves on its
- * own and lands in Activities.
+ * The sales side of a lead: lead status (with the date to approach again),
+ * pipeline stage, category, owner, partner, contact 1 and the fields from the
+ * call list. Every field saves on its own and lands in Activities. Prio is no
+ * longer shown: the score sets the order (leadregels, deel 3 and 5).
  */
 export function LeadSalesPanel({
   company,
@@ -49,11 +53,11 @@ export function LeadSalesPanel({
   owners,
   partners,
   primaryContactId,
-  prioOptions,
+  statusOptions,
   categoryOptions,
 }: {
   /** From Settings, Sales lists (3f93bd66); the built in options when absent. */
-  prioOptions?: { value: string; label: string; description?: string | null }[];
+  statusOptions?: { value: string; label: string; description?: string | null }[];
   categoryOptions?: { value: string; label: string }[];
   company: LeadSalesFields;
   contacts: Option[];
@@ -113,15 +117,60 @@ export function LeadSalesPanel({
         <div className="grid gap-4 sm:grid-cols-2">
           <label className="block">
             <span className={label}>Lead status</span>
-            <select className={control} value={values.lead_status} onChange={(e) => save({ lead_status: e.target.value as LeadStatus })}>
-              {leadStatuses.map((s) => (
-                <option key={s.value} value={s.value}>
+            <select
+              className={control}
+              value={values.lead_status}
+              title={(statusOptions ?? leadStatuses).find((s) => s.value === values.lead_status)?.description ?? undefined}
+              onChange={(e) => save({ lead_status: e.target.value as LeadStatus })}
+            >
+              {(statusOptions ?? leadStatuses).map((s) => (
+                <option key={s.value} value={s.value} title={s.description ?? undefined}>
                   {s.label}
-                  {s.description ? `: ${s.description}` : ""}
                 </option>
               ))}
             </select>
+            <span className="mt-1 block text-xs text-muted">
+              {(statusOptions ?? leadStatuses).find((s) => s.value === values.lead_status)?.description}
+            </span>
           </label>
+          {datedStatuses.includes(values.lead_status) && (
+            <label className="block">
+              <span className={label}>Approach again from</span>
+              <input
+                key={values.recontact_from ?? ""}
+                type="date"
+                required
+                defaultValue={values.recontact_from ?? ""}
+                className={control}
+                onBlur={(e) => {
+                  const next = e.target.value;
+                  if (next && next !== values.recontact_from) save({ recontact_from: next });
+                }}
+              />
+              <span className="mt-1 block text-xs text-muted">
+                {values.lead_status === "cooled_down"
+                  ? "A week after the route ended; a new vacancy or other signal puts it back on Ready at once."
+                  : values.lead_status === "nu_niet"
+                    ? "On this date it goes back to Ready, with a task to follow up personally."
+                    : "On this date it goes back to Ready, preferably via another channel and with a new hook. A new vacancy before then asks for a personal follow up."}
+              </span>
+            </label>
+          )}
+          {values.lead_status === "nee_geen_interesse" && (
+            <label className="block">
+              <span className={label}>Said no via</span>
+              <select
+                className={control}
+                value={values.declined_channel ?? ""}
+                onChange={(e) => save({ declined_channel: (e.target.value || null) as LeadSalesFields["declined_channel"] })}
+              >
+                <option value="">Unknown</option>
+                <option value="bellen">Call</option>
+                <option value="mail">Mail</option>
+                <option value="linkedin">LinkedIn</option>
+              </select>
+            </label>
+          )}
           <div className="block">
             <span className={label} id="lead-stage-label">
               Pipeline stage
@@ -230,18 +279,6 @@ export function LeadSalesPanel({
             </div>
           )}
           <label className="block">
-            <span className={label}>Prio</span>
-            <select className={control} value={values.prio ?? ""} onChange={(e) => save({ prio: e.target.value ? Number(e.target.value) : null })}>
-              <option value="">No prio</option>
-              {(prioOptions ?? companyPrios).map((p) => (
-                <option key={p.value} value={p.value} title={"description" in p ? (p.description ?? undefined) : undefined}>
-                  {p.label}
-                  {"description" in p && p.description ? `: ${p.description}` : ""}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="block">
             <span className={label}>Category</span>
             <select className={control} value={values.category ?? ""} onChange={(e) => save({ category: (e.target.value || null) as CompanyCategory | null })}>
               <option value="">Unknown</option>
@@ -286,7 +323,7 @@ export function LeadSalesPanel({
           <div className="sm:col-span-2">
             <span className={label} id="lead-primary-label">
               <Star className="mr-1 inline size-3" aria-hidden="true" />
-              Primary contact person
+              Contact 1
             </span>
             <SearchSelect
               className="mt-1"
@@ -308,24 +345,13 @@ export function LeadSalesPanel({
                 });
               }}
             />
-            <p className="mt-1 text-xs text-muted">Shown on top of every task on this lead, with mail, phone and LinkedIn.</p>
+            <p className="mt-1 text-xs text-muted">
+              Approached first and shown on top of every task. Picking one by hand stops the default order (Contacts, Use default order).
+            </p>
           </div>
           {text("next_action", "Next action")}
           {text("next_action_date", "Next action date", { type: "date" })}
           {text("general_phone", "General number", { type: "tel" })}
-          <label className="block">
-            <span className={label}>Red flags</span>
-            <input
-              key={values.red_flags.join("|")}
-              defaultValue={values.red_flags.join(", ")}
-              className={control}
-              placeholder="Comma separated"
-              onBlur={(e) => {
-                const next = e.target.value.split(/[;,\n]/).map((s) => s.trim()).filter(Boolean);
-                if (next.join("|") !== values.red_flags.join("|")) save({ red_flags: next });
-              }}
-            />
-          </label>
         </div>
         {text("description", "What the company does", { long: true })}
         {text("opening_line", "Opening line", { long: true })}

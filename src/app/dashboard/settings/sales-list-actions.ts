@@ -127,3 +127,60 @@ export async function resetChoiceList(list: ChoiceListKey): Promise<{ ok: true }
   revalidatePath("/dashboard", "layout");
   return { ok: true };
 }
+
+// ---------------------------------------------------------------------------
+// Signal points and score groups (leadregels, deel 3 to 5)
+// ---------------------------------------------------------------------------
+
+const pointsSchema = z
+  .array(
+    z.object({
+      type: z.string().regex(/^[a-z0-9_]{1,40}$/),
+      points: z.number().int().min(-100, "At least -100.").max(100, "At most 100."),
+      active: z.boolean(),
+      valid_days: z.number().int().min(1).max(3650).nullable(),
+    }),
+  )
+  .min(1)
+  .max(100);
+
+/** Saves the points table: per signal type the points, on or off and the default days it counts. Every score is computed again. */
+export async function saveSignalPoints(input: z.input<typeof pointsSchema>): Promise<{ ok: true } | { ok: false; error: string }> {
+  await requireAdmin();
+  const parsed = pointsSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Check the points." };
+  const db = await createClient();
+  for (const row of parsed.data) {
+    const { error } = await db
+      .from("sales_signal_points")
+      .update({ points: row.points, active: row.active, valid_days: row.valid_days })
+      .eq("type", row.type);
+    if (error) return { ok: false, error: friendly(error.message) };
+  }
+  revalidatePath("/dashboard/settings/sales-lists");
+  revalidatePath("/dashboard/leads");
+  return { ok: true };
+}
+
+const approachSchema = z
+  .array(
+    z.object({
+      key: z.enum(["90_100", "80_89", "60_79", "50_59", "lt_50"]),
+      approach: z.string().trim().max(500, "Use at most 500 characters.").nullable(),
+    }),
+  )
+  .max(5);
+
+/** Saves which approach belongs to which score group (to be decided later; leadregels, deel 2). */
+export async function saveScoreApproaches(input: z.input<typeof approachSchema>): Promise<{ ok: true } | { ok: false; error: string }> {
+  await requireAdmin();
+  const parsed = approachSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Check the approaches." };
+  const db = await createClient();
+  for (const row of parsed.data) {
+    const { error } = await db.from("sales_score_groups").update({ approach: row.approach || null }).eq("key", row.key);
+    if (error) return { ok: false, error: friendly(error.message) };
+  }
+  revalidatePath("/dashboard/settings/sales-lists");
+  return { ok: true };
+}

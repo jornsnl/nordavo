@@ -23,18 +23,21 @@ Bellers hebben geen directe toegang tot tabellen: de app bedient ze via de funct
 
 ## Leadstatus van een bedrijf
 
+Sinds 20 november 2026 volgen de statussen de leadregels (deel 5); zie [leadregels.md](./leadregels.md) voor de automatische overgangen.
+
 | Status | Betekenis |
 | --- | --- |
-| New | Net binnen (Apify, Prospeo, import, handmatig) |
-| Review | Wacht op het ICP-oordeel |
-| Ready | GO en klaar om te benaderen |
-| Enrich | Geen nummer, gaat naar Max (zie Verrijken) |
-| In sequence | Wordt benaderd |
-| Cooled down | Benaderd zonder resultaat |
-| No go | Past niet |
-| Do not contact | Nooit benaderen |
+| New | Net binnen, nog niet beoordeeld |
+| Enrich | GO, er mist een nummer of mailadres (gaat naar Max) |
+| Ready | GO met score, wacht op de start van de route |
+| In sequence | Zit nu in een route: sequence, bellijst of een lopende campagne in Instantly of Seleqt |
+| Cooled down | Route afgelopen zonder reactie; na een week weer Ready, met een nieuw signaal meteen |
+| Nee / geen interesse | Drie maanden niet benaderen (`recontact_from`), daarna Ready via liefst een ander kanaal (`declined_channel`) |
+| Nu niet | Tot de datum die ze noemden (standaard drie maanden), daarna Ready met een taak om persoonlijk op te volgen |
+| No go | Past niet bij de ICP, met reden |
+| Do not contact | Nooit meer, ook niet bij een nieuw signaal. Alleen een admin zet het terug |
 
-Een sequence starten zet het bedrijf op In sequence. Een geslaagd gesprek of een meeting op het belscherm doet dat ook. Na drie keer geen gehoor bij een contact gaan de andere contacten naar Enrich, en als er dan geen contact met een nummer over is gaat het bedrijf naar Enrich.
+Review bestaat niet meer: bestaande Review werd New. De tabel Leads verbergt standaard No go en Do not contact (filter op Lead status). Een sequence starten zet het bedrijf op In sequence. Een geslaagd gesprek of een meeting op het belscherm doet dat ook. Na drie keer geen gehoor bij een contact gaan de andere contacten naar Enrich, en als er dan geen contact met een nummer over is gaat het bedrijf naar Enrich.
 
 ## Pipeline
 

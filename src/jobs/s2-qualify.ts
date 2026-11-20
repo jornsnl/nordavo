@@ -16,8 +16,9 @@ import { defineJob, forEachSafe, type JobContext } from "@/lib/gtm/jobs";
  * S2: every company without icp_decision goes to Claude with its company data
  * and most recent vacancies (title and text from signals.raw_json). The answer
  * (briefing section 11) is stored on the company; GO companies become actief.
- * A refusal or an unparseable answer marks the company REVIEW with the reason
- * (rule 9: in doubt, Julius looks himself). API and network errors leave the
+ * A refusal or an unparseable answer leaves the company without verdict (no
+ * REVIEW any more, leadregels 20 November 2026): it stays on Leads, ICP to
+ * judge, and the reason is in the job log. API and network errors leave the
  * company untouched so the next run retries it.
  *
  * Params: --limit (default 100).
@@ -54,7 +55,7 @@ export const s2Qualify = defineJob({
     ctx.countIn(companies.length);
     ctx.log(`${companies.length} companies without an ICP decision`);
 
-    const counts = { GO: 0, NO_GO: 0, REVIEW: 0, regel: 0, fout_review: 0 };
+    const counts = { GO: 0, NO_GO: 0, regel: 0, fout_overgeslagen: 0 };
 
     await forEachSafe(ctx, companies, (company) => company.domain, async (company) => {
       const save = async (output: QualifyOutput) => {
@@ -63,9 +64,9 @@ export const s2Qualify = defineJob({
           .from("companies")
           .update({
             icp_decision: result.decision,
-            icp_score: result.score,
             icp_reason: result.reason,
             segment: result.segment,
+            talking_points: result.talking_points,
             red_flags: result.red_flags,
             opening_line: checkOpeningLine(result.opening_line),
             client_contact_risk: result.client_contact_risk,
@@ -133,17 +134,10 @@ export const s2Qualify = defineJob({
           askError instanceof ClaudeRefusalError
             ? askError.message
             : `Could not read the answer from Claude: ${askError instanceof Error ? askError.message.slice(0, 200) : String(askError)}`;
-        counts.fout_review += 1;
-        ctx.log(`${company.domain}: REVIEW, ${why}`);
-        output = {
-          decision: "REVIEW",
-          segment: null,
-          score: 0,
-          reason: `Automatic qualification failed, check it yourself. ${why}`.slice(0, 500),
-          client_contact_risk: false,
-          red_flags: ["qualification failed"],
-          opening_line: "",
-        };
+        // There is no REVIEW any more: the company stays without verdict (ICP to judge) for the next run or for Julius.
+        counts.fout_overgeslagen += 1;
+        ctx.log(`${company.domain}: skipped, ${why}`);
+        return;
       }
       await save(output);
     });
@@ -151,10 +145,9 @@ export const s2Qualify = defineJob({
     Object.assign(ctx.meta, {
       go: counts.GO,
       no_go: counts.NO_GO,
-      review: counts.REVIEW,
       rule_based: counts.regel,
-      review_after_error: counts.fout_review,
+      skipped_after_error: counts.fout_overgeslagen,
     });
-    ctx.log(`GO ${counts.GO}, NO_GO ${counts.NO_GO}, REVIEW ${counts.REVIEW} (of which ${counts.fout_review} after an error)`);
+    ctx.log(`GO ${counts.GO}, NO_GO ${counts.NO_GO}, skipped after an error ${counts.fout_overgeslagen}`);
   },
 });

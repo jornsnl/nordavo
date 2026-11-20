@@ -16,7 +16,7 @@ const candidate: MaxCandidate = {
   domain: "acme.nl",
   website: null,
   company_linkedin: "linkedin.com/company/acme",
-  segment: "saas",
+  segment: "A",
   icp_score: 80,
   legal_form: "BV",
 };
