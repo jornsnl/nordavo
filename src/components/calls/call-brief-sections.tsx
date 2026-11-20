@@ -453,7 +453,7 @@ export function ObjectionsSection({ items }: { items: CallCard["company"]["objec
 export function QuestionsSection({ items }: { items: string[] }) {
   if (items.length === 0) return null;
   return (
-    <Section title="Question for the call" icon={<CircleHelp className="size-4" aria-hidden="true" />}>
+    <Section title="Talking points" icon={<CircleHelp className="size-4" aria-hidden="true" />}>
       <ul className="space-y-1.5 text-sm text-ink">
         {items.map((q) => (
           <li key={q}>{q}</li>

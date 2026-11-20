@@ -139,15 +139,15 @@ export function EditContactButton({ contact, action }: { contact: EditableContac
               <Field label="Tier" htmlFor="tier" error={e.tier}>
                 <Select id="tier" name="tier" defaultValue={contact.tier ? String(contact.tier) : ""}>
                   <option value="">No tier</option>
-                  <option value="1">Tier 1: CTO, Head of Engineering or Data</option>
-                  <option value="2">Tier 2: owner or director</option>
-                  <option value="3">Tier 3: recruiter or HR</option>
+                  <option value="1">Tier 1: technisch (CTO, head of engineering, data of IT, tech lead)</option>
+                  <option value="2">Tier 2: eigenaar of directie (CEO, founder, directeur)</option>
+                  <option value="3">Tier 3: HR of recruitment (alleen zonder tier 1 en 2)</option>
                 </Select>
               </Field>
               <Field label="Role" htmlFor="role" error={e.role}>
                 <Select id="role" name="role" defaultValue={contact.role}>
-                  <option value="main">Main</option>
-                  <option value="reserve">Backup</option>
+                  <option value="main">Contact 1</option>
+                  <option value="reserve">Contact 2</option>
                   <option value="extra">Extra</option>
                 </Select>
               </Field>

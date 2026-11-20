@@ -6,9 +6,9 @@ import { ActionModal, invalidProps, type FormAction } from "./action-modal";
 
 // Same tiers as contactTiers in lib/labels, worded for this form.
 const TIERS = [
-  { value: "1", label: "Tier 1: CTO, Head of Engineering or Data" },
-  { value: "2", label: "Tier 2: owner or director" },
-  { value: "3", label: "Tier 3: recruiter or HR" },
+  { value: "1", label: "Tier 1: technisch (CTO, head of engineering, data of IT, tech lead)" },
+  { value: "2", label: "Tier 2: eigenaar of directie (CEO, founder, directeur)" },
+  { value: "3", label: "Tier 3: HR of recruitment (alleen zonder tier 1 en 2)" },
 ];
 
 /** "Add contact" on a lead: a decision maker entered by hand. */
@@ -61,11 +61,11 @@ export function AddContactButton({ companyName, action }: { companyName: string;
                   ))}
                 </Select>
               </Field>
-              <Field label="Role" htmlFor="role" hint="One main contact per company; a new main moves the old one to backup." error={e.role}>
+              <Field label="Role" htmlFor="role" hint="Contact 1 is approached first; picking one by hand moves the old one to contact 2 and stops the default order." error={e.role}>
                 <Select id="role" name="role" defaultValue="">
-                  <option value="">Next free role (main, backup, extra)</option>
-                  <option value="main">Main</option>
-                  <option value="reserve">Backup</option>
+                  <option value="">Default order (by tier and company size)</option>
+                  <option value="main">Contact 1</option>
+                  <option value="reserve">Contact 2</option>
                   <option value="extra">Extra</option>
                 </Select>
               </Field>

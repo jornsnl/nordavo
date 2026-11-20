@@ -7,6 +7,8 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import type { CompanyContact, Contactability } from "@/lib/data/gtm-contacts";
 import { formatDate } from "@/lib/format";
+import { contactOrderRule } from "@/lib/sales/labels";
+import { UseDefaultOrderButton } from "@/components/leads/use-default-order-button";
 import { deleteContactAction, setContactChannelsAction, updateContactAction } from "@/app/dashboard/leads/edit-actions";
 import {
   ContactChannelsButton,
@@ -35,16 +37,23 @@ function ChannelState({ label, state }: { label: string; state: Contactability }
   );
 }
 
+const roleRank: Record<string, number> = { main: 0, reserve: 1, extra: 2 };
+
 export function ContactsPanel({
   companyId,
   contacts,
   actions,
+  orderManual = false,
 }: {
   companyId: string;
   contacts: CompanyContact[];
   /** Header buttons, e.g. "Add contact". */
   actions?: ReactNode;
+  /** Contact 1 and 2 were picked by hand: the default order leaves them alone. */
+  orderManual?: boolean;
 }) {
+  // Contact 1, contact 2, then the rest (leadregels, deel 4).
+  const sorted = [...contacts].sort((a, b) => (roleRank[a.role] ?? 3) - (roleRank[b.role] ?? 3));
   return (
     <Card>
       <CardHeader
@@ -52,9 +61,14 @@ export function ContactsPanel({
         description={
           contacts.length === 0
             ? "Decision makers come in through S3 or an import."
-            : `${contacts.length} ${contacts.length === 1 ? "decision maker" : "decision makers"}, the goal is 2 per company.`
+            : `${contacts.length} ${contacts.length === 1 ? "decision maker" : "decision makers"}, the goal is contact 1 and 2 per company. ${contactOrderRule}${orderManual ? " Picked by hand: the default order is off." : ""}`
         }
-        actions={actions}
+        actions={
+          <>
+            {contacts.length > 1 && <UseDefaultOrderButton companyId={companyId} />}
+            {actions}
+          </>
+        }
       />
       {contacts.length === 0 ? (
         <CardBody>
@@ -62,7 +76,7 @@ export function ContactsPanel({
         </CardBody>
       ) : (
         <ul className="divide-y divide-border">
-          {contacts.map((c) => (
+          {sorted.map((c) => (
             <li key={c.id} className="space-y-3 px-5 py-4">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
@@ -70,7 +84,7 @@ export function ContactsPanel({
                     {c.name}
                     <TierBadge tier={c.tier} />
                     <Badge tone={c.role === "main" ? "brand" : c.role === "reserve" ? "accent" : "neutral"}>
-                      {c.role === "main" ? "Main contact" : c.role === "reserve" ? "Backup" : "Extra"}
+                      {c.role === "main" ? "Contact 1" : c.role === "reserve" ? "Contact 2" : "Extra"}
                     </Badge>
                   </p>
                   {c.title && <p className="text-sm text-muted">{c.title}</p>}

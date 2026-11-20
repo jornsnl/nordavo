@@ -7,7 +7,7 @@ import { AlertTriangle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { formatDate } from "@/lib/format";
-import { companyPrios, labelOf, leadStatuses } from "@/lib/sales/labels";
+import { labelOf, leadStatuses } from "@/lib/sales/labels";
 import { occupancyText, type CompanyOccupancy } from "@/lib/sales/triage";
 import { TriageBar } from "./triage-bar";
 
@@ -15,7 +15,7 @@ export type InboxListRow = {
   id: string;
   name: string;
   city: string | null;
-  prio: number | null;
+  score: number | null;
   leadStatus: string;
   sourceList: string;
   worker: string | null;
@@ -98,7 +98,6 @@ export function InboxList({
             </div>
             <ul className="divide-y divide-border">
               {list.map((r) => {
-                const prio = companyPrios.find((p) => p.value === String(r.prio));
                 const running = r.occupancy.filter((o) => o.active);
                 return (
                   <li key={r.id} className="flex flex-wrap items-center gap-3 px-4 py-2 text-sm">
@@ -124,7 +123,7 @@ export function InboxList({
                         {running.map(occupancyText).join("; ")}
                       </span>
                     )}
-                    {prio && <Badge tone={prio.tone}>{prio.label}</Badge>}
+                    {r.score != null && <Badge tone="brand">Score {r.score}</Badge>}
                   </li>
                 );
               })}

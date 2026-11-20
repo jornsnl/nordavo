@@ -82,6 +82,9 @@ export type CampaignMember = {
   id: string;
   companyId: string;
   companyName: string;
+  /** Where the company stands now (lead status and pipeline stage). */
+  companyLeadStatus: string | null;
+  companyStage: string | null;
   contactName: string | null;
   email: string | null;
   status: CampaignMemberStatus;
@@ -112,7 +115,7 @@ export async function getCampaign(id: string): Promise<CampaignDetail | null> {
     const { data, error: membersError } = await db
       .from("campaign_members")
       .select(
-        "id, company_id, status, added_at, ended_at, replied_at, reply_outcome, company:companies!campaign_members_company_id_fkey(name), contact:contacts!campaign_members_contact_id_fkey(first_name, last_name, email)",
+        "id, company_id, status, added_at, ended_at, replied_at, reply_outcome, company:companies!campaign_members_company_id_fkey(name, lead_status, pipeline_stage), contact:contacts!campaign_members_contact_id_fkey(first_name, last_name, email)",
       )
       .eq("campaign_id", id)
       .order("replied_at", { ascending: false, nullsFirst: false })
@@ -124,6 +127,8 @@ export async function getCampaign(id: string): Promise<CampaignDetail | null> {
         id: m.id,
         companyId: m.company_id,
         companyName: m.company?.name ?? "Company",
+        companyLeadStatus: m.company?.lead_status ?? null,
+        companyStage: m.company?.pipeline_stage ?? null,
         contactName: m.contact ? [m.contact.first_name, m.contact.last_name].filter(Boolean).join(" ") || null : null,
         email: m.contact?.email ?? null,
         status: m.status,

@@ -32,7 +32,7 @@ import { BookingModal } from "@/components/calls/booking-modal";
 import { dialHref, dialsInBrowser } from "@/lib/sales/telephony";
 import { callNumbers } from "@/lib/sales/call-brief";
 import type { BookingState, CallCard, CallInput, CallOptions, CallStep, StartedBooking } from "@/lib/sales/call-session";
-import { callOutcomes, companyPrios } from "@/lib/sales/labels";
+import { callOutcomes } from "@/lib/sales/labels";
 import { formatDate, formatDateTime } from "@/lib/format";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -441,7 +441,6 @@ function ContactCall({
   onCancelBooking: () => void;
 }) {
   const { contact, company } = card;
-  const prio = companyPrios.find((p) => p.value === String(company.prio));
   // The contacts as the caller changes them here; the call button follows (a number marked wrong falls back to the general number).
   const people = usePeople(card);
   const { dial, generalDial } = callNumbers(people.main, company.generalPhone, (n) => dialHref(n, card.dialTemplate));
@@ -482,7 +481,7 @@ function ContactCall({
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
                     <h2 className="font-display text-xl font-bold text-brand-900 sm:text-2xl">{company.name}</h2>
-                    {prio && <Badge tone={prio.tone}>{company.prioInfo?.label ?? prio.label}</Badge>}
+                    {company.prioInfo && <Badge tone="brand">{company.prioInfo.label}</Badge>}
                     {contact.route && <Badge tone="brand">{contact.route}</Badge>}
                   </div>
                   {company.prioInfo && <PrioLine prio={company.prioInfo} />}

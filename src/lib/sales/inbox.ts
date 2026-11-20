@@ -15,7 +15,8 @@ export type InboxRow = {
   id: string;
   name: string;
   city: string | null;
-  prio: number | null;
+  /** The score (leadregels, deel 3). */
+  score: number | null;
   leadStatus: string;
   bucket: SalesBucket;
   sourceList: string;
@@ -37,7 +38,7 @@ export async function loadInbox(db: Db): Promise<Inbox> {
     id: string;
     name: string;
     city: string | null;
-    prio: number | null;
+    icp_score: number | null;
     lead_status: string;
     bucket: SalesBucket;
     source_list: string | null;
@@ -52,7 +53,7 @@ export async function loadInbox(db: Db): Promise<Inbox> {
   for (let from = 0; from < 50000; from += 1000) {
     const { data, error } = await db
       .from("companies")
-      .select("id, name, city, prio, lead_status, bucket, source_list, bucket_until, bucket_reason, bucket_view_id, bucket_caller_id, bucket_campaign_id, owner_id, created_at")
+      .select("id, name, city, icp_score, lead_status, bucket, source_list, bucket_until, bucket_reason, bucket_view_id, bucket_caller_id, bucket_campaign_id, owner_id, created_at")
       .order("created_at", { ascending: false })
       .range(from, from + 999);
     if (error) throw new Error(error.message);
@@ -94,7 +95,7 @@ export async function loadInbox(db: Db): Promise<Inbox> {
     id: c.id,
     name: c.name,
     city: c.city,
-    prio: c.prio,
+    score: c.icp_score,
     leadStatus: c.lead_status,
     bucket: c.bucket,
     sourceList: c.source_list?.trim() || "No list",

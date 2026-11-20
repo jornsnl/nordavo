@@ -57,7 +57,7 @@ import { createClient } from "@/lib/supabase/server";
 import { leadStatuses, pipelineStages } from "@/lib/sales/labels";
 import { describeChange } from "@/lib/sales/timeline";
 import { parseRedFlags } from "@/lib/sales/call-brief";
-import { formatScore, parseScore, signalState, type SignalPoint } from "@/lib/sales/score";
+import { formatScore, parseScore, scoreGroup, signalState, type SignalPoint } from "@/lib/sales/score";
 import { loadSignalPoints } from "@/lib/sales/score-data";
 import { IcpCard } from "@/components/leads/icp-card";
 import { AddSignalButton } from "@/components/leads/add-signal-button";
@@ -93,7 +93,7 @@ async function LeadDetail({ params }: { params: Params }) {
   if (!company) notFound();
 
   const supabase = await createClient();
-  const [{ contacts, suppressions }, signals, clients, owners, partners, similar, choiceLists, scoreRaw, points, campaigns] = await Promise.all([
+  const [{ contacts, suppressions }, signals, clients, owners, partners, similar, choiceLists, scoreRaw, points, campaigns, groups] = await Promise.all([
     getCompanyContacts(company.id),
     getCompanySignals(company.id),
     company.client_id ? Promise.resolve([]) : listClientOptions(),
@@ -109,6 +109,7 @@ async function LeadDetail({ params }: { params: Params }) {
       .eq("company_id", company.id)
       .order("added_at", { ascending: false })
       .limit(50),
+    supabase.from("sales_score_groups").select("key, label, approach"),
   ]);
   const duplicates = similar.data ?? [];
   const score = parseScore(scoreRaw.data);
@@ -283,6 +284,7 @@ async function LeadDetail({ params }: { params: Params }) {
             redFlags={company.talking_points?.length ? company.red_flags : legacy.redFlags}
             legacyTalkingPoints={legacyTalking}
             clientContactRisk={company.client_contact_risk}
+            scoreGroup={(groups.data ?? []).find((g) => g.key === scoreGroup(company.icp_score)) ?? null}
             assessed={
               company.qualified_at
                 ? `Assessed on ${formatDate(company.qualified_at)}${company.reviewer ? ` by ${company.reviewer.full_name || company.reviewer.email}` : " by Claude"}. The score is the segment base plus the active signals.`
@@ -352,6 +354,7 @@ async function LeadDetail({ params }: { params: Params }) {
             <ContactsPanel
               companyId={company.id}
               contacts={contacts}
+              orderManual={company.contact_order_manual}
               actions={
                 <>
                   <MergeContactsButton contacts={contactOptions} action={mergeContactsAction.bind(null, company.id)} />

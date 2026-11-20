@@ -29,7 +29,7 @@ export function LeadFlowControls({ companyId, prioReason, followed }: { companyI
   return (
     <div className="space-y-3">
       <label className="block space-y-1 text-sm">
-        <span className="font-medium text-ink">Reason for the prio</span>
+        <span className="font-medium text-ink">Why this lead (shown on the call screen)</span>
         <span className="flex gap-2">
           <input
             className="h-9 min-w-0 flex-1 rounded-lg border border-border bg-white px-2"
@@ -38,7 +38,7 @@ export function LeadFlowControls({ companyId, prioReason, followed }: { companyI
             placeholder="For example: three open data roles, CTO knows us"
             onChange={(e) => setReason(e.target.value)}
           />
-          <Button size="sm" variant="secondary" disabled={pending || reason === (prioReason ?? "")} onClick={() => save({ prio_reason: reason.trim() || null }, "Prio reason saved.")}>
+          <Button size="sm" variant="secondary" disabled={pending || reason === (prioReason ?? "")} onClick={() => save({ prio_reason: reason.trim() || null }, "Saved.")}>
             Save
           </Button>
         </span>

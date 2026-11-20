@@ -350,3 +350,18 @@ export async function deleteSignalAction(companyId: string, signalId: string): P
   revalidateLead(companyId);
   return { ok: true, message: "Signal deleted." };
 }
+
+// ---------------------------------------------------------------------------
+// Contact 1 and 2 in the default order (leadregels, deel 4)
+// ---------------------------------------------------------------------------
+
+/** Puts contact 1 and 2 in the default order and turns the automatic order back on. */
+export async function applyContactOrderAction(companyId: string): Promise<ActionState> {
+  await requireModule("sales");
+  if (!uuid.safeParse(companyId).success) return { error: GENERIC_ERROR };
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("sales_apply_contact_order", { p_company: companyId });
+  if (error) return { error: friendly(error.message) };
+  revalidateLead(companyId);
+  return { ok: true, message: "Contact 1 and 2 follow the default order again." };
+}

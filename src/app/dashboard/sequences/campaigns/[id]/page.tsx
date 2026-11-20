@@ -12,6 +12,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { TBody, TD, TH, THead, TR, Table } from "@/components/ui/table";
 import { getCampaign } from "@/lib/data/campaigns";
 import { formatDate, formatDateTime } from "@/lib/format";
+import type { LeadStatus, PipelineStage } from "@/lib/sales/database";
+import { labelOf, leadStatuses, pipelineStages } from "@/lib/sales/labels";
 
 export const metadata: Metadata = {
   title: "Campaign",
@@ -73,6 +75,7 @@ async function Detail({ params }: { params: PageProps<"/dashboard/sequences/camp
               <THead>
                 <tr>
                   <TH>Company</TH>
+                  <TH>Lead now</TH>
                   <TH>Contact</TH>
                   <TH>Status</TH>
                   <TH>In since</TH>
@@ -86,6 +89,9 @@ async function Detail({ params }: { params: PageProps<"/dashboard/sequences/camp
                       <Link href={`/dashboard/leads/${m.companyId}`} className="font-medium text-brand-800 hover:underline">
                         {m.companyName}
                       </Link>
+                    </TD>
+                    <TD className="text-muted">
+                      {m.companyStage ? `Pipeline: ${labelOf(pipelineStages, m.companyStage as PipelineStage)}` : labelOf(leadStatuses, m.companyLeadStatus as LeadStatus | null)}
                     </TD>
                     <TD>
                       {m.contactName ?? ""}

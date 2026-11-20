@@ -36,19 +36,20 @@ function since(value: string | null | undefined): string {
   return d === 1 ? "1 day" : `${d} days`;
 }
 
-const prioChip: Record<number, string> = {
-  1: "bg-red-600 text-white",
-  2: "bg-orange-100 text-orange-800",
-  3: "bg-sky-100 text-sky-800",
-  4: "bg-slate-100 text-slate-700",
-  5: "bg-slate-100 text-slate-500",
-};
+/** The score chip by score group (leadregels, deel 3): the score replaced the prio. */
+function scoreChip(score: number): string {
+  if (score >= 90) return "bg-emerald-600 text-white";
+  if (score >= 80) return "bg-brand-100 text-brand-800";
+  if (score >= 60) return "bg-accent-100 text-brand-900";
+  if (score >= 50) return "bg-amber-100 text-amber-800";
+  return "bg-slate-100 text-slate-600";
+}
 
 type CardData = {
   id: string;
   title: string;
   href: string;
-  prio: number | null;
+  score: number | null;
   person: string | null;
   phone: string | null;
   lastActivity: string | null;
@@ -83,7 +84,7 @@ function cardFor(kind: GridKind, row: AnyRow): CardData {
       id: c.id,
       title: k.title(c),
       href: k.href(c),
-      prio: c.company_prio,
+      score: c.company_score ?? null,
       person: c.company_name,
       phone: c.phone,
       lastActivity: c.last_contacted_at ?? c.last_attempt_at,
@@ -97,7 +98,7 @@ function cardFor(kind: GridKind, row: AnyRow): CardData {
     id: c.id,
     title: c.name,
     href: k.href(c),
-    prio: c.prio,
+    score: c.icp_score,
     person: c.primary_contact?.name ?? null,
     phone: c.primary_contact?.phone ?? c.general_phone,
     lastActivity: c.last_activity_at,
@@ -148,8 +149,8 @@ function Card({ card, dragging }: { card: CardData; dragging?: boolean }) {
         <Link href={card.href} className="min-w-0 font-semibold text-brand-900 hover:underline" onPointerDown={(e) => e.stopPropagation()}>
           <span className="line-clamp-2">{card.title}</span>
         </Link>
-        {card.prio != null && (
-          <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[11px] font-bold ${prioChip[card.prio] ?? "bg-slate-100"}`}>P{card.prio}</span>
+        {card.score != null && (
+          <span title="Score" className={`shrink-0 rounded-full px-1.5 py-0.5 text-[11px] font-bold tabular-nums ${scoreChip(card.score)}`}>{card.score}</span>
         )}
       </div>
       <dl className="mt-2 space-y-1 text-xs text-muted">

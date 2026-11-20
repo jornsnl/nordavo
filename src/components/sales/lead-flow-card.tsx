@@ -2,8 +2,7 @@ import "server-only";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { formatDate } from "@/lib/format";
-import { choiceLabel } from "@/lib/sales/choices";
-import { loadChoiceLists, loadOccupancy } from "@/lib/sales/flow-data";
+import { loadOccupancy } from "@/lib/sales/flow-data";
 import { bucketOption, isFree, occupancyText } from "@/lib/sales/triage";
 import { createClient } from "@/lib/supabase/server";
 import { LeadFlowControls } from "./lead-flow-controls";
@@ -11,24 +10,22 @@ import { LeadFlowControls } from "./lead-flow-controls";
 /**
  * Where a lead is on the lead page (feedback Julius, round 4): its bucket or
  * flow, the campaigns, call lists and sequences it is or was in (channel,
- * since, until, replied), whether it is free, the reason for its prio and
+ * since, until, replied), whether it is free, why this lead (the line on the call screen) and
  * the follow toggle. "Send to" moves it to another destination.
  */
 export async function LeadFlowCard({ companyId }: { companyId: string }) {
   const db = await createClient();
-  const [{ data: company, error }, occupancy, lists] = await Promise.all([
+  const [{ data: company, error }, occupancy] = await Promise.all([
     db
       .from("companies")
-      .select("id, prio, prio_reason, followed_at, bucket, bucket_until, bucket_reason, bucket_changed_at, source_list")
+      .select("id, prio_reason, followed_at, bucket, bucket_until, bucket_reason, bucket_changed_at, source_list")
       .eq("id", companyId)
       .maybeSingle(),
     loadOccupancy(db, [companyId]),
-    loadChoiceLists(db),
   ]);
   if (error || !company) return null;
   const occ = occupancy.get(companyId) ?? [];
   const bucket = bucketOption(company.bucket);
-  const prio = lists.prio.find((p) => p.value === String(company.prio));
   const free = isFree(company.bucket, occ);
 
   return (
@@ -58,13 +55,6 @@ export async function LeadFlowCard({ companyId }: { companyId: string }) {
             ))}
           </ul>
         )}
-
-        <div>
-          <h3 className="text-xs font-medium tracking-wide text-muted uppercase">
-            Prio {prio ? `${choiceLabel(lists.prio, prio.value)}` : "not set"}
-          </h3>
-          {prio?.description && <p className="mt-0.5 text-xs text-muted">{prio.description}</p>}
-        </div>
 
         <LeadFlowControls
           companyId={company.id}

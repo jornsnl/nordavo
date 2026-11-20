@@ -35,6 +35,8 @@ export type IcpCardProps = {
   legacyTalkingPoints: string[];
   clientContactRisk: boolean;
   assessed: string;
+  /** The score group and its approach from Settings (null while not decided). */
+  scoreGroup?: { label: string; approach: string | null } | null;
 };
 
 /**
@@ -120,6 +122,12 @@ export function IcpCard(props: IcpCardProps) {
           <div>
             <span className={label}>Score</span>
             <p className="mt-1 text-2xl font-semibold text-ink tabular-nums">{props.score ?? "No score"}</p>
+            {props.scoreGroup && (
+              <p className="text-xs text-muted">
+                Group {props.scoreGroup.label}
+                {props.scoreGroup.approach ? `: ${props.scoreGroup.approach}` : ""}
+              </p>
+            )}
           </div>
         </div>
         {props.scoreLine && (
