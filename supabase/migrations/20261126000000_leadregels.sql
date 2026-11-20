@@ -1754,7 +1754,7 @@ from (
 -- Scores from the segment and the signals (scores without segment go).
 select public.sales_refresh_scores(null);
 
--- The daily run at 05:15 Amsterdam (04:15 UTC in winter, 03:15 in summer is fine too).
+-- The daily run at 04:15 UTC (05:15 in Amsterdam in winter, 06:15 in summer).
 do $$
 begin
   if exists (select 1 from pg_available_extensions where name = 'pg_cron') then
