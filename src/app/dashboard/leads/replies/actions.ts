@@ -56,7 +56,9 @@ export async function rejectReplyAction(activityId: string): Promise<ActionState
 const otherSchema = z
   .object({
     outcome: z.enum(["reply_positief", "reply_neutraal", "reply_negatief", "afgemeld"], { error: "Choose what the reply means." }),
-    lead_status: z.enum(["new", "review", "ready", "enrich", "in_sequence", "cooled_down", "no_go", "do_not_contact"]).optional(),
+    lead_status: z
+      .enum(["new", "enrich", "ready", "in_sequence", "cooled_down", "nee_geen_interesse", "nu_niet", "no_go", "do_not_contact"])
+      .optional(),
     pipeline_stage: z
       .enum([
         "contact",

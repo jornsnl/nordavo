@@ -451,6 +451,7 @@ const sqlMessages = [
   "Pick a date to get back in touch",
   "Pick a date in the future",
   "Pick someone from the team as owner",
+  "Write a short note",
 ];
 
 /** What one saved outcome did; the call screen and the call sheet both build on it. */
@@ -497,7 +498,7 @@ export async function recordCall(actor: CallActor, input: CallInput): Promise<Re
     p_reasons: o === "reached_not_interested" ? (v.reasons ?? []) : null,
     p_reason_text: o === "reached_not_interested" ? v.reasonText || null : null,
     p_reason_label: reasonLabel,
-    p_until: o === "reached_not_interested" ? (v.until ?? null) : null,
+    p_until: o === "reached_not_interested" || o === "not_now" ? (v.until ?? null) : null,
     p_next_step: o === "reached_interested" ? (nextSteps.find((s) => s.value === v.nextStep)?.label ?? null) : null,
     p_next_step_at: o === "reached_interested" ? (v.nextStepAt ?? null) : null,
     // External callers do not pick an owner: the next step stays with Nordavo.

@@ -43,7 +43,6 @@ const leadSchema = z.object({
     .max(300, "Use at most 300 characters."),
   sector: optionalText(200),
   city: optionalText(200),
-  segment: z.enum(["saas", "productie", "agency_automation", "agency_overig"], { error: "Choose a segment." }).optional(),
   legal_form: optionalText(100),
   employees: z.coerce
     .number({ error: "Enter a number." })
@@ -134,7 +133,6 @@ export async function createLeadAction(_prev: ActionState, formData: FormData): 
       name: d.name,
       sector: d.sector ?? null,
       city: d.city ?? null,
-      segment: d.segment ?? null,
       legal_form: d.legal_form ?? null,
       employees: d.employees ?? null,
       kvk_number: d.kvk_number ?? null,

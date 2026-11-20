@@ -200,6 +200,8 @@ export type SignalInput = {
   description?: string | null;
   /** true: offline now; false or undefined with a new sighting: open again. */
   closed?: boolean;
+  /** Until when the signal counts (YYYY-MM-DD); default per type (sales_signal_points.valid_days). */
+  valid_until?: string | null;
 };
 
 /**
@@ -240,6 +242,7 @@ export async function upsertSignal(db: Db, input: SignalInput): Promise<{ id: st
         ...(input.description && !existing.description ? { description: input.description } : {}),
         ...(input.closed === true && !existing.closed_at ? { closed_at: seenAt } : {}),
         ...(input.closed !== true && existing.closed_at ? { closed_at: null } : {}),
+        ...(input.valid_until ? { valid_until: input.valid_until } : {}),
       })
       .eq("id", existing.id);
     if (error) throw error;
@@ -261,6 +264,7 @@ export async function upsertSignal(db: Db, input: SignalInput): Promise<{ id: st
       posted_at: input.posted_at ?? null,
       description: input.description ?? null,
       closed_at: input.closed ? seenAt : null,
+      ...(input.valid_until ? { valid_until: input.valid_until } : {}),
       raw_json: (input.raw_json ?? null) as Database["public"]["Tables"]["signals"]["Insert"]["raw_json"],
     })
     .select("id")

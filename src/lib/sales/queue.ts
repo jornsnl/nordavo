@@ -86,7 +86,9 @@ export type BlockReason =
   | "in_pipeline"
   | "suppressed"
   | "no_phone"
-  | "excluded";
+  | "excluded"
+  /** Contact 2 waits until contact 1 had two attempts without answer (leadregels, deel 4). */
+  | "waiting_for_contact_1";
 
 /** Whether the contact is assigned to a caller right now (today counts). */
 export function isAssignedNow(row: Pick<ContactRow, "assigned_caller_id" | "assigned_until">, today: string): boolean {
@@ -98,6 +100,10 @@ export function callBlockReason(row: ContactRow, rules: QueueRules): BlockReason
   if (rules.exclude?.has(row.id)) return "excluded";
   if (closedContactStatuses.includes(row.status)) return "closed";
   if (row.company_lead_status === "no_go" || row.company_lead_status === "do_not_contact") return "company_blocked";
+  // Leadregels, deel 5: a no or not now waits for its date (the daily run puts it back on ready);
+  // cooled down waits a week unless a new signal put it back on ready.
+  if (row.company_lead_status === "nee_geen_interesse" || row.company_lead_status === "nu_niet") return "company_blocked";
+  if (row.company_lead_status === "cooled_down" && row.company_recontact_from && row.company_recontact_from > rules.today) return "company_blocked";
   // A parked company waits until its date; then it can be called again.
   if (row.company_pipeline_stage === "parked") {
     if (!(row.company_parked_until && row.company_parked_until <= rules.today)) return "in_pipeline";
@@ -188,6 +194,31 @@ export type QueueInput = {
   sequenceScope: "callable" | "all";
 };
 
+/**
+ * Contacts that wait for contact 1 (leadregels, deel 4): while contact 1 (role
+ * main) of a company can still be called and had fewer than two attempts, the
+ * other contacts of that company are not in the queue. A personal no, a
+ * flag or no number for contact 1 lets contact 2 through at once.
+ */
+export function waitingForContactOne(rows: ContactRow[], rules: Pick<QueueRules, "generalPhones">): Set<string> {
+  const held = new Set<string>();
+  const byCompany = new Map<string, ContactRow[]>();
+  for (const r of rows) byCompany.set(r.company_id, [...(byCompany.get(r.company_id) ?? []), r]);
+  for (const list of byCompany.values()) {
+    const first = list.find((r) => r.role === "main");
+    if (!first) continue;
+    const open =
+      first.attempts < 2 &&
+      !closedContactStatuses.includes(first.status) &&
+      !first.no_call &&
+      !first.contact_flag &&
+      Boolean(first.phone?.trim() || rules.generalPhones.get(first.company_id)?.trim());
+    if (!open) continue;
+    for (const r of list) if (r.id !== first.id) held.add(r.id);
+  }
+  return held;
+}
+
 /** The queue in calling order, without duplicates and without contacts that may not be called. */
 export function buildQueue(input: QueueInput, rules: QueueRules): QueueEntry[] {
   const byId = new Map(input.rows.map((r) => [r.id, r]));
@@ -213,9 +244,11 @@ export function buildQueue(input: QueueInput, rules: QueueRules): QueueEntry[] {
 
   const out: QueueEntry[] = [];
   const seen = new Set<string>();
+  const held = waitingForContactOne(input.rows, rules);
   const add = (row: ContactRow, source: QueueSource, listId: string | null) => {
     if (seen.has(row.id)) return;
     seen.add(row.id);
+    if (held.has(row.id)) return;
     if (callBlockReason(row, rules) !== null) return;
     out.push({ contactId: row.id, companyId: row.company_id, source, listId });
   };

@@ -15,8 +15,8 @@ import { createClient } from "@/lib/supabase/server";
 const idSchema = z.guid();
 const CHECK_FIELDS = "Check the highlighted fields.";
 
-const segmentSchema = z.enum(["saas", "productie", "agency_automation", "agency_overig"], {
-  error: "Choose a segment.",
+const segmentSchema = z.enum(["A", "B"], {
+  error: "Choose segment A or B.",
 });
 
 function revalidateLead(companyId: string) {
@@ -27,7 +27,7 @@ function revalidateLead(companyId: string) {
 }
 
 // ---------------------------------------------------------------------------
-// Review (S2): Julius decides on REVIEW companies
+// ICP to judge: GO with a segment, or No go with a reason (leadregels, deel 1)
 // ---------------------------------------------------------------------------
 
 const reviewSchema = z.object({
@@ -58,10 +58,19 @@ export async function reviewDecisionAction(
   const risk = parsed.data.client_contact_risk === "on";
   // Rule 9: the database forces NO_GO when there is client contact risk.
   const decision = risk ? "NO_GO" : parsed.data.decision;
-  const note = parsed.data.note
-    ? `Review by ${user.name} on ${formatDate(new Date().toISOString())}: ${parsed.data.note}`
-    : null;
-  const reason = [company.icp_reason, note].filter(Boolean).join("\n\n") || null;
+  const written = parsed.data.note?.trim() || null;
+  if (decision === "GO" && !parsed.data.segment) {
+    return { error: CHECK_FIELDS, fieldErrors: { segment: "A GO needs segment A or B." } };
+  }
+  if (decision === "NO_GO" && !written && !risk) {
+    return { error: CHECK_FIELDS, fieldErrors: { note: "A No go needs a short reason." } };
+  }
+  const note = written ? `${written} (${user.name}, ${formatDate(new Date().toISOString())})` : null;
+  // A No go shows its own reason in the lead list; a GO keeps the notes so far.
+  const reason =
+    decision === "NO_GO"
+      ? (note ?? "Risk of client contact: the developer would work with the client's own customers.")
+      : [company.icp_reason, note].filter(Boolean).join("\n\n") || null;
 
   const { error } = await supabase
     .from("companies")
@@ -71,7 +80,7 @@ export async function reviewDecisionAction(
       reviewed_by: user.id,
       qualified_at: new Date().toISOString(),
       icp_reason: reason,
-      ...(parsed.data.segment ? { segment: parsed.data.segment } : {}),
+      segment: decision === "GO" ? (parsed.data.segment ?? null) : null,
     })
     .eq("id", companyId);
   if (error) return { error: GENERIC_ERROR };

@@ -4,14 +4,15 @@
 
 import type { Json } from "@/lib/database.types";
 
-/** Lead status of a company (section 2.6). */
+/** Lead status of a company (leadregels, deel 5: no review any more, two statuses with a date). */
 export type LeadStatus =
   | "new"
-  | "review"
-  | "ready"
   | "enrich"
+  | "ready"
   | "in_sequence"
   | "cooled_down"
+  | "nee_geen_interesse"
+  | "nu_niet"
   | "no_go"
   | "do_not_contact";
 
@@ -45,6 +46,10 @@ export type CallOutcome =
   | "reached_interested"
   | "meeting_planned"
   | "reached_not_interested"
+  | "not_interested_person"
+  | "not_interested_company"
+  | "not_now"
+  | "do_not_contact"
   | "referred"
   | "wrong_person"
   | "wrong_number";

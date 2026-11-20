@@ -53,7 +53,8 @@ update public.contacts set route = null where id = '00000000-0000-0000-0000-0000
 set local role authenticated;
 select pg_temp.act('00000000-0000-0000-0000-0000000009a2');
 
-select public.sales_update('company', array['00000000-0000-0000-0000-0000000009d1'::uuid], '{"icp_score": 80, "segment": "saas"}'::jsonb);
+-- The score follows the segment (20261126000000_leadregels.sql): a GO with segment A logs a score of 50.
+select public.sales_update('company', array['00000000-0000-0000-0000-0000000009d1'::uuid], '{"icp_decision": "GO", "icp_reason": "Past", "segment": "A"}'::jsonb);
 select public.sales_update('contact', array['00000000-0000-0000-0000-0000000009e1'::uuid], '{"email_status": "valid", "route": "Mail"}'::jsonb);
 
 do $$ begin

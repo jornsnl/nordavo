@@ -18,11 +18,11 @@ test("only No answer saves with one tap, and every outcome has a scope", () => {
   // Person outcomes keep the caller at the same company; company outcomes move on.
   assert.deepEqual(
     callOutcomes.filter((o) => outcomeScope[o.value] === "person").map((o) => o.value),
-    ["no_answer", "referred", "wrong_person", "wrong_number"],
+    ["no_answer", "not_interested_person", "referred", "wrong_person", "wrong_number"],
   );
   assert.deepEqual(
     callOutcomes.filter((o) => outcomeScope[o.value] === "company").map((o) => o.value),
-    ["call_back", "reached_interested", "meeting_planned", "reached_not_interested"],
+    ["call_back", "reached_interested", "meeting_planned", "not_interested_company", "not_now", "do_not_contact", "reached_not_interested"],
   );
 });
 

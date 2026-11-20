@@ -24,7 +24,21 @@ export const outcomeScope: Record<CallOutcome, OutcomeScope> = {
   reached_interested: "company",
   meeting_planned: "company",
   reached_not_interested: "company",
+  // Leadregels, deel 5: a personal no lets the next contact follow; the rest is the whole company.
+  not_interested_person: "person",
+  not_interested_company: "company",
+  not_now: "company",
+  do_not_contact: "company",
 };
+
+/** Not now waits three months unless they named a date (YYYY-MM-DD). */
+export function defaultNotNowDate(today: string): string {
+  const [y, m, d] = today.split("-").map(Number);
+  const target = new Date(Date.UTC(y, m - 1 + 3, d));
+  // 31 May plus three months is 31 August; 30 November plus three months is the end of February.
+  if (target.getUTCDate() !== d) target.setUTCDate(0);
+  return target.toISOString().slice(0, 10);
+}
 
 /** Only No answer saves with one tap; every other outcome asks its follow-up first. */
 export function needsFollowUp(outcome: CallOutcome): boolean {
@@ -96,6 +110,13 @@ export function outcomeProblem(v: OutcomeFields, today: string): string | null {
       if (v.until && (!datePattern.test(v.until) || v.until <= today)) return "Pick a date in the future";
       return null;
     }
+    case "not_interested_person":
+    case "not_interested_company":
+    case "do_not_contact":
+      return blank(v.note) ? "Write a short note: what did they say?" : null;
+    case "not_now":
+      if (v.until && (!datePattern.test(v.until) || v.until <= today)) return "Pick a date in the future";
+      return blank(v.note) ? "Write a short note: what did they say?" : null;
     case "referred":
       if (blank(v.referredName)) return "Who were you referred to?";
       if (!blank(v.referredEmail) && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v.referredEmail!.trim())) return "That mail address does not look right";
@@ -146,6 +167,9 @@ export function composeNote(v: OutcomeFields, reasonLabel?: string | null): stri
       break;
     case "referred":
       if (!blank(v.referredEmail)) lines.push(`Referred mail: ${v.referredEmail!.trim()}`);
+      break;
+    case "not_now":
+      if (v.until) lines.push(`Not now, until ${dayLabel(v.until)}`);
       break;
     case "reached_not_interested":
       if (reasonLabel) lines.push(`Reasons: ${reasonLabel}`);

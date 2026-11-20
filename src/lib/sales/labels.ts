@@ -17,16 +17,44 @@ import type { WorkPriority } from "@/lib/work/database";
 
 type Option<T extends string> = { value: T; label: string; tone: Tone; description?: string };
 
+/** The lead statuses with the explanation of 01 Leadregels, deel 5 (the tooltips). */
 export const leadStatuses: Option<LeadStatus>[] = [
-  { value: "new", label: "New", tone: "neutral", description: "Came in" },
-  { value: "review", label: "Review", tone: "warning", description: "Waits for the ICP verdict" },
-  { value: "ready", label: "Ready", tone: "brand", description: "GO and ready to approach" },
-  { value: "enrich", label: "Enrich", tone: "warning", description: "No number yet, goes to Max" },
-  { value: "in_sequence", label: "In sequence", tone: "accent", description: "Being approached" },
-  { value: "cooled_down", label: "Cooled down", tone: "neutral", description: "Approached without result" },
-  { value: "no_go", label: "No go", tone: "danger" },
-  { value: "do_not_contact", label: "Do not contact", tone: "danger" },
+  { value: "new", label: "New", tone: "neutral", description: "Net binnen, nog niet beoordeeld." },
+  { value: "enrich", label: "Enrich", tone: "warning", description: "GO, er mist een nummer of mailadres." },
+  { value: "ready", label: "Ready", tone: "brand", description: "GO met score, wacht op de start van de route." },
+  { value: "in_sequence", label: "In sequence", tone: "accent", description: "Zit nu in een route (campagne, sequence of bellijst)." },
+  {
+    value: "cooled_down",
+    label: "Cooled down",
+    tone: "neutral",
+    description:
+      "Route afgelopen zonder reactie. Opnieuw benaderen mag: zonder nieuw signaal minimaal 1 week tussen het einde van de ene en het begin van de volgende route. Bij een nieuwe vacature of ander sterk signaal direct, met dat signaal als haak.",
+  },
+  {
+    value: "nee_geen_interesse",
+    label: "Nee / geen interesse",
+    tone: "warning",
+    description:
+      "Nee of geen interesse (via mail, bellen of LinkedIn). Na 3 maanden mag het bedrijf opnieuw benaderd worden, bij voorkeur via een ander kanaal en met een nieuwe haak. Een nieuwe vacature of ander sterk signaal mag eerder, maar dan persoonlijk en niet via een standaard campagne.",
+  },
+  {
+    value: "nu_niet",
+    label: "Nu niet",
+    tone: "warning",
+    description: "Geparkeerd tot de datum die ze zelf noemen, anders 3 maanden. Daarna persoonlijk opvolgen.",
+  },
+  { value: "no_go", label: "No go", tone: "danger", description: "Past niet bij de ICP, met reden." },
+  {
+    value: "do_not_contact",
+    label: "Do not contact",
+    tone: "danger",
+    description:
+      "Nooit meer. Bij een boze reactie of afmelden, en voor concurrenten en klanten van Smartshore. Geldt ook als er later een signaal komt. Alleen een admin kan dit terugzetten.",
+  },
 ];
+
+/** Hidden in the Leads table by default (leadregels, deel 5). */
+export const hiddenByDefaultLeadStatuses: LeadStatus[] = ["no_go", "do_not_contact"];
 
 /** The 9 stages of the pipeline, in order. */
 export const pipelineFlow: Option<PipelineStage>[] = [
@@ -70,12 +98,23 @@ export const companyCategories: Option<CompanyCategory>[] = [
   { value: "both", label: "Both", tone: "success" },
 ];
 
-/** One main contact per company, then the backup (stored as reserve), then extra (docs/sales.md). */
+/** Contact 1 (stored as main), contact 2 (stored as reserve), then extra (leadregels, deel 4). */
 export const contactRoles: Option<ContactRole>[] = [
-  { value: "main", label: "Main", tone: "brand" },
-  { value: "reserve", label: "Backup", tone: "accent" },
-  { value: "extra", label: "Extra", tone: "neutral" },
+  { value: "main", label: "Contact 1", tone: "brand", description: "Wordt als eerste benaderd." },
+  { value: "reserve", label: "Contact 2", tone: "accent", description: "Bellen: na twee pogingen zonder gehoor op contact 1. Mail: tegelijk met contact 1." },
+  { value: "extra", label: "Extra", tone: "neutral", description: "Overige contacten van het bedrijf." },
 ];
+
+/** What the tiers mean (leadregels, deel 4): the tooltip next to every tier. */
+export const tierMeanings: Record<1 | 2 | 3, string> = {
+  1: "Tier 1, technisch: CTO, head of engineering, data of IT, tech lead.",
+  2: "Tier 2, eigenaar of directie: CEO, founder, directeur.",
+  3: "Tier 3, HR of recruitment. Alleen als tier 1 en tier 2 ontbreken.",
+};
+
+/** The default order of contact 1 and 2, as one line for the screens. */
+export const contactOrderRule =
+  "Onder ongeveer 30 FTE eerst tier 2, daarboven eerst tier 1. Bij een data vacature eerst de head of data of BI. Tier 3 alleen als tier 1 en tier 2 ontbreken.";
 
 /** Priority of a company in the call list, 1 is first. */
 export const companyPrios: Option<"1" | "2" | "3" | "4" | "5">[] = [
@@ -122,16 +161,34 @@ export function parseRoute(value: unknown, phone?: string | null): ContactRoute 
 }
 
 /** The buttons on the call screen, in the order of the Excel (section 2.9). */
-export const callOutcomes: (Option<CallOutcome> & { needs?: "date" | "name" })[] = [
-  { value: "no_answer", label: "No answer", tone: "neutral" },
+export const callOutcomes: (Option<CallOutcome> & { needs?: "date" | "name"; legacy?: boolean })[] = [
+  { value: "no_answer", label: "No answer", tone: "neutral", description: "Na 2 pogingen op contact 1 volgt contact 2." },
   { value: "call_back", label: "Call back", tone: "warning", needs: "date" },
   { value: "reached_interested", label: "Reached: interested", tone: "success" },
   { value: "meeting_planned", label: "Meeting planned", tone: "success" },
-  { value: "reached_not_interested", label: "Reached: not interested", tone: "neutral" },
+  {
+    value: "not_interested_person",
+    label: "Not interested: person",
+    tone: "neutral",
+    description: "Alleen dit contact. Twijfel? Kies bedrijf.",
+  },
+  {
+    value: "not_interested_company",
+    label: "No interest: company",
+    tone: "neutral",
+    description: "Hele bedrijf, 3 maanden niet benaderen.",
+  },
+  { value: "not_now", label: "Not now", tone: "warning", description: "Hele bedrijf, tot een datum." },
+  { value: "do_not_contact", label: "Angry or unsubscribe", tone: "danger", description: "Hele bedrijf, nooit meer." },
   { value: "referred", label: "Referred", tone: "brand", needs: "name" },
   { value: "wrong_person", label: "Wrong person", tone: "warning" },
   { value: "wrong_number", label: "Wrong number", tone: "danger" },
+  // The old single button (before 20 November 2026): kept for old calls, not offered any more.
+  { value: "reached_not_interested", label: "Reached: not interested (old)", tone: "neutral", legacy: true },
 ];
+
+/** The outcomes that need a short note: was it the person or the company? */
+export const noteRequiredOutcomes: CallOutcome[] = ["not_interested_person", "not_interested_company", "not_now", "do_not_contact"];
 
 /** The built in reasons for a "no" (Settings, Sales lists adds, renames and hides). */
 export const rejectReasons: Option<string>[] = [

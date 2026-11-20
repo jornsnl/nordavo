@@ -124,7 +124,7 @@ function ReviewForm({
             <span ref={headingRef} tabIndex={-1} className="outline-none">
               {item.name}
             </span>
-            <IcpBadge decision="REVIEW" score={item.icpScore} />
+            <IcpBadge decision={null} score={null} />
           </span>
         }
         description={
@@ -166,9 +166,9 @@ function ReviewForm({
 
         <section aria-labelledby="review-reason" className="space-y-2">
           <h3 id="review-reason" className="text-xs font-medium tracking-wide text-muted uppercase">
-            Reason from Claude
+            Notes so far
           </h3>
-          <p className="text-sm whitespace-pre-line text-ink">{item.icpReason || "Claude gave no reason."}</p>
+          <p className="text-sm whitespace-pre-line text-ink">{item.icpReason || "No notes yet."}</p>
           {item.redFlags.length > 0 && (
             <ul className="flex flex-wrap gap-2" aria-label="Red flags">
               {item.redFlags.map((flag) => (
@@ -239,12 +239,17 @@ function ReviewForm({
         >
           <FormMessage error={state.error} />
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Segment" htmlFor="review-segment" error={state.fieldErrors?.segment}>
+            <Field
+              label="Segment"
+              htmlFor="review-segment"
+              hint="Needed for GO. A: SaaS or software with an own product. B: other ICP with an own IT or data team, or an agency."
+              error={state.fieldErrors?.segment}
+            >
               <Select id="review-segment" name="segment" defaultValue={item.segment ?? ""}>
-                <option value="">No segment</option>
+                <option value="">Choose A or B</option>
                 {segments.map((o) => (
-                  <option key={o.value} value={o.value}>
-                    {o.label}
+                  <option key={o.value} value={o.value} title={o.description}>
+                    {o.label}: {o.description}
                   </option>
                 ))}
               </Select>
@@ -268,9 +273,9 @@ function ReviewForm({
             </div>
           </div>
           <Field
-            label="Note"
+            label="Reason"
             htmlFor="review-note"
-            hint="Optional. Shown below the reason from Claude."
+            hint="Needed for No go: shown in the lead list. Optional with GO."
             error={state.fieldErrors?.note}
           >
             <Textarea id="review-note" name="note" rows={3} />
@@ -283,7 +288,7 @@ function ReviewForm({
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-xs text-muted max-lg:hidden">
               Shortcuts: <kbd className="font-semibold">G</kbd> for GO, <kbd className="font-semibold">N</kbd> for
-              No go, <kbd className="font-semibold">S</kbd> to skip.
+              No go, <kbd className="font-semibold">S</kbd> to skip. Each needs its field: a segment or a reason.
             </p>
             {/* Phones and tablets: a bar above the tab bar, so you can decide with one thumb. */}
             <div className="flex gap-2 max-lg:fixed max-lg:inset-x-0 max-lg:bottom-[calc(4.5rem+env(safe-area-inset-bottom))] max-lg:z-20 max-lg:border-t max-lg:border-border max-lg:bg-white/95 max-lg:py-3 max-lg:pr-[max(1rem,env(safe-area-inset-right))] max-lg:pl-[max(1rem,env(safe-area-inset-left))] max-lg:shadow-[0_-4px_16px_rgb(10_26_47/0.06)] max-lg:backdrop-blur-lg">

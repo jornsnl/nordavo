@@ -27,6 +27,13 @@ export const defaultSignalKinds: { value: string; label: string; description: st
   { value: "remote_extern", label: "Remote or external team", description: "The vacancy allows a remote or external team.", tone: "accent" },
   { value: "freelance", label: "Freelance assignment", description: "A freelance assignment instead of a hire.", tone: "neutral" },
   { value: "overig", label: "Other", description: "Any other signal.", tone: "neutral" },
+  // Leadregels, 20 November 2026 (points in Settings, Sales lists, Signal points).
+  { value: "india_outsourced", label: "Team in India or outsourced", description: "Already a team in India, or development outsourced before.", tone: "success" },
+  { value: "via_recruiter", label: "Vacancy via recruiter", description: "The vacancy runs through a recruiter: they already pay a fee.", tone: "accent" },
+  { value: "stack_match", label: "Stack fits the talent pool", description: "Their stack fits our talent pool.", tone: "accent" },
+  { value: "overname_product", label: "Acquisition or new product", description: "Acquisition, new office or new product.", tone: "accent" },
+  { value: "interactie", label: "Interaction with Nordavo", description: "A reaction to a LinkedIn post, a website visit or an earlier talk.", tone: "success" },
+  { value: "ontslagen", label: "Layoffs or hiring freeze", description: "Layoffs, reorganisation or a hiring freeze: minus points.", tone: "neutral" },
 ];
 
 export type SignalRow = {

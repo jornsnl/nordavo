@@ -9,9 +9,9 @@ import {
   type CompanyRow,
   type ContactRow,
 } from "@/lib/sales/rows";
-import type { SortRule } from "@/lib/sales/grid";
+import type { ColumnFilter, SortRule } from "@/lib/sales/grid";
 import { contactStatuses } from "@/lib/labels";
-import { leadStatuses, pipelineExits, pipelineFlow } from "@/lib/sales/labels";
+import { hiddenByDefaultLeadStatuses, leadStatuses, pipelineExits, pipelineFlow } from "@/lib/sales/labels";
 
 // The three tables (Leads, Contacts with call lists, Pipeline) share one grid
 // and one board. Functions cannot cross from server to client components,
@@ -23,6 +23,8 @@ export type AnyRow = CompanyRow | ContactRow;
 export type KindConfig = {
   columns: ColumnDef<AnyRow>[];
   defaultSort: SortRule[];
+  /** Filters of the table without a saved view (Leads hides no go and do not contact, leadregels deel 5). */
+  defaultFilters?: ColumnFilter[];
   /** The entity of the row itself (pin, manual order). */
   rowEntity: "company" | "contact";
   href: (row: AnyRow) => string;
@@ -45,6 +47,7 @@ export const kinds: Record<GridKind, KindConfig> = {
   companies: {
     columns: companyColumns as ColumnDef<AnyRow>[],
     defaultSort: defaultCompanySort,
+    defaultFilters: [{ column: "lead_status", op: "not_in", value: [...hiddenByDefaultLeadStatuses] }],
     rowEntity: "company",
     href: companyHref,
     title: (row) => (row as CompanyRow).name,

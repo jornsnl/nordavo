@@ -13,7 +13,7 @@ import { listReviewQueue } from "@/lib/data/companies";
 import { reviewDecisionAction } from "../actions";
 
 export const metadata: Metadata = {
-  title: "Review leads",
+  title: "ICP to judge",
 };
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
@@ -30,8 +30,8 @@ export default function Page({ searchParams }: PageProps<"/dashboard/leads/revie
       </Link>
       <PageHeader
         eyebrow="Sales"
-        title="Review"
-        description="Companies Claude is unsure about. Choose GO or No go; the next company appears straight away."
+        title="ICP to judge"
+        description="Companies without a verdict yet. Choose GO with a segment, or No go with a reason; the next company appears straight away. There is no review: in doubt it is GO, with the doubt as a talking point."
       />
       <Suspense
         fallback={
@@ -58,8 +58,8 @@ async function ReviewQueue({ searchParams }: { searchParams: SearchParams }) {
         <LeadTabs active="review" reviewCount={0} />
         <EmptyState
           icon={PartyPopper}
-          title="Nothing to review"
-          description="Every company has a verdict. New borderline cases appear here after the Monday flow."
+          title="Nothing to judge"
+          description="Every company has a verdict. New companies appear here until Claude or you judge them."
         />
       </>
     );
@@ -85,7 +85,7 @@ async function ReviewQueue({ searchParams }: { searchParams: SearchParams }) {
         <Card className="h-fit">
           <CardHeader
             title="Queue"
-            description={queue.length >= 100 ? "The first 100, highest score first." : "Highest score first."}
+            description={queue.length >= 100 ? "The first 100, newest first." : "Newest first."}
           />
           <ol className="max-h-[70dvh] divide-y divide-border overflow-y-auto">
             {queue.map((c, i) => (
@@ -99,7 +99,7 @@ async function ReviewQueue({ searchParams }: { searchParams: SearchParams }) {
                   }`}
                 >
                   <span className="min-w-0 truncate">{c.name}</span>
-                  <IcpBadge decision="REVIEW" score={c.icpScore} />
+                  <IcpBadge decision={null} score={null} />
                 </Link>
               </li>
             ))}

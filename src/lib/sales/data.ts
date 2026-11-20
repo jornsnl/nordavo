@@ -100,7 +100,7 @@ export async function loadCompanyRows(db: Db, options: { pipelineOnly?: boolean 
       let q = db
         .from("companies")
         .select(
-          "id, name, domain, website, prio, category, description, sector, employees, city, linkedin_url, general_phone, red_flags, opening_line, source_note, icp_decision, icp_score, lead_status, lead_status_changed_at, pipeline_stage, pipeline_stage_changed_at, pipeline_entered_at, lost_reason, parked_until, profiles_due_on, owner_id, partner_id, next_action, next_action_date, pinned_at, manual_position, client_id, source, created_at",
+          "id, name, domain, website, prio, category, description, sector, employees, city, linkedin_url, general_phone, red_flags, talking_points, opening_line, source_note, icp_decision, icp_reason, segment, icp_score, lead_status, lead_status_changed_at, recontact_from, pipeline_stage, pipeline_stage_changed_at, pipeline_entered_at, lost_reason, parked_until, profiles_due_on, owner_id, partner_id, next_action, next_action_date, pinned_at, manual_position, client_id, source, created_at",
           { count: "exact" },
         )
         .order("created_at", { ascending: true })
@@ -125,6 +125,7 @@ export async function loadCompanyRows(db: Db, options: { pipelineOnly?: boolean 
     return {
       ...c,
       red_flags: c.red_flags ?? [],
+      talking_points: c.talking_points ?? [],
       owner_name: c.owner_id ? (ownerName.get(c.owner_id) ?? null) : null,
       partner_name: c.partner_id ? (partnerName.get(c.partner_id) ?? null) : null,
       primary_contact: f?.primary_contact ?? null,
@@ -145,7 +146,7 @@ export async function loadContactRows(db: Db, options: { contactIds?: string[] }
       let q = db
         .from("contacts")
         .select(
-          "id, company_id, first_name, last_name, full_name, title, tier, role, route, phone, phone_type, email, email_status, linkedin_url, linkedin_member_urn, status, status_changed_at, attempts, last_attempt_at, callback_at, referred_to, caller_note, assigned_caller_id, assigned_until, claimed_by, claimed_at, is_primary, pinned_at, manual_position, last_contacted_at, created_at, no_call, contact_flag, company:companies!contacts_company_id_fkey(name, prio, category, lead_status, pipeline_stage, city, sector, icp_decision, bucket, parked_until, own_contact)",
+          "id, company_id, first_name, last_name, full_name, title, tier, role, route, phone, phone_type, email, email_status, linkedin_url, linkedin_member_urn, status, status_changed_at, attempts, last_attempt_at, callback_at, referred_to, caller_note, assigned_caller_id, assigned_until, claimed_by, claimed_at, is_primary, pinned_at, manual_position, last_contacted_at, created_at, no_call, contact_flag, company:companies!contacts_company_id_fkey(name, prio, category, lead_status, pipeline_stage, city, sector, icp_decision, bucket, parked_until, own_contact, recontact_from, icp_score)",
           { count: "exact" },
         )
         .order("created_at", { ascending: true })
@@ -173,11 +174,13 @@ export async function loadContactRows(db: Db, options: { contactIds?: string[] }
       full_name: c.full_name ?? personName(c.first_name, c.last_name),
       company_name: company?.name ?? "",
       company_prio: company?.prio ?? null,
+      company_score: company?.icp_score ?? null,
       company_category: company?.category ?? null,
       company_lead_status: company?.lead_status ?? "new",
       company_pipeline_stage: company?.pipeline_stage ?? null,
       company_bucket: company?.bucket ?? null,
       company_parked_until: company?.parked_until ?? null,
+      company_recontact_from: company?.recontact_from ?? null,
       company_own_contact: company?.own_contact ?? false,
       company_city: company?.city ?? null,
       company_sector: company?.sector ?? null,

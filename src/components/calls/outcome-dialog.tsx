@@ -5,7 +5,7 @@ import { LoaderCircle } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { Field, FormMessage, Input, Select, Textarea } from "@/components/ui/field";
-import { nextSteps, outcomeProblem, wrongPersonReasons, type OutcomeFields } from "@/lib/sales/call-outcome";
+import { defaultNotNowDate, nextSteps, outcomeProblem, wrongPersonReasons, type OutcomeFields } from "@/lib/sales/call-outcome";
 import type { CallOptions } from "@/lib/sales/call-session";
 import type { CallOutcome } from "@/lib/sales/database";
 import { todayIso } from "@/lib/format";
@@ -47,6 +47,12 @@ const hints: Partial<Record<CallOutcome, string>> = {
   reached_interested: "What are they interested in, what happens next and when?",
   meeting_planned: "Save opens the calendar. The meeting only counts once the booking is made; until then the lead stays open.",
   reached_not_interested: "Pick at least one reason, or write it in your own words.",
+  not_interested_person:
+    "Only this person said no (not my call, no time for this). Only this contact is blocked; the next contact of the company follows. In doubt between person and company? Then it is the company.",
+  not_interested_company:
+    "The company is not interested. It is not approached for three months, and after that preferably via another channel. A new vacancy before then means a personal follow up, not a campaign.",
+  not_now: "Not now: the company waits until the date they named, otherwise three months, and then gets a personal follow up.",
+  do_not_contact: "Angry or asked to be removed: the company goes to do not contact, for good. Only an admin can turn it back.",
   referred: "The referred person becomes the next contact you call.",
   wrong_person: "If you know who the right person is, add them: they become a contact.",
   wrong_number: "If you know the right number, add it.",
@@ -93,6 +99,7 @@ function OutcomeForm({
     note: initialNote,
     reasons: [],
     nextOwner: options?.me ?? null,
+    until: outcome === "not_now" ? defaultNotNowDate(today) : null,
   });
   const [later, setLater] = useState(false);
   const [problem, setProblem] = useState<string>();
@@ -104,14 +111,17 @@ function OutcomeForm({
   function submit(event: FormEvent) {
     event.preventDefault();
     if (pending) return;
-    const ready: OutcomeFields = { ...fields, until: outcome === "reached_not_interested" && asksDate ? fields.until : null };
+    const ready: OutcomeFields = {
+      ...fields,
+      until: (outcome === "reached_not_interested" && asksDate) || outcome === "not_now" ? fields.until : null,
+    };
     const found = outcomeProblem(ready, today);
     setProblem(found ?? undefined);
     if (!found) onSave(ready);
   }
 
-  const note = (label = "Note (optional)") => (
-    <Field label={label} htmlFor="outcome-note">
+  const note = (label = "Note (optional)", required = false) => (
+    <Field label={label} htmlFor="outcome-note" required={required}>
       <Textarea
         id="outcome-note"
         rows={2}
@@ -252,6 +262,18 @@ function OutcomeForm({
               </Field>
             )}
           </div>
+        </>
+      )}
+
+      {(outcome === "not_interested_person" || outcome === "not_interested_company" || outcome === "do_not_contact") &&
+        note("Short note: what did they say?", true)}
+
+      {outcome === "not_now" && (
+        <>
+          <Field label="Get back in touch on" htmlFor="nn-until" hint="The date they named; three months from today when they named none." required>
+            <Input id="nn-until" type="date" min={today} value={fields.until ?? ""} onChange={(e) => set({ until: e.target.value })} />
+          </Field>
+          {note("Short note: what did they say?", true)}
         </>
       )}
 

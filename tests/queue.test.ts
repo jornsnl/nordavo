@@ -10,6 +10,7 @@ import {
   type QueueEntry,
   type QueueInput,
   type QueueRules,
+  waitingForContactOne,
 } from "@/lib/sales/queue";
 
 const today = "2026-11-10";
@@ -130,8 +131,8 @@ test("callBlockReason: suppression and phone numbers", () => {
 
 test("buildQueue: assigned first, then due sequence steps, then lists in their order, no duplicates", () => {
   const rows = [
-    contact("l1", { company_prio: 2 }),
-    contact("l2", { company_prio: 1 }),
+    contact("l1", { company_score: 60 }),
+    contact("l2", { company_score: 90 }),
     contact("m1"),
     contact("as", { assigned_caller_id: "caller-1", assigned_until: "2026-11-30" }),
     contact("old", { assigned_caller_id: "caller-1", assigned_until: "2026-11-01" }),
@@ -159,7 +160,7 @@ test("buildQueue: assigned first, then due sequence steps, then lists in their o
     [
       ["as", "assigned", null],
       ["seq", "sequence", null],
-      // List A sorted by the default order: prio first.
+      // List A sorted by the default order: the highest score first (leadregels, deel 3).
       ["l2", "list", "A"],
       ["l1", "list", "A"],
       ["m1", "list", "B"],
@@ -276,4 +277,27 @@ test("callBlockReason: own contacts and flagged contacts are never called cold",
   assert.equal(callBlockReason(contact("a", { contact_flag: "wrong_number" }), r), "contact_blocked");
   assert.equal(callBlockReason(contact("a", { contact_flag: "left_company" }), r), "contact_blocked");
   assert.equal(callBlockReason(contact("a", { contact_flag: null, no_call: false }), r), null);
+});
+
+test("waitingForContactOne: contact 2 waits until contact 1 had two attempts (leadregels, deel 4)", () => {
+  const one = contact("one", { company_id: "co-x", role: "main", attempts: 1 });
+  const two = contact("two", { company_id: "co-x", role: "reserve" });
+  const general = new Map<string, string | null>();
+  assert.deepEqual([...waitingForContactOne([one, two], { generalPhones: general })], ["two"]);
+  // Two attempts without answer: contact 2 appears.
+  assert.deepEqual([...waitingForContactOne([{ ...one, attempts: 2 }, two], { generalPhones: general })], []);
+  // A personal no on contact 1 lets contact 2 through at once.
+  assert.deepEqual([...waitingForContactOne([{ ...one, status: "not_interested" }, two], { generalPhones: general })], []);
+  // Without a number for contact 1 there is nothing to wait for.
+  assert.deepEqual([...waitingForContactOne([{ ...one, phone: null }, two], { generalPhones: general })], []);
+
+  const queue = buildQueue({ rows: [one, two], assigned: false, lists: [{ id: "L", name: "L", config: { filters: [], sort: [] } }], sequenceSteps: [], sequenceScope: "all" }, rules({ callerId: null }));
+  assert.deepEqual(queue.map((e) => e.contactId), ["one"]);
+});
+
+test("callBlockReason: nee_geen_interesse and nu_niet wait, cooled down waits its week", () => {
+  assert.equal(callBlockReason(contact("n", { company_lead_status: "nee_geen_interesse" }), rules()), "company_blocked");
+  assert.equal(callBlockReason(contact("n", { company_lead_status: "nu_niet" }), rules()), "company_blocked");
+  assert.equal(callBlockReason(contact("c", { company_lead_status: "cooled_down", company_recontact_from: "2099-01-01" }), rules()), "company_blocked");
+  assert.equal(callBlockReason(contact("c", { company_lead_status: "cooled_down", company_recontact_from: "2020-01-01" }), rules()), null);
 });

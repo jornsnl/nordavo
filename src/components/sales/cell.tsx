@@ -47,7 +47,8 @@ export function editText(column: ColumnDef<AnyRow>, row: AnyRow): string {
 const selectTone: Record<string, string> = {
   // Lead status, stage and contact status chips follow the badge tones.
   new: "bg-slate-100 text-slate-700",
-  review: "bg-amber-50 text-amber-800",
+  nee_geen_interesse: "bg-amber-50 text-amber-800",
+  nu_niet: "bg-amber-50 text-amber-800",
   ready: "bg-brand-50 text-brand-700",
   enrich: "bg-amber-50 text-amber-800",
   in_sequence: "bg-accent-100 text-accent-600",
@@ -73,7 +74,13 @@ const selectTone: Record<string, string> = {
   lost: "bg-danger-bg text-danger",
   GO: "bg-emerald-50 text-emerald-700",
   NO_GO: "bg-danger-bg text-danger",
-  REVIEW: "bg-amber-50 text-amber-800",
+  A: "bg-brand-50 text-brand-700",
+  B: "bg-accent-100 text-accent-600",
+  "90_100": "bg-emerald-50 text-emerald-700",
+  "80_89": "bg-brand-50 text-brand-700",
+  "60_79": "bg-accent-100 text-accent-600",
+  "50_59": "bg-amber-50 text-amber-800",
+  lt_50: "bg-slate-100 text-slate-600",
 };
 
 const prioTone: Record<string, string> = {
@@ -108,8 +115,10 @@ export function CellView({ column, row }: { column: ColumnDef<AnyRow>; row: AnyR
   }
   if (column.type === "select") {
     const tone = column.key.endsWith("prio") ? prioTone[String(raw)] : selectTone[String(raw)];
+    // The tooltip: the reason of a No go, the meaning of a tier or of a lead status (leadregels).
+    const title = column.tooltip?.(row) ?? column.options?.find((o) => o.value === String(raw))?.description ?? undefined;
     return (
-      <span className={`inline-block max-w-full truncate rounded-full px-2 py-0.5 text-xs font-medium ${tone ?? "bg-slate-100 text-slate-700"}`}>
+      <span title={title} className={`inline-block max-w-full truncate rounded-full px-2 py-0.5 text-xs font-medium ${tone ?? "bg-slate-100 text-slate-700"}`}>
         {text}
       </span>
     );
@@ -220,7 +229,7 @@ export function CellEditor({
       >
         {column.type === "select" && <option value="">(empty)</option>}
         {options.map((o) => (
-          <option key={o.value} value={o.value}>
+          <option key={o.value} value={o.value} title={"description" in o ? o.description : undefined}>
             {o.label}
           </option>
         ))}

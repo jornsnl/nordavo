@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requireModule } from "@/lib/auth";
 import { fieldErrorsFrom, formValues, type ActionState } from "@/lib/action-state";
-import type { Json } from "@/lib/database.types";
+import type { Json, SignalType } from "@/lib/database.types";
 import { parseLinkedinProfile } from "@/lib/gtm/manual";
 import { normalizeEmail, normalizePhone, phoneTypeFor } from "@/lib/gtm/normalize";
 import { classifyLeadsForDelete } from "@/lib/sales/delete-leads";
@@ -257,12 +257,54 @@ export async function deleteLeadsAction(ids: string[]): Promise<DeleteLeadsResul
 // Signals
 // ---------------------------------------------------------------------------
 
+const dateField = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, "Use a date like 2026-11-30.")
+  .optional();
+
 const signalSchema = z.object({
   title: z.string().min(1, "Enter a title.").max(300, "Use at most 300 characters."),
   source_url: optional(1000),
   description: optional(20000),
   closed: z.string().optional(),
+  posted_at: dateField,
+  valid_until: dateField,
 });
+
+const newSignalSchema = signalSchema.extend({
+  type: z.string().regex(/^[a-z0-9_]{1,40}$/, "Pick a kind of signal."),
+});
+
+/** A signal added by hand on the lead page (leadregels, deel 4): the score follows at once. */
+export async function addSignalAction(companyId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  await requireModule("sales");
+  if (!uuid.safeParse(companyId).success) return { error: GENERIC_ERROR };
+  const parsed = newSignalSchema.safeParse(formValues(formData));
+  if (!parsed.success) return { error: CHECK_FIELDS, fieldErrors: fieldErrorsFrom(parsed.error) };
+  const d = parsed.data;
+  if (d.source_url && !/^https?:\/\/\S+$/i.test(d.source_url)) {
+    return { error: CHECK_FIELDS, fieldErrors: { source_url: "Use a link that starts with https://." } };
+  }
+  const supabase = await createClient();
+  const now = new Date().toISOString();
+  const { error } = await supabase.from("signals").insert({
+    company_id: companyId,
+    // Any kind of the Signal types list; the database checks the format.
+    type: d.type as SignalType,
+    title: d.title,
+    source: "overig",
+    source_url: d.source_url ?? null,
+    description: d.description ?? null,
+    posted_at: d.posted_at ?? null,
+    valid_until: d.valid_until ?? null,
+    dedupe_key: `manual:${companyId}:${crypto.randomUUID()}`,
+    first_seen_at: now,
+    last_seen_at: now,
+  });
+  if (error) return { error: friendly(error.message) };
+  revalidateLead(companyId);
+  return { ok: true, message: "Signal added. The score is computed again." };
+}
 
 export async function updateSignalAction(
   companyId: string,
@@ -289,6 +331,8 @@ export async function updateSignalAction(
       source_url: d.source_url ?? null,
       description: d.description ?? null,
       closed_at: closed ? (current.closed_at ?? new Date().toISOString()) : null,
+      ...(d.posted_at !== undefined ? { posted_at: d.posted_at } : {}),
+      valid_until: d.valid_until ?? null,
     })
     .eq("id", signalId)
     .eq("company_id", companyId);

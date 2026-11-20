@@ -190,7 +190,7 @@ export function applyChoiceLists<T>(columns: ColumnDef<T>[], lists: ChoiceLists 
       ...c,
       // Hidden options stay in the list so existing values keep their label;
       // the editors offer pickable() only.
-      options: list.options.map((o) => ({ value: o.value, label: o.label, hidden: o.hidden })),
+      options: list.options.map((o) => ({ value: o.value, label: o.label, hidden: o.hidden, ...(o.description ? { description: o.description } : {}) })),
       parse: choiceParser(list.options, list.kind, list.required),
     };
   });
