@@ -1,3 +1,4 @@
+import { employeesBandLabel } from "@/lib/sales/employees";
 import type { Metadata } from "next";
 import { Suspense, type ReactNode } from "react";
 import { EntityExtras } from "@/components/entity/entity-extras";
@@ -170,6 +171,8 @@ async function LeadDetail({ params }: { params: Params }) {
             <EditCompanyButton
               company={{
                 name: company.name,
+                domain: company.domain.startsWith("nodomain:") ? "" : company.domain,
+                website: company.website,
                 legalForm: company.legal_form,
                 employees: company.employees,
                 sector: company.sector,
@@ -304,7 +307,7 @@ async function LeadDetail({ params }: { params: Params }) {
                 <DetailList
                   items={[
                     { label: "Legal form", value: company.legal_form },
-                    { label: "Employees", value: company.employees },
+                    { label: "Employees", value: employeesBandLabel(company.employees) },
                     { label: "Sector", value: company.sector },
                     { label: "Location", value: company.city },
                     { label: "KvK number", value: company.kvk_number },

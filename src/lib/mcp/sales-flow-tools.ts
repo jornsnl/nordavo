@@ -143,7 +143,7 @@ function registerRead(server: McpServer, ctx: McpToolContext) {
     },
     async ({ source_list, limit }) => {
       const rows = check(
-        await db.from("companies").select("id, name, city, prio, lead_status, bucket, source_list, created_at").limit(50000),
+        await db.from("companies").select("id, name, city, lead_status, bucket, source_list, created_at").limit(50000),
         "companies",
       );
       const leads = rows.map((r) => ({ id: r.id, bucket: r.bucket, source_list: r.source_list, worker: null }));

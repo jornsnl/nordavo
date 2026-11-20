@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { ColumnDef } from "@/lib/sales/rows";
 import type { AnyRow } from "./grid-kinds";
+import { employeesBandLabel } from "@/lib/sales/employees";
 
 // Display and editing of one cell of the sales table.
 
@@ -146,6 +147,15 @@ export function CellView({ column, row }: { column: ColumnDef<AnyRow>; row: AnyR
     );
   }
   if (column.type === "boolean") return <span aria-label="Yes">✓</span>;
+  // Company size shows as a range; the exact number is in the tooltip and in the edit box.
+  if (column.type === "number" && (column.key === "employees" || column.key === "company_employees")) {
+    const band = employeesBandLabel(typeof raw === "number" ? raw : Number(raw));
+    return (
+      <span title={`${text} employees`} className="tabular-nums">
+        {band ?? text}
+      </span>
+    );
+  }
   if (column.type === "number") return <span className="tabular-nums">{text}</span>;
   return <span className="truncate">{text}</span>;
 }

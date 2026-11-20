@@ -13,6 +13,7 @@ import { initialActionState, type ActionState } from "@/lib/action-state";
 import type { ReviewItem } from "@/lib/data/companies";
 import { formatDate } from "@/lib/format";
 import { segments } from "@/lib/labels";
+import { employeesBandLabel } from "@/lib/sales/employees";
 
 type ReviewAction = (prev: ActionState, formData: FormData) => Promise<ActionState>;
 
@@ -149,7 +150,7 @@ function ReviewForm({
         <DetailList
           items={[
             { label: "Segment", value: <SegmentBadge segment={item.segment} /> },
-            { label: "Employees", value: item.employees ?? null },
+            { label: "Employees", value: employeesBandLabel(item.employees) },
             { label: "Sector", value: item.sector },
             { label: "Legal form", value: item.legalForm },
             { label: "City", value: item.city },

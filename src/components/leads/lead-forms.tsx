@@ -24,6 +24,9 @@ type ContactOption = { id: string; name: string };
 
 export type EditableCompany = {
   name: string;
+  /** The key of the company; empty for a company without a website (nodomain). */
+  domain: string;
+  website: string | null;
   legalForm: string | null;
   employees: number | null;
   sector: string | null;
@@ -41,7 +44,7 @@ export function EditCompanyButton({ company, action }: { company: EditableCompan
       icon={Pencil}
       size="md"
       title="Edit company"
-      description="The domain is the key of the company and cannot be changed here."
+      description="The domain is the key of the company. A domain another company already uses is refused: merge those two instead. The old domain stays as an alias."
       action={action}
       modalSize="lg"
     >
@@ -53,6 +56,12 @@ export function EditCompanyButton({ company, action }: { company: EditableCompan
               <Input id="name" name="name" required defaultValue={company.name} {...invalidProps(state, "name")} />
             </Field>
             <div className="grid gap-5 sm:grid-cols-2">
+              <Field label="Domain" htmlFor="domain" hint="For example example.nl" error={e.domain}>
+                <Input id="domain" name="domain" defaultValue={company.domain} {...invalidProps(state, "domain")} />
+              </Field>
+              <Field label="Website" htmlFor="website" error={e.website}>
+                <Input id="website" name="website" type="url" placeholder="https://" defaultValue={company.website ?? ""} {...invalidProps(state, "website")} />
+              </Field>
               <Field label="Segment" htmlFor="segment" error={e.segment}>
                 <Select id="segment" name="segment" defaultValue={company.segment ?? ""}>
                   <option value="">No segment</option>
@@ -86,7 +95,7 @@ export function EditCompanyButton({ company, action }: { company: EditableCompan
                   {...invalidProps(state, "legal_form")}
                 />
               </Field>
-              <Field label="Employees" htmlFor="employees" error={e.employees}>
+              <Field label="Employees" htmlFor="employees" hint="A number. It shows as 1 tot 10, 11 tot 50, 51 tot 200, 201 tot 500, 501 tot 1.000 or 1.000 en meer." error={e.employees}>
                 <Input
                   id="employees"
                   name="employees"

@@ -117,13 +117,20 @@ test("update_companies validates its fields before touching the database", async
     const lost = await call(client, "update_companies", { ids: [ID_A], fields: { pipeline_stage: "lost" } });
     assert.ok(lost.isError);
     assert.match(lost.text, /lost_reason/);
-    const unknown = await call(client, "update_companies", { ids: [ID_A], fields: { domain: "evil.nl" } });
+    const unknown = await call(client, "update_companies", { ids: [ID_A], fields: { colour: "red" } });
     assert.ok(unknown.isError);
     const empty = await call(client, "update_companies", { ids: [ID_A], fields: {} });
     assert.ok(empty.isError);
-    const badPrio = await call(client, "update_companies", { ids: [ID_A], fields: { prio: 9 } });
-    assert.ok(badPrio.isError);
-    const badId = await call(client, "update_companies", { ids: ["nope"], fields: { prio: 1 } });
+    // Prio is gone from the tool (leadregels, deel 5): it is an unknown key now.
+    const prio = await call(client, "update_companies", { ids: [ID_A], fields: { prio: 2 } });
+    assert.ok(prio.isError);
+    assert.match(prio.text, /prio/);
+    const badEmployees = await call(client, "update_companies", { ids: [ID_A], fields: { employees: -3 } });
+    assert.ok(badEmployees.isError);
+    const twoDomains = await call(client, "update_companies", { ids: [ID_A, ID_B], fields: { domain: "example.nl" } });
+    assert.ok(twoDomains.isError);
+    assert.match(twoDomains.text, /one company at a time/);
+    const badId = await call(client, "update_companies", { ids: ["nope"], fields: { employees: 1 } });
     assert.ok(badId.isError);
     assert.equal(calls.length, 0);
   } finally {
@@ -137,7 +144,7 @@ test("update_companies writes through sales_update as the token owner with sourc
   try {
     const result = await call(client, "update_companies", {
       ids: [ID_A, ID_B, ID_A],
-      fields: { lead_status: "ready", prio: 2, pinned: true, pipeline_stage: "lost", lost_reason: "Hired in house" },
+      fields: { lead_status: "ready", employees: 40, website: "example.nl", pinned: true, pipeline_stage: "lost", lost_reason: "Hired in house" },
     });
     assert.ok(!result.isError, result.text);
     assert.equal(calls.length, 1);
@@ -148,6 +155,8 @@ test("update_companies writes through sales_update as the token owner with sourc
     assert.equal(calls[0].args.p_actor, USER);
     const fields = calls[0].args.p_fields as Record<string, unknown>;
     assert.equal(fields.lead_status, "ready");
+    assert.equal(fields.employees, 40);
+    assert.equal(fields.website, "https://example.nl");
     assert.equal(typeof fields.pinned_at, "string");
     assert.equal(fields.pinned, undefined);
     assert.deepEqual(JSON.parse(result.text), { updated: 2, requested: 2 });
@@ -394,5 +403,45 @@ test("update_contacts switches channels off through sales_set_contact_flags", as
 });
 
 test("companyPatch leaves own contact to its own function", () => {
-  assert.deepEqual(companyPatch({ own_contact: true, own_contact_reason: "Client", prio: 2 }), { prio: 2 });
+  assert.deepEqual(companyPatch({ own_contact: true, own_contact_reason: "Client", employees: 40 }), { employees: 40 });
+});
+
+test("companyPatch keeps the domain out of sales_update and gives the website https", () => {
+  assert.deepEqual(companyPatch({ domain: "example.nl", website: "www.example.nl/over-ons", employees: 12 }), {
+    website: "https://www.example.nl/over-ons",
+    employees: 12,
+  });
+  assert.deepEqual(companyPatch({ website: null }), { website: null });
+});
+
+test("update_companies changes the domain through sales_set_company_domain, not sales_update", async () => {
+  const { db, calls } = fakeDb(1);
+  const { client, close } = await connect("write", { db });
+  try {
+    const result = await call(client, "update_companies", { ids: [ID_A], fields: { domain: "https://www.Example.nl/jobs", employees: 120 } });
+    assert.ok(!result.isError, result.text);
+    assert.equal(calls[0].fn, "sales_set_company_domain");
+    assert.equal(calls[0].args.p_company, ID_A);
+    assert.equal(calls[0].args.p_domain, "https://www.Example.nl/jobs");
+    assert.equal(calls[0].args.p_source, "claude");
+    assert.equal(calls[1].fn, "sales_update");
+    assert.deepEqual(calls[1].args.p_fields, { employees: 120 });
+  } finally {
+    await close();
+  }
+});
+
+test("set_icp_verdict no longer takes a prio", async () => {
+  const { client, close } = await connect("write", { db: fakeDb().db });
+  try {
+    const tool = (await client.listTools()).tools.find((t) => t.name === "set_icp_verdict");
+    assert.ok(tool);
+    assert.ok(!JSON.stringify(tool.inputSchema).includes("prio"));
+    const update = (await client.listTools()).tools.find((t) => t.name === "update_companies");
+    assert.ok(update);
+    assert.ok(!JSON.stringify(update.inputSchema).includes('"prio"'));
+    assert.ok(JSON.stringify(update.inputSchema).includes("employees"));
+  } finally {
+    await close();
+  }
 });

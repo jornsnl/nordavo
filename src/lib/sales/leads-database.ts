@@ -61,6 +61,7 @@ export type LeadsFunctions = {
   >;
   // Migration 20261124700000_leads_own_contact_edit.sql
   sales_set_own_contact: Fn<{ p_company: string; p_value: boolean; p_reason?: string | null; p_source?: string } & Actor, Json>;
+  sales_set_company_domain: Fn<{ p_company: string; p_domain: string; p_source?: string } & Actor, Json>;
   sales_set_contact_flags: Fn<{ p_contact: string; p_fields: Json; p_source?: string } & Actor, Json>;
   sales_extract_lead_notes: Fn<{ p_text: string }, Json>;
   linkedin_clean_url: Fn<{ p_value: string }, string | null>;

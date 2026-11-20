@@ -41,6 +41,7 @@ import { Field, FormMessage, Textarea } from "@/components/ui/field";
 import { dismissToast, toast } from "@/components/ui/toaster";
 import { OutcomeDialog, outcomeToneClasses } from "@/components/calls/outcome-dialog";
 import { needsFollowUp, type OutcomeFields } from "@/lib/sales/call-outcome";
+import { employeesBandLabel } from "@/lib/sales/employees";
 
 export type CallScreenActions = {
   start: (exclude: string[]) => Promise<CallStep>;
@@ -645,7 +646,7 @@ function ContactCall({
               {company.description && <p className="text-sm whitespace-pre-line text-ink">{company.description}</p>}
               {(company.facts.length > 0 || company.employees !== null) && (
                 <p className="mt-2 text-xs text-muted">
-                  {[company.employees !== null ? `${company.employees} employees` : null, ...company.facts].filter(Boolean).join(" · ")}
+                  {[employeesBandLabel(company.employees) ? `${employeesBandLabel(company.employees)} employees` : null, ...company.facts].filter(Boolean).join(" · ")}
                 </p>
               )}
             </Section>

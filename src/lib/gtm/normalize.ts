@@ -195,3 +195,13 @@ export function signalDedupeKey(input: {
   const title = (input.title ?? "").trim().toLowerCase().replace(/\s+/g, " ");
   return `${input.source}:${input.companyDomain}:${title}`;
 }
+
+/**
+ * The website to store: "www.example.nl/over-ons" -> "https://www.example.nl/over-ons".
+ * A link that already has a scheme is kept; an empty value gives null.
+ */
+export function cleanWebsite(value: string | null | undefined): string | null {
+  const v = (value ?? "").trim();
+  if (!v) return null;
+  return /^[a-z][a-z0-9+.-]*:\/\//i.test(v) ? v : `https://${v}`;
+}

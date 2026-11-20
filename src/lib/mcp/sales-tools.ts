@@ -7,6 +7,7 @@ import { extractLeadNotes } from "@/lib/gtm/lead-notes";
 import {
   cleanLinkedinUrl,
   cleanSourceUrl,
+  cleanWebsite,
   normalizeDomain,
   normalizeEmail,
   normalizeLinkedin,
@@ -21,6 +22,7 @@ import { duplicateWarning, type SimilarCompany } from "@/lib/sales/duplicates";
 import { daysOnline, onlineSince } from "@/lib/sales/vacancies";
 import { describeSignal, loadSignalPoints } from "@/lib/sales/score-data";
 import { formatScore, parseScore } from "@/lib/sales/score";
+import { employeesBandLabel } from "@/lib/sales/employees";
 import { accessError } from "@/lib/mcp/module-scope";
 import {
   check,
@@ -299,6 +301,7 @@ function registerSalesReadTools(server: McpServer, ctx: McpToolContext) {
         total,
         companies: list.map((c) => ({
           ...c,
+          employees_band: employeesBandLabel(c.employees),
           owner: c.owner_id ? (people.get(c.owner_id) ?? null) : null,
           partner: c.partner_id ? (partners.get(c.partner_id) ?? null) : null,
           url: url("company", c.id),
@@ -322,7 +325,7 @@ function registerSalesReadTools(server: McpServer, ctx: McpToolContext) {
         await db
           .from("companies")
           .select(
-            "id, name, domain, website, city, sector, segment, employees, linkedin_url, general_phone, description, status, category, icp_decision, icp_score, icp_reason, talking_points, red_flags, opening_line, recontact_from, declined_channel, contact_order_manual, source, source_note, lead_status, lead_status_changed_at, pipeline_stage, pipeline_stage_changed_at, pipeline_entered_at, lost_reason, parked_until, profiles_due_on, owner_id, partner_id, next_action, next_action_date, pinned_at, manual_position, sequence_paused_at, own_contact, own_contact_reason, own_contact_since, client_id, created_at",
+            "id, name, domain, website, city, sector, segment, employees, linkedin_url, general_phone, description, category, icp_decision, icp_score, icp_reason, talking_points, red_flags, opening_line, recontact_from, declined_channel, contact_order_manual, source, source_note, lead_status, lead_status_changed_at, pipeline_stage, pipeline_stage_changed_at, pipeline_entered_at, lost_reason, parked_until, profiles_due_on, owner_id, partner_id, next_action, next_action_date, pinned_at, manual_position, sequence_paused_at, own_contact, own_contact_reason, own_contact_since, client_id, created_at",
           )
           .eq("id", id)
           .maybeSingle(),
@@ -404,6 +407,7 @@ function registerSalesReadTools(server: McpServer, ctx: McpToolContext) {
           replied_at: m.replied_at,
           reply_outcome: m.reply_outcome,
         })),
+        employees_band: employeesBandLabel(company.employees),
         owner: company.owner_id ? (people.get(company.owner_id) ?? null) : null,
         partner: company.partner_id ? (partners.get(company.partner_id) ?? null) : null,
         url: url("company", company.id),
@@ -885,7 +889,6 @@ export const companyFieldsSchema = z
     lost_reason: z.string().trim().min(1).max(2000).optional().describe("Required with pipeline_stage lost."),
     parked_until: dateSchema.optional().describe("Required with pipeline_stage parked: the day to get in touch again."),
     profiles_due_on: dateSchema.nullable().optional().describe("The day the profiles go out (stage agreed_paid sets it three weeks ahead)."),
-    prio: z.number().int().min(1).max(5).nullable().optional().describe("Not used any more: the score sets the order."),
     category: category.nullable().optional().describe("What kind of vacancy (development, data_bi, both); separate from the segment."),
     owner_id: idSchema.nullable().optional().describe("A team member (profile id)."),
     partner_id: idSchema.nullable().optional(),
@@ -898,6 +901,15 @@ export const companyFieldsSchema = z
     general_phone: z.string().trim().max(50).nullable().optional().describe("The general (reception) number of the company."),
     description: z.string().trim().max(5000).nullable().optional().describe("What they do."),
     linkedin_url: z.string().trim().max(500).nullable().optional().describe("Company LinkedIn page; stored with https://."),
+    domain: z
+      .string()
+      .trim()
+      .min(3)
+      .max(300)
+      .optional()
+      .describe("The domain of the company, the key it is matched on (a full web address is cut down to example.nl). Refused when another company already uses it: merge those with merge_companies. The old domain stays as an alias."),
+    website: z.string().trim().max(500).nullable().optional().describe("The website as it opens (stored with https://). Separate from the domain: null clears it."),
+    employees: z.number().int().min(0).max(1_000_000).nullable().optional().describe("Number of employees (null clears it). The portal shows the range: 1 tot 10, 11 tot 50, 51 tot 200, 201 tot 500, 501 tot 1.000 or 1.000 en meer; get_company and list_companies return it as employees_band."),
     own_contact: z.boolean().optional().describe("true: we have contact with this company ourselves (partner, network, client): it never goes into a cold campaign, on a call list or in a list. Companies in the pipeline get it automatically. false switches it off."),
     own_contact_reason: z.string().trim().max(500).optional().describe("Why, for example Partner, Client or Network. With own_contact true."),
   })
@@ -923,8 +935,11 @@ export function companyPatch(fields: z.infer<typeof companyFieldsSchema>, now = 
     if (value === undefined) continue;
     // Own contact has its own function (sales_set_own_contact), not part of sales_update.
     if (key === "own_contact" || key === "own_contact_reason") continue;
+    // The domain is a key and has its own function (sales_set_company_domain).
+    if (key === "domain") continue;
     if (key === "pinned") patch.pinned_at = value ? now.toISOString() : null;
     else if (key === "linkedin_url") patch.linkedin_url = cleanLinkedinUrl(value as string | null);
+    else if (key === "website") patch.website = typeof value === "string" ? cleanWebsite(value) : null;
     else if (key === "general_phone" && typeof value === "string") patch.general_phone = normalizePhone(value) ?? value;
     else patch[key] = value as Json;
   }
@@ -1033,7 +1048,7 @@ function registerSalesWriteTools(server: McpServer, ctx: McpToolContext) {
     {
       title: "Update companies",
       description:
-        "Change opening line, red flags, general number, what they do (description), company LinkedIn page, lead status, pipeline stage (contact, interested, meeting_planned, meeting_held, vacancy_drafted, agreed_paid, profiles_sent, candidate_interviews, won; or off it: lost needs lost_reason, parked needs parked_until), the date to send profiles (profiles_due_on), prio, category, owner, partner, next action, pin or manual position of one or more companies, or mark a company as own_contact (partner, network, client: never cold outreach). Goes through sales_update: every change is logged in Activities with you and source claude. Only call when the user or a scheduled task asked for it.",
+        "Change opening line, red flags, general number, what they do (description), company LinkedIn page, lead status, pipeline stage (contact, interested, meeting_planned, meeting_held, vacancy_drafted, agreed_paid, profiles_sent, candidate_interviews, won; or off it: lost needs lost_reason, parked needs parked_until), the date to send profiles (profiles_due_on), domain (the key of the company: refused when another company has it, the old domain stays as an alias), website, employees (a number; shown as a range), category, owner, partner, next action, pin or manual position of one or more companies, or mark a company as own_contact (partner, network, client: never cold outreach). Goes through sales_update: every change is logged in Activities with you and source claude. Only call when the user or a scheduled task asked for it.",
       inputSchema: { ids: idsSchema, fields: companyFieldsSchema },
       annotations: WRITE,
     },
@@ -1043,6 +1058,17 @@ function registerSalesWriteTools(server: McpServer, ctx: McpToolContext) {
       const unique = [...new Set(ids)];
       const patch = companyPatch(fields);
       let updated = 0;
+      if (fields.domain !== undefined) {
+        if (unique.length > 1) return fail("Set domain on one company at a time: it is the key of the company.");
+        const { error } = await db.rpc("sales_set_company_domain", {
+          p_company: unique[0],
+          p_domain: fields.domain,
+          p_source: "claude",
+          p_actor: actor,
+        });
+        if (error) return fail(`Could not change the domain: ${error.message}`);
+        updated = 1;
+      }
       if (Object.keys(patch).length > 0) {
         const { data, error } = await db.rpc("sales_update", {
           p_entity: "company",
@@ -1053,7 +1079,7 @@ function registerSalesWriteTools(server: McpServer, ctx: McpToolContext) {
         });
         const failed = rpcError(error, "update the companies");
         if (failed) return failed;
-        updated = data ?? 0;
+        updated = Math.max(updated, data ?? 0);
       }
       if (fields.own_contact !== undefined) {
         for (const id of unique) {
@@ -1538,7 +1564,6 @@ function registerSalesWriteTools(server: McpServer, ctx: McpToolContext) {
         opening_line: z.string().trim().max(500).optional(),
         category: category.optional().describe("What kind of vacancy: development, data_bi or both. Separate from the segment."),
         score: z.number().int().min(0).max(100).optional().describe("Ignored: the portal computes the score."),
-        prio: z.number().int().min(1).max(5).optional().describe("Ignored: prio is no longer used, the score sets the order."),
       },
       annotations: WRITE,
     },

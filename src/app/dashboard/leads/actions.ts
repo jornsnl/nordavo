@@ -10,6 +10,7 @@ import {
   type ActionState,
 } from "@/lib/action-state";
 import { formatDate } from "@/lib/format";
+import { cleanWebsite, normalizeDomain } from "@/lib/gtm/normalize";
 import { createClient } from "@/lib/supabase/server";
 
 const idSchema = z.guid();
@@ -104,6 +105,8 @@ const optionalText = (max: number) => z.string().max(max, `Use at most ${max} ch
 
 const companySchema = z.object({
   name: z.string({ error: "Enter a name." }).min(1, "Enter a name.").max(200, "Use at most 200 characters."),
+  domain: optionalText(300),
+  website: optionalText(500),
   legal_form: optionalText(100),
   employees: z.coerce
     .number({ error: "Enter a number." })
@@ -134,10 +137,26 @@ export async function updateCompanyAction(
 
   const d = parsed.data;
   const supabase = await createClient();
+
+  // The domain is the key of the company: its own function checks that no other company has it and keeps the old one as an alias.
+  const domain = normalizeDomain(d.domain);
+  if (d.domain?.trim() && !domain) return { error: CHECK_FIELDS, fieldErrors: { domain: "Enter a domain like example.nl." } };
+  if (domain) {
+    const { data: current } = await supabase.from("companies").select("domain").eq("id", companyId).maybeSingle();
+    if (current && current.domain !== domain) {
+      const { error: domainError } = await supabase.rpc("sales_set_company_domain", { p_company: companyId, p_domain: domain });
+      if (domainError) {
+        const taken = /another company already uses/i.test(domainError.message);
+        return { error: CHECK_FIELDS, fieldErrors: { domain: taken ? domainError.message : "Enter a domain like example.nl." } };
+      }
+    }
+  }
+
   const { error } = await supabase
     .from("companies")
     .update({
       name: d.name,
+      website: cleanWebsite(d.website),
       legal_form: d.legal_form ?? null,
       employees: d.employees ?? null,
       sector: d.sector ?? null,
