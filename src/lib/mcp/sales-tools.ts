@@ -44,6 +44,7 @@ import { countLeadStatuses, loadSalesFigures } from "@/lib/sales/stats";
 import { registerPartnerTools, PARTNER_READ_TOOLS, PARTNER_WRITE_TOOLS } from "@/lib/mcp/partner-tools";
 import { registerSalesFlowTools, SALES_FLOW_READ_TOOLS, SALES_FLOW_WRITE_TOOLS } from "@/lib/mcp/sales-flow-tools";
 import { LEADREGELS_READ_TOOLS, LEADREGELS_WRITE_TOOLS, registerLeadregelsTools } from "@/lib/mcp/leadregels-tools";
+import { ROUTES_READ_TOOLS, ROUTES_WRITE_TOOLS, registerRoutesTools } from "@/lib/mcp/routes-tools";
 
 /**
  * MCP tools for the sales CRM (feedback Julius, part 7): Claude reads the
@@ -146,6 +147,7 @@ export const SALES_READ_TOOLS = [
   ...SALES_FLOW_READ_TOOLS,
   ...PARTNER_READ_TOOLS,
   ...LEADREGELS_READ_TOOLS,
+  ...ROUTES_READ_TOOLS,
 ] as const;
 
 export const SALES_WRITE_TOOLS = [
@@ -170,6 +172,7 @@ export const SALES_WRITE_TOOLS = [
   ...SALES_FLOW_WRITE_TOOLS,
   ...PARTNER_WRITE_TOOLS,
   ...LEADREGELS_WRITE_TOOLS,
+  ...ROUTES_WRITE_TOOLS,
 ] as const;
 
 /** Where a lead added by hand through Claude came from (companies.source). */
@@ -188,6 +191,8 @@ export function registerSalesTools(server: McpServer, ctx: McpToolContext) {
   registerPartnerTools(server, ctx);
   // Signals, check_outreach and the contact order (leadregels, 20 November 2026).
   registerLeadregelsTools(server, ctx);
+  // Running routes, the hand kept overview (27 November 2026, deel B).
+  registerRoutesTools(server, ctx);
 }
 
 function rpcError(error: { message: string } | null, what: string) {

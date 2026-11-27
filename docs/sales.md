@@ -137,7 +137,7 @@ Leads (789 bedrijven) en Contacts (1.970) laadden in seconden, Contacts in meer 
 
 Let op: de extra kolommen van round 4 (`attachFlow` in `src/lib/sales/flow-data.ts`) laden na de rijen nog een keer alle bedrijven en contacten; dat is een tweede ronde na de eerste en kan beter tegelijk.
 
-**Helpt een betaald abonnement?** Nauwelijks voor deze klacht. De traagheid zat in hoe de pagina's laadden (alles ophalen, na elkaar, regels per rij), niet in de grootte van de server; met 800 bedrijven en 2.000 contacten is de database klein. Supabase Pro (ongeveer 25 dollar per maand) geeft geen pauze na een week zonder gebruik, dagelijkse backups en de mogelijkheid van een grotere server (compute add-on, extra kosten); dat is de moeite waard voor een productieomgeving, maar maakt deze pagina's niet merkbaar sneller. Vercel Pro (20 dollar per gebruiker per maand) geeft langere functietijden en meer gebruik, niet snellere pagina's. Wat wel veel scheelt en niets kost: de functies van Vercel in dezelfde regio als de database draaien (Supabase Frankfurt `eu-central-1`, Vercel `fra1`; zie [work.md](./work.md)). Elke vraag aan de database over de oceaan kost anders zo'n 90 ms extra.
+**Helpt een betaald abonnement?** Nauwelijks voor deze klacht. De traagheid zat in hoe de pagina's laadden (alles ophalen, na elkaar, regels per rij), niet in de grootte van de server; met 800 bedrijven en 2.000 contacten is de database klein. Supabase Pro (ongeveer 25 dollar per maand) geeft geen pauze na een week zonder gebruik, dagelijkse backups en de mogelijkheid van een grotere server (compute add-on, extra kosten); dat is de moeite waard voor een productieomgeving, maar maakt deze pagina's niet merkbaar sneller. Een groter plan bij Render (de hosting van het portaal) geeft meer geheugen en rekenkracht, niet snellere pagina's. Wat wel veel scheelt en niets kost: de Render service dicht bij de database draaien. Het Supabase project Nordavo staat in `eu-west-1` (Ierland); kies bij Render de regio Frankfurt (zie [work.md](./work.md)). Elke vraag aan de database over de oceaan kost anders zo'n 90 ms extra.
 
 ## Activities
 
@@ -217,6 +217,25 @@ Eén model voor waar een lead zit: de view `sales_occupancy` (campagnes, sequenc
 - **Tabellen:** kolommen *Bucket*, *Came in with*, *Occupied by* en *Free* (onder Columns). Filter op Free = Yes voor de vrije leads.
 - **Niet dubbel.** Een lead zit in hooguit één lopende campagne (wachtend of actief). Een tweede wordt geweigerd met de naam van de campagne waarin hij zit (trigger `campaign_members_one_running`); triage slaat bezette leads over en noemt ze, tenzij je *Also leads that are occupied* aanvinkt.
 - **Weer vrij.** Een campagne die klaar is zonder reply maakt de lead vanzelf vrij (bucket Free). Een reply op het kanaal van een lopende campagne zet de lead in die campagne op Replied.
+
+## Lopende routes (Running routes)
+
+`/dashboard/routes`, in het menu Sales onder *Running routes*: één tabel met wat er nu loopt aan outreach (bellijsten, mail en LinkedIn campagnes, de rest). Alles is handwerk: het overzicht hangt niet aan campagnes, buckets of bedrijven, vult zichzelf niet en verandert daar niets aan. Geen aandachtsregels, geen meldingen.
+
+| Veld | Waarden |
+| --- | --- |
+| Naam | Vrije tekst, verplicht |
+| Kanaal | Calling, Mail, LinkedIn, Other (`call`, `mail`, `linkedin`, `other`) of leeg |
+| Status | Planned, Running, Paused, Done (`planned`, `running`, `paused`, `done`) of leeg |
+| Gestart op, eindigt op | Datum of leeg; een lege einddatum toont *nog niet duidelijk* |
+| Bedrijven | Getal, met de hand |
+| Wie | Vrije tekst, bijvoorbeeld de beller |
+| Notitie of volgende stap | Vrije tekst |
+
+- Toevoegen met alleen een naam; de rest vul je in de tabel. Tekst, getallen en datums slaan op als je het veld verlaat, de keuzes meteen. Verwijderen met het prullenbakje (met bevestiging).
+- Standaard op status (Running bovenaan, dan Planned, Paused, leeg, Done) en daarna op einddatum, vroegste eerst. *Show done too* toont ook de afgeronde routes; standaard uit.
+- Claude: `list_routes`, `add_route`, `update_route` en `delete_route` met dezelfde velden; `null` maakt een veld leeg. Elke wijziging bewaart wie en hoe (`updated_by`, `updated_source` handmatig of claude); een rij van Claude heeft een robotje bij de naam. Kom je terug op het tabblad, dan haalt de pagina de nieuwe stand op.
+- Tabel `sales_routes` (`20261127010000_sales_routes.sql`), alleen voor wie de module Sales heeft (bellers niet). Regels in `src/lib/sales/routes.ts`, test `tests/routes.test.ts`.
 
 ## Campagnes in Instantly en Seleqt
 

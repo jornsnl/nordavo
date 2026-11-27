@@ -25,6 +25,7 @@ import type {
 } from "@/lib/sales/database";
 import type { LeadsFunctions } from "@/lib/sales/leads-database";
 import type { LeadregelsFunctions, LeadregelsTables } from "@/lib/sales/leadregels-database";
+import type { RoutesTables } from "@/lib/sales/routes-database";
 import type { CallScreenFunctions, CallScreenTables } from "@/lib/sales/call-screen-database";
 
 export type Json =
@@ -3041,7 +3042,7 @@ export type Database = {
         Update: { config?: Json; updated_by?: string | null; updated_at?: string };
         Relationships: [];
       };
-    } & WorkTables & ContentTables & FormsTables & SalesTables & SalesFlowTables & CallScreenTables & LeadregelsTables & AcademyTables & AcademyMediaTables & AcademyPlacementTables & AcademyAtsTables & WspTables;
+    } & WorkTables & ContentTables & FormsTables & SalesTables & SalesFlowTables & CallScreenTables & LeadregelsTables & RoutesTables & AcademyTables & AcademyMediaTables & AcademyPlacementTables & AcademyAtsTables & WspTables;
     Views: {
       call_list_candidates: { Row: ListCandidateBase & { phone: string; linkedin_url: string | null }; Relationships: [] };
       mail_list_candidates: { Row: ListCandidateBase & { email: string }; Relationships: [] };
