@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import {
   ArrowDown,
   ArrowUp,
+  CircleDashed,
   Columns3,
   Filter as FilterIcon,
   GripVertical,
@@ -37,6 +38,9 @@ import { AssignCallersDialog, type CallerOption } from "@/components/calls/assig
 import type { ChoiceLists } from "@/lib/sales/choices";
 import { applyChoiceLists, customColumnDefs, flowColumnDefs, type CustomColumn } from "@/lib/sales/grid-extras";
 import { AddColumnDialog } from "./add-column-dialog";
+
+/** The Free column of the flow extras: "Only free" filters on it (grid-extras.ts). */
+const FREE_COLUMN = "flow_free";
 import { TriageBar } from "./triage-bar";
 import { DeleteLeadsButton } from "@/components/leads/lead-edit-controls";
 import { deleteLeadsAction } from "@/app/dashboard/leads/edit-actions";
@@ -177,7 +181,8 @@ export function SalesWorkspace({
       applyChoiceLists(
         [
           ...k.columns,
-          ...flowColumnDefs<AnyRow>(kind === "contacts" ? "contacts" : "companies"),
+          // The leads table shows where a lead is (call list, campaign, sequence) by default.
+          ...flowColumnDefs<AnyRow>(kind === "contacts" ? "contacts" : "companies", kind === "companies"),
           ...customColumnDefs<AnyRow>((customColumns ?? []).filter((c) => kind === "contacts" || c.entity === "company")),
         ],
         choiceLists,
@@ -427,6 +432,7 @@ export function SalesWorkspace({
 
   const selectedRows = useMemo(() => viewRows.filter((r) => selected.has(r.id)), [viewRows, selected]);
   const manual = Boolean(config.manualOrder) && config.sort.length === 0;
+  const onlyFree = config.filters.some((f) => f.column === FREE_COLUMN && f.op === "equals" && String(f.value) === "true");
   const current = views.find((v) => v.id === viewId);
 
   return (
@@ -499,6 +505,25 @@ export function SalesWorkspace({
             className="h-9 w-full rounded-xl border border-border bg-white pr-3 pl-9 text-sm"
           />
         </div>
+        {kind !== "pipeline" && (
+          <Button
+            size="sm"
+            variant={onlyFree ? "primary" : "secondary"}
+            aria-pressed={onlyFree}
+            onClick={() =>
+              setConfig((c) => ({
+                ...c,
+                filters: onlyFree
+                  ? c.filters.filter((f) => f.column !== FREE_COLUMN)
+                  : [...c.filters.filter((f) => f.column !== FREE_COLUMN), { column: FREE_COLUMN, op: "equals", value: "true" }],
+              }))
+            }
+            title="Only leads that are nowhere in: no call list, campaign or sequence"
+          >
+            <CircleDashed aria-hidden="true" />
+            Only free
+          </Button>
+        )}
         {mode === "table" && (
           <>
         <Button size="sm" variant="secondary" onClick={() => setChoosing(true)}>

@@ -295,7 +295,7 @@ function registerWrite(server: McpServer, ctx: McpToolContext) {
     {
       title: "Send leads to a destination",
       description:
-        "Moves one or more leads to exactly one bucket: find_number (to Max), call (view_id of a call list or caller_id of an external caller), mail_campaign or linkedin_campaign (campaign_id), parked (until, a date), no_go (reason), incoming or free. Occupied leads are skipped (and listed) unless force. Own contacts (own_contact true: pipeline, partners, network, clients) never go to find_number, call, mail_campaign or linkedin_campaign and are skipped too. Only when the user or a scheduled task asked for it.",
+        "Moves one or more leads to exactly one bucket: find_number (to Max), call (view_id of a call list or caller_id of an external caller), mail_campaign or linkedin_campaign (campaign_id), parked (until, a date), no_go (reason), incoming or free. Occupied leads are skipped (and listed) unless force: a lead on a call list (bucket call) does not go to mail_campaign or linkedin_campaign (\"Already in a call list\"), a lead in a running campaign or sequence does not go to call or another campaign. Moving a lead to free (or anywhere else) takes it off the call list and gives its contacts back from the caller. Own contacts (own_contact true: pipeline, partners, network, clients) never go to find_number, call, mail_campaign or linkedin_campaign and are skipped too. Only when the user or a scheduled task asked for it.",
       inputSchema: {
         company_ids: z.array(idSchema).min(1).max(500),
         destination: z.enum(["incoming", "find_number", "call", "mail_campaign", "linkedin_campaign", "parked", "no_go", "free"]),

@@ -124,12 +124,12 @@ export function customColumnDefs<T>(columns: CustomColumn[]): ColumnDef<T>[] {
 const bucketOptions = salesBuckets.map((b) => ({ value: b.value, label: b.label }));
 
 /** Bucket, source list, occupancy, free, prio reason and follow of the company. */
-export function flowColumnDefs<T>(entity: "companies" | "contacts"): ColumnDef<T>[] {
+export function flowColumnDefs<T>(entity: "companies" | "contacts", showOccupancy = false): ColumnDef<T>[] {
   const company = entity === "companies" ? "" : "company_";
   return [
     { key: "flow_bucket", label: "Bucket", type: "select", options: bucketOptions, width: 140, defaultVisible: false, get: (r) => read(r, "flow_bucket") as string | null },
     { key: "flow_source_list", label: "Came in with", type: "text", width: 170, defaultVisible: false, get: (r) => read(r, "flow_source_list") as string | null },
-    { key: "flow_occupancy", label: "Occupied by", type: "text", width: 240, defaultVisible: false, get: (r) => read(r, "flow_occupancy") as string | null },
+    { key: "flow_occupancy", label: "Occupied by", type: "text", width: 240, defaultVisible: showOccupancy, get: (r) => read(r, "flow_occupancy") as string | null },
     { key: "flow_free", label: "Free", type: "boolean", width: 70, defaultVisible: false, get: (r) => read(r, "flow_free") === true },
     // Never cold outreach: pipeline, partners, network, clients. Switch it on the lead page or with Claude.
     { key: `${company}own_contact`, label: "Own contact", type: "boolean", width: 100, defaultVisible: false, get: (r) => read(r, `${company}own_contact`) === true },

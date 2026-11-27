@@ -46,7 +46,7 @@ export function registerLeadregelsTools(server: McpServer, ctx: McpToolContext) 
     {
       title: "Check before outreach",
       description:
-        "The exclusion check before every upload to Instantly or Seleqt and every call list (leadregels, deel 3). Give a list of domains or mail addresses; each comes back with allowed (true or false) and the reasons: own contact, pipeline, do not contact, no go, in sequence, campagne <name>, nee_geen_interesse tot <date>, nu_niet tot <date>, minder dan 1 week sinds de vorige route zonder nieuw signaal. A domain that is not in the portal is allowed. Only upload the allowed ones.",
+        "The exclusion check before every upload to Instantly or Seleqt and every call list (leadregels, deel 3). Give a list of domains or mail addresses; each comes back with allowed (true or false) and the reasons: own contact, pipeline, do not contact, no go, in sequence, campagne <name>, bellijst <caller or call list> (the company is on a call list, bucket call: no mail or LinkedIn while it is there; free it with triage_leads first), nee_geen_interesse tot <date>, nu_niet tot <date>, minder dan 1 week sinds de vorige route zonder nieuw signaal. A domain that is not in the portal is allowed. Only upload the allowed ones.",
       inputSchema: {
         items: z.array(z.string().trim().min(1).max(320)).min(1).max(2000).describe("Domains (example.nl, https://www.example.nl) or mail addresses."),
       },
