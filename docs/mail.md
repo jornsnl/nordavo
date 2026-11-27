@@ -81,7 +81,7 @@ We gebruiken al Resend, dus de voorkeur is **Resend Inbound**. Postmark Inbound 
    - Cloudflare: Email, Email Routing op `log.nordavo.nl` (Cloudflare zet de MX records), met een catch all regel naar een Email Worker.
 3. **Webhook bij de provider** naar `https://<portaal>/api/webhooks/inbound-mail`:
    - Resend: Webhooks, *Add endpoint*, event `email.received`. Zet het signing secret (`whsec_...`) in `RESEND_INBOUND_WEBHOOK_SECRET`; of zet `?secret=<INBOUND_MAIL_SECRET>` achter de URL.
-   - Postmark: Inbound stream, Settings, Webhook URL met Basic auth: `https://inbound:<INBOUND_MAIL_SECRET>@<portaal>/api/webhooks/inbound-mail`. Let op: Postmark stuurt bijlagen mee in de JSON; een request groter dan de limiet van de hosting (Vercel 4,5 MB) komt niet aan. Resend stuurt alleen de namen van bijlagen.
+   - Postmark: Inbound stream, Settings, Webhook URL met Basic auth: `https://inbound:<INBOUND_MAIL_SECRET>@<portaal>/api/webhooks/inbound-mail`. Let op: Postmark stuurt bijlagen mee in de JSON, dus een mail met grote bijlagen geeft een groot request naar het portaal (op Render). Resend stuurt alleen de namen van bijlagen.
    - Cloudflare Email Worker: lees de mail met `postal-mime` en POST JSON met de header `X-Inbound-Secret`:
      `{ "from": message.from, "envelope": { "to": message.to }, "to": ..., "cc": ..., "subject": ..., "date": ..., "message_id": ..., "attachments": [{ "filename": ... }] }`.
    Andere vormen die gelezen worden: zie het commentaar boven in `src/lib/mail/bcc.ts`.

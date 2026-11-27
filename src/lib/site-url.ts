@@ -4,8 +4,9 @@
  *
  * NEXT_PUBLIC_SITE_URL wins. In production a missing or localhost value must
  * never end up in a mail (an invite that opens "localhost" cannot be used), so
- * there we fall back to the production domain of the hosting and then to
- * PRODUCTION_SITE_URL. Locally the default stays http://localhost:3000.
+ * there we fall back to PRODUCTION_SITE_URL. The hosting (Render) only knows
+ * its own onrender.com address, which must not end up in a mail either.
+ * Locally the default stays http://localhost:3000.
  */
 export const PRODUCTION_SITE_URL = "https://portal.nordavo.nl";
 
@@ -31,5 +32,5 @@ export function resolveSiteUrl(vars: Vars): string {
   const production = vars.NODE_ENV === "production";
   if (configured && !(production && isLocalUrl(configured))) return configured;
   if (!production) return configured ?? "http://localhost:3000";
-  return clean(vars.VERCEL_PROJECT_PRODUCTION_URL) ?? PRODUCTION_SITE_URL;
+  return PRODUCTION_SITE_URL;
 }
