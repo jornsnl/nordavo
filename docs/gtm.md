@@ -60,7 +60,7 @@ Supabase is de enige bron van waarheid voor alle prospectdata. Geplande jobs hal
 ## Inrichten
 
 1. **Migraties.** Voer alle bestanden in `supabase/migrations` in volgorde uit.
-2. **Omgevingsvariabelen.** Zie `.env.example`. De app (bijvoorbeeld op Vercel) heeft ze nodig voor de knoppen in het portaal. GitHub Actions heeft ze nodig voor de geplande jobs: zet geheimen onder Settings, Secrets and variables, Actions, en vul de niet-geheime waarden (actor-id's, mailadressen) in als variables.
+2. **Omgevingsvariabelen.** Zie `.env.example`. De app (op Render) heeft ze nodig voor de knoppen in het portaal. GitHub Actions heeft ze nodig voor de geplande jobs: zet geheimen onder Settings, Secrets and variables, Actions, en vul de niet-geheime waarden (actor-id's, mailadressen) in als variables.
 3. **Apify.** Kies de actors voor LinkedIn-vacatures, Indeed-vacatures en het zoeken van personen, en zet hun id's in `APIFY_LINKEDIN_JOBS_ACTOR`, `APIFY_INDEED_JOBS_ACTOR` en `APIFY_PEOPLE_ACTOR`. De mapping per actor staat in `src/lib/integrations/apify.ts`. Draai de eerste keer klein: `npm run job -- s1-signals --limit=20`.
 4. **Google service account (alleen voor de fallback `s8-webpartners-import`).** Maak een service account met de Sheets API aan, en zet de JSON-sleutel op één regel in `GOOGLE_SERVICE_ACCOUNT_JSON`. Deel de oude afsprakensheet van Web Partners met het mailadres van het service account. Meetings en de Cal.com taak van Claude vervangen die sheet.
 5. **Cal.com.** Maak een webhook naar `https://<domein>/api/webhooks/calcom` voor `BOOKING_CREATED`, `BOOKING_RESCHEDULED` en `BOOKING_CANCELLED`, met een geheim dat je ook in `CALCOM_WEBHOOK_SECRET` zet.

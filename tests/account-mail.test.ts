@@ -7,8 +7,8 @@ test("a missing or localhost site URL never reaches production mail", () => {
   assert.equal(resolveSiteUrl({ NODE_ENV: "production" }), PRODUCTION_SITE_URL);
   assert.equal(resolveSiteUrl({ NODE_ENV: "production", NEXT_PUBLIC_SITE_URL: "http://localhost:3000" }), PRODUCTION_SITE_URL);
   assert.equal(
-    resolveSiteUrl({ NODE_ENV: "production", NEXT_PUBLIC_SITE_URL: "", VERCEL_PROJECT_PRODUCTION_URL: "portal.example.nl" }),
-    "https://portal.example.nl",
+    resolveSiteUrl({ NODE_ENV: "production", NEXT_PUBLIC_SITE_URL: "", RENDER_EXTERNAL_URL: "https://nordavo.onrender.com" }),
+    PRODUCTION_SITE_URL,
   );
 });
 

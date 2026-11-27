@@ -108,10 +108,10 @@ Lijsten geven standaard 25 en maximaal 100 rijen, met `offset` om te bladeren. R
 
 | Tool | Wat het doet |
 | --- | --- |
-| `list_companies` | Bedrijven met leadstatus (met `recontact_from`), fase, ICP met reden, segment, score, categorie, eigenaar, partner en volgende actie, op score van hoog naar laag. Filters: `lead_status`, `pipeline_stage`, `in_pipeline`, `icp`, `icp_empty`, `segment`, `score_group`, `min_score`, `category`, `own_contact`, `text`, `has_phone`, `owner_id`, `partner_id` |
+| `list_companies` | Bedrijven met leadstatus (met `recontact_from`), fase, ICP met reden, segment, score, categorie, eigenaar, partner en volgende actie, op score van hoog naar laag. Filters: `lead_status`, `pipeline_stage`, `in_pipeline`, `icp`, `icp_empty`, `segment`, `score_group`, `min_score`, `category`, `own_contact`, `text`, `has_phone`, `owner_id`, `partner_id`. Per bedrijf ook `occupied_by` (call, mail_campaign, linkedin_campaign, sequence of leeg), `occupied_label` en `occupied_since`; filter `free` voor bedrijven die nergens in zitten |
 | `get_company` | Eén bedrijf met alle velden van het CRM (ook openingszin, gesprekspunten, red flags, algemeen nummer, segment, `score` met opbouw), contacten (contact 1 = `main`, contact 2 = `reserve`, extra, tier, status, LinkedIn link en member id), signalen met punten, actief, evergreen en `valid_until`, de campagnes waar het bedrijf in zat, `possible_duplicates`, de laatste activities, meetings, sequences en notities |
 | `list_signals` | Signalen van bedrijven met soort, datum, bron, geldig tot, actief, evergreen en punten, plus de score met opbouw per bedrijf (leadregels, deel 4) |
-| `check_outreach` | De uitsluitcheck vóór elke upload naar Instantly of Seleqt en elke bellijst: per domein of mailadres `allowed` met de redenen (own contact, pipeline, do not contact, no go, in sequence, campagne X, nee_geen_interesse tot datum, nu_niet tot datum, minder dan 1 week sinds de vorige route). Niet in het portaal is toegestaan |
+| `check_outreach` | De uitsluitcheck vóór elke upload naar Instantly of Seleqt en elke bellijst: per domein of mailadres `allowed` met de redenen (own contact, pipeline, do not contact, no go, in sequence, campagne X, nee_geen_interesse tot datum, nu_niet tot datum, minder dan 1 week sinds de vorige route). Niet in het portaal is toegestaan. Een bedrijf op een bellijst geeft `bellijst <beller of lijst>` |
 | `list_partners` | Partners (mensen die leads aanleveren) met status, eigenaar, laatste contact, volgende actie en het aantal leads, in pipeline en gewonnen. Filters: `status` (`active`, `inactive`, `all`), `owner_id` (of `me`), `query` op naam of bedrijf |
 | `get_partner` | Eén partner met contactgegevens, notities, contactmomenten (nieuwste eerst), de leads die hij aanleverde met hun fase en de gekoppelde Work taken |
 | `list_contacts` | Contacten met rol, tier, status, primair, telefoon, mail, LinkedIn link en member id, pogingen en terugbeldatum. Filters op status, rol, bedrijf, leadstatus van het bedrijf, `has_phone`, tekst en `linkedin_broken` (Apify links die vroeger in kleine letters zijn opgeslagen) |
@@ -124,6 +124,7 @@ Lijsten geven standaard 25 en maximaal 100 rijen, met `offset` om te bladeren. R
 | `list_job_runs` | Runs van de jobs en van de geplande taken van Claude (`triggered_by` `claude`) |
 | `list_campaigns` / `get_campaign` | Lopende campagnes in Instantly (mail) en Seleqt (LinkedIn) met hun leads, status per lead en wie replyde |
 | `get_occupancy` | Per bedrijf de bucket, of het vrij is, en in welke campagne, bellijst of sequence het zit of zat (kanaal, sinds, tot, reply) |
+| `list_routes` | Lopende routes, het overzicht met de hand: naam, kanaal, status, gestart, eindigt (leeg: nog niet duidelijk), aantal bedrijven, wie en notitie; `include_done` voor de afgeronde |
 | `list_incoming` | Binnengekomen: per bucket hoeveel, per bronlijst hoeveel nog zonder bestemming, en de leads zelf |
 | `list_followed_companies` | Gevolgde bedrijven met eigenaar en bekende vacatures, voor de taak `claude-followed` |
 
@@ -169,7 +170,8 @@ Lijsten geven standaard 25 en maximaal 100 rijen, met `offset` om te bladeren. R
 | `pause_company` | Een bedrijf overal pauzeren na een reply: sequences op pauze, open belstappen vervallen |
 | `upsert_campaign` | Een campagne van Instantly of Seleqt aanmaken of bijwerken op `external_id`: naam, kanaal, status. Klaar zetten (`finished`) maakt leads zonder reply weer vrij |
 | `register_campaign_members` | Wie in een campagne zit en wie replyde (op contact, bedrijf of mailadres). Een lead in een andere lopende campagne wordt geweigerd en genoemd, tenzij `force` |
-| `triage_leads` | Leads naar één bestemming: `find_number`, `call` (bellijst of beller), `mail_campaign`, `linkedin_campaign`, `parked` (datum), `no_go` (reden), `incoming`, `free` |
+| `triage_leads` | Leads naar één bestemming: `find_number`, `call` (bellijst of beller), `mail_campaign`, `linkedin_campaign`, `parked` (datum), `no_go` (reden), `incoming`, `free`. Een lead op een bellijst gaat niet naar een mail of LinkedIn campagne, tenzij `force` |
+| `add_route` / `update_route` / `delete_route` | Lopende routes toevoegen (alleen een naam is verplicht), wijzigen (`null` maakt een veld leeg) en verwijderen; bron claude. Raakt verder niets in het portaal |
 | `follow_company` | Een bedrijf volgen of ontvolgen voor nieuwe dev en data vacatures |
 | `log_job_run` | Het begin en einde van een run van een geplande taak loggen (`claude-...`), zichtbaar op Beheer, Jobs. Ook voor een eigenaar met alleen Recruitment, dan alleen `claude-match` en `claude-screening` |
 

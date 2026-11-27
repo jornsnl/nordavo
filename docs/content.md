@@ -129,7 +129,7 @@ De sleutel staat in Bitwarden; het portaal kan daar niet bij, dus een beheerder 
    - APIs and services, Library, **Google Drive API**, *Enable*. Zonder dit geeft Drive een 403 ("API has not been used in project").
    - IAM and admin, Service accounts: het account hoeft geen rollen in het project; toegang komt alleen uit het delen van mappen.
    - Is er nog geen sleutel: het account, tab Keys, *Add key*, *Create new key*, JSON. Bewaar het bestand in Bitwarden.
-2. **Hosting van de app** (Vercel: project, Settings, Environment Variables): voeg `GOOGLE_SERVICE_ACCOUNT_JSON` toe voor Production (en Preview als je daar wilt testen), en deploy opnieuw. Elke vorm werkt:
+2. **Hosting van de app** (Render: de service van het portaal, Environment, Environment Variables): voeg `GOOGLE_SERVICE_ACCOUNT_JSON` toe en deploy opnieuw. Elke vorm werkt:
    - de inhoud van het JSON bestand zoals het is (meerdere regels mag),
    - dezelfde JSON op één regel,
    - base64 van het bestand (`base64 -w0 key.json` op Linux, `base64 -i key.json` op macOS), handig als een dashboard regeleindes of aanhalingstekens verandert.

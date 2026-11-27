@@ -105,7 +105,7 @@ psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/tests/work_guest_isolation.t
 
 ## Inrichten
 
-1. **Supabase in de EU.** Maak het project aan in een EU regio (Frankfurt, `eu-central-1`) op een account van Nordavo, en host de app ook in de EU (bij Vercel de functieregio `fra1`). Code in de repository van Nordavo.
+1. **Supabase in de EU.** Maak het project aan in een EU regio (Frankfurt, `eu-central-1`) op een account van Nordavo, en host de app ook in de EU (bij Render de regio Frankfurt). Code in de repository van Nordavo.
 2. **Migratie** `20261029000000_work.sql` uitvoeren (`supabase db push`). Die maakt ook de bucket `work` aan.
 3. **Omgevingsvariabelen:** `SUPABASE_SECRET_KEY` (uitnodigen, inloglinks, API, meldingen), `RESEND_API_KEY` en `MAIL_FROM` (alle mails), `NEXT_PUBLIC_SITE_URL`, `CRON_SECRET` (het uurlijkse vangnet voor meldingen). Voor de import: `CLICKUP_API_TOKEN` en eventueel `CLICKUP_IMPORT_MAP`.
 4. **Supabase Auth:**

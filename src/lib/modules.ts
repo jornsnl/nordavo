@@ -58,6 +58,7 @@ const routeModules: [prefix: string, module: PortalModule][] = [
   ["/dashboard/call-lists", "sales"],
   ["/dashboard/meetings", "sales"],
   ["/dashboard/sequences", "sales"],
+  ["/dashboard/routes", "sales"],
   ["/dashboard/partners", "sales"],
   ["/dashboard/suppressions", "sales"],
   ["/dashboard/vacancies", "recruitment"],

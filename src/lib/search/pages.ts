@@ -31,6 +31,7 @@ const keywords: Record<string, string[]> = {
   "/dashboard/call-lists": ["bellijsten"],
   "/dashboard/meetings": ["afspraken", "appointments"],
   "/dashboard/sequences": ["campaigns", "mail"],
+  "/dashboard/routes": ["lopende routes", "outreach", "overzicht routes"],
   "/dashboard/report": ["rapport", "stats", "numbers"],
   "/dashboard/clients": ["klanten", "customers"],
   "/dashboard/vacancies": ["vacatures", "jobs"],

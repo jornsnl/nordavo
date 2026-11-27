@@ -23,6 +23,5 @@ export const env = {
     resolveSiteUrl({
       NEXT_PUBLIC_SITE_URL: process.env.NEXT_PUBLIC_SITE_URL,
       NODE_ENV: process.env.NODE_ENV,
-      VERCEL_PROJECT_PRODUCTION_URL: process.env.VERCEL_PROJECT_PRODUCTION_URL,
     }),
 };

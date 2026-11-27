@@ -13,6 +13,7 @@ Het interne portaal van [Nordavo](https://nordavo.nl): de brug tussen Nederlands
 | Calls en Call lists | `/dashboard/calls`, `/dashboard/call-lists` | Belscherm met alle info en de uitkomstknoppen; bellijsten openzetten voor bellers. Externe bellers werken op `/caller`. Zie [docs/calls.md](docs/calls.md) |
 | Meetings | `/dashboard/meetings` | Afsprakenregister met goedkeuren, vergoedingen en maandoverzicht per beller |
 | Sequences en Partners | `/dashboard/sequences`, `/dashboard/partners` | Stappen over mail, LinkedIn en bellen met concepten van Claude; partners die leads aanbrengen |
+| Running routes | `/dashboard/routes` | Overzicht met de hand van wat er nu loopt aan outreach (bellijsten, campagnes), los van de echte data. Zie [docs/sales.md](docs/sales.md#lopende-routes-running-routes) |
 | Klanten | `/dashboard/clients` | Bedrijven, contactpersonen, hun vacatures en plaatsingen |
 | Vacatures | `/dashboard/vacancies` | Functieprofielen met dagen open en pipeline-samenvatting |
 | Pipeline | `/dashboard/vacancies/[id]/pipeline` | Kanbanbord per vacature: sourcing tot plaatsing, slepen met muis of toetsenbord |
