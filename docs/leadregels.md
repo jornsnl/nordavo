@@ -93,6 +93,10 @@ Geen gehoor: zolang contact 1 minder dan twee pogingen heeft (en een nummer, en 
 
 `check_outreach` (MCP) en `sales_check_outreach()` (database): per domein of mailadres ja of nee met de redenen. Mailadressen worden eerst op het contact gezocht, dan op het domein; een gratis maildomein (gmail, hotmail) zoekt alleen op het contact. Een domein dat niet in het portaal staat, mag.
 
+Een bedrijf op een bellijst (bucket call) mag niet gemaild of via LinkedIn benaderd worden: de reden is `bellijst <beller of lijst>`, voor het domein en voor de mailadressen van de contacten (`20261127000000_sales_call_list_shield.sql`, test `supabase/tests/call_list_shield.test.sql`). Triage slaat zo'n bedrijf over bij mail_campaign en linkedin_campaign, tenzij force. Eerst vrijgeven (triage naar free) en dan pas in een campagne.
+
+**Bezetting.** De view `sales_company_occupation` geeft per bedrijf `occupied_by` (call, mail_campaign, linkedin_campaign, sequence of leeg), `occupied_label` (beller, bellijst, campagne of sequence), `occupied_since` en `free`. Vrij is: bucket incoming of free en nergens in. Pipeline, parked en no go zijn niet bezet maar ook niet vrij. `list_companies` en `get_company` geven deze velden mee; `list_companies` filtert met `free` (in de database via `sales_is_free(companies)`). In de leadlijst staat de kolom *Occupied by* standaard aan en zet de knop *Only free* het filter op de kolom *Free*.
+
 ## 10. Campagnes
 
 - Een bedrijf met een lid in een lopende campagne (status Active) staat op In sequence; bij de migratie zijn de bestaande gezet.

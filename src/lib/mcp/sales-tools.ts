@@ -38,6 +38,7 @@ import {
 } from "@/lib/mcp/shared";
 import { effectiveModules, jobModule } from "@/lib/modules";
 import type { LeadStatus } from "@/lib/sales/database";
+import type { CompanyOccupationRow } from "@/lib/sales/flow-database";
 import { companyCategories, contactRoles, leadStatuses, meetingStatuses, pipelineStages, sequenceStatuses } from "@/lib/sales/labels";
 import { countLeadStatuses, loadSalesFigures } from "@/lib/sales/stats";
 import { registerPartnerTools, PARTNER_READ_TOOLS, PARTNER_WRITE_TOOLS } from "@/lib/mcp/partner-tools";
@@ -214,7 +215,7 @@ function registerSalesReadTools(server: McpServer, ctx: McpToolContext) {
     {
       title: "Companies (sales)",
       description:
-        "List sales companies (leads) with lead status (and recontact_from: the date a cooled down, nee_geen_interesse or nu_niet company may be approached again), pipeline stage, ICP verdict (GO, NO_GO with its reason in icp_reason, or empty: not judged yet), segment (A or B), score (icp_score, 0 to 100: segment base plus active signals), category, owner and next action. Pinned first, then by score, highest first. Filter on lead_status, pipeline_stage (or in_pipeline), icp (or icp_empty for not judged yet), segment, score_group or min_score, category, own_contact, text (name or domain) and has_phone (a contact or the company has a phone number). own_contact true means we have contact with this company ourselves (pipeline, partner, network, client): never put such a company in a cold campaign, on a call list or in a list you build; filter own_contact false for outreach lists.",
+        "List sales companies (leads) with lead status (and recontact_from: the date a cooled down, nee_geen_interesse or nu_niet company may be approached again), pipeline stage, ICP verdict (GO, NO_GO with its reason in icp_reason, or empty: not judged yet), segment (A or B), score (icp_score, 0 to 100: segment base plus active signals), category, owner and next action. Pinned first, then by score, highest first. Filter on lead_status, pipeline_stage (or in_pipeline), icp (or icp_empty for not judged yet), segment, score_group or min_score, category, own_contact, text (name or domain) and has_phone (a contact or the company has a phone number). own_contact true means we have contact with this company ourselves (pipeline, partner, network, client): never put such a company in a cold campaign, on a call list or in a list you build; filter own_contact false for outreach lists. Every company comes back with occupied_by (call: on a call list or with a caller; mail_campaign or linkedin_campaign: in a running campaign; sequence: in a portal sequence; null: in none of these), occupied_label (the caller, call list, campaign or sequence) and occupied_since. free true gives only the companies that are nowhere in: bucket incoming or free and no running call list, campaign or sequence (pipeline, parked and no go are not free). Use free true and own_contact false to build an outreach list, then still run check_outreach.",
       inputSchema: {
         lead_status: z.array(leadStatus).max(9).optional().describe("One or more lead statuses."),
         pipeline_stage: z.array(pipelineStage).max(11).optional().describe("One or more pipeline stages."),
@@ -228,6 +229,10 @@ function registerSalesReadTools(server: McpServer, ctx: McpToolContext) {
         min_score: z.number().int().min(0).max(100).optional(),
         text: z.string().max(80).optional().describe("Part of the name or domain."),
         has_phone: z.boolean().optional(),
+        free: z
+          .boolean()
+          .optional()
+          .describe("true: only companies that are nowhere in (no call list, campaign or sequence, bucket incoming or free); false: only the others."),
         owner_id: idSchema.optional(),
         partner_id: idSchema.optional(),
         limit: limitSchema,
@@ -255,6 +260,8 @@ function registerSalesReadTools(server: McpServer, ctx: McpToolContext) {
         if (input.min_score !== undefined) q = q.gte("icp_score", input.min_score);
         if (input.owner_id) q = q.eq("owner_id", input.owner_id);
         if (input.partner_id) q = q.eq("partner_id", input.partner_id);
+        // Computed field sales_is_free(companies) (20261127000000_sales_call_list_shield.sql).
+        if (input.free !== undefined) q = q.filter("sales_is_free", "is", input.free);
         if (pattern) q = q.or(`name.ilike.${pattern},domain.ilike.${pattern}`);
         return q
           .order("pinned_at", { ascending: false, nullsFirst: false })
@@ -293,12 +300,16 @@ function registerSalesReadTools(server: McpServer, ctx: McpToolContext) {
       }
 
       const list = rows ?? [];
-      const people = await peopleNames(db, list.map((c) => c.owner_id));
-      const partners = await partnerNames(db, list.map((c) => c.partner_id));
+      const [people, partners, occupation] = await Promise.all([
+        peopleNames(db, list.map((c) => c.owner_id)),
+        partnerNames(db, list.map((c) => c.partner_id)),
+        occupationOf(db, list.map((c) => c.id)),
+      ]);
       return ok({
         total,
         companies: list.map((c) => ({
           ...c,
+          ...occupationFields(occupation.get(c.id)),
           owner: c.owner_id ? (people.get(c.owner_id) ?? null) : null,
           partner: c.partner_id ? (partners.get(c.partner_id) ?? null) : null,
           url: url("company", c.id),
@@ -313,7 +324,7 @@ function registerSalesReadTools(server: McpServer, ctx: McpToolContext) {
     {
       title: "Company (sales)",
       description:
-        "One sales company with lead status (recontact_from: when it may be approached again), pipeline stage, ICP verdict and reason, segment, score with its breakdown (score.parts), category, opening line, talking points, red flags, general number, owner, partner, next action, its contacts (role main, backup (reserve) or extra, tier, status, primary, LinkedIn link and member id), vacancies and other signals (link, text, date online, days open, closed), possible duplicate companies, the last activities, meetings, sequences and notes. Use list_companies or search to find ids.",
+        "One sales company with lead status (recontact_from: when it may be approached again), pipeline stage, ICP verdict and reason, segment, score with its breakdown (score.parts), category, opening line, talking points, red flags, general number, owner, partner, next action, its contacts (role main, backup (reserve) or extra, tier, status, primary, LinkedIn link and member id), vacancies and other signals (link, text, date online, days open, closed), possible duplicate companies, the last activities, meetings, sequences and notes, and where it is now: occupied_by (call, mail_campaign, linkedin_campaign, sequence or null), occupied_label (caller, call list, campaign or sequence), occupied_since and free. Use list_companies or search to find ids.",
       inputSchema: { id: idSchema },
       annotations: READ_ONLY,
     },
@@ -378,7 +389,7 @@ function registerSalesReadTools(server: McpServer, ctx: McpToolContext) {
 
       const activityRows = check(activities, "activities");
       const actors = await peopleNames(db, activityRows.map((a) => a.created_by));
-      const [score, campaigns, points] = await Promise.all([
+      const [score, campaigns, points, occupation] = await Promise.all([
         db.rpc("sales_company_score", { p_company: id }),
         db
           .from("campaign_members")
@@ -387,9 +398,11 @@ function registerSalesReadTools(server: McpServer, ctx: McpToolContext) {
           .order("added_at", { ascending: false })
           .limit(30),
         loadSignalPoints(db),
+        occupationOf(db, [id]),
       ]);
       return ok({
         ...company,
+        ...occupationFields(occupation.get(id)),
         icp_reason: clip(company.icp_reason, 1000),
         score: score.data ?? null,
         campaigns: (campaigns.data ?? []).map((m) => ({
@@ -848,6 +861,27 @@ async function allLeadStatuses(db: McpDb): Promise<{ lead_status: LeadStatus }[]
     if (page.length < 1000) break;
   }
   return rows;
+}
+
+/** Where each company is now: call list, campaign, sequence or nowhere (view sales_company_occupation). */
+async function occupationOf(db: McpDb, ids: string[]): Promise<Map<string, CompanyOccupationRow>> {
+  const out = new Map<string, CompanyOccupationRow>();
+  const unique = [...new Set(ids)];
+  for (let i = 0; i < unique.length; i += 100) {
+    const { data, error } = await db.from("sales_company_occupation").select("*").in("company_id", unique.slice(i, i + 100));
+    if (error) throw new Error(`Could not read the occupancy: ${error.message}`);
+    for (const row of data ?? []) out.set(row.company_id, row);
+  }
+  return out;
+}
+
+function occupationFields(row: CompanyOccupationRow | undefined) {
+  return {
+    occupied_by: row?.occupied_by ?? null,
+    occupied_label: row?.occupied_label ?? null,
+    occupied_since: row?.occupied_since ?? null,
+    free: row?.free ?? false,
+  };
 }
 
 async function peopleNames(db: McpDb, ids: (string | null)[]): Promise<Map<string, string>> {

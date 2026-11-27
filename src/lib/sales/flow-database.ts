@@ -132,8 +132,21 @@ export type SalesFlowTables = {
   >;
 };
 
+/** Per company where it is now (20261127000000_sales_call_list_shield.sql). */
+export type OccupiedBy = "call" | "mail_campaign" | "linkedin_campaign" | "sequence";
+
+export type CompanyOccupationRow = {
+  company_id: string;
+  bucket: SalesBucket;
+  occupied_by: OccupiedBy | null;
+  occupied_label: string | null;
+  occupied_since: string | null;
+  free: boolean;
+};
+
 export type SalesFlowViews = {
   sales_occupancy: { Row: OccupancyRow; Relationships: [] };
+  sales_company_occupation: { Row: CompanyOccupationRow; Relationships: [] };
 };
 
 type Fn<Args, Returns> = { Args: Args; Returns: Returns };
